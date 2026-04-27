@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListRules, useCreateRule, useUpdateRule, useDeleteRule, useAiGenerateRules, getListRulesQueryKey } from "@workspace/api-client-react";
+import { useListRules, useCreateRule, useUpdateRule, useDeleteRule, useAiGenerateRules, useAiEnhanceRule, getListRulesQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, Wand2, FileText } from "lucide-react";
+import { Plus, Edit2, Trash2, Wand2, FileText, Sparkles, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Rule } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface RulesProps {
   projectId: number;
@@ -22,6 +23,22 @@ export function Rules({ projectId }: RulesProps) {
   const updateRule = useUpdateRule();
   const deleteRule = useDeleteRule();
   const aiGenerate = useAiGenerateRules();
+  const enhanceRule = useAiEnhanceRule();
+  const { toast } = useToast();
+  const [enhancingId, setEnhancingId] = useState<number | null>(null);
+
+  const handleEnhance = async (ruleId: number) => {
+    setEnhancingId(ruleId);
+    try {
+      await enhanceRule.mutateAsync({ projectId, ruleId });
+      queryClient.invalidateQueries({ queryKey: getListRulesQueryKey(projectId) });
+      toast({ title: "Rule enhanced", description: "AI tightened the wording." });
+    } catch (err) {
+      toast({ title: "Enhance failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setEnhancingId(null);
+    }
+  };
 
   const [aiPrompt, setAiPrompt] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -124,6 +141,17 @@ export function Rules({ projectId }: RulesProps) {
           {sortedRules.map(rule => (
             <Card key={rule.id} className="bg-card border-border overflow-hidden relative group">
               <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 bg-background/80 hover:bg-background"
+                  onClick={() => handleEnhance(rule.id)}
+                  disabled={enhancingId === rule.id}
+                  title="AI Enhance"
+                  data-testid={`enhance-rule-${rule.id}`}
+                >
+                  {enhancingId === rule.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 hover:bg-background" onClick={() => openEdit(rule)}><Edit2 className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 hover:bg-background hover:text-destructive" onClick={() => handleDelete(rule.id)}><Trash2 className="h-4 w-4" /></Button>
               </div>

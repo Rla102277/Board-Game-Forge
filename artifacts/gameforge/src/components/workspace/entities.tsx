@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListEntities, useCreateEntity, useUpdateEntity, useDeleteEntity, useAiGenerateEntities, getListEntitiesQueryKey } from "@workspace/api-client-react";
+import { useListEntities, useCreateEntity, useUpdateEntity, useDeleteEntity, useAiGenerateEntities, useAiEnhanceEntity, getListEntitiesQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, Wand2, Box } from "lucide-react";
+import { Plus, Edit2, Trash2, Wand2, Box, Sparkles, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Entity } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface EntitiesProps {
   projectId: number;
@@ -22,6 +23,22 @@ export function Entities({ projectId }: EntitiesProps) {
   const updateEntity = useUpdateEntity();
   const deleteEntity = useDeleteEntity();
   const aiGenerate = useAiGenerateEntities();
+  const enhanceEntity = useAiEnhanceEntity();
+  const { toast } = useToast();
+  const [enhancingId, setEnhancingId] = useState<number | null>(null);
+
+  const handleEnhance = async (entityId: number) => {
+    setEnhancingId(entityId);
+    try {
+      await enhanceEntity.mutateAsync({ projectId, entityId });
+      queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey(projectId) });
+      toast({ title: "Entity enhanced", description: "AI tightened the description." });
+    } catch (err) {
+      toast({ title: "Enhance failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setEnhancingId(null);
+    }
+  };
 
   const [aiPrompt, setAiPrompt] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -134,6 +151,17 @@ export function Entities({ projectId }: EntitiesProps) {
                 {items.map(ent => (
                   <Card key={ent.id} className="bg-card border-border overflow-hidden relative group" style={{ borderLeftColor: ent.color || 'hsl(var(--primary))', borderLeftWidth: '4px' }}>
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 bg-background/80 hover:bg-background"
+                        onClick={() => handleEnhance(ent.id)}
+                        disabled={enhancingId === ent.id}
+                        title="AI Enhance"
+                        data-testid={`enhance-entity-${ent.id}`}
+                      >
+                        {enhancingId === ent.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 hover:bg-background" onClick={() => openEdit(ent)}><Edit2 className="h-3 w-3" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 hover:bg-background hover:text-destructive" onClick={() => handleDelete(ent.id)}><Trash2 className="h-3 w-3" /></Button>
                     </div>

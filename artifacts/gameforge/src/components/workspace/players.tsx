@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListPlayers, useCreatePlayer, useUpdatePlayer, useDeletePlayer, getListPlayersQueryKey } from "@workspace/api-client-react";
+import { useListPlayers, useCreatePlayer, useUpdatePlayer, useDeletePlayer, useAiEnhancePlayer, getListPlayersQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, Users } from "lucide-react";
+import { Plus, Edit2, Trash2, Users, Sparkles, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Player } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlayersProps {
   projectId: number;
@@ -21,6 +22,22 @@ export function Players({ projectId }: PlayersProps) {
   const createPlayer = useCreatePlayer();
   const updatePlayer = useUpdatePlayer();
   const deletePlayer = useDeletePlayer();
+  const enhancePlayer = useAiEnhancePlayer();
+  const { toast } = useToast();
+  const [enhancingId, setEnhancingId] = useState<number | null>(null);
+
+  const handleEnhance = async (playerId: number) => {
+    setEnhancingId(playerId);
+    try {
+      await enhancePlayer.mutateAsync({ projectId, playerId });
+      queryClient.invalidateQueries({ queryKey: getListPlayersQueryKey(projectId) });
+      toast({ title: "Player enhanced", description: "AI tightened the profile." });
+    } catch (err) {
+      toast({ title: "Enhance failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setEnhancingId(null);
+    }
+  };
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editPlayerId, setEditPlayerId] = useState<number | null>(null);
@@ -96,6 +113,17 @@ export function Players({ projectId }: PlayersProps) {
           {players?.map(player => (
             <Card key={player.id} className="bg-card border-border overflow-hidden relative group">
               <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 bg-background/80 hover:bg-background"
+                  onClick={() => handleEnhance(player.id)}
+                  disabled={enhancingId === player.id}
+                  title="AI Enhance"
+                  data-testid={`enhance-player-${player.id}`}
+                >
+                  {enhancingId === player.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 hover:bg-background" onClick={() => openEdit(player)}><Edit2 className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 hover:bg-background hover:text-destructive" onClick={() => handleDelete(player.id)}><Trash2 className="h-4 w-4" /></Button>
               </div>
