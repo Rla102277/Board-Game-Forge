@@ -2,21 +2,25 @@ import { Link } from "wouter";
 import { useUser, useClerk } from "@clerk/react";
 import { useGetMe, useGetAiSettings, useUpdateAiSettings, getGetAiSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Shield, LogOut, User as UserIcon, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AVAILABLE_MODELS,
+  FAMILY_LABELS,
+  defaultModelOption,
+  findModelOption,
+  type ModelOption,
+} from "@/lib/ai-models";
 
-const PROVIDERS = [
-  { value: "anthropic", label: "Anthropic Claude (default)" },
-  { value: "openai", label: "OpenAI GPT" },
-  { value: "gemini", label: "Google Gemini" },
-  { value: "xai", label: "xAI Grok" },
-];
+function modelKey(opt: { provider: string; model: string }) {
+  return `${opt.provider}::${opt.model}`;
+}
 
 export default function Account() {
   const { user } = useUser();
@@ -26,20 +30,39 @@ export default function Account() {
   const { data: me, isLoading } = useGetMe();
   const { data: aiSettings } = useGetAiSettings();
   const updateAi = useUpdateAiSettings();
-  const [provider, setProvider] = useState<string>("anthropic");
+
+  const initial = useMemo(
+    () => findModelOption(aiSettings?.provider, aiSettings?.model) ?? defaultModelOption(),
+    [aiSettings?.provider, aiSettings?.model],
+  );
+  const [selectedKey, setSelectedKey] = useState<string>(modelKey(initial));
 
   useEffect(() => {
-    if (aiSettings?.provider) setProvider(aiSettings.provider);
-  }, [aiSettings?.provider]);
+    setSelectedKey(modelKey(initial));
+  }, [initial]);
 
-  const saveProvider = async (next: string) => {
-    setProvider(next);
+  const grouped = useMemo(() => {
+    const map = new Map<ModelOption["family"], ModelOption[]>();
+    for (const m of AVAILABLE_MODELS) {
+      const arr = map.get(m.family) ?? [];
+      arr.push(m);
+      map.set(m.family, arr);
+    }
+    return Array.from(map.entries());
+  }, []);
+
+  const saveModel = async (key: string) => {
+    setSelectedKey(key);
+    const [provider, ...modelParts] = key.split("::");
+    const model = modelParts.join("::");
+    const opt = AVAILABLE_MODELS.find(m => m.provider === provider && m.model === model);
+    if (!opt) return;
     try {
-      await updateAi.mutateAsync({ data: { provider: next } });
+      await updateAi.mutateAsync({ data: { provider: opt.provider, model: opt.model } });
       qc.invalidateQueries({ queryKey: getGetAiSettingsQueryKey() });
-      toast({ title: "Updated", description: "Preferred AI provider saved." });
+      toast({ title: "Updated", description: `Now using ${opt.label}.` });
     } catch {
-      toast({ title: "Failed", description: "Could not update provider.", variant: "destructive" });
+      toast({ title: "Failed", description: "Could not update model.", variant: "destructive" });
     }
   };
 
@@ -83,16 +106,30 @@ export default function Account() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> AI preferences</CardTitle>
-              <CardDescription>Pick the model family used for structured ideation. Narrative and image generation always use the best provider for the job.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> AI model</CardTitle>
+              <CardDescription>
+                Pick the model used by GameForge AI for chat, ideation, and AI Enhance actions.
+                Image generation always uses the best model for the job. Image and PDF kickstarter exports use Gamma separately.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="provider">Preferred provider</Label>
-                <Select value={provider} onValueChange={saveProvider}>
-                  <SelectTrigger id="provider"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PROVIDERS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                <Label htmlFor="ai-model">Model</Label>
+                <Select value={selectedKey} onValueChange={saveModel}>
+                  <SelectTrigger id="ai-model" data-testid="select-account-ai-model"><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-[420px]">
+                    {grouped.map(([family, opts]) => (
+                      <SelectGroup key={family}>
+                        <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          {FAMILY_LABELS[family]}
+                        </SelectLabel>
+                        {opts.map(opt => (
+                          <SelectItem key={modelKey(opt)} value={modelKey(opt)}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -1,18 +1,24 @@
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { ai as gemini } from "@workspace/integrations-gemini-ai";
+import { openrouter } from "@workspace/integrations-openrouter-ai";
 import type { Request } from "express";
 import { getAuth } from "@clerk/express";
 import { eq } from "drizzle-orm";
 import { db, appUsers, aiProviderSettings } from "@workspace/db";
 
 export type AiTaskKind =
-  | "narrative" // overview chat, playthrough, storyboard — always Anthropic Claude
-  | "structured" // entity / rule / player gen, conflict check, kickstarter copy — uses user provider
-  | "image"; // always OpenAI
+  | "narrative"
+  | "structured"
+  | "image";
 
-export type AiProvider = "anthropic" | "openai" | "gemini" | "xai";
+export type AiProvider =
+  | "anthropic"
+  | "openai"
+  | "gemini"
+  | "openrouter";
 
-interface ProviderChoice {
+export interface ProviderChoice {
   provider: AiProvider;
   model: string;
 }
@@ -20,6 +26,30 @@ interface ProviderChoice {
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6";
 const FAST_ANTHROPIC_MODEL = "claude-haiku-4-5";
 const DEFAULT_OPENAI_MODEL = "gpt-5.4";
+const DEFAULT_GEMINI_MODEL = "gemini-3-flash-preview";
+const FAST_GEMINI_MODEL = "gemini-3-flash-preview";
+const PRO_GEMINI_MODEL = "gemini-3.1-pro-preview";
+const DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4-fast";
+
+export interface ModelOption {
+  provider: AiProvider;
+  model: string;
+  label: string;
+  family: "claude" | "gpt" | "gemini" | "grok" | "perplexity";
+}
+
+export const AVAILABLE_MODELS: ModelOption[] = [
+  { provider: "anthropic", model: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (best balance)", family: "claude" },
+  { provider: "anthropic", model: "claude-haiku-4-5", label: "Claude Haiku 4.5 (fast)", family: "claude" },
+  { provider: "openai", model: "gpt-5.4", label: "GPT-5.4 (smart)", family: "gpt" },
+  { provider: "openai", model: "gpt-5-mini", label: "GPT-5 Mini (fast)", family: "gpt" },
+  { provider: "gemini", model: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (deep reasoning)", family: "gemini" },
+  { provider: "gemini", model: "gemini-3-flash-preview", label: "Gemini 3 Flash (fast)", family: "gemini" },
+  { provider: "openrouter", model: "x-ai/grok-4-fast", label: "Grok 4 Fast (xAI)", family: "grok" },
+  { provider: "openrouter", model: "x-ai/grok-4", label: "Grok 4 (xAI)", family: "grok" },
+  { provider: "openrouter", model: "perplexity/sonar", label: "Perplexity Sonar (web-aware)", family: "perplexity" },
+  { provider: "openrouter", model: "perplexity/sonar-pro", label: "Perplexity Sonar Pro", family: "perplexity" },
+];
 
 export async function getUserAiPreference(
   req: Request,
@@ -37,13 +67,21 @@ export async function getUserAiPreference(
       .from(aiProviderSettings)
       .where(eq(aiProviderSettings.userId, user.id));
     if (!pref) return null;
-    return {
-      provider: (pref.provider as AiProvider) ?? "anthropic",
-      model: pref.model ?? null,
-    };
+    const provider = (pref.provider as AiProvider) ?? "anthropic";
+    if (!["anthropic", "openai", "gemini", "openrouter"].includes(provider)) {
+      return { provider: "anthropic", model: null };
+    }
+    return { provider, model: pref.model ?? null };
   } catch {
     return null;
   }
+}
+
+function defaultModelFor(provider: AiProvider, preferFast: boolean): string {
+  if (provider === "anthropic") return preferFast ? FAST_ANTHROPIC_MODEL : DEFAULT_ANTHROPIC_MODEL;
+  if (provider === "openai") return preferFast ? "gpt-5-mini" : DEFAULT_OPENAI_MODEL;
+  if (provider === "gemini") return preferFast ? FAST_GEMINI_MODEL : PRO_GEMINI_MODEL;
+  return DEFAULT_OPENROUTER_MODEL;
 }
 
 export async function pickProvider(
@@ -51,38 +89,20 @@ export async function pickProvider(
   kind: AiTaskKind,
   preferFast = false,
 ): Promise<ProviderChoice> {
-  if (kind === "narrative") {
-    return {
-      provider: "anthropic",
-      model: preferFast ? FAST_ANTHROPIC_MODEL : DEFAULT_ANTHROPIC_MODEL,
-    };
-  }
   if (kind === "image") {
     return { provider: "openai", model: "gpt-image-1" };
   }
   const pref = await getUserAiPreference(req);
+  // Narrative still defaults to Anthropic if user has no preference, since it's the most reliable for streaming.
   if (!pref) {
     return {
       provider: "anthropic",
-      model: preferFast ? FAST_ANTHROPIC_MODEL : DEFAULT_ANTHROPIC_MODEL,
-    };
-  }
-  // Gemini and xAI are not first-class — fall back to Anthropic gracefully.
-  if (pref.provider === "gemini" || pref.provider === "xai") {
-    return {
-      provider: "anthropic",
-      model: preferFast ? FAST_ANTHROPIC_MODEL : DEFAULT_ANTHROPIC_MODEL,
-    };
-  }
-  if (pref.provider === "openai") {
-    return {
-      provider: "openai",
-      model: pref.model ?? DEFAULT_OPENAI_MODEL,
+      model: defaultModelFor("anthropic", preferFast),
     };
   }
   return {
-    provider: "anthropic",
-    model: pref.model ?? (preferFast ? FAST_ANTHROPIC_MODEL : DEFAULT_ANTHROPIC_MODEL),
+    provider: pref.provider,
+    model: pref.model ?? defaultModelFor(pref.provider, preferFast),
   };
 }
 
@@ -104,17 +124,31 @@ export async function complete(
     opts.preferFast ?? false,
   );
   const max = opts.maxTokens ?? 2048;
-  if (choice.provider === "openai") {
+
+  if (choice.provider === "openai" || choice.provider === "openrouter") {
+    const client = choice.provider === "openai" ? openai : openrouter;
     const messages: Array<{ role: "system" | "user"; content: string }> = [];
     if (opts.system) messages.push({ role: "system", content: opts.system });
     messages.push({ role: "user", content: opts.prompt });
-    const r = await openai.chat.completions.create({
+    const r = await client.chat.completions.create({
       model: choice.model,
       max_completion_tokens: max,
       messages,
     });
     return r.choices[0]?.message?.content ?? "";
   }
+
+  if (choice.provider === "gemini") {
+    const r = await gemini.models.generateContent({
+      model: choice.model,
+      contents: opts.prompt,
+      config: opts.system
+        ? { systemInstruction: opts.system, maxOutputTokens: max }
+        : { maxOutputTokens: max },
+    });
+    return r.text ?? "";
+  }
+
   const message = await anthropic.messages.create({
     model: choice.model,
     max_tokens: max,
@@ -145,11 +179,13 @@ export async function stream(
   );
   const max = opts.maxTokens ?? 2048;
   let text = "";
-  if (choice.provider === "openai") {
+
+  if (choice.provider === "openai" || choice.provider === "openrouter") {
+    const client = choice.provider === "openai" ? openai : openrouter;
     const all: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
     if (opts.system) all.push({ role: "system", content: opts.system });
     for (const m of opts.messages) all.push(m);
-    const s = await openai.chat.completions.create({
+    const s = await client.chat.completions.create({
       model: choice.model,
       max_completion_tokens: max,
       messages: all,
@@ -164,6 +200,28 @@ export async function stream(
     }
     return { provider: choice.provider, model: choice.model, text };
   }
+
+  if (choice.provider === "gemini") {
+    const stream = await gemini.models.generateContentStream({
+      model: choice.model,
+      contents: opts.messages.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      })),
+      config: opts.system
+        ? { systemInstruction: opts.system, maxOutputTokens: max }
+        : { maxOutputTokens: max },
+    });
+    for await (const chunk of stream) {
+      const piece = chunk.text;
+      if (piece) {
+        text += piece;
+        opts.onChunk(piece);
+      }
+    }
+    return { provider: choice.provider, model: choice.model, text };
+  }
+
   const s = await anthropic.messages.stream({
     model: choice.model,
     max_tokens: max,
