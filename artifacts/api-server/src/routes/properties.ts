@@ -57,9 +57,19 @@ router.patch(
       res.status(400).json({ error: parsed.error.message });
       return;
     }
+    // When the client sends one of {defaultValue, textValue} but not the other,
+    // treat that as an intent to switch storage columns and explicitly clear
+    // the other one. Otherwise stale numeric defaults can leak into the UI
+    // after a user edits a property to a string default (or vice versa).
+    const rawBody = (req.body ?? {}) as Record<string, unknown>;
+    const setData: Record<string, unknown> = { ...parsed.data };
+    const hasDefault = Object.prototype.hasOwnProperty.call(rawBody, "defaultValue");
+    const hasText = Object.prototype.hasOwnProperty.call(rawBody, "textValue");
+    if (hasDefault && !hasText) setData.textValue = null;
+    if (hasText && !hasDefault) setData.defaultValue = null;
     const [row] = await db
       .update(entityProperties)
-      .set(parsed.data)
+      .set(setData)
       .where(
         and(
           eq(entityProperties.id, params.data.propertyId),
@@ -116,36 +126,72 @@ router.post(
       res.status(404).json({ error: "Entity not found" });
       return;
     }
+    // Pull existing properties so AI doesn't suggest duplicates
+    const existingProps = await db
+      .select()
+      .from(entityProperties)
+      .where(eq(entityProperties.entityId, entity.id));
+    const existingNames = existingProps.map((p) => p.name).join(", ") || "none";
     try {
       const text = await complete(req, {
-        prompt: `You are improving a tabletop game entity. Make its description vivid and evocative, and tighten its stats line.
+        prompt: `You are a senior board-game designer enhancing one entity in a game's design document.
+
+Return ONLY a JSON object — no prose, no code fences:
+{
+  "description": "1-2 vivid, concrete sentences (<= 200 chars) describing what this entity IS in the game.",
+  "lore": "1 short flavor / world-building sentence in-character (<= 160 chars). Optional but encouraged.",
+  "designNotes": "1-2 sentences explaining the DESIGN INTENT — why this entity exists, how it interacts with other systems, what tension/decisions it creates. (<= 240 chars)",
+  "suggestedProperties": [
+    {
+      "name": "snake_case_name",
+      "dataType": "number | string | boolean | enum",
+      "defaultValue": "starting value as a string (e.g. \\"10\\", \\"common\\", \\"true\\"). Optional.",
+      "reason": "1 sentence saying why this property matters. (<= 120 chars)"
+    }
+  ]
+}
+
+Suggest 3-5 NEW properties (do not repeat existing ones). Use snake_case names.
 
 Current entity:
 name: ${entity.name}
 type: ${entity.type}${entity.subtype ? `/${entity.subtype}` : ""}
 description: ${entity.description ?? ""}
 stats: ${entity.stats ?? ""}
+existing properties: ${existingNames}
 
-Return ONLY a JSON object: {"description":"...","stats":"..."}.
-- description: 1-2 sentences, vivid, under 180 chars.
-- stats: short stat line under 60 chars.
 Output JUST the JSON object.`,
-        maxTokens: 600,
+        maxTokens: 1400,
       });
-      const obj = tryParseJsonObject<{ description?: string; stats?: string }>(text);
-      const update: { description?: string; stats?: string } = {};
-      if (obj?.description) update.description = String(obj.description);
-      if (obj?.stats) update.stats = String(obj.stats);
-      if (Object.keys(update).length === 0) {
+      const obj = tryParseJsonObject<{
+        description?: string;
+        lore?: string;
+        designNotes?: string;
+        suggestedProperties?: Array<{
+          name?: string;
+          dataType?: string;
+          defaultValue?: unknown;
+          reason?: string;
+        }>;
+      }>(text);
+      if (!obj?.description) {
         res.status(502).json({ error: "AI returned no usable content. Try again or switch model." });
         return;
       }
-      const [updated] = await db
-        .update(entities)
-        .set(update)
-        .where(eq(entities.id, entity.id))
-        .returning();
-      res.json(updated);
+      const suggestedProperties = (obj.suggestedProperties ?? [])
+        .filter((p) => p?.name)
+        .map((p) => ({
+          name: String(p.name),
+          dataType: String(p.dataType ?? "string"),
+          defaultValue: p.defaultValue == null ? undefined : String(p.defaultValue),
+          reason: String(p.reason ?? ""),
+        }));
+      res.json({
+        description: String(obj.description),
+        lore: obj.lore ? String(obj.lore) : undefined,
+        designNotes: obj.designNotes ? String(obj.designNotes) : undefined,
+        suggestedProperties,
+      });
     } catch (err) {
       req.log.error({ err }, "enhance entity failed");
       res.status(500).json({ error: "AI enhance failed" });

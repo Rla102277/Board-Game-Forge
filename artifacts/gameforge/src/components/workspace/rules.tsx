@@ -1,22 +1,24 @@
 import { useMemo, useState } from "react";
 import {
   useListRules, useCreateRule, useUpdateRule, useDeleteRule,
-  useAiGenerateRules, useAiEnhanceRule, getListRulesQueryKey,
+  useAiGenerateRules, getListRulesQueryKey,
+  type Rule,
 } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Edit2, Trash2, Wand2, FileText, Sparkles, Loader2, Copy,
-  ChevronDown, ChevronRight, Search,
+  ChevronDown, ChevronRight, Search, Check, X, Info, AlertTriangle,
+  Lightbulb, RefreshCw,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Rule } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface RulesProps {
@@ -58,6 +60,14 @@ function PriorityDots({ value }: { value: number }) {
   );
 }
 
+type AIEnhance = {
+  rewrittenContent: string;
+  improvedTitle: string;
+  designNotes?: string;
+  edgeCases?: string;
+  relatedRuleSuggestions?: { title: string; content: string; category: string }[];
+};
+
 const COLLAPSE_THRESHOLD = 240;
 
 export function Rules({ projectId }: RulesProps) {
@@ -67,10 +77,8 @@ export function Rules({ projectId }: RulesProps) {
   const updateRule = useUpdateRule();
   const deleteRule = useDeleteRule();
   const aiGenerate = useAiGenerateRules();
-  const enhanceRule = useAiEnhanceRule();
   const { toast } = useToast();
 
-  const [enhancingId, setEnhancingId] = useState<number | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [filter, setFilter] = useState("");
@@ -83,13 +91,16 @@ export function Rules({ projectId }: RulesProps) {
 
   const errMsg = (err: unknown) => err instanceof Error ? err.message : String(err);
 
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: getListRulesQueryKey(projectId) });
+
   const handleCreate = async () => {
     if (!formData.title || !formData.content) return;
     try {
       await createRule.mutateAsync({ projectId, data: formData });
       setIsCreateOpen(false);
       setFormData({ title: "", content: "", category: "", priority: 0 });
-      queryClient.invalidateQueries({ queryKey: getListRulesQueryKey(projectId) });
+      refresh();
       toast({ title: "Rule created" });
     } catch (err) {
       toast({ title: "Could not create rule", description: errMsg(err), variant: "destructive" });
@@ -102,7 +113,7 @@ export function Rules({ projectId }: RulesProps) {
       await updateRule.mutateAsync({ projectId, ruleId: editRuleId, data: formData });
       setEditRuleId(null);
       setFormData({ title: "", content: "", category: "", priority: 0 });
-      queryClient.invalidateQueries({ queryKey: getListRulesQueryKey(projectId) });
+      refresh();
       toast({ title: "Rule updated" });
     } catch (err) {
       toast({ title: "Could not update rule", description: errMsg(err), variant: "destructive" });
@@ -112,7 +123,7 @@ export function Rules({ projectId }: RulesProps) {
   const handleDelete = async (id: number) => {
     try {
       await deleteRule.mutateAsync({ projectId, ruleId: id });
-      queryClient.invalidateQueries({ queryKey: getListRulesQueryKey(projectId) });
+      refresh();
       toast({ title: "Rule deleted" });
     } catch (err) {
       toast({ title: "Could not delete rule", description: errMsg(err), variant: "destructive" });
@@ -124,27 +135,10 @@ export function Rules({ projectId }: RulesProps) {
     try {
       await aiGenerate.mutateAsync({ projectId, data: { prompt: aiPrompt, count: 3 } });
       setAiPrompt("");
-      queryClient.invalidateQueries({ queryKey: getListRulesQueryKey(projectId) });
+      refresh();
       toast({ title: "AI rules generated" });
     } catch (err) {
       toast({ title: "AI generate failed", description: errMsg(err), variant: "destructive" });
-    }
-  };
-
-  const handleEnhance = async (ruleId: number) => {
-    setEnhancingId(ruleId);
-    try {
-      await enhanceRule.mutateAsync({ projectId, ruleId });
-      queryClient.invalidateQueries({ queryKey: getListRulesQueryKey(projectId) });
-      toast({ title: "Rule enhanced", description: "AI tightened the wording." });
-    } catch (err) {
-      toast({
-        title: "Enhance failed",
-        description: err instanceof Error ? err.message : String(err),
-        variant: "destructive",
-      });
-    } finally {
-      setEnhancingId(null);
     }
   };
 
@@ -160,14 +154,10 @@ export function Rules({ projectId }: RulesProps) {
           priority: rule.priority || 0,
         },
       });
-      queryClient.invalidateQueries({ queryKey: getListRulesQueryKey(projectId) });
+      refresh();
       toast({ title: "Rule duplicated" });
     } catch (err) {
-      toast({
-        title: "Duplicate failed",
-        description: err instanceof Error ? err.message : String(err),
-        variant: "destructive",
-      });
+      toast({ title: "Duplicate failed", description: errMsg(err), variant: "destructive" });
     } finally {
       setDuplicatingId(null);
     }
@@ -191,7 +181,6 @@ export function Rules({ projectId }: RulesProps) {
     });
   };
 
-  // ── Categories present in the data, in addition to the canonical list ──
   const allCategories = useMemo(() => {
     const set = new Set<string>(CATEGORIES);
     (rules ?? []).forEach((r) => { if (r.category) set.add(r.category.toLowerCase().replace(/\s+/g, "_")); });
@@ -346,89 +335,20 @@ export function Rules({ projectId }: RulesProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {sortedRules.map((rule) => {
-            const meta = catMeta(rule.category);
-            const isExpanded = expandedIds.has(rule.id);
-            const content = rule.content || "";
-            const isLong = content.length > COLLAPSE_THRESHOLD;
-            const display = !isExpanded && isLong ? content.slice(0, COLLAPSE_THRESHOLD).trimEnd() + "…" : content;
-
-            return (
-              <Card
-                key={rule.id}
-                className="bg-card border-border overflow-hidden transition-shadow hover:shadow-md hover:shadow-black/20 group"
-                data-testid={`rule-card-${rule.id}`}
-              >
-                {/* colored top accent stripe */}
-                <div className={`h-0.5 w-full ${meta.dot} opacity-70`} />
-
-                <CardHeader className="pb-2 pt-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <CardTitle className="text-base font-semibold leading-tight">{rule.title}</CardTitle>
-                        <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border ${meta.bg} ${meta.text} ${meta.border}`}>
-                          {meta.label}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
-                        <PriorityDots value={rule.priority || 0} />
-                        <span>Priority {rule.priority || 0}</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <Button
-                        variant="ghost" size="icon" className="h-8 w-8"
-                        onClick={() => handleEnhance(rule.id)}
-                        disabled={enhancingId === rule.id}
-                        title="AI Enhance"
-                        data-testid={`enhance-rule-${rule.id}`}
-                      >
-                        {enhancingId === rule.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon" className="h-8 w-8"
-                        onClick={() => handleDuplicate(rule)}
-                        disabled={duplicatingId === rule.id}
-                        title="Duplicate"
-                        data-testid={`duplicate-rule-${rule.id}`}
-                      >
-                        {duplicatingId === rule.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon" className="h-8 w-8"
-                        onClick={() => openEdit(rule)}
-                        title="Edit"
-                        data-testid={`edit-rule-${rule.id}`}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"
-                        onClick={() => handleDelete(rule.id)}
-                        title="Delete"
-                        data-testid={`delete-rule-${rule.id}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{display}</div>
-                  {isLong && (
-                    <button
-                      onClick={() => toggleExpand(rule.id)}
-                      className="mt-2 text-xs text-primary hover:underline flex items-center gap-1"
-                      data-testid={`expand-rule-${rule.id}`}
-                    >
-                      {isExpanded ? <><ChevronDown className="h-3 w-3" /> Show less</> : <><ChevronRight className="h-3 w-3" /> Show more</>}
-                    </button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+          {sortedRules.map((rule) => (
+            <RuleCard
+              key={rule.id}
+              rule={rule}
+              projectId={projectId}
+              isExpanded={expandedIds.has(rule.id)}
+              onToggle={() => toggleExpand(rule.id)}
+              onEdit={() => openEdit(rule)}
+              onDuplicate={() => handleDuplicate(rule)}
+              onDelete={() => handleDelete(rule.id)}
+              isDuplicating={duplicatingId === rule.id}
+              onUpdated={refresh}
+            />
+          ))}
         </div>
       )}
 
@@ -461,5 +381,368 @@ export function Rules({ projectId }: RulesProps) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Rule Card — header, expand/collapse, AI Enhance preview with designer notes
+// ════════════════════════════════════════════════════════════════════════════
+function RuleCard({
+  rule, projectId, isExpanded, onToggle, onEdit, onDuplicate, onDelete, isDuplicating, onUpdated,
+}: {
+  rule: Rule;
+  projectId: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  isDuplicating: boolean;
+  onUpdated: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const updateRule = useUpdateRule();
+  const createRule = useCreateRule();
+  const { toast } = useToast();
+
+  const [showEnhance, setShowEnhance] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhance, setEnhance] = useState<AIEnhance | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [addingIdx, setAddingIdx] = useState<number | null>(null);
+
+  const meta = catMeta(rule.category);
+  const content = rule.content || "";
+  const isLong = content.length > COLLAPSE_THRESHOLD;
+  const display = !isExpanded && isLong ? content.slice(0, COLLAPSE_THRESHOLD).trimEnd() + "…" : content;
+
+  const errMsg = (err: unknown) => err instanceof Error ? err.message : String(err);
+
+  const handleEnhance = async () => {
+    setIsEnhancing(true);
+    setEnhance(null);
+    setShowEnhance(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/rules/${rule.id}/enhance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: "{}",
+      });
+      if (res.ok) {
+        const raw = (await res.json()) as Partial<AIEnhance> | null;
+        const safeRelated = Array.isArray(raw?.relatedRuleSuggestions)
+          ? raw!.relatedRuleSuggestions.filter((s): s is { title: string; content: string; category: string } =>
+              !!s &&
+              typeof s === "object" &&
+              typeof s.title === "string" &&
+              typeof s.content === "string",
+            ).map((s) => ({
+              title: s.title,
+              content: s.content,
+              category: typeof s.category === "string" ? s.category : "movement",
+            }))
+          : [];
+        const data: AIEnhance = {
+          rewrittenContent: typeof raw?.rewrittenContent === "string" ? raw.rewrittenContent : "",
+          improvedTitle: typeof raw?.improvedTitle === "string" ? raw.improvedTitle : rule.title,
+          designNotes: typeof raw?.designNotes === "string" ? raw.designNotes : undefined,
+          edgeCases: typeof raw?.edgeCases === "string" ? raw.edgeCases : undefined,
+          relatedRuleSuggestions: safeRelated,
+        };
+        if (!data.rewrittenContent) {
+          toast({
+            title: "AI returned no usable rewrite",
+            description: "Try regenerating with a different model.",
+            variant: "destructive",
+          });
+          setShowEnhance(false);
+        } else {
+          setEnhance(data);
+        }
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast({
+          title: "AI enhance failed",
+          description: body?.error ?? "Please try again.",
+          variant: "destructive",
+        });
+        setShowEnhance(false);
+      }
+    } catch {
+      toast({
+        title: "AI enhance failed",
+        description: "Could not reach the server.",
+        variant: "destructive",
+      });
+      setShowEnhance(false);
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleApply = async () => {
+    if (!enhance) return;
+    setApplying(true);
+    try {
+      await updateRule.mutateAsync({
+        projectId,
+        ruleId: rule.id,
+        data: {
+          title: enhance.improvedTitle || rule.title,
+          content: enhance.rewrittenContent,
+        },
+      });
+      setApplied(true);
+      onUpdated();
+      toast({ title: "Rewrite applied" });
+      setTimeout(() => {
+        setShowEnhance(false);
+        setApplied(false);
+        setEnhance(null);
+      }, 1200);
+    } catch (err) {
+      toast({ title: "Apply failed", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const handleAddSuggestion = async (s: { title: string; content: string; category: string }, idx: number) => {
+    setAddingIdx(idx);
+    try {
+      await createRule.mutateAsync({
+        projectId,
+        data: { title: s.title, content: s.content, category: s.category, priority: 1 },
+      });
+      queryClient.invalidateQueries({ queryKey: getListRulesQueryKey(projectId) });
+      toast({ title: `Added "${s.title}"` });
+    } catch (err) {
+      toast({ title: "Could not add rule", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setAddingIdx(null);
+    }
+  };
+
+  return (
+    <Card
+      className="bg-card border-border overflow-hidden transition-shadow hover:shadow-md hover:shadow-black/20 group"
+      data-testid={`rule-card-${rule.id}`}
+    >
+      {/* colored top accent stripe */}
+      <div className={`h-0.5 w-full ${meta.dot} opacity-70`} />
+
+      <div className="px-4 pt-4 pb-2 flex items-start justify-between gap-3">
+        <button
+          className="flex-1 min-w-0 text-left"
+          onClick={onToggle}
+          data-testid={`expand-rule-${rule.id}`}
+        >
+          <div className="flex items-center gap-2 flex-wrap">
+            {isExpanded
+              ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+            <span className="text-base font-semibold leading-tight text-white">{rule.title}</span>
+            <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border ${meta.bg} ${meta.text} ${meta.border}`}>
+              {meta.label}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground pl-5">
+            <PriorityDots value={rule.priority || 0} />
+            <span>Priority {rule.priority || 0}</span>
+          </div>
+        </button>
+
+        <div className="flex gap-0.5 shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`text-xs h-8 px-2 gap-1 ${showEnhance ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}
+            onClick={handleEnhance}
+            disabled={isEnhancing}
+            title="AI Enhance"
+            data-testid={`enhance-rule-${rule.id}`}
+          >
+            {isEnhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+            AI
+          </Button>
+          <Button
+            variant="ghost" size="icon" className="h-8 w-8"
+            onClick={onDuplicate}
+            disabled={isDuplicating}
+            title="Duplicate"
+            data-testid={`duplicate-rule-${rule.id}`}
+          >
+            {isDuplicating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="ghost" size="icon" className="h-8 w-8"
+            onClick={onEdit}
+            title="Edit"
+            data-testid={`edit-rule-${rule.id}`}
+          >
+            <Edit2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"
+            onClick={onDelete}
+            title="Delete"
+            data-testid={`delete-rule-${rule.id}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <CardContent className="pt-0 pb-3 pl-9">
+        <div className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{display}</div>
+        {isLong && (
+          <button
+            onClick={onToggle}
+            className="mt-2 text-xs text-primary hover:underline flex items-center gap-1"
+          >
+            {isExpanded ? <><ChevronDown className="h-3 w-3" /> Show less</> : <><ChevronRight className="h-3 w-3" /> Show more</>}
+          </button>
+        )}
+      </CardContent>
+
+      {/* AI Enhance Panel */}
+      {showEnhance && (
+        <div className="border-t border-border bg-primary/5 px-5 py-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-sm font-semibold text-primary flex-1">AI Enhancement</p>
+            {isEnhancing && <span className="text-xs text-muted-foreground">Analyzing rule…</span>}
+            <button
+              onClick={() => { setShowEnhance(false); setEnhance(null); }}
+              className="text-muted-foreground hover:text-white transition-colors"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {isEnhancing && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" /> Enhancing rule…
+            </div>
+          )}
+
+          {enhance && !isEnhancing && (
+            <div className="space-y-3" data-testid={`enhance-panel-${rule.id}`}>
+              {/* Rewritten content */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Rewritten Rule</p>
+                {enhance.improvedTitle && enhance.improvedTitle !== rule.title && (
+                  <p className="text-xs font-semibold text-white">→ {enhance.improvedTitle}</p>
+                )}
+                <p className="text-sm text-foreground/90 leading-relaxed bg-background/50 border border-border rounded-md p-3 whitespace-pre-wrap">
+                  {enhance.rewrittenContent}
+                </p>
+              </div>
+
+              {/* Designer's notes & Edge cases */}
+              {(enhance.designNotes || enhance.edgeCases) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {enhance.designNotes && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                        <Info className="w-3 h-3" /> Designer's Notes
+                      </p>
+                      <p className="text-xs text-muted-foreground leading-relaxed bg-background/40 border border-border/50 rounded p-2.5">
+                        {enhance.designNotes}
+                      </p>
+                    </div>
+                  )}
+                  {enhance.edgeCases && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wider flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Edge Cases
+                      </p>
+                      <p className="text-xs text-muted-foreground leading-relaxed bg-amber-500/5 border border-amber-500/20 rounded p-2.5">
+                        {enhance.edgeCases}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Related rule suggestions */}
+              {enhance.relatedRuleSuggestions && enhance.relatedRuleSuggestions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                    <Lightbulb className="w-3 h-3" /> Suggested Related Rules
+                  </p>
+                  <div className="space-y-1.5">
+                    {enhance.relatedRuleSuggestions.map((s, i) => {
+                      const sm = catMeta(s.category);
+                      return (
+                        <div key={i} className="flex items-start gap-2 p-2.5 rounded border border-border bg-muted/10">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                              <p className="text-xs font-medium text-white">{s.title}</p>
+                              <Badge variant="outline" className={`text-[10px] ${sm.bg} ${sm.text} ${sm.border}`}>
+                                {sm.label}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{s.content}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleAddSuggestion(s, i)}
+                            disabled={addingIdx === i}
+                            className="h-7 px-2 text-xs text-primary hover:bg-primary/10 shrink-0 gap-1"
+                            data-testid={`add-suggestion-${rule.id}-${i}`}
+                          >
+                            {addingIdx === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                            Add
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Apply / Regenerate / Dismiss */}
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                <Button
+                  size="sm"
+                  onClick={handleApply}
+                  disabled={applying || applied}
+                  className="bg-primary text-primary-foreground gap-1.5"
+                  data-testid={`apply-enhance-${rule.id}`}
+                >
+                  {applied
+                    ? <><Check className="w-3.5 h-3.5" />Applied!</>
+                    : applying
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Applying…</>
+                    : <><Wand2 className="w-3.5 h-3.5" />Apply Rewrite</>}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleEnhance}
+                  disabled={isEnhancing}
+                  className="border-border text-muted-foreground hover:text-white gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Regenerate
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setShowEnhance(false); setEnhance(null); }}
+                  className="text-muted-foreground hover:text-white ml-auto"
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }

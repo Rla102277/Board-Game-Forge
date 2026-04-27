@@ -41,6 +41,7 @@ import type {
   CreateTaskBody,
   DashboardSummary,
   Entity,
+  EntityEnhanceSuggestion,
   EntityProperty,
   ExportResult,
   ForbiddenResponse,
@@ -62,6 +63,7 @@ import type {
   PublicFeedbackProject,
   ResearchItem,
   Rule,
+  RuleEnhanceSuggestion,
   SendChatMessageBody,
   ShareLink,
   SimulatorResult,
@@ -2463,11 +2465,14 @@ export const aiEnhanceEntity = async (
   projectId: number,
   entityId: number,
   options?: RequestInit,
-): Promise<Entity> => {
-  return customFetch<Entity>(getAiEnhanceEntityUrl(projectId, entityId), {
-    ...options,
-    method: "POST",
-  });
+): Promise<EntityEnhanceSuggestion> => {
+  return customFetch<EntityEnhanceSuggestion>(
+    getAiEnhanceEntityUrl(projectId, entityId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
 };
 
 export const getAiEnhanceEntityMutationOptions = <
@@ -3367,11 +3372,14 @@ export const aiEnhanceRule = async (
   projectId: number,
   ruleId: number,
   options?: RequestInit,
-): Promise<Rule> => {
-  return customFetch<Rule>(getAiEnhanceRuleUrl(projectId, ruleId), {
-    ...options,
-    method: "POST",
-  });
+): Promise<RuleEnhanceSuggestion> => {
+  return customFetch<RuleEnhanceSuggestion>(
+    getAiEnhanceRuleUrl(projectId, ruleId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
 };
 
 export const getAiEnhanceRuleMutationOptions = <

@@ -474,17 +474,17 @@ export const AiEnhanceEntityParams = zod.object({
 });
 
 export const AiEnhanceEntityResponse = zod.object({
-  id: zod.number(),
-  projectId: zod.number(),
-  name: zod.string(),
-  type: zod.string(),
-  subtype: zod.string().nullish(),
-  description: zod.string().nullish(),
-  stats: zod.string().nullish(),
-  color: zod.string().nullish(),
-  relatedTo: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  description: zod.string(),
+  lore: zod.string().optional(),
+  designNotes: zod.string().optional(),
+  suggestedProperties: zod.array(
+    zod.object({
+      name: zod.string(),
+      dataType: zod.string(),
+      defaultValue: zod.string().optional(),
+      reason: zod.string(),
+    }),
+  ),
 });
 
 export const ListEntityPropertiesParams = zod.object({
@@ -642,14 +642,17 @@ export const AiEnhanceRuleParams = zod.object({
 });
 
 export const AiEnhanceRuleResponse = zod.object({
-  id: zod.number(),
-  projectId: zod.number(),
-  title: zod.string(),
-  content: zod.string(),
-  category: zod.string().nullish(),
-  priority: zod.number(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  rewrittenContent: zod.string(),
+  improvedTitle: zod.string(),
+  designNotes: zod.string().optional(),
+  edgeCases: zod.string().optional(),
+  relatedRuleSuggestions: zod.array(
+    zod.object({
+      title: zod.string(),
+      content: zod.string(),
+      category: zod.string(),
+    }),
+  ),
 });
 
 export const ConflictCheckRulesParams = zod.object({

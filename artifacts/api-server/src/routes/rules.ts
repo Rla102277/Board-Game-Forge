@@ -154,35 +154,75 @@ router.post(
       res.status(404).json({ error: "Rule not found" });
       return;
     }
+    // Pull existing rule titles so AI can suggest *new* related rules
+    const others = await db
+      .select()
+      .from(rules)
+      .where(eq(rules.projectId, params.data.projectId));
+    const existingTitles = others
+      .filter((o) => o.id !== r.id)
+      .map((o) => `- ${o.title}`)
+      .join("\n") || "(none)";
     try {
       const text = await complete(req, {
-        prompt: `Tighten this game rule. Make it shorter, more precise, with no ambiguity. Add an example if helpful.
+        prompt: `You are a senior board-game rules editor. Improve this rule and provide designer notes.
 
-Existing rule:
+Return ONLY a JSON object — no prose, no code fences:
+{
+  "improvedTitle": "tightened title (<= 60 chars). If already good, repeat the original.",
+  "rewrittenContent": "1-4 sentences. Precise, unambiguous. May include 'Example:' on its own line.",
+  "designNotes": "1-2 sentences explaining the DESIGN INTENT — why this rule exists, what tension it creates, how it shapes player decisions. (<= 280 chars)",
+  "edgeCases": "1-3 short bullet points (separated by ' • ') describing tricky cases, exceptions, or common rule-lawyering attempts. (<= 280 chars)",
+  "relatedRuleSuggestions": [
+    {
+      "title": "title for a NEW related rule",
+      "content": "1-2 sentences",
+      "category": "movement | combat | economy | turn_structure | variant"
+    }
+  ]
+}
+
+Suggest 1-3 related rules. Do NOT duplicate any of these existing rules:
+${existingTitles}
+
+Current rule:
 title: ${r.title}
-category: ${r.category ?? ""}
+category: ${r.category ?? "(none)"}
+priority: ${r.priority}
 content: ${r.content}
 
-Return ONLY a JSON object: {"title":"...","content":"..."}.
-- title under 60 chars.
-- content 1-3 sentences plus an "Example:" line if helpful.
 Output JUST the JSON object.`,
-        maxTokens: 600,
+        maxTokens: 1500,
       });
-      const obj = tryParseJsonObject<{ title?: string; content?: string }>(text);
-      const update: Record<string, string> = {};
-      if (obj?.title) update.title = String(obj.title);
-      if (obj?.content) update.content = String(obj.content);
-      if (Object.keys(update).length === 0) {
+      const obj = tryParseJsonObject<{
+        improvedTitle?: string;
+        rewrittenContent?: string;
+        designNotes?: string;
+        edgeCases?: string;
+        relatedRuleSuggestions?: Array<{
+          title?: string;
+          content?: string;
+          category?: string;
+        }>;
+      }>(text);
+      if (!obj?.rewrittenContent) {
         res.status(502).json({ error: "AI returned no usable content. Try again or switch model." });
         return;
       }
-      const [updated] = await db
-        .update(rules)
-        .set(update)
-        .where(eq(rules.id, r.id))
-        .returning();
-      res.json(updated);
+      const relatedRuleSuggestions = (obj.relatedRuleSuggestions ?? [])
+        .filter((s) => s?.title && s?.content)
+        .map((s) => ({
+          title: String(s.title),
+          content: String(s.content),
+          category: String(s.category ?? "movement"),
+        }));
+      res.json({
+        improvedTitle: String(obj.improvedTitle ?? r.title),
+        rewrittenContent: String(obj.rewrittenContent),
+        designNotes: obj.designNotes ? String(obj.designNotes) : undefined,
+        edgeCases: obj.edgeCases ? String(obj.edgeCases) : undefined,
+        relatedRuleSuggestions,
+      });
     } catch (err) {
       req.log.error({ err }, "enhance rule failed");
       res.status(500).json({ error: "Enhance failed" });

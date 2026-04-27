@@ -532,11 +532,11 @@ paths:
         - $ref: "#/components/parameters/EntityId"
       responses:
         "200":
-          description: Enhanced entity
+          description: Structured AI enhancement preview (not yet applied)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Entity"
+                $ref: "#/components/schemas/EntityEnhanceSuggestion"
 
   /projects/{projectId}/entities/{entityId}/properties:
     get:
@@ -701,11 +701,11 @@ paths:
         - $ref: "#/components/parameters/RuleId"
       responses:
         "200":
-          description: Enhanced rule
+          description: Structured AI enhancement preview (not yet applied)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Rule"
+                $ref: "#/components/schemas/RuleEnhanceSuggestion"
 
   /projects/{projectId}/rules/conflict-check:
     post:
@@ -2063,6 +2063,56 @@ components:
         summary:
           type: string
       required: [conflicts, summary]
+
+    EntityEnhanceSuggestion:
+      type: object
+      properties:
+        description:
+          type: string
+        lore:
+          type: string
+        designNotes:
+          type: string
+        suggestedProperties:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              dataType:
+                type: string
+              defaultValue:
+                type: string
+              reason:
+                type: string
+            required: [name, dataType, reason]
+      required: [description, suggestedProperties]
+
+    RuleEnhanceSuggestion:
+      type: object
+      properties:
+        rewrittenContent:
+          type: string
+        improvedTitle:
+          type: string
+        designNotes:
+          type: string
+        edgeCases:
+          type: string
+        relatedRuleSuggestions:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              category:
+                type: string
+            required: [title, content, category]
+      required: [rewrittenContent, improvedTitle, relatedRuleSuggestions]
 
     Player:
       type: object

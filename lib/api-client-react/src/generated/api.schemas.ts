@@ -315,6 +315,34 @@ export interface ConflictReport {
   summary: string;
 }
 
+export type EntityEnhanceSuggestionSuggestedPropertiesItem = {
+  name: string;
+  dataType: string;
+  defaultValue?: string;
+  reason: string;
+};
+
+export interface EntityEnhanceSuggestion {
+  description: string;
+  lore?: string;
+  designNotes?: string;
+  suggestedProperties: EntityEnhanceSuggestionSuggestedPropertiesItem[];
+}
+
+export type RuleEnhanceSuggestionRelatedRuleSuggestionsItem = {
+  title: string;
+  content: string;
+  category: string;
+};
+
+export interface RuleEnhanceSuggestion {
+  rewrittenContent: string;
+  improvedTitle: string;
+  designNotes?: string;
+  edgeCases?: string;
+  relatedRuleSuggestions: RuleEnhanceSuggestionRelatedRuleSuggestionsItem[];
+}
+
 export interface Player {
   id: number;
   projectId: number;
