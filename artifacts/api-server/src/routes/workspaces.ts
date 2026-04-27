@@ -367,15 +367,15 @@ router.post(
   "playerCount": "e.g. 2-4",
   "targetDuration": "e.g. 30-45 minutes",
   "complexityScore": 1-10,
-  "blueprint": "string — 6-12 paragraph design doc covering core loop, win condition, turn structure, balance",
-  "entities": [{ "name": "string", "type": "card|token|board|piece|resource|other", "description": "string" }],
-  "rules": [{ "title": "string", "category": "Setup|Turn|Action|Scoring|Endgame", "content": "string — clear, actionable" }],
-  "players": [{ "name": "string — role/archetype name", "role": "string", "description": "string" }],
-  "notes": [{ "title": "string", "content": "string — designer note for next iteration" }]
+  "blueprint": "string — 3-5 short paragraphs covering core loop, win condition, turn structure, balance",
+  "entities": [{ "name": "string", "type": "card|token|board|piece|resource|other", "description": "string (1-2 sentences)" }],
+  "rules": [{ "title": "string", "category": "Setup|Turn|Action|Scoring|Endgame", "content": "string — 1-3 sentences, clear and actionable" }],
+  "players": [{ "name": "string — role/archetype name", "role": "string", "description": "string (1-2 sentences)" }],
+  "notes": [{ "title": "string", "content": "string — short designer note" }]
 }`,
       "",
-      "Aim for: ~6-10 entities, ~6-10 rules, ~3-5 player roles (only if relevant), ~2-3 notes.",
-      "All text must be production-quality and immediately usable.",
+      "Aim for: ~5-7 entities, ~5-7 rules, ~3-4 player roles (only if relevant), ~2 notes.",
+      "Keep every string concise. Total response must fit comfortably in the JSON. All text must be production-quality and immediately usable.",
     ]
       .filter(Boolean)
       .join("\n");
@@ -385,8 +385,8 @@ router.post(
       raw = await complete(req, {
         prompt: fullPrompt,
         system:
-          "You are a world-class senior tabletop game designer. You only output the requested JSON, never any prose, markdown, or commentary.",
-        maxTokens: 3000,
+          "You are a world-class senior tabletop game designer. You only output the requested JSON, never any prose, markdown, or commentary. Be concise so the JSON always closes cleanly.",
+        maxTokens: 8000,
         kind: "structured",
         preferFast: true,
       });
@@ -410,12 +410,40 @@ router.post(
       players?: Array<{ name?: string; role?: string; description?: string }>;
       notes?: Array<{ title?: string; content?: string }>;
     }>(raw);
-    if (!parsed || !parsed.name) {
-      res.status(502).json({ error: "AI returned invalid output", raw: raw.slice(0, 500) });
+    if (!parsed) {
+      req.log.warn({ rawPreview: raw.slice(0, 500) }, "workspace generate: AI output unparseable");
+      res.status(502).json({
+        error:
+          "The AI returned an unreadable response. This is usually transient — please try again, or simplify your prompt.",
+      });
       return;
     }
 
-    const name = String(parsed.name).slice(0, 100);
+    // Minimum-viability check: at least one of blueprint/rules/entities must be present,
+    // otherwise the generated project is too empty to be useful.
+    const ruleCount = Array.isArray(parsed.rules) ? parsed.rules.length : 0;
+    const entityCount = Array.isArray(parsed.entities) ? parsed.entities.length : 0;
+    const hasBlueprint = !!(parsed.blueprint && String(parsed.blueprint).trim().length > 50);
+    if (!hasBlueprint && ruleCount === 0 && entityCount === 0) {
+      req.log.warn(
+        { rawPreview: raw.slice(0, 500), ruleCount, entityCount, hasBlueprint },
+        "workspace generate: AI output too sparse",
+      );
+      res.status(502).json({
+        error:
+          "The AI generated an empty project. Please try again — using a template tile usually gives more reliable results.",
+      });
+      return;
+    }
+
+    // Be forgiving: if the AI omitted a name but gave us other content, synthesize one
+    // from the user prompt / template so we still create a usable project.
+    const fallbackName = (() => {
+      const seed = (prompt || rawTemplate || "Untitled Game").trim();
+      const cleaned = seed.replace(/\s+/g, " ").slice(0, 30);
+      return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    })();
+    const name = String(parsed.name ?? fallbackName).slice(0, 100) || "Untitled Game";
 
     let project: typeof projects.$inferSelect | undefined;
     try {

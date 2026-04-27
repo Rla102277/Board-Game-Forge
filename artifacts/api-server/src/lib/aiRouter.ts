@@ -282,9 +282,104 @@ export function tryParseJsonObject<T = Record<string, unknown>>(
       try {
         return JSON.parse(match[0]) as T;
       } catch {
+        // fall through to repair
+      }
+    }
+    const repaired = repairTruncatedJsonObject(cleaned);
+    if (repaired) {
+      try {
+        return JSON.parse(repaired) as T;
+      } catch {
         return null;
       }
     }
     return null;
   }
+}
+
+// Best-effort repair for JSON that was cut off mid-output (token cap, network).
+// Collects every "safe cut" position (after a closed string, value, or `}`/`]`)
+// while scanning, then attempts to close from the latest safe point and walks
+// backwards through prior safe points until JSON.parse succeeds.
+function repairTruncatedJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  const buf = text.slice(start);
+  const safePoints: number[] = []; // indices (exclusive end) where it is safe to cut
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < buf.length; i++) {
+    const ch = buf[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (ch === "\\") {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = false;
+        safePoints.push(i + 1);
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "}" || ch === "]") {
+      safePoints.push(i + 1);
+      continue;
+    }
+    if (ch === ",") {
+      safePoints.push(i); // cut BEFORE the comma so we strip it
+    }
+  }
+  if (safePoints.length === 0) return null;
+  // Try latest safe point first, then walk back.
+  for (let k = safePoints.length - 1; k >= 0; k--) {
+    const cutAt = safePoints[k];
+    let candidate = buf.slice(0, cutAt).replace(/,\s*$/, "");
+    const state = scanJsonState(candidate);
+    if (state.inString) candidate += '"';
+    candidate += state.stack.reverse().join("");
+    try {
+      JSON.parse(candidate);
+      return candidate;
+    } catch {
+      // try earlier point
+    }
+  }
+  return null;
+}
+
+function scanJsonState(text: string): { stack: string[]; inString: boolean } {
+  const stack: string[] = [];
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (ch === "\\") {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") stack.push("}");
+    else if (ch === "[") stack.push("]");
+    else if (ch === "}" || ch === "]") stack.pop();
+  }
+  return { stack, inString };
 }
