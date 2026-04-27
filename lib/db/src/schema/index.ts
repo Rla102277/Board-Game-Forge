@@ -14,3 +14,4 @@ export * from "./playtestSessions";
 export * from "./playtestFeedback";
 export * from "./storyboardNodes";
 export * from "./changelogEntries";
+export * from "./kickstarterAssets";

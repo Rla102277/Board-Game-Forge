@@ -21,6 +21,7 @@ import balanceRouter from "./balance";
 import changelogRouter from "./changelog";
 import exportsRouter from "./exports";
 import blueprintRouter from "./blueprint";
+import kickstarterRouter from "./kickstarter";
 import {
   requireAuth,
   requireProjectAccess,
@@ -58,5 +59,6 @@ router.use(balanceRouter);
 router.use(changelogRouter);
 router.use(exportsRouter);
 router.use(blueprintRouter);
+router.use(kickstarterRouter);
 
 export default router;
