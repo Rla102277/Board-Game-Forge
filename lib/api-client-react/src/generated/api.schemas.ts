@@ -13,8 +13,57 @@ export interface ErrorResponse {
   error: string;
 }
 
+export interface Me {
+  id: number;
+  clerkUserId: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  firstName?: string | null;
+  /** @nullable */
+  lastName?: string | null;
+  /** @nullable */
+  imageUrl?: string | null;
+  role: string;
+}
+
+export interface AiProviderSettings {
+  provider: string;
+  /** @nullable */
+  model?: string | null;
+  hasApiKey: boolean;
+}
+
+export interface UpdateAiSettingsBody {
+  provider?: string;
+  model?: string;
+  apiKey?: string;
+}
+
+export interface AdminUser {
+  id: number;
+  clerkUserId: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  firstName?: string | null;
+  /** @nullable */
+  lastName?: string | null;
+  /** @nullable */
+  imageUrl?: string | null;
+  role: string;
+  createdAt: string;
+  projectCount: number;
+}
+
+export interface UpdateAdminUserBody {
+  role?: string;
+}
+
 export interface Project {
   id: number;
+  /** @nullable */
+  ownerUserId?: number | null;
   name: string;
   /** @nullable */
   description?: string | null;
@@ -26,6 +75,10 @@ export interface Project {
   playerCount?: string | null;
   /** @nullable */
   targetDuration?: string | null;
+  /** @nullable */
+  complexityScore?: number | null;
+  /** @nullable */
+  blueprint?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +99,8 @@ export interface UpdateProjectBody {
   genre?: string;
   playerCount?: string;
   targetDuration?: string;
+  complexityScore?: number;
+  blueprint?: string;
 }
 
 export interface ProjectStats {
@@ -55,6 +110,32 @@ export interface ProjectStats {
   noteCount: number;
   taskCount: number;
   chatMessageCount: number;
+  researchCount: number;
+  assetCount: number;
+  playtestCount: number;
+}
+
+export type ComplexityScoreBreakdownItem = {
+  factor: string;
+  value: number;
+};
+
+export interface ComplexityScore {
+  score: number;
+  breakdown: ComplexityScoreBreakdownItem[];
+}
+
+export interface GenerateBlueprintBody {
+  prompt: string;
+}
+
+export interface IngestTextBody {
+  title: string;
+  content: string;
+}
+
+export interface IngestUrlBody {
+  url: string;
 }
 
 export type DashboardSummaryGameTypeBreakdownItem = {
@@ -85,17 +166,49 @@ export interface ActivityEvent {
   createdAt: string;
 }
 
+export interface ResearchItem {
+  id: number;
+  projectId: number;
+  title: string;
+  /** @nullable */
+  content?: string | null;
+  /** @nullable */
+  source?: string | null;
+  /** @nullable */
+  tags?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateResearchBody {
+  title: string;
+  content?: string;
+  source?: string;
+  tags?: string;
+}
+
+export interface UpdateResearchBody {
+  title?: string;
+  content?: string;
+  source?: string;
+  tags?: string;
+}
+
 export interface Entity {
   id: number;
   projectId: number;
   name: string;
   type: string;
   /** @nullable */
+  subtype?: string | null;
+  /** @nullable */
   description?: string | null;
   /** @nullable */
   stats?: string | null;
   /** @nullable */
   color?: string | null;
+  /** @nullable */
+  relatedTo?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -103,17 +216,62 @@ export interface Entity {
 export interface CreateEntityBody {
   name: string;
   type: string;
+  subtype?: string;
   description?: string;
   stats?: string;
   color?: string;
+  relatedTo?: string;
 }
 
 export interface UpdateEntityBody {
   name?: string;
   type?: string;
+  subtype?: string;
   description?: string;
   stats?: string;
   color?: string;
+  relatedTo?: string;
+}
+
+export interface EntityProperty {
+  id: number;
+  entityId: number;
+  name: string;
+  dataType: string;
+  /** @nullable */
+  unit?: string | null;
+  /** @nullable */
+  value?: number | null;
+  /** @nullable */
+  textValue?: string | null;
+  /** @nullable */
+  minValue?: number | null;
+  /** @nullable */
+  maxValue?: number | null;
+  /** @nullable */
+  defaultValue?: number | null;
+}
+
+export interface CreateEntityPropertyBody {
+  name: string;
+  dataType?: string;
+  unit?: string;
+  value?: number;
+  textValue?: string;
+  minValue?: number;
+  maxValue?: number;
+  defaultValue?: number;
+}
+
+export interface UpdateEntityPropertyBody {
+  name?: string;
+  dataType?: string;
+  unit?: string;
+  value?: number;
+  textValue?: string;
+  minValue?: number;
+  maxValue?: number;
+  defaultValue?: number;
 }
 
 export interface Rule {
@@ -142,6 +300,18 @@ export interface UpdateRuleBody {
   priority?: number;
 }
 
+export type ConflictReportConflictsItem = {
+  ruleIds: number[];
+  severity: string;
+  description: string;
+  suggestion?: string;
+};
+
+export interface ConflictReport {
+  conflicts: ConflictReportConflictsItem[];
+  summary: string;
+}
+
 export interface Player {
   id: number;
   projectId: number;
@@ -149,9 +319,19 @@ export interface Player {
   /** @nullable */
   role?: string | null;
   /** @nullable */
+  archetype?: string | null;
+  /** @nullable */
   description?: string | null;
   /** @nullable */
   strategy?: string | null;
+  /** @nullable */
+  startingResources?: string | null;
+  /** @nullable */
+  victoryCondition?: string | null;
+  /** @nullable */
+  specialAbility?: string | null;
+  /** @nullable */
+  playstyle?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -159,15 +339,25 @@ export interface Player {
 export interface CreatePlayerBody {
   name: string;
   role?: string;
+  archetype?: string;
   description?: string;
   strategy?: string;
+  startingResources?: string;
+  victoryCondition?: string;
+  specialAbility?: string;
+  playstyle?: string;
 }
 
 export interface UpdatePlayerBody {
   name?: string;
   role?: string;
+  archetype?: string;
   description?: string;
   strategy?: string;
+  startingResources?: string;
+  victoryCondition?: string;
+  specialAbility?: string;
+  playstyle?: string;
 }
 
 export interface Note {
@@ -176,26 +366,33 @@ export interface Note {
   /** @nullable */
   title?: string | null;
   /** @nullable */
+  topic?: string | null;
+  /** @nullable */
   content?: string | null;
   /** @nullable */
   color?: string | null;
   pinned: boolean;
+  lookAtLater: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateNoteBody {
   title?: string;
+  topic?: string;
   content?: string;
   color?: string;
   pinned?: boolean;
+  lookAtLater?: boolean;
 }
 
 export interface UpdateNoteBody {
   title?: string;
+  topic?: string;
   content?: string;
   color?: string;
   pinned?: boolean;
+  lookAtLater?: boolean;
 }
 
 export interface Task {
@@ -205,6 +402,13 @@ export interface Task {
   /** @nullable */
   description?: string | null;
   status: string;
+  priority: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  assignee?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -213,17 +417,26 @@ export interface CreateTaskBody {
   title: string;
   description?: string;
   status?: string;
+  priority?: string;
+  category?: string;
+  assignee?: string;
+  dueDate?: string;
 }
 
 export interface UpdateTaskBody {
   title?: string;
   description?: string;
   status?: string;
+  priority?: string;
+  category?: string;
+  assignee?: string;
+  dueDate?: string;
 }
 
 export interface ChatMessage {
   id: number;
   projectId: number;
+  tab: string;
   role: string;
   content: string;
   /** @nullable */
@@ -232,11 +445,14 @@ export interface ChatMessage {
   genre?: string | null;
   /** @nullable */
   model?: string | null;
+  /** @nullable */
+  provider?: string | null;
   createdAt: string;
 }
 
 export interface SendChatMessageBody {
   content: string;
+  tab?: string;
   gameType?: string;
   genre?: string;
   model?: string;
@@ -247,7 +463,266 @@ export interface AiGenerateBody {
   count?: number;
 }
 
+export interface Asset {
+  id: number;
+  projectId: number;
+  /** @nullable */
+  entityId?: number | null;
+  name: string;
+  kind: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  flavorText?: string | null;
+  /** @nullable */
+  imageDataUrl?: string | null;
+  /** @nullable */
+  imagePrompt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAssetBody {
+  name: string;
+  kind?: string;
+  entityId?: number;
+  description?: string;
+  flavorText?: string;
+  imagePrompt?: string;
+}
+
+export interface UpdateAssetBody {
+  name?: string;
+  kind?: string;
+  entityId?: number;
+  description?: string;
+  flavorText?: string;
+  imagePrompt?: string;
+}
+
+export interface GenerateImageBody {
+  prompt: string;
+  size?: string;
+}
+
+export interface SimulatorRunBody {
+  iterations: number;
+  turns: number;
+  startingResources?: number;
+  incomePerTurn?: number;
+  upkeepPerTurn?: number;
+  randomness?: number;
+}
+
+export type SimulatorResultTurnsItem = {
+  turn: number;
+  p10: number;
+  p50: number;
+  p90: number;
+};
+
+export interface SimulatorResult {
+  healthScore: number;
+  verdict: string;
+  meanFinal: number;
+  bankruptRate: number;
+  turns: SimulatorResultTurnsItem[];
+}
+
+export interface PlaythroughBody {
+  focus?: string;
+}
+
+export interface PlaytestSession {
+  id: number;
+  projectId: number;
+  date: string;
+  /** @nullable */
+  playerCount?: number | null;
+  /** @nullable */
+  durationMinutes?: number | null;
+  /** @nullable */
+  rating?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  issues?: string | null;
+  /** @nullable */
+  positives?: string | null;
+  /** @nullable */
+  suggestions?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePlaytestSessionBody {
+  date?: string;
+  playerCount?: number;
+  durationMinutes?: number;
+  rating?: number;
+  notes?: string;
+  issues?: string;
+  positives?: string;
+  suggestions?: string;
+}
+
+export interface UpdatePlaytestSessionBody {
+  date?: string;
+  playerCount?: number;
+  durationMinutes?: number;
+  rating?: number;
+  notes?: string;
+  issues?: string;
+  positives?: string;
+  suggestions?: string;
+}
+
+export interface PlaytestFeedback {
+  id: number;
+  projectId: number;
+  /** @nullable */
+  respondentName?: string | null;
+  /** @nullable */
+  funScore?: number | null;
+  /** @nullable */
+  balanceScore?: number | null;
+  /** @nullable */
+  clarityScore?: number | null;
+  /** @nullable */
+  whatWorked?: string | null;
+  /** @nullable */
+  whatDidNot?: string | null;
+  /** @nullable */
+  suggestions?: string | null;
+  createdAt: string;
+}
+
+export interface SubmitFeedbackBody {
+  respondentName?: string;
+  funScore?: number;
+  balanceScore?: number;
+  clarityScore?: number;
+  whatWorked?: string;
+  whatDidNot?: string;
+  suggestions?: string;
+}
+
+export interface ShareLink {
+  token: string;
+  url: string;
+}
+
+export interface PublicFeedbackProject {
+  projectName: string;
+  /** @nullable */
+  gameType?: string | null;
+  /** @nullable */
+  genre?: string | null;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface StoryboardNode {
+  id: number;
+  projectId: number;
+  /** @nullable */
+  parentId?: number | null;
+  title: string;
+  /** @nullable */
+  content?: string | null;
+  nodeType: string;
+  status: string;
+  /** @nullable */
+  color?: string | null;
+  positionX: number;
+  positionY: number;
+  /** @nullable */
+  linkedRuleId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStoryboardNodeBody {
+  parentId?: number;
+  title: string;
+  content?: string;
+  nodeType?: string;
+  status?: string;
+  color?: string;
+  positionX?: number;
+  positionY?: number;
+  linkedRuleId?: number;
+}
+
+export interface UpdateStoryboardNodeBody {
+  parentId?: number;
+  title?: string;
+  content?: string;
+  nodeType?: string;
+  status?: string;
+  color?: string;
+  positionX?: number;
+  positionY?: number;
+  linkedRuleId?: number;
+}
+
+export type BalanceReportStatSeriesItemEntriesItem = {
+  entityId: number;
+  entityName: string;
+  value: number;
+};
+
+export type BalanceReportStatSeriesItem = {
+  statName: string;
+  entries: BalanceReportStatSeriesItemEntriesItem[];
+};
+
+export interface BalanceReport {
+  balanceScore: number;
+  verdict: string;
+  statSeries: BalanceReportStatSeriesItem[];
+  conflictCount: number;
+}
+
+export interface ChangelogEntry {
+  id: number;
+  projectId: number;
+  /** @nullable */
+  actor?: string | null;
+  action: string;
+  /** @nullable */
+  entityKind?: string | null;
+  /** @nullable */
+  entityRef?: string | null;
+  summary: string;
+  /** @nullable */
+  details?: string | null;
+  createdAt: string;
+}
+
+export interface ExportResult {
+  kind: string;
+  contentType: string;
+  content: string;
+  filename: string;
+}
+
 /**
  * Not found
  */
 export type NotFoundResponse = ErrorResponse;
+
+/**
+ * Forbidden
+ */
+export type ForbiddenResponse = ErrorResponse;
+
+export type TabParameter = string;
+
+export type ListChatMessagesParams = {
+  tab?: TabParameter;
+};
+
+export type ClearChatMessagesParams = {
+  tab?: TabParameter;
+};

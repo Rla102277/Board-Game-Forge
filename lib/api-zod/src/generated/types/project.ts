@@ -8,6 +8,8 @@
 
 export interface Project {
   id: number;
+  /** @nullable */
+  ownerUserId?: number | null;
   name: string;
   /** @nullable */
   description?: string | null;
@@ -19,6 +21,10 @@ export interface Project {
   playerCount?: string | null;
   /** @nullable */
   targetDuration?: string | null;
+  /** @nullable */
+  complexityScore?: number | null;
+  /** @nullable */
+  blueprint?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

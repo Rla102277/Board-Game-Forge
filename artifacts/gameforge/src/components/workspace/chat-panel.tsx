@@ -11,13 +11,15 @@ interface ChatPanelProps {
   projectId: number;
   defaultPrompt?: string;
   onPromptClear?: () => void;
+  activeTab?: string;
 }
 
 const GAME_TYPES = ["Strategy", "Family", "Party", "Cooperative", "Worker Placement", "Deck-builder", "Area Control", "Eurogame", "Wargame", "Roll-and-Write", "Dexterity", "Legacy"];
 const GENRES = ["Fantasy", "Sci-Fi", "Horror", "Historical", "Modern", "Cyberpunk", "Steampunk", "Mystery", "Adventure", "Abstract"];
 const MODELS = ["claude-sonnet-4-6", "claude-haiku-4-5"];
 
-export function ChatPanel({ projectId, defaultPrompt, onPromptClear }: ChatPanelProps) {
+export function ChatPanel({ projectId, defaultPrompt, onPromptClear, activeTab }: ChatPanelProps) {
+  void activeTab;
   const queryClient = useQueryClient();
   const { data: messages, isLoading } = useListChatMessages(projectId);
   const clearChat = useClearChatMessages();

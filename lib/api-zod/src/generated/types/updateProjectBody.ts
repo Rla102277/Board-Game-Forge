@@ -13,4 +13,6 @@ export interface UpdateProjectBody {
   genre?: string;
   playerCount?: string;
   targetDuration?: string;
+  complexityScore?: number;
+  blueprint?: string;
 }

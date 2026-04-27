@@ -13,6 +13,13 @@ export interface Task {
   /** @nullable */
   description?: string | null;
   status: string;
+  priority: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  assignee?: string | null;
+  /** @nullable */
+  dueDate?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

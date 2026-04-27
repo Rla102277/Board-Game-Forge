@@ -10,4 +10,8 @@ export interface UpdateTaskBody {
   title?: string;
   description?: string;
   status?: string;
+  priority?: string;
+  category?: string;
+  assignee?: string;
+  dueDate?: Date;
 }

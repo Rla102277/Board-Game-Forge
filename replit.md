@@ -64,4 +64,6 @@ Run codegen: `pnpm --filter @workspace/api-spec run codegen`.
 
 - Built initial GameForge product end-to-end (DB schema, OpenAPI, all API routes, full IDE-style frontend with persistent chat panel and 6 workspace sections).
 - Seeded three sample projects (Embers of Aldoria, Last Light Protocol, Smokestack) with entities, rules, players, notes, tasks, and chat history.
-- Verified end-to-end with automated browser tests (13/13 steps passing) and an architect code review; addressed type-safety and query-invalidation findings.
+- Expanded to 14 workspace tabs (added Research, Ontology, Assets, Simulator, Playtesting, Balance, Storyboard, Exports), Clerk auth, multi-provider AI routing, image generation, public feedback share links, admin panel.
+- Added auth + ownership middleware (`middlewares/projectAuth.ts`): `requireAuth` and `requireProjectAccess` are mounted at the `/projects` route prefix in `routes/index.ts`. Project list filters by `ownerUserId` (admins see all). Dashboard endpoints are auth-protected and per-user scoped.
+- Verified ship-readiness with end-to-end browser tests (Clerk login → workspace → simulator/balance/exports/research) and an architect code review; all critical security and contract issues resolved.

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, sql, isNotNull, eq } from "drizzle-orm";
+import { desc, sql, isNotNull, eq, inArray } from "drizzle-orm";
 import {
   db,
   projects,
@@ -8,22 +8,62 @@ import {
   chatMessages,
 } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/projectAuth";
 
 const router: IRouter = Router();
 
-router.get("/dashboard/summary", async (_req, res): Promise<void> => {
+router.use("/dashboard", requireAuth);
+
+async function visibleProjectIds(
+  userId: number | undefined,
+  isAdmin: boolean,
+): Promise<number[]> {
+  if (isAdmin) {
+    const all = await db.select({ id: projects.id }).from(projects);
+    return all.map((p) => p.id);
+  }
+  if (!userId) return [];
+  const own = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.ownerUserId, userId));
+  return own.map((p) => p.id);
+}
+
+router.get("/dashboard/summary", async (req, res): Promise<void> => {
+  const isAdmin = req.appUserRole === "admin";
+  const ids = await visibleProjectIds(req.appUserId, isAdmin);
+
+  if (ids.length === 0) {
+    res.json(
+      schemas.GetDashboardSummaryResponse.parse({
+        projectCount: 0,
+        entityCount: 0,
+        ruleCount: 0,
+        chatMessageCount: 0,
+        gameTypeBreakdown: [],
+        genreBreakdown: [],
+      }),
+    );
+    return;
+  }
+
   const [{ projectCount }] = await db
     .select({ projectCount: sql<number>`count(*)::int` })
-    .from(projects);
+    .from(projects)
+    .where(inArray(projects.id, ids));
   const [{ entityCount }] = await db
     .select({ entityCount: sql<number>`count(*)::int` })
-    .from(entities);
+    .from(entities)
+    .where(inArray(entities.projectId, ids));
   const [{ ruleCount }] = await db
     .select({ ruleCount: sql<number>`count(*)::int` })
-    .from(rules);
+    .from(rules)
+    .where(inArray(rules.projectId, ids));
   const [{ chatMessageCount }] = await db
     .select({ chatMessageCount: sql<number>`count(*)::int` })
-    .from(chatMessages);
+    .from(chatMessages)
+    .where(inArray(chatMessages.projectId, ids));
 
   const gameTypeBreakdown = await db
     .select({
@@ -31,7 +71,7 @@ router.get("/dashboard/summary", async (_req, res): Promise<void> => {
       count: sql<number>`count(*)::int`,
     })
     .from(projects)
-    .where(isNotNull(projects.gameType))
+    .where(sql`${isNotNull(projects.gameType)} AND ${inArray(projects.id, ids)}`)
     .groupBy(projects.gameType)
     .orderBy(desc(sql`count(*)`));
 
@@ -41,7 +81,7 @@ router.get("/dashboard/summary", async (_req, res): Promise<void> => {
       count: sql<number>`count(*)::int`,
     })
     .from(projects)
-    .where(isNotNull(projects.genre))
+    .where(sql`${isNotNull(projects.genre)} AND ${inArray(projects.id, ids)}`)
     .groupBy(projects.genre)
     .orderBy(desc(sql`count(*)`));
 
@@ -57,7 +97,14 @@ router.get("/dashboard/summary", async (_req, res): Promise<void> => {
   );
 });
 
-router.get("/dashboard/recent-activity", async (_req, res): Promise<void> => {
+router.get("/dashboard/recent-activity", async (req, res): Promise<void> => {
+  const isAdmin = req.appUserRole === "admin";
+  const ids = await visibleProjectIds(req.appUserId, isAdmin);
+  if (ids.length === 0) {
+    res.json(schemas.GetRecentActivityResponse.parse([]));
+    return;
+  }
+
   const limit = 20;
   const projectRows = await db
     .select({
@@ -66,6 +113,7 @@ router.get("/dashboard/recent-activity", async (_req, res): Promise<void> => {
       createdAt: projects.createdAt,
     })
     .from(projects)
+    .where(inArray(projects.id, ids))
     .orderBy(desc(projects.createdAt))
     .limit(limit);
 
@@ -79,6 +127,7 @@ router.get("/dashboard/recent-activity", async (_req, res): Promise<void> => {
     })
     .from(entities)
     .innerJoin(projects, eq(projects.id, entities.projectId))
+    .where(inArray(entities.projectId, ids))
     .orderBy(desc(entities.createdAt))
     .limit(limit);
 
@@ -92,6 +141,7 @@ router.get("/dashboard/recent-activity", async (_req, res): Promise<void> => {
     })
     .from(rules)
     .innerJoin(projects, eq(projects.id, rules.projectId))
+    .where(inArray(rules.projectId, ids))
     .orderBy(desc(rules.createdAt))
     .limit(limit);
 
@@ -106,6 +156,7 @@ router.get("/dashboard/recent-activity", async (_req, res): Promise<void> => {
     })
     .from(chatMessages)
     .innerJoin(projects, eq(projects.id, chatMessages.projectId))
+    .where(inArray(chatMessages.projectId, ids))
     .orderBy(desc(chatMessages.createdAt))
     .limit(limit);
 

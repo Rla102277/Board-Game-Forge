@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Trash2, CheckSquare, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
-import { Task } from "@workspace/api-client-react/src/generated/api.schemas";
+import { Task } from "@workspace/api-client-react";
 
 interface TasksProps {
   projectId: number;

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Trash2, StickyNote, Pin } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Note } from "@workspace/api-client-react/src/generated/api.schemas";
+import { Note } from "@workspace/api-client-react";
 
 interface NotesProps {
   projectId: number;

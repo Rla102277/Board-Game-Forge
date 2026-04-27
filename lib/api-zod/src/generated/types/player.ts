@@ -13,9 +13,19 @@ export interface Player {
   /** @nullable */
   role?: string | null;
   /** @nullable */
+  archetype?: string | null;
+  /** @nullable */
   description?: string | null;
   /** @nullable */
   strategy?: string | null;
+  /** @nullable */
+  startingResources?: string | null;
+  /** @nullable */
+  victoryCondition?: string | null;
+  /** @nullable */
+  specialAbility?: string | null;
+  /** @nullable */
+  playstyle?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

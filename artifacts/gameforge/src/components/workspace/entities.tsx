@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Trash2, Wand2, Box } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Entity } from "@workspace/api-client-react/src/generated/api.schemas";
+import { Entity } from "@workspace/api-client-react";
 
 interface EntitiesProps {
   projectId: number;

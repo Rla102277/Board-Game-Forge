@@ -10,7 +10,11 @@ export const tasks = pgTable("tasks", {
     .references(() => projects.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
-  status: text("status").default("backlog").notNull(),
+  status: text("status").default("todo").notNull(),
+  priority: text("priority").default("medium").notNull(),
+  category: text("category"),
+  assignee: text("assignee"),
+  dueDate: timestamp("due_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

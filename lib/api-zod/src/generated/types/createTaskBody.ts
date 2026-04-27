@@ -10,4 +10,8 @@ export interface CreateTaskBody {
   title: string;
   description?: string;
   status?: string;
+  priority?: string;
+  category?: string;
+  assignee?: string;
+  dueDate?: Date;
 }

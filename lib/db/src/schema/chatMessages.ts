@@ -8,11 +8,13 @@ export const chatMessages = pgTable("chat_messages", {
   projectId: integer("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
+  tab: text("tab").default("overview").notNull(),
   role: text("role").notNull(),
   content: text("content").notNull(),
   gameType: text("game_type"),
   genre: text("genre"),
   model: text("model"),
+  provider: text("provider"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

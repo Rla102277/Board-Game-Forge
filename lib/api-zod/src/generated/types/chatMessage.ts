@@ -9,6 +9,7 @@
 export interface ChatMessage {
   id: number;
   projectId: number;
+  tab: string;
   role: string;
   content: string;
   /** @nullable */
@@ -17,5 +18,7 @@ export interface ChatMessage {
   genre?: string | null;
   /** @nullable */
   model?: string | null;
+  /** @nullable */
+  provider?: string | null;
   createdAt: Date;
 }

@@ -9,6 +9,11 @@
 export interface CreatePlayerBody {
   name: string;
   role?: string;
+  archetype?: string;
   description?: string;
   strategy?: string;
+  startingResources?: string;
+  victoryCondition?: string;
+  specialAbility?: string;
+  playstyle?: string;
 }

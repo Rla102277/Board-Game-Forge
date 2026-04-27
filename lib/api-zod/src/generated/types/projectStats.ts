@@ -13,4 +13,7 @@ export interface ProjectStats {
   noteCount: number;
   taskCount: number;
   chatMessageCount: number;
+  researchCount: number;
+  assetCount: number;
+  playtestCount: number;
 }

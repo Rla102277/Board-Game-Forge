@@ -15,8 +15,73 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * @summary Aggregate dashboard statistics across all projects
+ * @summary Get current user profile
  */
+export const GetMeResponse = zod.object({
+  id: zod.number(),
+  clerkUserId: zod.string(),
+  email: zod.string().nullish(),
+  firstName: zod.string().nullish(),
+  lastName: zod.string().nullish(),
+  imageUrl: zod.string().nullish(),
+  role: zod.string(),
+});
+
+export const GetAiSettingsResponse = zod.object({
+  provider: zod.string(),
+  model: zod.string().nullish(),
+  hasApiKey: zod.boolean(),
+});
+
+export const UpdateAiSettingsBody = zod.object({
+  provider: zod.string().optional(),
+  model: zod.string().optional(),
+  apiKey: zod.string().optional(),
+});
+
+export const UpdateAiSettingsResponse = zod.object({
+  provider: zod.string(),
+  model: zod.string().nullish(),
+  hasApiKey: zod.boolean(),
+});
+
+export const ListAdminUsersResponseItem = zod.object({
+  id: zod.number(),
+  clerkUserId: zod.string(),
+  email: zod.string().nullish(),
+  firstName: zod.string().nullish(),
+  lastName: zod.string().nullish(),
+  imageUrl: zod.string().nullish(),
+  role: zod.string(),
+  createdAt: zod.coerce.date(),
+  projectCount: zod.number(),
+});
+export const ListAdminUsersResponse = zod.array(ListAdminUsersResponseItem);
+
+export const UpdateAdminUserParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const UpdateAdminUserBody = zod.object({
+  role: zod.string().optional(),
+});
+
+export const UpdateAdminUserResponse = zod.object({
+  id: zod.number(),
+  clerkUserId: zod.string(),
+  email: zod.string().nullish(),
+  firstName: zod.string().nullish(),
+  lastName: zod.string().nullish(),
+  imageUrl: zod.string().nullish(),
+  role: zod.string(),
+  createdAt: zod.coerce.date(),
+  projectCount: zod.number(),
+});
+
+export const DeleteAdminUserParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
 export const GetDashboardSummaryResponse = zod.object({
   projectCount: zod.number(),
   entityCount: zod.number(),
@@ -36,9 +101,6 @@ export const GetDashboardSummaryResponse = zod.object({
   ),
 });
 
-/**
- * @summary Recent activity across projects
- */
 export const GetRecentActivityResponseItem = zod.object({
   id: zod.string(),
   projectId: zod.number(),
@@ -51,25 +113,22 @@ export const GetRecentActivityResponse = zod.array(
   GetRecentActivityResponseItem,
 );
 
-/**
- * @summary List all board game projects
- */
 export const ListProjectsResponseItem = zod.object({
   id: zod.number(),
+  ownerUserId: zod.number().nullish(),
   name: zod.string(),
   description: zod.string().nullish(),
   gameType: zod.string().nullish(),
   genre: zod.string().nullish(),
   playerCount: zod.string().nullish(),
   targetDuration: zod.string().nullish(),
+  complexityScore: zod.number().nullish(),
+  blueprint: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
 export const ListProjectsResponse = zod.array(ListProjectsResponseItem);
 
-/**
- * @summary Create a board game project
- */
 export const CreateProjectBody = zod.object({
   name: zod.string(),
   description: zod.string().optional(),
@@ -85,12 +144,15 @@ export const GetProjectParams = zod.object({
 
 export const GetProjectResponse = zod.object({
   id: zod.number(),
+  ownerUserId: zod.number().nullish(),
   name: zod.string(),
   description: zod.string().nullish(),
   gameType: zod.string().nullish(),
   genre: zod.string().nullish(),
   playerCount: zod.string().nullish(),
   targetDuration: zod.string().nullish(),
+  complexityScore: zod.number().nullish(),
+  blueprint: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -106,16 +168,21 @@ export const UpdateProjectBody = zod.object({
   genre: zod.string().optional(),
   playerCount: zod.string().optional(),
   targetDuration: zod.string().optional(),
+  complexityScore: zod.number().optional(),
+  blueprint: zod.string().optional(),
 });
 
 export const UpdateProjectResponse = zod.object({
   id: zod.number(),
+  ownerUserId: zod.number().nullish(),
   name: zod.string(),
   description: zod.string().nullish(),
   gameType: zod.string().nullish(),
   genre: zod.string().nullish(),
   playerCount: zod.string().nullish(),
   targetDuration: zod.string().nullish(),
+  complexityScore: zod.number().nullish(),
+  blueprint: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -135,7 +202,158 @@ export const GetProjectStatsResponse = zod.object({
   noteCount: zod.number(),
   taskCount: zod.number(),
   chatMessageCount: zod.number(),
+  researchCount: zod.number(),
+  assetCount: zod.number(),
+  playtestCount: zod.number(),
 });
+
+export const ComputeComplexityParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ComputeComplexityResponse = zod.object({
+  score: zod.number(),
+  breakdown: zod.array(
+    zod.object({
+      factor: zod.string(),
+      value: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Stream a full AI Game Architect blueprint via SSE
+ */
+export const GenerateBlueprintParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const GenerateBlueprintBody = zod.object({
+  prompt: zod.string(),
+});
+
+/**
+ * @summary Ingest pasted document text and produce an AI summary
+ */
+export const IngestTextParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const IngestTextBody = zod.object({
+  title: zod.string(),
+  content: zod.string(),
+});
+
+export const IngestTextResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  content: zod.string().nullish(),
+  source: zod.string().nullish(),
+  tags: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Fetch a URL and produce an AI summary
+ */
+export const IngestUrlParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const IngestUrlBody = zod.object({
+  url: zod.string(),
+});
+
+export const IngestUrlResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  content: zod.string().nullish(),
+  source: zod.string().nullish(),
+  tags: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const ListResearchParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListResearchResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  content: zod.string().nullish(),
+  source: zod.string().nullish(),
+  tags: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListResearchResponse = zod.array(ListResearchResponseItem);
+
+export const CreateResearchParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const CreateResearchBody = zod.object({
+  title: zod.string(),
+  content: zod.string().optional(),
+  source: zod.string().optional(),
+  tags: zod.string().optional(),
+});
+
+export const UpdateResearchParams = zod.object({
+  projectId: zod.coerce.number(),
+  researchId: zod.coerce.number(),
+});
+
+export const UpdateResearchBody = zod.object({
+  title: zod.string().optional(),
+  content: zod.string().optional(),
+  source: zod.string().optional(),
+  tags: zod.string().optional(),
+});
+
+export const UpdateResearchResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  content: zod.string().nullish(),
+  source: zod.string().nullish(),
+  tags: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const DeleteResearchParams = zod.object({
+  projectId: zod.coerce.number(),
+  researchId: zod.coerce.number(),
+});
+
+export const AiGenerateResearchParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const AiGenerateResearchBody = zod.object({
+  prompt: zod.string(),
+  count: zod.number().optional(),
+});
+
+export const AiGenerateResearchResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  content: zod.string().nullish(),
+  source: zod.string().nullish(),
+  tags: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const AiGenerateResearchResponse = zod.array(
+  AiGenerateResearchResponseItem,
+);
 
 export const ListEntitiesParams = zod.object({
   projectId: zod.coerce.number(),
@@ -146,9 +364,11 @@ export const ListEntitiesResponseItem = zod.object({
   projectId: zod.number(),
   name: zod.string(),
   type: zod.string(),
+  subtype: zod.string().nullish(),
   description: zod.string().nullish(),
   stats: zod.string().nullish(),
   color: zod.string().nullish(),
+  relatedTo: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -161,9 +381,11 @@ export const CreateEntityParams = zod.object({
 export const CreateEntityBody = zod.object({
   name: zod.string(),
   type: zod.string(),
+  subtype: zod.string().optional(),
   description: zod.string().optional(),
   stats: zod.string().optional(),
   color: zod.string().optional(),
+  relatedTo: zod.string().optional(),
 });
 
 export const UpdateEntityParams = zod.object({
@@ -174,9 +396,11 @@ export const UpdateEntityParams = zod.object({
 export const UpdateEntityBody = zod.object({
   name: zod.string().optional(),
   type: zod.string().optional(),
+  subtype: zod.string().optional(),
   description: zod.string().optional(),
   stats: zod.string().optional(),
   color: zod.string().optional(),
+  relatedTo: zod.string().optional(),
 });
 
 export const UpdateEntityResponse = zod.object({
@@ -184,9 +408,11 @@ export const UpdateEntityResponse = zod.object({
   projectId: zod.number(),
   name: zod.string(),
   type: zod.string(),
+  subtype: zod.string().nullish(),
   description: zod.string().nullish(),
   stats: zod.string().nullish(),
   color: zod.string().nullish(),
+  relatedTo: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -210,15 +436,109 @@ export const AiGenerateEntitiesResponseItem = zod.object({
   projectId: zod.number(),
   name: zod.string(),
   type: zod.string(),
+  subtype: zod.string().nullish(),
   description: zod.string().nullish(),
   stats: zod.string().nullish(),
   color: zod.string().nullish(),
+  relatedTo: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
 export const AiGenerateEntitiesResponse = zod.array(
   AiGenerateEntitiesResponseItem,
 );
+
+export const AiEnhanceEntityParams = zod.object({
+  projectId: zod.coerce.number(),
+  entityId: zod.coerce.number(),
+});
+
+export const AiEnhanceEntityResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  type: zod.string(),
+  subtype: zod.string().nullish(),
+  description: zod.string().nullish(),
+  stats: zod.string().nullish(),
+  color: zod.string().nullish(),
+  relatedTo: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const ListEntityPropertiesParams = zod.object({
+  projectId: zod.coerce.number(),
+  entityId: zod.coerce.number(),
+});
+
+export const ListEntityPropertiesResponseItem = zod.object({
+  id: zod.number(),
+  entityId: zod.number(),
+  name: zod.string(),
+  dataType: zod.string(),
+  unit: zod.string().nullish(),
+  value: zod.number().nullish(),
+  textValue: zod.string().nullish(),
+  minValue: zod.number().nullish(),
+  maxValue: zod.number().nullish(),
+  defaultValue: zod.number().nullish(),
+});
+export const ListEntityPropertiesResponse = zod.array(
+  ListEntityPropertiesResponseItem,
+);
+
+export const CreateEntityPropertyParams = zod.object({
+  projectId: zod.coerce.number(),
+  entityId: zod.coerce.number(),
+});
+
+export const CreateEntityPropertyBody = zod.object({
+  name: zod.string(),
+  dataType: zod.string().optional(),
+  unit: zod.string().optional(),
+  value: zod.number().optional(),
+  textValue: zod.string().optional(),
+  minValue: zod.number().optional(),
+  maxValue: zod.number().optional(),
+  defaultValue: zod.number().optional(),
+});
+
+export const UpdateEntityPropertyParams = zod.object({
+  projectId: zod.coerce.number(),
+  entityId: zod.coerce.number(),
+  propertyId: zod.coerce.number(),
+});
+
+export const UpdateEntityPropertyBody = zod.object({
+  name: zod.string().optional(),
+  dataType: zod.string().optional(),
+  unit: zod.string().optional(),
+  value: zod.number().optional(),
+  textValue: zod.string().optional(),
+  minValue: zod.number().optional(),
+  maxValue: zod.number().optional(),
+  defaultValue: zod.number().optional(),
+});
+
+export const UpdateEntityPropertyResponse = zod.object({
+  id: zod.number(),
+  entityId: zod.number(),
+  name: zod.string(),
+  dataType: zod.string(),
+  unit: zod.string().nullish(),
+  value: zod.number().nullish(),
+  textValue: zod.string().nullish(),
+  minValue: zod.number().nullish(),
+  maxValue: zod.number().nullish(),
+  defaultValue: zod.number().nullish(),
+});
+
+export const DeleteEntityPropertyParams = zod.object({
+  projectId: zod.coerce.number(),
+  entityId: zod.coerce.number(),
+  propertyId: zod.coerce.number(),
+});
 
 export const ListRulesParams = zod.object({
   projectId: zod.coerce.number(),
@@ -296,6 +616,38 @@ export const AiGenerateRulesResponseItem = zod.object({
 });
 export const AiGenerateRulesResponse = zod.array(AiGenerateRulesResponseItem);
 
+export const AiEnhanceRuleParams = zod.object({
+  projectId: zod.coerce.number(),
+  ruleId: zod.coerce.number(),
+});
+
+export const AiEnhanceRuleResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  content: zod.string(),
+  category: zod.string().nullish(),
+  priority: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const ConflictCheckRulesParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ConflictCheckRulesResponse = zod.object({
+  conflicts: zod.array(
+    zod.object({
+      ruleIds: zod.array(zod.number()),
+      severity: zod.string(),
+      description: zod.string(),
+      suggestion: zod.string().optional(),
+    }),
+  ),
+  summary: zod.string(),
+});
+
 export const ListPlayersParams = zod.object({
   projectId: zod.coerce.number(),
 });
@@ -305,8 +657,13 @@ export const ListPlayersResponseItem = zod.object({
   projectId: zod.number(),
   name: zod.string(),
   role: zod.string().nullish(),
+  archetype: zod.string().nullish(),
   description: zod.string().nullish(),
   strategy: zod.string().nullish(),
+  startingResources: zod.string().nullish(),
+  victoryCondition: zod.string().nullish(),
+  specialAbility: zod.string().nullish(),
+  playstyle: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -319,8 +676,13 @@ export const CreatePlayerParams = zod.object({
 export const CreatePlayerBody = zod.object({
   name: zod.string(),
   role: zod.string().optional(),
+  archetype: zod.string().optional(),
   description: zod.string().optional(),
   strategy: zod.string().optional(),
+  startingResources: zod.string().optional(),
+  victoryCondition: zod.string().optional(),
+  specialAbility: zod.string().optional(),
+  playstyle: zod.string().optional(),
 });
 
 export const UpdatePlayerParams = zod.object({
@@ -331,8 +693,13 @@ export const UpdatePlayerParams = zod.object({
 export const UpdatePlayerBody = zod.object({
   name: zod.string().optional(),
   role: zod.string().optional(),
+  archetype: zod.string().optional(),
   description: zod.string().optional(),
   strategy: zod.string().optional(),
+  startingResources: zod.string().optional(),
+  victoryCondition: zod.string().optional(),
+  specialAbility: zod.string().optional(),
+  playstyle: zod.string().optional(),
 });
 
 export const UpdatePlayerResponse = zod.object({
@@ -340,8 +707,13 @@ export const UpdatePlayerResponse = zod.object({
   projectId: zod.number(),
   name: zod.string(),
   role: zod.string().nullish(),
+  archetype: zod.string().nullish(),
   description: zod.string().nullish(),
   strategy: zod.string().nullish(),
+  startingResources: zod.string().nullish(),
+  victoryCondition: zod.string().nullish(),
+  specialAbility: zod.string().nullish(),
+  playstyle: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -349,6 +721,55 @@ export const UpdatePlayerResponse = zod.object({
 export const DeletePlayerParams = zod.object({
   projectId: zod.coerce.number(),
   playerId: zod.coerce.number(),
+});
+
+export const AiGeneratePlayersParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const AiGeneratePlayersBody = zod.object({
+  prompt: zod.string(),
+  count: zod.number().optional(),
+});
+
+export const AiGeneratePlayersResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  role: zod.string().nullish(),
+  archetype: zod.string().nullish(),
+  description: zod.string().nullish(),
+  strategy: zod.string().nullish(),
+  startingResources: zod.string().nullish(),
+  victoryCondition: zod.string().nullish(),
+  specialAbility: zod.string().nullish(),
+  playstyle: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const AiGeneratePlayersResponse = zod.array(
+  AiGeneratePlayersResponseItem,
+);
+
+export const AiEnhancePlayerParams = zod.object({
+  projectId: zod.coerce.number(),
+  playerId: zod.coerce.number(),
+});
+
+export const AiEnhancePlayerResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  role: zod.string().nullish(),
+  archetype: zod.string().nullish(),
+  description: zod.string().nullish(),
+  strategy: zod.string().nullish(),
+  startingResources: zod.string().nullish(),
+  victoryCondition: zod.string().nullish(),
+  specialAbility: zod.string().nullish(),
+  playstyle: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
 });
 
 export const ListNotesParams = zod.object({
@@ -359,9 +780,11 @@ export const ListNotesResponseItem = zod.object({
   id: zod.number(),
   projectId: zod.number(),
   title: zod.string().nullish(),
+  topic: zod.string().nullish(),
   content: zod.string().nullish(),
   color: zod.string().nullish(),
   pinned: zod.boolean(),
+  lookAtLater: zod.boolean(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -373,9 +796,11 @@ export const CreateNoteParams = zod.object({
 
 export const CreateNoteBody = zod.object({
   title: zod.string().optional(),
+  topic: zod.string().optional(),
   content: zod.string().optional(),
   color: zod.string().optional(),
   pinned: zod.boolean().optional(),
+  lookAtLater: zod.boolean().optional(),
 });
 
 export const UpdateNoteParams = zod.object({
@@ -385,18 +810,22 @@ export const UpdateNoteParams = zod.object({
 
 export const UpdateNoteBody = zod.object({
   title: zod.string().optional(),
+  topic: zod.string().optional(),
   content: zod.string().optional(),
   color: zod.string().optional(),
   pinned: zod.boolean().optional(),
+  lookAtLater: zod.boolean().optional(),
 });
 
 export const UpdateNoteResponse = zod.object({
   id: zod.number(),
   projectId: zod.number(),
   title: zod.string().nullish(),
+  topic: zod.string().nullish(),
   content: zod.string().nullish(),
   color: zod.string().nullish(),
   pinned: zod.boolean(),
+  lookAtLater: zod.boolean(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -416,6 +845,10 @@ export const ListTasksResponseItem = zod.object({
   title: zod.string(),
   description: zod.string().nullish(),
   status: zod.string(),
+  priority: zod.string(),
+  category: zod.string().nullish(),
+  assignee: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -429,6 +862,10 @@ export const CreateTaskBody = zod.object({
   title: zod.string(),
   description: zod.string().optional(),
   status: zod.string().optional(),
+  priority: zod.string().optional(),
+  category: zod.string().optional(),
+  assignee: zod.string().optional(),
+  dueDate: zod.coerce.date().optional(),
 });
 
 export const UpdateTaskParams = zod.object({
@@ -440,6 +877,10 @@ export const UpdateTaskBody = zod.object({
   title: zod.string().optional(),
   description: zod.string().optional(),
   status: zod.string().optional(),
+  priority: zod.string().optional(),
+  category: zod.string().optional(),
+  assignee: zod.string().optional(),
+  dueDate: zod.coerce.date().optional(),
 });
 
 export const UpdateTaskResponse = zod.object({
@@ -448,6 +889,10 @@ export const UpdateTaskResponse = zod.object({
   title: zod.string(),
   description: zod.string().nullish(),
   status: zod.string(),
+  priority: zod.string(),
+  category: zod.string().nullish(),
+  assignee: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -461,20 +906,30 @@ export const ListChatMessagesParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const ListChatMessagesQueryParams = zod.object({
+  tab: zod.coerce.string().optional(),
+});
+
 export const ListChatMessagesResponseItem = zod.object({
   id: zod.number(),
   projectId: zod.number(),
+  tab: zod.string(),
   role: zod.string(),
   content: zod.string(),
   gameType: zod.string().nullish(),
   genre: zod.string().nullish(),
   model: zod.string().nullish(),
+  provider: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListChatMessagesResponse = zod.array(ListChatMessagesResponseItem);
 
 export const ClearChatMessagesParams = zod.object({
   projectId: zod.coerce.number(),
+});
+
+export const ClearChatMessagesQueryParams = zod.object({
+  tab: zod.coerce.string().optional(),
 });
 
 /**
@@ -486,7 +941,416 @@ export const SendChatMessageParams = zod.object({
 
 export const SendChatMessageBody = zod.object({
   content: zod.string(),
+  tab: zod.string().optional(),
   gameType: zod.string().optional(),
   genre: zod.string().optional(),
   model: zod.string().optional(),
+});
+
+export const ListAssetsParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListAssetsResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  entityId: zod.number().nullish(),
+  name: zod.string(),
+  kind: zod.string(),
+  description: zod.string().nullish(),
+  flavorText: zod.string().nullish(),
+  imageDataUrl: zod.string().nullish(),
+  imagePrompt: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListAssetsResponse = zod.array(ListAssetsResponseItem);
+
+export const CreateAssetParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const CreateAssetBody = zod.object({
+  name: zod.string(),
+  kind: zod.string().optional(),
+  entityId: zod.number().optional(),
+  description: zod.string().optional(),
+  flavorText: zod.string().optional(),
+  imagePrompt: zod.string().optional(),
+});
+
+export const UpdateAssetParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const UpdateAssetBody = zod.object({
+  name: zod.string().optional(),
+  kind: zod.string().optional(),
+  entityId: zod.number().optional(),
+  description: zod.string().optional(),
+  flavorText: zod.string().optional(),
+  imagePrompt: zod.string().optional(),
+});
+
+export const UpdateAssetResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  entityId: zod.number().nullish(),
+  name: zod.string(),
+  kind: zod.string(),
+  description: zod.string().nullish(),
+  flavorText: zod.string().nullish(),
+  imageDataUrl: zod.string().nullish(),
+  imagePrompt: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const DeleteAssetParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const AiDescribeAssetParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const AiDescribeAssetResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  entityId: zod.number().nullish(),
+  name: zod.string(),
+  kind: zod.string(),
+  description: zod.string().nullish(),
+  flavorText: zod.string().nullish(),
+  imageDataUrl: zod.string().nullish(),
+  imagePrompt: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const GenerateAssetImageParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const GenerateAssetImageBody = zod.object({
+  prompt: zod.string(),
+  size: zod.string().optional(),
+});
+
+export const GenerateAssetImageResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  entityId: zod.number().nullish(),
+  name: zod.string(),
+  kind: zod.string(),
+  description: zod.string().nullish(),
+  flavorText: zod.string().nullish(),
+  imageDataUrl: zod.string().nullish(),
+  imagePrompt: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const RunSimulatorParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const RunSimulatorBody = zod.object({
+  iterations: zod.number(),
+  turns: zod.number(),
+  startingResources: zod.number().optional(),
+  incomePerTurn: zod.number().optional(),
+  upkeepPerTurn: zod.number().optional(),
+  randomness: zod.number().optional(),
+});
+
+export const RunSimulatorResponse = zod.object({
+  healthScore: zod.number(),
+  verdict: zod.string(),
+  meanFinal: zod.number(),
+  bankruptRate: zod.number(),
+  turns: zod.array(
+    zod.object({
+      turn: zod.number(),
+      p10: zod.number(),
+      p50: zod.number(),
+      p90: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Stream an AI playthrough narrative via SSE
+ */
+export const SimulatorPlaythroughParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const SimulatorPlaythroughBody = zod.object({
+  focus: zod.string().optional(),
+});
+
+export const ListPlaytestSessionsParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListPlaytestSessionsResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  date: zod.coerce.date(),
+  playerCount: zod.number().nullish(),
+  durationMinutes: zod.number().nullish(),
+  rating: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  issues: zod.string().nullish(),
+  positives: zod.string().nullish(),
+  suggestions: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListPlaytestSessionsResponse = zod.array(
+  ListPlaytestSessionsResponseItem,
+);
+
+export const CreatePlaytestSessionParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const CreatePlaytestSessionBody = zod.object({
+  date: zod.coerce.date().optional(),
+  playerCount: zod.number().optional(),
+  durationMinutes: zod.number().optional(),
+  rating: zod.number().optional(),
+  notes: zod.string().optional(),
+  issues: zod.string().optional(),
+  positives: zod.string().optional(),
+  suggestions: zod.string().optional(),
+});
+
+export const UpdatePlaytestSessionParams = zod.object({
+  projectId: zod.coerce.number(),
+  sessionId: zod.coerce.number(),
+});
+
+export const UpdatePlaytestSessionBody = zod.object({
+  date: zod.coerce.date().optional(),
+  playerCount: zod.number().optional(),
+  durationMinutes: zod.number().optional(),
+  rating: zod.number().optional(),
+  notes: zod.string().optional(),
+  issues: zod.string().optional(),
+  positives: zod.string().optional(),
+  suggestions: zod.string().optional(),
+});
+
+export const UpdatePlaytestSessionResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  date: zod.coerce.date(),
+  playerCount: zod.number().nullish(),
+  durationMinutes: zod.number().nullish(),
+  rating: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  issues: zod.string().nullish(),
+  positives: zod.string().nullish(),
+  suggestions: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const DeletePlaytestSessionParams = zod.object({
+  projectId: zod.coerce.number(),
+  sessionId: zod.coerce.number(),
+});
+
+export const ListPlaytestFeedbackParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListPlaytestFeedbackResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  respondentName: zod.string().nullish(),
+  funScore: zod.number().nullish(),
+  balanceScore: zod.number().nullish(),
+  clarityScore: zod.number().nullish(),
+  whatWorked: zod.string().nullish(),
+  whatDidNot: zod.string().nullish(),
+  suggestions: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListPlaytestFeedbackResponse = zod.array(
+  ListPlaytestFeedbackResponseItem,
+);
+
+export const GetPlaytestShareLinkParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const GetPlaytestShareLinkResponse = zod.object({
+  token: zod.string(),
+  url: zod.string(),
+});
+
+export const GetPublicFeedbackProjectParams = zod.object({
+  shareToken: zod.coerce.string(),
+});
+
+export const GetPublicFeedbackProjectResponse = zod.object({
+  projectName: zod.string(),
+  gameType: zod.string().nullish(),
+  genre: zod.string().nullish(),
+  description: zod.string().nullish(),
+});
+
+export const SubmitPublicFeedbackParams = zod.object({
+  shareToken: zod.coerce.string(),
+});
+
+export const SubmitPublicFeedbackBody = zod.object({
+  respondentName: zod.string().optional(),
+  funScore: zod.number().optional(),
+  balanceScore: zod.number().optional(),
+  clarityScore: zod.number().optional(),
+  whatWorked: zod.string().optional(),
+  whatDidNot: zod.string().optional(),
+  suggestions: zod.string().optional(),
+});
+
+export const ListStoryboardNodesParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListStoryboardNodesResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  parentId: zod.number().nullish(),
+  title: zod.string(),
+  content: zod.string().nullish(),
+  nodeType: zod.string(),
+  status: zod.string(),
+  color: zod.string().nullish(),
+  positionX: zod.number(),
+  positionY: zod.number(),
+  linkedRuleId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListStoryboardNodesResponse = zod.array(
+  ListStoryboardNodesResponseItem,
+);
+
+export const CreateStoryboardNodeParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const CreateStoryboardNodeBody = zod.object({
+  parentId: zod.number().optional(),
+  title: zod.string(),
+  content: zod.string().optional(),
+  nodeType: zod.string().optional(),
+  status: zod.string().optional(),
+  color: zod.string().optional(),
+  positionX: zod.number().optional(),
+  positionY: zod.number().optional(),
+  linkedRuleId: zod.number().optional(),
+});
+
+export const UpdateStoryboardNodeParams = zod.object({
+  projectId: zod.coerce.number(),
+  nodeId: zod.coerce.number(),
+});
+
+export const UpdateStoryboardNodeBody = zod.object({
+  parentId: zod.number().optional(),
+  title: zod.string().optional(),
+  content: zod.string().optional(),
+  nodeType: zod.string().optional(),
+  status: zod.string().optional(),
+  color: zod.string().optional(),
+  positionX: zod.number().optional(),
+  positionY: zod.number().optional(),
+  linkedRuleId: zod.number().optional(),
+});
+
+export const UpdateStoryboardNodeResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  parentId: zod.number().nullish(),
+  title: zod.string(),
+  content: zod.string().nullish(),
+  nodeType: zod.string(),
+  status: zod.string(),
+  color: zod.string().nullish(),
+  positionX: zod.number(),
+  positionY: zod.number(),
+  linkedRuleId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const DeleteStoryboardNodeParams = zod.object({
+  projectId: zod.coerce.number(),
+  nodeId: zod.coerce.number(),
+});
+
+export const GetBalanceReportParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const GetBalanceReportResponse = zod.object({
+  balanceScore: zod.number(),
+  verdict: zod.string(),
+  statSeries: zod.array(
+    zod.object({
+      statName: zod.string(),
+      entries: zod.array(
+        zod.object({
+          entityId: zod.number(),
+          entityName: zod.string(),
+          value: zod.number(),
+        }),
+      ),
+    }),
+  ),
+  conflictCount: zod.number(),
+});
+
+export const ListChangelogParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListChangelogResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  actor: zod.string().nullish(),
+  action: zod.string(),
+  entityKind: zod.string().nullish(),
+  entityRef: zod.string().nullish(),
+  summary: zod.string(),
+  details: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListChangelogResponse = zod.array(ListChangelogResponseItem);
+
+export const GenerateExportParams = zod.object({
+  projectId: zod.coerce.number(),
+  kind: zod.enum([
+    "tts-json",
+    "rulebook-md",
+    "kickstarter",
+    "sell-sheet",
+    "press-kit",
+  ]),
+});
+
+export const GenerateExportResponse = zod.object({
+  kind: zod.string(),
+  contentType: zod.string(),
+  content: zod.string(),
+  filename: zod.string(),
 });

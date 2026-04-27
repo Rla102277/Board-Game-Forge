@@ -12,11 +12,15 @@ export interface Entity {
   name: string;
   type: string;
   /** @nullable */
+  subtype?: string | null;
+  /** @nullable */
   description?: string | null;
   /** @nullable */
   stats?: string | null;
   /** @nullable */
   color?: string | null;
+  /** @nullable */
+  relatedTo?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

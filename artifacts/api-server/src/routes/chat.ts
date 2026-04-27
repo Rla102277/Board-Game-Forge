@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import {
   db,
   chatMessages,
@@ -9,11 +9,30 @@ import {
   players,
 } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
-import { anthropic } from "@workspace/integrations-anthropic-ai";
+import { stream } from "../lib/aiRouter";
 
 const router: IRouter = Router();
 
-const ALLOWED_MODELS = new Set(["claude-sonnet-4-6", "claude-haiku-4-5"]);
+const VALID_TABS = new Set([
+  "overview",
+  "research",
+  "ontology",
+  "players",
+  "rules",
+  "simulator",
+  "assets",
+  "playtesting",
+  "tasks",
+  "balance",
+  "export",
+  "notes",
+  "storyboard",
+]);
+
+function tabFromQuery(q: unknown): string {
+  const t = typeof q === "string" ? q : "overview";
+  return VALID_TABS.has(t) ? t : "overview";
+}
 
 router.get("/projects/:projectId/chat", async (req, res): Promise<void> => {
   const params = schemas.ListChatMessagesParams.safeParse(req.params);
@@ -21,10 +40,16 @@ router.get("/projects/:projectId/chat", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const tab = tabFromQuery(req.query.tab);
   const rows = await db
     .select()
     .from(chatMessages)
-    .where(eq(chatMessages.projectId, params.data.projectId))
+    .where(
+      and(
+        eq(chatMessages.projectId, params.data.projectId),
+        eq(chatMessages.tab, tab),
+      ),
+    )
     .orderBy(asc(chatMessages.createdAt));
   res.json(schemas.ListChatMessagesResponse.parse(rows));
 });
@@ -35,7 +60,15 @@ router.delete("/projects/:projectId/chat", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  await db.delete(chatMessages).where(eq(chatMessages.projectId, params.data.projectId));
+  const tab = tabFromQuery(req.query.tab);
+  await db
+    .delete(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.projectId, params.data.projectId),
+        eq(chatMessages.tab, tab),
+      ),
+    );
   res.sendStatus(204);
 });
 
@@ -51,11 +84,8 @@ router.post("/projects/:projectId/chat/send", async (req, res): Promise<void> =>
     return;
   }
   const projectId = params.data.projectId;
+  const tab = parsed.data.tab && VALID_TABS.has(parsed.data.tab) ? parsed.data.tab : "overview";
   const { content, gameType, genre } = parsed.data;
-  const model =
-    parsed.data.model && ALLOWED_MODELS.has(parsed.data.model)
-      ? parsed.data.model
-      : "claude-sonnet-4-6";
 
   const [project] = await db
     .select()
@@ -68,70 +98,71 @@ router.post("/projects/:projectId/chat/send", async (req, res): Promise<void> =>
 
   await db.insert(chatMessages).values({
     projectId,
+    tab,
     role: "user",
     content,
     gameType: gameType ?? null,
     genre: genre ?? null,
-    model,
+    model: parsed.data.model ?? null,
   });
 
   const history = await db
     .select()
     .from(chatMessages)
-    .where(eq(chatMessages.projectId, projectId))
+    .where(
+      and(eq(chatMessages.projectId, projectId), eq(chatMessages.tab, tab)),
+    )
     .orderBy(asc(chatMessages.createdAt));
 
-  const projectEntities = await db
-    .select()
-    .from(entities)
-    .where(eq(entities.projectId, projectId));
-  const projectRules = await db
-    .select()
-    .from(rules)
-    .where(eq(rules.projectId, projectId));
-  const projectPlayers = await db
-    .select()
-    .from(players)
-    .where(eq(players.projectId, projectId));
+  const [es, rs, ps] = await Promise.all([
+    db.select().from(entities).where(eq(entities.projectId, projectId)),
+    db.select().from(rules).where(eq(rules.projectId, projectId)),
+    db.select().from(players).where(eq(players.projectId, projectId)),
+  ]);
+
+  const tabPrompts: Record<string, string> = {
+    overview: "You are an AI Game Architect helping the designer iterate on the game's high-level concept, hook, and pillars.",
+    research: "You are a research assistant helping the designer explore mechanics, comps, and references.",
+    ontology: "You are a game systems analyst helping the designer build entity taxonomies and properties.",
+    players: "You are a player-archetype consultant helping the designer balance asymmetric factions.",
+    rules: "You are a rules editor helping the designer write tight, unambiguous game rules.",
+    simulator: "You are a game-balance analyst helping the designer reason about playthroughs and economy.",
+    assets: "You are an art director helping the designer specify card flavor, themes, and component aesthetics.",
+    playtesting: "You are a playtest coordinator helping the designer interpret session feedback.",
+    tasks: "You are a project manager helping the designer triage their backlog.",
+    balance: "You are a numerical balance analyst.",
+    export: "You are a publishing assistant helping prepare deliverables.",
+    notes: "You are a brainstorming partner for free-form design ideas.",
+    storyboard: "You are a narrative designer helping plan rule variants and branching design directions.",
+  };
 
   const contextLines: string[] = [];
   contextLines.push(
     `Project: ${project.name}${project.description ? ` — ${project.description}` : ""}`,
   );
-  if (project.gameType) contextLines.push(`Project game type: ${project.gameType}`);
-  if (project.genre) contextLines.push(`Project genre: ${project.genre}`);
+  if (project.gameType) contextLines.push(`Game type: ${project.gameType}`);
+  if (project.genre) contextLines.push(`Genre: ${project.genre}`);
   if (project.playerCount) contextLines.push(`Player count: ${project.playerCount}`);
   if (project.targetDuration) contextLines.push(`Target duration: ${project.targetDuration}`);
   if (gameType) contextLines.push(`Current focus — game type: ${gameType}`);
   if (genre) contextLines.push(`Current focus — genre: ${genre}`);
-  if (projectEntities.length) {
+  if (es.length)
     contextLines.push(
-      `Entities (${projectEntities.length}): ${projectEntities
-        .slice(0, 12)
-        .map((e) => `${e.name} (${e.type})`)
-        .join(", ")}`,
+      `Entities (${es.length}): ${es.slice(0, 12).map((e) => `${e.name} (${e.type})`).join(", ")}`,
     );
-  }
-  if (projectRules.length) {
+  if (rs.length)
     contextLines.push(
-      `Rules (${projectRules.length}): ${projectRules
-        .slice(0, 8)
-        .map((r) => r.title)
-        .join("; ")}`,
+      `Rules (${rs.length}): ${rs.slice(0, 8).map((r) => r.title).join("; ")}`,
     );
-  }
-  if (projectPlayers.length) {
+  if (ps.length)
     contextLines.push(
-      `Players (${projectPlayers.length}): ${projectPlayers
-        .slice(0, 8)
-        .map((p) => `${p.name}${p.role ? ` — ${p.role}` : ""}`)
-        .join(", ")}`,
+      `Players (${ps.length}): ${ps.slice(0, 8).map((p) => `${p.name}${p.role ? ` — ${p.role}` : ""}`).join(", ")}`,
     );
-  }
 
-  const systemPrompt = `You are GameForge, an AI co-designer for tabletop board games. You help indie designers iterate on rules, components, balance, and theme.
+  const tabIntro = tabPrompts[tab] ?? tabPrompts.overview;
+  const systemPrompt = `${tabIntro}
 
-Be concise, specific, and opinionated. Reference real published games when useful. Suggest concrete changes (numbers, mechanics, components) rather than vague advice. Prefer short numbered or bulleted lists over walls of prose.
+You are GameForge, an AI co-designer for tabletop board games. Be concise, specific, and opinionated. Prefer short numbered or bulleted lists over walls of prose. Suggest concrete numbers and mechanics rather than vague advice. Use markdown.
 
 Current project context:
 ${contextLines.join("\n")}`;
@@ -148,45 +179,41 @@ ${contextLines.join("\n")}`;
   res.flushHeaders?.();
 
   let assistantText = "";
-
+  let usedModel = "";
+  let usedProvider = "";
   try {
-    const stream = await anthropic.messages.stream({
-      model,
-      max_tokens: 2048,
+    const result = await stream(req, {
+      kind: "narrative",
       system: systemPrompt,
       messages: apiMessages,
+      maxTokens: 2048,
+      onChunk: (piece) => {
+        assistantText += piece;
+        res.write(`data: ${JSON.stringify({ content: piece })}\n\n`);
+      },
     });
-
-    for await (const event of stream) {
-      if (
-        event.type === "content_block_delta" &&
-        event.delta.type === "text_delta"
-      ) {
-        const chunk = event.delta.text;
-        assistantText += chunk;
-        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
-      }
-    }
-
+    usedModel = result.model;
+    usedProvider = result.provider;
     if (assistantText.length > 0) {
       await db.insert(chatMessages).values({
         projectId,
+        tab,
         role: "assistant",
         content: assistantText,
         gameType: gameType ?? null,
         genre: genre ?? null,
-        model,
+        model: usedModel,
+        provider: usedProvider,
       });
     }
-
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({ done: true, model: usedModel, provider: usedProvider })}\n\n`,
+    );
     res.end();
   } catch (err) {
     req.log.error({ err }, "chat stream failed");
     res.write(
-      `data: ${JSON.stringify({
-        error: "AI request failed. Please try again.",
-      })}\n\n`,
+      `data: ${JSON.stringify({ error: "AI request failed. Please try again." })}\n\n`,
     );
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();

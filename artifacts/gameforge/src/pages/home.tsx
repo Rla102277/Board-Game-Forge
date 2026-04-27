@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { Plus, LayoutDashboard, Activity, Gamepad2, Folder, Trash2, Settings, MoreVertical } from "lucide-react";
+import { Plus, LayoutDashboard, Activity, Gamepad2, Folder, Trash2, Settings, MoreVertical, User as UserIcon, LogOut, Shield } from "lucide-react";
+import { useUser, useClerk } from "@clerk/react";
 import { useState } from "react";
 import { useListProjects, useGetDashboardSummary, useGetRecentActivity, useCreateProject, useDeleteProject, getListProjectsQueryKey, getGetDashboardSummaryQueryKey, getGetRecentActivityQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useQueryClient } from "@tanstack/react-query";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 
 export default function Home() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const { data: projects, isLoading: projectsLoading } = useListProjects();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
@@ -68,12 +71,13 @@ export default function Home() {
             </h1>
             <p className="text-muted-foreground mt-2 text-lg">Your AI-powered board game design studio.</p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="gap-2">
-                <Plus className="h-5 w-5" /> New Project
-              </Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-3">
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button size="lg" className="gap-2">
+                  <Plus className="h-5 w-5" /> New Project
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Create New Project</DialogTitle>
@@ -117,6 +121,29 @@ export default function Home() {
               </form>
             </DialogContent>
           </Dialog>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="rounded-full hover:ring-2 hover:ring-primary/40 transition-all">
+                  {user?.imageUrl ? (
+                    <img src={user.imageUrl} alt="" className="h-10 w-10 rounded-full" />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center font-bold">{(user?.firstName?.[0] || user?.primaryEmailAddress?.emailAddress?.[0] || "U").toUpperCase()}</div>
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <div className="px-2 py-1.5 text-sm">
+                  <div className="font-medium">{user?.firstName || "User"}</div>
+                  <div className="text-xs text-muted-foreground truncate">{user?.primaryEmailAddress?.emailAddress}</div>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild><Link href="/account"><UserIcon className="h-4 w-4 mr-2" /> Account</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link href="/admin"><Shield className="h-4 w-4 mr-2" /> Admin</Link></DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut({ redirectUrl: "/" })}><LogOut className="h-4 w-4 mr-2" /> Sign out</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

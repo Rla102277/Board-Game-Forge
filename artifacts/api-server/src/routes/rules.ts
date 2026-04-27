@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { and, eq, asc } from "drizzle-orm";
 import { db, rules } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
-import { anthropic } from "@workspace/integrations-anthropic-ai";
+import { complete, tryParseJsonArray, tryParseJsonObject } from "../lib/aiRouter";
 
 const router: IRouter = Router();
 
@@ -95,34 +95,22 @@ router.post("/projects/:projectId/rules/ai-generate", async (req, res): Promise<
     return;
   }
   const count = parsed.data.count ?? 5;
-  const prompt = `You are codifying the rulebook for a tabletop board game.
+  try {
+    const text = await complete(req, {
+      prompt: `You are codifying the rulebook for a tabletop board game.
 Generate exactly ${count} concise game rules based on this brief: "${parsed.data.prompt}"
 
-Return ONLY a JSON array (no prose, no code fences) with this exact shape:
-[{"title": "...", "category": "...", "content": "...", "priority": 0}]
-- category is one of: "Setup", "Turn", "Combat", "Scoring", "Endgame", "Component"
-- title is under 60 chars.
-- content is 1-3 sentences explaining the rule precisely.
-- priority is 0 (highest) to 4 (lowest).
-Output JUST the JSON array.`;
-
-  try {
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2048,
-      messages: [{ role: "user", content: prompt }],
+Return ONLY a JSON array (no prose, no code fences):
+[{"title":"...","category":"...","content":"...","priority":0}]
+- category is one of: "Setup","Turn","Combat","Scoring","Endgame","Component","Variant","Optional"
+- title under 60 chars.
+- content is 1-3 sentences.
+- priority 0 (highest) to 4 (lowest).
+Output JUST the JSON array.`,
+      maxTokens: 2048,
     });
-    const block = message.content[0];
-    const text = block && block.type === "text" ? block.text : "[]";
-    const cleaned = text.trim().replace(/^```json\s*/i, "").replace(/```$/, "").trim();
-    let generated: Array<{ title: string; content: string; category?: string; priority?: number }> = [];
-    try {
-      generated = JSON.parse(cleaned);
-    } catch {
-      const match = cleaned.match(/\[[\s\S]*\]/);
-      if (match) generated = JSON.parse(match[0]);
-    }
-    if (!Array.isArray(generated) || generated.length === 0) {
+    const generated = tryParseJsonArray<{ title?: string; content?: string; category?: string; priority?: number }>(text);
+    if (generated.length === 0) {
       res.status(502).json({ error: "AI returned no rules" });
       return;
     }
@@ -144,5 +132,124 @@ Output JUST the JSON array.`;
     res.status(500).json({ error: "AI generation failed" });
   }
 });
+
+router.post(
+  "/projects/:projectId/rules/:ruleId/enhance",
+  async (req, res): Promise<void> => {
+    const params = schemas.AiEnhanceRuleParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [r] = await db
+      .select()
+      .from(rules)
+      .where(
+        and(
+          eq(rules.id, params.data.ruleId),
+          eq(rules.projectId, params.data.projectId),
+        ),
+      );
+    if (!r) {
+      res.status(404).json({ error: "Rule not found" });
+      return;
+    }
+    try {
+      const text = await complete(req, {
+        prompt: `Tighten this game rule. Make it shorter, more precise, with no ambiguity. Add an example if helpful.
+
+Existing rule:
+title: ${r.title}
+category: ${r.category ?? ""}
+content: ${r.content}
+
+Return ONLY a JSON object: {"title":"...","content":"..."}.
+- title under 60 chars.
+- content 1-3 sentences plus an "Example:" line if helpful.
+Output JUST the JSON object.`,
+        maxTokens: 600,
+      });
+      const obj = tryParseJsonObject<{ title?: string; content?: string }>(text);
+      const update: Record<string, string> = {};
+      if (obj?.title) update.title = String(obj.title);
+      if (obj?.content) update.content = String(obj.content);
+      const [updated] = await db
+        .update(rules)
+        .set(update)
+        .where(eq(rules.id, r.id))
+        .returning();
+      res.json(updated);
+    } catch (err) {
+      req.log.error({ err }, "enhance rule failed");
+      res.status(500).json({ error: "Enhance failed" });
+    }
+  },
+);
+
+router.post(
+  "/projects/:projectId/rules/conflict-check",
+  async (req, res): Promise<void> => {
+    const params = schemas.ConflictCheckRulesParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const rs = await db
+      .select()
+      .from(rules)
+      .where(eq(rules.projectId, params.data.projectId));
+    if (rs.length < 2) {
+      res.json(
+        schemas.ConflictCheckRulesResponse.parse({
+          conflicts: [],
+          summary:
+            "Add at least two rules before running a conflict check.",
+        }),
+      );
+      return;
+    }
+    const list = rs
+      .map((r) => `[#${r.id}] ${r.title}: ${r.content}`)
+      .join("\n\n");
+    try {
+      const text = await complete(req, {
+        preferFast: true,
+        prompt: `You are a rules editor. Scan these rules for conflicts, contradictions, ambiguities, or overlaps. Return ONLY a JSON object:
+
+{"summary":"<1-2 sentence overall verdict>","conflicts":[{"ruleIds":[<numbers>],"severity":"low|medium|high","description":"...","suggestion":"..."}]}
+
+Use only rule IDs from the list. If no conflicts, return an empty conflicts array. Output JUST the JSON object.
+
+Rules:
+${list}`,
+        maxTokens: 2000,
+      });
+      const obj = tryParseJsonObject<{
+        summary?: string;
+        conflicts?: Array<{
+          ruleIds?: number[];
+          severity?: string;
+          description?: string;
+          suggestion?: string;
+        }>;
+      }>(text) ?? { summary: "Unable to parse AI response", conflicts: [] };
+      const conflicts = (obj.conflicts ?? []).map((c) => ({
+        ruleIds: Array.isArray(c.ruleIds) ? c.ruleIds.map(Number) : [],
+        severity: String(c.severity ?? "low"),
+        description: String(c.description ?? ""),
+        suggestion: c.suggestion ? String(c.suggestion) : "",
+      }));
+      res.json(
+        schemas.ConflictCheckRulesResponse.parse({
+          summary: String(obj.summary ?? "Conflict check complete."),
+          conflicts,
+        }),
+      );
+    } catch (err) {
+      req.log.error({ err }, "conflict check failed");
+      res.status(500).json({ error: "Conflict check failed" });
+    }
+  },
+);
 
 export default router;

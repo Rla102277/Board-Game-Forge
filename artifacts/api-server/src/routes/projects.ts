@@ -9,13 +9,23 @@ import {
   notes,
   tasks,
   chatMessages,
+  researchItems,
+  assets,
+  playtestSessions,
+  appUsers,
 } from "@workspace/db";
+import { getAuth } from "@clerk/express";
 import { schemas } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-router.get("/projects", async (_req, res): Promise<void> => {
-  const rows = await db.select().from(projects).orderBy(desc(projects.updatedAt));
+router.get("/projects", async (req, res): Promise<void> => {
+  const userId = req.appUserId;
+  const isAdmin = req.appUserRole === "admin";
+  const allRows = await db.select().from(projects).orderBy(desc(projects.updatedAt));
+  const rows = isAdmin
+    ? allRows
+    : allRows.filter((p) => p.ownerUserId === userId);
   res.json(schemas.ListProjectsResponse.parse(rows));
 });
 
@@ -25,7 +35,16 @@ router.post("/projects", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [row] = await db.insert(projects).values(parsed.data).returning();
+  const { userId } = getAuth(req);
+  let ownerUserId: number | undefined;
+  if (userId) {
+    const [u] = await db.select().from(appUsers).where(eq(appUsers.clerkUserId, userId));
+    if (u) ownerUserId = u.id;
+  }
+  const [row] = await db
+    .insert(projects)
+    .values({ ...parsed.data, ...(ownerUserId !== undefined ? { ownerUserId } : {}) })
+    .returning();
   res.status(201).json(schemas.GetProjectResponse.parse(row));
 });
 
@@ -86,8 +105,7 @@ router.get("/projects/:projectId/stats", async (req, res): Promise<void> => {
     return;
   }
   const projectId = params.data.projectId;
-  const countSql = sql<number>`count(*)::int`;
-
+  const c = sql<number>`count(*)::int`;
   const [
     [entityRow],
     [ruleRow],
@@ -95,24 +113,33 @@ router.get("/projects/:projectId/stats", async (req, res): Promise<void> => {
     [noteRow],
     [taskRow],
     [chatRow],
+    [researchRow],
+    [assetRow],
+    [playtestRow],
   ] = await Promise.all([
-    db.select({ c: countSql }).from(entities).where(eq(entities.projectId, projectId)),
-    db.select({ c: countSql }).from(rules).where(eq(rules.projectId, projectId)),
-    db.select({ c: countSql }).from(players).where(eq(players.projectId, projectId)),
-    db.select({ c: countSql }).from(notes).where(eq(notes.projectId, projectId)),
-    db.select({ c: countSql }).from(tasks).where(eq(tasks.projectId, projectId)),
-    db.select({ c: countSql }).from(chatMessages).where(eq(chatMessages.projectId, projectId)),
+    db.select({ c }).from(entities).where(eq(entities.projectId, projectId)),
+    db.select({ c }).from(rules).where(eq(rules.projectId, projectId)),
+    db.select({ c }).from(players).where(eq(players.projectId, projectId)),
+    db.select({ c }).from(notes).where(eq(notes.projectId, projectId)),
+    db.select({ c }).from(tasks).where(eq(tasks.projectId, projectId)),
+    db.select({ c }).from(chatMessages).where(eq(chatMessages.projectId, projectId)),
+    db.select({ c }).from(researchItems).where(eq(researchItems.projectId, projectId)),
+    db.select({ c }).from(assets).where(eq(assets.projectId, projectId)),
+    db.select({ c }).from(playtestSessions).where(eq(playtestSessions.projectId, projectId)),
   ]);
-
-  const stats = {
-    entityCount: entityRow?.c ?? 0,
-    ruleCount: ruleRow?.c ?? 0,
-    playerCount: playerRow?.c ?? 0,
-    noteCount: noteRow?.c ?? 0,
-    taskCount: taskRow?.c ?? 0,
-    chatMessageCount: chatRow?.c ?? 0,
-  };
-  res.json(schemas.GetProjectStatsResponse.parse(stats));
+  res.json(
+    schemas.GetProjectStatsResponse.parse({
+      entityCount: entityRow?.c ?? 0,
+      ruleCount: ruleRow?.c ?? 0,
+      playerCount: playerRow?.c ?? 0,
+      noteCount: noteRow?.c ?? 0,
+      taskCount: taskRow?.c ?? 0,
+      chatMessageCount: chatRow?.c ?? 0,
+      researchCount: researchRow?.c ?? 0,
+      assetCount: assetRow?.c ?? 0,
+      playtestCount: playtestRow?.c ?? 0,
+    }),
+  );
 });
 
 export default router;

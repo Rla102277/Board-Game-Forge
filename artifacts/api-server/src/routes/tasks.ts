@@ -32,7 +32,11 @@ router.post("/projects/:projectId/tasks", async (req, res): Promise<void> => {
   }
   const [row] = await db
     .insert(tasks)
-    .values({ ...parsed.data, projectId: params.data.projectId })
+    .values({
+      ...parsed.data,
+      projectId: params.data.projectId,
+      ...(parsed.data.dueDate ? { dueDate: new Date(parsed.data.dueDate) } : {}),
+    })
     .returning();
   res.status(201).json(row);
 });
@@ -50,7 +54,10 @@ router.patch("/projects/:projectId/tasks/:taskId", async (req, res): Promise<voi
   }
   const [row] = await db
     .update(tasks)
-    .set(parsed.data)
+    .set({
+      ...parsed.data,
+      ...(parsed.data.dueDate ? { dueDate: new Date(parsed.data.dueDate) } : {}),
+    })
     .where(
       and(
         eq(tasks.id, params.data.taskId),

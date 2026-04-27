@@ -9,9 +9,11 @@ export const notes = pgTable("notes", {
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   title: text("title"),
+  topic: text("topic"),
   content: text("content"),
   color: text("color"),
   pinned: boolean("pinned").default(false).notNull(),
+  lookAtLater: boolean("look_at_later").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

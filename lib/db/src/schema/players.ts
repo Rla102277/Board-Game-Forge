@@ -10,8 +10,13 @@ export const players = pgTable("players", {
     .references(() => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   role: text("role"),
+  archetype: text("archetype"),
   description: text("description"),
   strategy: text("strategy"),
+  startingResources: text("starting_resources"),
+  victoryCondition: text("victory_condition"),
+  specialAbility: text("special_ability"),
+  playstyle: text("playstyle"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

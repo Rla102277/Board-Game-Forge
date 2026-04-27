@@ -10,9 +10,11 @@ export const entities = pgTable("entities", {
     .references(() => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   type: text("type").notNull(),
+  subtype: text("subtype"),
   description: text("description"),
   stats: text("stats"),
   color: text("color"),
+  relatedTo: text("related_to"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

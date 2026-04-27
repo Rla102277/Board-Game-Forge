@@ -12,10 +12,13 @@ export interface Note {
   /** @nullable */
   title?: string | null;
   /** @nullable */
+  topic?: string | null;
+  /** @nullable */
   content?: string | null;
   /** @nullable */
   color?: string | null;
   pinned: boolean;
+  lookAtLater: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

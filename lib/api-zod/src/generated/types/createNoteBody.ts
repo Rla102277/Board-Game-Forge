@@ -8,7 +8,9 @@
 
 export interface CreateNoteBody {
   title?: string;
+  topic?: string;
   content?: string;
   color?: string;
   pinned?: boolean;
+  lookAtLater?: boolean;
 }

@@ -8,6 +8,7 @@
 
 export interface SendChatMessageBody {
   content: string;
+  tab?: string;
   gameType?: string;
   genre?: string;
   model?: string;

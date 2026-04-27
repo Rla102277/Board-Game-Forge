@@ -9,7 +9,9 @@
 export interface CreateEntityBody {
   name: string;
   type: string;
+  subtype?: string;
   description?: string;
   stats?: string;
   color?: string;
+  relatedTo?: string;
 }
