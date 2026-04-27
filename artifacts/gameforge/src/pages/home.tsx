@@ -182,22 +182,41 @@ export default function Home() {
             ) : projects && projects.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {projects.map((project) => (
-                  <Card key={project.id} className="bg-card border-card-border hover:border-primary/50 transition-colors group relative flex flex-col h-full hover-elevate">
-                    <Link href={`/p/${project.id}`} className="absolute inset-0 z-0" />
-                    <CardHeader className="pb-2 relative z-10 flex-1">
+                  <Card
+                    key={project.id}
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => setLocation(`/p/${project.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setLocation(`/p/${project.id}`);
+                      }
+                    }}
+                    className="bg-card border-card-border hover:border-primary/50 transition-colors group relative flex flex-col h-full hover-elevate cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <CardHeader className="pb-2 flex-1">
                       <div className="flex justify-between items-start">
                         <CardTitle className="text-lg line-clamp-1 pr-8">{project.name}</CardTitle>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-8 w-8 absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
                               <MoreVertical className="h-4 w-4 text-muted-foreground" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={(e) => {
-                              e.stopPropagation();
-                              setProjectToDelete(project.id);
-                            }}>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive cursor-pointer"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setProjectToDelete(project.id);
+                              }}
+                            >
                               <Trash2 className="mr-2 h-4 w-4" /> Delete Project
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -207,7 +226,7 @@ export default function Home() {
                         {project.description || "No description provided."}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="relative z-10 pt-0 mt-auto">
+                    <CardContent className="pt-0 mt-auto">
                       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mt-4">
                         {project.gameType && <span className="bg-muted/50 border border-border px-2 py-1 rounded-md">{project.gameType}</span>}
                         {project.genre && <span className="bg-muted/50 border border-border px-2 py-1 rounded-md">{project.genre}</span>}
