@@ -4,11 +4,16 @@ import {
   useClearChatMessages,
   useGetAiSettings,
   useUpdateAiSettings,
+  useCreateNote,
+  useCreateTask,
   getListChatMessagesQueryKey,
   getGetProjectStatsQueryKey,
   getGetAiSettingsQueryKey,
+  getListNotesQueryKey,
+  getListTasksQueryKey,
 } from "@workspace/api-client-react";
-import { Bot, Send, Trash2, Loader2 } from "lucide-react";
+import { Bot, Send, Trash2, Loader2, ChevronsRight, ChevronsLeft, StickyNote, ListChecks, Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
@@ -39,6 +44,8 @@ interface ChatPanelProps {
   activeTab?: string;
 }
 
+const COLLAPSE_KEY = "gameforge.chatpanel.collapsed";
+
 const GAME_TYPES = ["Strategy", "Family", "Party", "Cooperative", "Worker Placement", "Deck-builder", "Area Control", "Eurogame", "Wargame", "Roll-and-Write", "Dexterity", "Legacy"];
 const GENRES = ["Fantasy", "Sci-Fi", "Horror", "Historical", "Modern", "Cyberpunk", "Steampunk", "Mystery", "Adventure", "Abstract"];
 
@@ -53,6 +60,20 @@ export function ChatPanel({ projectId, defaultPrompt, onPromptClear, activeTab }
   const { data: aiSettings } = useGetAiSettings();
   const updateAi = useUpdateAiSettings();
   const clearChat = useClearChatMessages();
+  const createNote = useCreateNote();
+  const createTask = useCreateTask();
+  const { toast } = useToast();
+
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(COLLAPSE_KEY) === "1";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0");
+  }, [collapsed]);
+
+  const [savedMsgIds, setSavedMsgIds] = useState<Record<number, "note" | "task">>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
@@ -61,6 +82,30 @@ export function ChatPanel({ projectId, defaultPrompt, onPromptClear, activeTab }
 
   const [streamingContent, setStreamingContent] = useState<string>("");
   const [isStreaming, setIsStreaming] = useState(false);
+
+  const handleSaveAsNote = async (msgId: number, content: string) => {
+    try {
+      const title = content.split(/\n|[.!?]/)[0]?.slice(0, 80).trim() || "From chat";
+      await createNote.mutateAsync({ projectId, data: { title, content, color: "blue", pinned: false } });
+      queryClient.invalidateQueries({ queryKey: getListNotesQueryKey(projectId) });
+      setSavedMsgIds((prev) => ({ ...prev, [msgId]: "note" }));
+      toast({ title: "Saved to Notes" });
+    } catch (err) {
+      toast({ title: "Save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    }
+  };
+
+  const handleSaveAsTask = async (msgId: number, content: string) => {
+    try {
+      const title = content.split(/\n|[.!?]/)[0]?.slice(0, 80).trim() || "From chat";
+      await createTask.mutateAsync({ projectId, data: { title, description: content, status: "todo", priority: "medium" } });
+      queryClient.invalidateQueries({ queryKey: getListTasksQueryKey(projectId) });
+      setSavedMsgIds((prev) => ({ ...prev, [msgId]: "task" }));
+      toast({ title: "Saved to Tasks" });
+    } catch (err) {
+      toast({ title: "Save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    }
+  };
 
   const selected: ModelOption = useMemo(() => {
     return (
