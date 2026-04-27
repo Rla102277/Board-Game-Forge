@@ -1,0 +1,90 @@
+Project Workspace (11 Tabs)
+1. Overview
+Editable game metadata: name, description, genre, player count, target duration, client
+Complexity Score — 0–100 BGG-style metric computed from rules, entities, and properties
+Document Upload — PDF or TXT upload, text extracted and summarized by AI
+URL Fetch — Paste a URL, AI fetches and summarizes the content
+AI Game Architect — SSE-streamed full game blueprint generation (theme, mechanics, components, win conditions)
+Overview Chat — Persistent Claude-powered chat for high-level design discussion (history saved to DB)
+2. Research
+Research item library (text notes, URL references, AI-generated notes)
+Tag system for categorization
+AI-assisted research generation with selectable batch-add
+Full markdown rendering in all AI responses
+3. Ontology (Entity Builder)
+Four entity types: Item, Faction, Location, Event — color-coded blue/purple/green/amber
+Properties per entity: numeric ranges, data types, units, min/max/default values
+AI Generate Entities — batch-generate entity suggestions, select and add
+AI Enhance — per-entity AI improvement of description
+SVG Relationship Map — radial auto-layout graph detecting links between entities from their descriptions
+4. Players
+Player archetype builder: name, archetype, description, starting resources (JSONB key-value), victory condition, special ability, playstyle
+AI Generate Players — batch-generate archetypes, select and add
+AI Enhance — per-player AI improvement
+5. Rules Sandbox
+Rules library with title, content, category, priority
+Categories include Variant and Optional for differentiated rule types
+AI Generate Rules — batch-generate rules
+AI Enhance — per-rule AI improvement
+Conflict Checker — Anthropic Haiku analyzes all rules for contradictions and ambiguities
+AI Chat — persistent design chat for rule discussion
+6. Simulator
+Monte Carlo Economy Simulation — configurable parameters (starting resources, production/consumption rates, turns)
+Outputs P10 / P50 / P90 percentile bands via Recharts area chart
+Economy Health Score: >70 = healthy (emerald), 40–70 = caution (amber), <40 = broken (red)
+AI Playthrough Mode — full SSE-streamed narrative turn-by-turn game walkthrough via Claude
+7. Assets
+Asset library per project, optionally linked to an entity
+AI Card Description — SSE-streamed flavor text and card copy generation
+OpenAI Image Generation — gpt-image-1 generates card art from AI-written prompts
+Print Sheet — browser-native print layout for physical card prototyping
+8. Playtesting
+Session log: date, player count, duration, rating, notes, issues, positives, suggestions
+External Feedback Link — shareable URL for remote playtesters to submit structured feedback (rating scales for fun, balance, clarity + open text)
+Feedback response viewer aggregates all external submissions per project
+9. Tasks (Collaboration)
+4-column Kanban board: To Do / In Progress / Review / Done
+Task cards: title, description, priority, assignee, category, due date
+Changelog — collapsible auto-generated audit log of all design changes
+10. Balance
+Entity stat bar charts comparing property values across entities
+Rule conflict visualization
+Balance score display
+11. Export
+All exports are AI-generated and download-ready:
+
+Tabletop Simulator JSON — ready to import as a mod
+Markdown Rulebook — structured rulebook document
+Kickstarter Generator — campaign copy, stretch goals, reward tiers
+Publisher Sell Sheet — one-page pitch document
+Press Kit — BGG description, box copy, press release, social media posts, reviewer pitch email
+Design Chat (Notes Tab)
+Freeform sticky-note-style design journal
+Persistent AI chat with full markdown rendering
+Notes: title, content, color, pinned, topic, look-at-later flag
+Storyboard
+Tree-based rule variant / narrative planning tool
+Nodes with status (idea / active / archived), type, linked rule, color, position
+Account Page (/account)
+Profile header showing Clerk user info and project count
+AI Provider Settings — choose from 4 providers with model selection and API key input:
+Anthropic (Claude Haiku, Sonnet, Opus)
+Google Gemini (2.0 Flash, 2.5 Pro)
+OpenAI (GPT-4o Mini, GPT-4o)
+xAI Grok (Grok 3 Mini, Grok 3)
+Admin Panel (/admin)
+User management table: view all provisioned users
+Toggle admin role, remove users
+Protected — requires role = "admin" in the database
+AI Routing Logic
+Task Type	Provider
+Overview chat	Always Claude (narrative)
+AI Playthrough simulation	Always Claude (narrative)
+Storyboard generation	Always Claude (narrative)
+Entity / Rule / Player generation	User's configured provider (default: OpenAI via Replit integration)
+Conflict checking	User's configured provider
+Kickstarter / press kit copy	User's configured provider
+Image generation	Always OpenAI gpt-image-1
+Authentication
+Clerk-based authentication. All project routes are protected. Unauthenticated users are redirected to sign-in. On every authenticated request, the server upserts the user into the app_users table for role management.
+
