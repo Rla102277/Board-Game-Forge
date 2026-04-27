@@ -22,6 +22,7 @@ import changelogRouter from "./changelog";
 import exportsRouter from "./exports";
 import blueprintRouter from "./blueprint";
 import kickstarterRouter from "./kickstarter";
+import workspacesRouter from "./workspaces";
 import {
   requireAuth,
   requireProjectAccess,
@@ -38,7 +39,11 @@ router.use(meRouter);
 router.use(adminRouter);
 router.use(dashboardRouter);
 
-// Projects routes (auth required, project-scoped routes have ownership check)
+// Workspaces routes (auth required, workspace access enforced inside handlers)
+router.use("/workspaces", requireAuth);
+router.use(workspacesRouter);
+
+// Projects routes (auth required, project-scoped routes have ownership/membership check)
 router.use("/projects", requireAuth);
 router.use("/projects/:projectId", requireProjectAccess);
 

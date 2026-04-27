@@ -1,5 +1,5 @@
 import { useParams, Link } from "wouter";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useGetProject, useGetProjectStats, useDeleteProject, getListProjectsQueryKey } from "@workspace/api-client-react";
 import { useUser, useClerk } from "@clerk/react";
 import {
@@ -46,12 +46,15 @@ const SECTIONS = [
   { id: "export", label: "Export", icon: Download, statKey: null },
 ] as const;
 
-export default function Workspace() {
+export default function Workspace({ projectId: projectIdProp }: { projectId?: number } = {}) {
   const queryClient = useQueryClient();
   const params = useParams();
   const { user } = useUser();
   const { signOut } = useClerk();
-  const projectId = parseInt(params.projectId || "0", 10);
+  const projectId = useMemo(
+    () => projectIdProp ?? parseInt(params.projectId || "0", 10),
+    [projectIdProp, params.projectId],
+  );
   const { data: project, isLoading: projectLoading } = useGetProject(projectId);
   const { data: stats } = useGetProjectStats(projectId);
   const deleteProject = useDeleteProject();

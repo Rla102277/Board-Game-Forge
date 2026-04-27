@@ -6,8 +6,9 @@ import { dark } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import Home from "@/pages/home";
 import Workspace from "@/pages/workspace";
+import WorkspaceHome from "@/pages/workspace-home";
+import WorkspaceBySlug from "@/pages/workspace-by-slug";
 import Account from "@/pages/account";
 import Admin from "@/pages/admin";
 import Landing from "@/pages/landing";
@@ -110,7 +111,7 @@ function HomeRedirect() {
   return (
     <>
       <Show when="signed-in">
-        <Home />
+        <WorkspaceHome />
       </Show>
       <Show when="signed-out">
         <Landing />
@@ -118,6 +119,10 @@ function HomeRedirect() {
     </>
   );
 }
+
+const RESERVED_TOP_PATHS = new Set([
+  "sign-in", "sign-up", "feedback", "account", "admin", "p", "api", "_assets", "favicon.ico",
+]);
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return (
@@ -175,6 +180,28 @@ function Routes() {
             <Workspace key={params.projectId} />
           </ProtectedRoute>
         )}
+      </Route>
+      <Route path="/:workspaceSlug/:projectSlug">
+        {(params) =>
+          RESERVED_TOP_PATHS.has(params.workspaceSlug) ? (
+            <NotFound />
+          ) : (
+            <ProtectedRoute>
+              <WorkspaceBySlug key={`${params.workspaceSlug}/${params.projectSlug}`} />
+            </ProtectedRoute>
+          )
+        }
+      </Route>
+      <Route path="/:workspaceSlug">
+        {(params) =>
+          RESERVED_TOP_PATHS.has(params.workspaceSlug) ? (
+            <NotFound />
+          ) : (
+            <ProtectedRoute>
+              <WorkspaceHome key={params.workspaceSlug} />
+            </ProtectedRoute>
+          )
+        }
       </Route>
       <Route component={NotFound} />
     </Switch>

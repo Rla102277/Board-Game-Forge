@@ -1,4 +1,5 @@
 import { integer, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { appUsers } from "./appUsers";
@@ -21,6 +22,10 @@ export const workspaces = pgTable(
   },
   (t) => ({
     slugUnique: uniqueIndex("workspaces_slug_unique").on(t.slug),
+    // At most one personal workspace per owner.
+    personalPerOwnerUnique: uniqueIndex("workspaces_personal_owner_unique")
+      .on(t.ownerUserId)
+      .where(sql`${t.isPersonal} = 1`),
   }),
 );
 
@@ -45,6 +50,10 @@ export const workspaceMembers = pgTable(
   },
   (t) => ({
     workspaceUserUnique: uniqueIndex("workspace_members_ws_user_unique").on(t.workspaceId, t.userId),
+    // Prevent duplicate pending email invites per workspace.
+    workspaceInvitedEmailUnique: uniqueIndex("workspace_members_ws_invited_email_unique")
+      .on(t.workspaceId, t.invitedEmail)
+      .where(sql`${t.invitedEmail} is not null`),
   }),
 );
 

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { getAuth } from "@clerk/express";
-import { eq } from "drizzle-orm";
-import { db, appUsers, projects } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
+import { db, appUsers, projects, workspaceMembers } from "@workspace/db";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -68,7 +68,20 @@ export async function requireProjectAccess(
     }
     const isOwner = proj.ownerUserId === req.appUserId;
     const isAdmin = req.appUserRole === "admin";
-    if (!isOwner && !isAdmin) {
+    let isWorkspaceMember = false;
+    if (proj.workspaceId) {
+      const [m] = await db
+        .select({ id: workspaceMembers.id, status: workspaceMembers.status })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, proj.workspaceId),
+            eq(workspaceMembers.userId, req.appUserId),
+          ),
+        );
+      if (m && m.status === "active") isWorkspaceMember = true;
+    }
+    if (!isOwner && !isAdmin && !isWorkspaceMember) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }

@@ -1,0 +1,160 @@
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+  db,
+  workspaces,
+  workspaceMembers,
+  projects,
+  appUsers,
+  type Workspace,
+} from "@workspace/db";
+import { ensureUniqueSlug, slugify } from "./slug";
+
+function isUniqueViolation(err: unknown): boolean {
+  return Boolean(err && typeof err === "object" && (err as { code?: string }).code === "23505");
+}
+
+export async function ensurePersonalWorkspace(userId: number): Promise<Workspace> {
+  const [user] = await db.select().from(appUsers).where(eq(appUsers.id, userId));
+
+  // Fast path: a personal workspace already exists for this user.
+  const [existing] = await db
+    .select()
+    .from(workspaces)
+    .where(and(eq(workspaces.ownerUserId, userId), eq(workspaces.isPersonal, 1)));
+
+  let ws: Workspace;
+  if (existing) {
+    ws = existing;
+  } else {
+    // Race-safe create: rely on the partial-unique index (one personal ws per owner).
+    const display = user?.firstName ? `${user.firstName}'s workspace` : "Personal workspace";
+    const baseSlugRoot = user?.firstName ? slugify(user.firstName) : `personal-${userId}`;
+    let attempt = 0;
+    let created: Workspace | undefined;
+    while (attempt < 5 && !created) {
+      attempt += 1;
+      const slug = await ensureUniqueSlug(baseSlugRoot, async (s) => {
+        const [hit] = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.slug, s));
+        return Boolean(hit);
+      });
+      try {
+        const rows = await db
+          .insert(workspaces)
+          .values({ slug, name: display, ownerUserId: userId, isPersonal: 1 })
+          .returning();
+        created = rows[0];
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+        // Either slug raced, or the personal-per-owner unique fired; re-check first.
+        const [racedExisting] = await db
+          .select()
+          .from(workspaces)
+          .where(and(eq(workspaces.ownerUserId, userId), eq(workspaces.isPersonal, 1)));
+        if (racedExisting) {
+          created = racedExisting;
+        }
+        // else: slug collision, loop and try a fresh slug
+      }
+    }
+    if (!created) throw new Error("Failed to create personal workspace after retries");
+    ws = created;
+  }
+
+  // Ensure owner member row exists.
+  try {
+    await db
+      .insert(workspaceMembers)
+      .values({
+        workspaceId: ws.id,
+        userId,
+        role: "owner",
+        status: "active",
+        joinedAt: new Date(),
+      })
+      .onConflictDoNothing();
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+  }
+
+  // Migrate any of the user's projects without a workspace.
+  const orphans = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.ownerUserId, userId), isNull(projects.workspaceId)));
+  for (const p of orphans) {
+    let attempt = 0;
+    while (attempt < 5) {
+      attempt += 1;
+      const slug = await ensureUniqueSlug(p.name, async (s) => {
+        const [hit] = await db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(eq(projects.workspaceId, ws.id), eq(projects.slug, s)));
+        return Boolean(hit);
+      });
+      try {
+        await db.update(projects).set({ workspaceId: ws.id, slug }).where(eq(projects.id, p.id));
+        break;
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+        // raced — try a different slug
+      }
+    }
+  }
+  return ws;
+}
+
+export async function listUserWorkspaces(userId: number): Promise<Workspace[]> {
+  const memberRows = await db
+    .select({ workspaceId: workspaceMembers.workspaceId })
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.userId, userId), eq(workspaceMembers.status, "active")));
+  const ids = memberRows.map((r) => r.workspaceId);
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(workspaces)
+    .where(inArray(workspaces.id, ids))
+    .orderBy(sql`${workspaces.isPersonal} desc`, sql`${workspaces.createdAt} desc`);
+  return rows;
+}
+
+export async function findWorkspaceBySlug(slug: string): Promise<Workspace | null> {
+  const [row] = await db.select().from(workspaces).where(eq(workspaces.slug, slug));
+  return row ?? null;
+}
+
+export async function userHasWorkspaceAccess(
+  workspaceId: number,
+  userId: number,
+): Promise<{ access: boolean; role: string | null }> {
+  const [row] = await db
+    .select()
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)));
+  if (!row || row.status !== "active") return { access: false, role: null };
+  return { access: true, role: row.role };
+}
+
+export async function findProjectInWorkspace(
+  workspaceId: number,
+  projectSlug: string,
+): Promise<{ id: number } | null> {
+  const [row] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.workspaceId, workspaceId), eq(projects.slug, projectSlug)));
+  return row ?? null;
+}
+
+export async function generateProjectSlug(workspaceId: number, name: string): Promise<string> {
+  return ensureUniqueSlug(name, async (s) => {
+    const [hit] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.workspaceId, workspaceId), eq(projects.slug, s)));
+    return Boolean(hit);
+  });
+}
+
+export { isUniqueViolation };
