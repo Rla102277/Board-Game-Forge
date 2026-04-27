@@ -8,6 +8,7 @@ export * from "./tasks";
 export * from "./chatMessages";
 export * from "./appUsers";
 export * from "./aiProviderSettings";
+export * from "./workspaceAiSettings";
 export * from "./researchItems";
 export * from "./assets";
 export * from "./playtestSessions";

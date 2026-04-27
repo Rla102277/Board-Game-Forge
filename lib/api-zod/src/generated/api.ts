@@ -124,6 +124,7 @@ export const ListProjectsResponseItem = zod.object({
   targetDuration: zod.string().nullish(),
   complexityScore: zod.number().nullish(),
   blueprint: zod.string().nullish(),
+  narrative: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -153,6 +154,7 @@ export const GetProjectResponse = zod.object({
   targetDuration: zod.string().nullish(),
   complexityScore: zod.number().nullish(),
   blueprint: zod.string().nullish(),
+  narrative: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -170,6 +172,7 @@ export const UpdateProjectBody = zod.object({
   targetDuration: zod.string().optional(),
   complexityScore: zod.number().optional(),
   blueprint: zod.string().optional(),
+  narrative: zod.string().optional(),
 });
 
 export const UpdateProjectResponse = zod.object({
@@ -183,6 +186,7 @@ export const UpdateProjectResponse = zod.object({
   targetDuration: zod.string().nullish(),
   complexityScore: zod.number().nullish(),
   blueprint: zod.string().nullish(),
+  narrative: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

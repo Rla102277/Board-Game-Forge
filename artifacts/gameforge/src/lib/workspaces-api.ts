@@ -95,4 +95,23 @@ export const workspacesApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  listAiSettings: (slug: string) =>
+    request<WorkspaceProviderSetting[]>(`/workspaces/${slug}/ai-settings`),
+  updateAiSetting: (
+    slug: string,
+    provider: WorkspaceProviderName,
+    body: { enabled?: boolean; apiKey?: string | null },
+  ) =>
+    request<WorkspaceProviderSetting>(`/workspaces/${slug}/ai-settings/${provider}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
 };
+
+export type WorkspaceProviderName = "anthropic" | "openai" | "gemini" | "openrouter";
+
+export interface WorkspaceProviderSetting {
+  provider: WorkspaceProviderName;
+  enabled: boolean;
+  hasKey: boolean;
+}

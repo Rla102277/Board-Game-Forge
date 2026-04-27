@@ -15,4 +15,5 @@ export interface UpdateProjectBody {
   targetDuration?: string;
   complexityScore?: number;
   blueprint?: string;
+  narrative?: string;
 }

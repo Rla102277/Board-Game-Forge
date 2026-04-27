@@ -25,6 +25,8 @@ export interface Project {
   complexityScore?: number | null;
   /** @nullable */
   blueprint?: string | null;
+  /** @nullable */
+  narrative?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

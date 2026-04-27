@@ -23,6 +23,12 @@ import {
 } from "../lib/workspaceHelpers";
 import { ensureUniqueSlug } from "../lib/slug";
 import { complete, tryParseJsonObject } from "../lib/aiRouter";
+import {
+  ALL_PROVIDERS,
+  listWorkspaceProviderSettings,
+  upsertWorkspaceProviderSettings,
+  type WorkspaceProvider,
+} from "../lib/workspaceAiSettings";
 
 const router: IRouter = Router();
 
@@ -184,6 +190,61 @@ router.patch("/workspaces/:workspaceSlug", loadWorkspace, async (req, res): Prom
     .returning();
   res.json(updated);
 });
+
+// GET /workspaces/:slug/ai-settings — admin/owner only
+router.get(
+  "/workspaces/:workspaceSlug/ai-settings",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const settings = await listWorkspaceProviderSettings(req.workspace!.id);
+    res.json(settings);
+  },
+);
+
+// PUT /workspaces/:slug/ai-settings/:provider — admin/owner only
+router.put(
+  "/workspaces/:workspaceSlug/ai-settings/:provider",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const provider = String(req.params.provider) as WorkspaceProvider;
+    if (!ALL_PROVIDERS.includes(provider)) {
+      res.status(400).json({ error: "Unknown provider" });
+      return;
+    }
+    const body = req.body ?? {};
+    const patch: { enabled?: boolean; apiKey?: string | null } = {};
+    if (body.enabled !== undefined) {
+      if (typeof body.enabled !== "boolean") {
+        res.status(400).json({ error: "enabled must be boolean" });
+        return;
+      }
+      patch.enabled = body.enabled;
+    }
+    if (body.apiKey !== undefined) {
+      if (body.apiKey === null) patch.apiKey = null;
+      else if (typeof body.apiKey === "string") patch.apiKey = body.apiKey;
+      else {
+        res.status(400).json({ error: "apiKey must be string or null" });
+        return;
+      }
+    }
+    try {
+      const updated = await upsertWorkspaceProviderSettings(req.workspace!.id, provider, patch);
+      res.json(updated);
+    } catch (err) {
+      req.log.error({ err }, "ai-settings update failed");
+      res.status(500).json({ error: err instanceof Error ? err.message : "Update failed" });
+    }
+  },
+);
 
 // DELETE /workspaces/:slug — owner only, not personal
 router.delete("/workspaces/:workspaceSlug", loadWorkspace, async (req, res): Promise<void> => {

@@ -1635,6 +1635,8 @@ components:
           type: [integer, "null"]
         blueprint:
           type: [string, "null"]
+        narrative:
+          type: [string, "null"]
         createdAt:
           type: string
           format: date-time
@@ -1678,6 +1680,8 @@ components:
         complexityScore:
           type: integer
         blueprint:
+          type: string
+        narrative:
           type: string
 
     ProjectStats:

@@ -17,6 +17,7 @@ export const projects = pgTable(
     targetDuration: text("target_duration"),
     complexityScore: integer("complexity_score"),
     blueprint: text("blueprint"),
+    narrative: text("narrative"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

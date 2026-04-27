@@ -30,6 +30,7 @@ import {
   type Workspace, type WorkspaceDetail,
 } from "@/lib/workspaces-api";
 import { MembersDialog } from "@/components/workspace/members-dialog";
+import { AiProvidersDialog } from "@/components/workspace/ai-providers-dialog";
 import { format } from "date-fns";
 
 interface Template {
@@ -82,6 +83,7 @@ export default function WorkspaceHome() {
   const [newWsOpen, setNewWsOpen] = useState(false);
   const [newWsName, setNewWsName] = useState("");
   const [membersOpen, setMembersOpen] = useState(false);
+  const [aiProvidersOpen, setAiProvidersOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
 
   const slug = params?.workspaceSlug;
@@ -239,6 +241,11 @@ export default function WorkspaceHome() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild><Link href="/account"><UserIcon className="h-4 w-4 mr-2" /> Account</Link></DropdownMenuItem>
+                {canManage && (
+                  <DropdownMenuItem onClick={() => setAiProvidersOpen(true)} data-testid="open-ai-providers">
+                    <Sparkles className="h-4 w-4 mr-2" /> AI providers
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild><Link href="/admin"><Shield className="h-4 w-4 mr-2" /> Admin</Link></DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => signOut({ redirectUrl: "/" })}><LogOut className="h-4 w-4 mr-2" /> Sign out</DropdownMenuItem>
@@ -416,6 +423,12 @@ export default function WorkspaceHome() {
           </div>
         </section>
       </main>
+
+      <AiProvidersDialog
+        open={aiProvidersOpen}
+        onOpenChange={setAiProvidersOpen}
+        workspaceSlug={slug}
+      />
 
       <MembersDialog
         open={membersOpen}

@@ -2,8 +2,8 @@ import { Router, type IRouter } from "express";
 import { and, eq, desc } from "drizzle-orm";
 import { db, assets, entities } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
-import { complete, tryParseJsonObject } from "../lib/aiRouter";
-import { generateImageBuffer } from "@workspace/integrations-openai-ai-server/image";
+import { complete, tryParseJsonObject, AiProviderDisabledError } from "../lib/aiRouter";
+import { getOpenAiImageClient } from "../lib/workspaceAiSettings";
 
 const router: IRouter = Router();
 
@@ -170,8 +170,14 @@ router.post(
       return;
     }
     try {
-      const buf = await generateImageBuffer(parsed.data.prompt, "1024x1024");
-      const dataUrl = `data:image/png;base64,${buf.toString("base64")}`;
+      const { client } = await getOpenAiImageClient(req);
+      const response = await client.images.generate({
+        model: "gpt-image-1",
+        prompt: parsed.data.prompt,
+        size: "1024x1024",
+      });
+      const base64 = response.data?.[0]?.b64_json ?? "";
+      const dataUrl = `data:image/png;base64,${base64}`;
       const [updated] = await db
         .update(assets)
         .set({ imageDataUrl: dataUrl, imagePrompt: parsed.data.prompt })
@@ -179,6 +185,10 @@ router.post(
         .returning();
       res.json(updated);
     } catch (err) {
+      if (err instanceof AiProviderDisabledError) {
+        res.status(503).json({ error: err.message, provider: err.provider });
+        return;
+      }
       req.log.error({ err }, "generate-image failed");
       res.status(500).json({ error: "Image generation failed" });
     }

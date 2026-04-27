@@ -79,6 +79,8 @@ export interface Project {
   complexityScore?: number | null;
   /** @nullable */
   blueprint?: string | null;
+  /** @nullable */
+  narrative?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -101,6 +103,7 @@ export interface UpdateProjectBody {
   targetDuration?: string;
   complexityScore?: number;
   blueprint?: string;
+  narrative?: string;
 }
 
 export interface ProjectStats {

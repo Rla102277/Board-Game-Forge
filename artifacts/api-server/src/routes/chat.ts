@@ -9,7 +9,7 @@ import {
   players,
 } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
-import { stream } from "../lib/aiRouter";
+import { stream, AiProviderDisabledError } from "../lib/aiRouter";
 
 const router: IRouter = Router();
 
@@ -212,9 +212,11 @@ ${contextLines.join("\n")}`;
     res.end();
   } catch (err) {
     req.log.error({ err }, "chat stream failed");
-    res.write(
-      `data: ${JSON.stringify({ error: "AI request failed. Please try again." })}\n\n`,
-    );
+    const message =
+      err instanceof AiProviderDisabledError
+        ? `${err.message} Ask a workspace admin to enable it under AI providers.`
+        : "AI request failed. Please try again.";
+    res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
   }

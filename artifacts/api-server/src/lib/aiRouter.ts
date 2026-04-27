@@ -1,11 +1,19 @@
-import { anthropic } from "@workspace/integrations-anthropic-ai";
-import { openai } from "@workspace/integrations-openai-ai-server";
-import { ai as gemini } from "@workspace/integrations-gemini-ai";
-import { openrouter } from "@workspace/integrations-openrouter-ai";
+import { anthropic as defaultAnthropic, Anthropic } from "@workspace/integrations-anthropic-ai";
+import { openai as defaultOpenAi, OpenAI } from "@workspace/integrations-openai-ai-server";
+import { ai as defaultGemini, GoogleGenAI } from "@workspace/integrations-gemini-ai";
+import { openrouter as defaultOpenRouter } from "@workspace/integrations-openrouter-ai";
 import type { Request } from "express";
 import { getAuth } from "@clerk/express";
 import { eq } from "drizzle-orm";
 import { db, appUsers, aiProviderSettings } from "@workspace/db";
+import {
+  getWorkspaceIdForRequest,
+  getWorkspaceProviderSettings,
+  AiProviderDisabledError,
+  type WorkspaceProvider,
+} from "./workspaceAiSettings";
+
+export { AiProviderDisabledError } from "./workspaceAiSettings";
 
 export type AiTaskKind =
   | "narrative"
@@ -106,6 +114,57 @@ export async function pickProvider(
   };
 }
 
+interface ResolvedClients {
+  anthropic: typeof defaultAnthropic;
+  openai: typeof defaultOpenAi;
+  gemini: typeof defaultGemini;
+  openrouter: typeof defaultOpenRouter;
+}
+
+async function resolveProvider(
+  req: Request,
+  provider: AiProvider,
+): Promise<{ apiKey: string | null }> {
+  const wsId = await getWorkspaceIdForRequest(req);
+  if (!wsId) return { apiKey: null };
+  const settings = await getWorkspaceProviderSettings(wsId, provider as WorkspaceProvider);
+  if (!settings.enabled) throw new AiProviderDisabledError(provider as WorkspaceProvider);
+  return { apiKey: settings.apiKey };
+}
+
+function buildAnthropicClient(apiKey: string | null): typeof defaultAnthropic {
+  if (!apiKey) return defaultAnthropic;
+  return new Anthropic({ apiKey }) as unknown as typeof defaultAnthropic;
+}
+
+function buildOpenAiClient(apiKey: string | null): typeof defaultOpenAi {
+  if (!apiKey) return defaultOpenAi;
+  return new OpenAI({ apiKey }) as unknown as typeof defaultOpenAi;
+}
+
+function buildGeminiClient(apiKey: string | null): typeof defaultGemini {
+  if (!apiKey) return defaultGemini;
+  return new GoogleGenAI({ apiKey }) as unknown as typeof defaultGemini;
+}
+
+function buildOpenRouterClient(apiKey: string | null): typeof defaultOpenRouter {
+  if (!apiKey) return defaultOpenRouter;
+  return new OpenAI({
+    apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+  }) as unknown as typeof defaultOpenRouter;
+}
+
+async function resolveClients(req: Request, choice: ProviderChoice): Promise<ResolvedClients> {
+  const { apiKey } = await resolveProvider(req, choice.provider);
+  return {
+    anthropic: choice.provider === "anthropic" ? buildAnthropicClient(apiKey) : defaultAnthropic,
+    openai: choice.provider === "openai" ? buildOpenAiClient(apiKey) : defaultOpenAi,
+    gemini: choice.provider === "gemini" ? buildGeminiClient(apiKey) : defaultGemini,
+    openrouter: choice.provider === "openrouter" ? buildOpenRouterClient(apiKey) : defaultOpenRouter,
+  };
+}
+
 export interface CompleteOptions {
   system?: string;
   prompt: string;
@@ -124,9 +183,10 @@ export async function complete(
     opts.preferFast ?? false,
   );
   const max = opts.maxTokens ?? 2048;
+  const clients = await resolveClients(req, choice);
 
   if (choice.provider === "openai" || choice.provider === "openrouter") {
-    const client = choice.provider === "openai" ? openai : openrouter;
+    const client = choice.provider === "openai" ? clients.openai : clients.openrouter;
     const messages: Array<{ role: "system" | "user"; content: string }> = [];
     if (opts.system) messages.push({ role: "system", content: opts.system });
     messages.push({ role: "user", content: opts.prompt });
@@ -139,7 +199,7 @@ export async function complete(
   }
 
   if (choice.provider === "gemini") {
-    const r = await gemini.models.generateContent({
+    const r = await clients.gemini.models.generateContent({
       model: choice.model,
       contents: opts.prompt,
       config: opts.system
@@ -149,7 +209,7 @@ export async function complete(
     return r.text ?? "";
   }
 
-  const message = await anthropic.messages.create({
+  const message = await clients.anthropic.messages.create({
     model: choice.model,
     max_tokens: max,
     system: opts.system,
@@ -178,10 +238,11 @@ export async function stream(
     opts.preferFast ?? false,
   );
   const max = opts.maxTokens ?? 2048;
+  const clients = await resolveClients(req, choice);
   let text = "";
 
   if (choice.provider === "openai" || choice.provider === "openrouter") {
-    const client = choice.provider === "openai" ? openai : openrouter;
+    const client = choice.provider === "openai" ? clients.openai : clients.openrouter;
     const all: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
     if (opts.system) all.push({ role: "system", content: opts.system });
     for (const m of opts.messages) all.push(m);
@@ -202,7 +263,7 @@ export async function stream(
   }
 
   if (choice.provider === "gemini") {
-    const stream = await gemini.models.generateContentStream({
+    const stream = await clients.gemini.models.generateContentStream({
       model: choice.model,
       contents: opts.messages.map((m) => ({
         role: m.role === "assistant" ? "model" : "user",
@@ -222,7 +283,7 @@ export async function stream(
     return { provider: choice.provider, model: choice.model, text };
   }
 
-  const s = await anthropic.messages.stream({
+  const s = await clients.anthropic.messages.stream({
     model: choice.model,
     max_tokens: max,
     system: opts.system,

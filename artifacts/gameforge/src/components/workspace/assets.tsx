@@ -1,7 +1,37 @@
-import { useState } from "react";
-import { useListAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useAiEnhanceAsset, getListAssetsQueryKey, useListEntities } from "@workspace/api-client-react";
+import { useState, useEffect } from "react";
+import {
+  useListAssets,
+  useCreateAsset,
+  useUpdateAsset,
+  useDeleteAsset,
+  useAiEnhanceAsset,
+  useGetProject,
+  useUpdateProject,
+  getListAssetsQueryKey,
+  getGetProjectQueryKey,
+  useListEntities,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ImageIcon, Edit2, Sparkles, Download, Loader2, Wand2 } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  ImageIcon,
+  Edit2,
+  Sparkles,
+  Download,
+  Loader2,
+  Wand2,
+  Save,
+  BookOpen,
+  Layers,
+  Square,
+  Circle,
+  Dice5,
+  User,
+  Map as MapIcon,
+  Package,
+  Tag,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,23 +44,158 @@ import { useToast } from "@/hooks/use-toast";
 
 const KINDS = ["card", "token", "board", "tile", "rulebook", "other"];
 
+type ComponentKind = {
+  id: string;
+  label: string;
+  kind: string;
+  icon: React.ComponentType<{ className?: string }>;
+  promptHint: string;
+};
+
+const COMPONENT_KINDS: ComponentKind[] = [
+  { id: "card", label: "Card", kind: "card", icon: Layers, promptHint: "a single illustrated game card with title bar, art frame, and rule text area" },
+  { id: "board", label: "Board", kind: "board", icon: Square, promptHint: "a top-down hex or grid game board with regions and resource icons" },
+  { id: "token", label: "Token", kind: "token", icon: Circle, promptHint: "a small circular wooden or cardboard token with a single icon" },
+  { id: "dice", label: "Dice tray", kind: "other", icon: Dice5, promptHint: "a wooden dice tray with custom-faced dice scattered inside" },
+  { id: "character", label: "Character art", kind: "other", icon: User, promptHint: "a character portrait, three-quarter view, painted illustration" },
+  { id: "map", label: "Map", kind: "board", icon: MapIcon, promptHint: "a stylized world map with regions and a compass rose" },
+  { id: "box", label: "Box cover", kind: "other", icon: Package, promptHint: "a board game box cover, dramatic key art with logo space" },
+  { id: "logo", label: "Logo", kind: "other", icon: Tag, promptHint: "a game logo / wordmark, vector style, on transparent background" },
+];
+
 export function Assets({ projectId }: { projectId: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: assets, isLoading } = useListAssets(projectId);
+  const { data: project } = useGetProject(projectId);
   const { data: entities } = useListEntities(projectId);
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
   const deleteAsset = useDeleteAsset();
+  const updateProject = useUpdateProject();
   const enhanceAsset = useAiEnhanceAsset();
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
+
+  const [narrative, setNarrative] = useState("");
+  const [narrativeDirty, setNarrativeDirty] = useState(false);
+  const [savingNarrative, setSavingNarrative] = useState(false);
+  useEffect(() => {
+    if (project && !narrativeDirty) setNarrative(project.narrative ?? "");
+  }, [project, narrativeDirty]);
+
+  const saveNarrative = async () => {
+    setSavingNarrative(true);
+    try {
+      await updateProject.mutateAsync({ projectId, data: { narrative } });
+      qc.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
+      setNarrativeDirty(false);
+      toast({ title: "Narrative saved" });
+    } catch (err) {
+      toast({ title: "Save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setSavingNarrative(false);
+    }
+  };
+
+  const [generatingTile, setGeneratingTile] = useState<string | null>(null);
+  const [freeformPrompt, setFreeformPrompt] = useState("");
+  const [generatingFreeform, setGeneratingFreeform] = useState(false);
+
+  const composedPrompt = (kind: ComponentKind, customExtra?: string): { prompt: string; tag: string; assetName: string; description: string } => {
+    const narr = narrative.trim() || project?.description || "a tabletop game";
+    const entityNames = (entities ?? []).slice(0, 6).map((e) => e.name).filter(Boolean);
+    const entityLine = entityNames.length ? `Featuring entities: ${entityNames.join(", ")}.` : "";
+    const extra = customExtra?.trim() ? ` ${customExtra.trim()}` : "";
+    const prompt = `Design ${kind.promptHint} for a board game called "${project?.name ?? "Untitled"}". Narrative: ${narr}. ${entityLine} Style: hand-painted, rich color, professional board-game art.${extra}`;
+    const seedWord = narr.split(/\s+/).slice(0, 4).join(" ");
+    const assetName = `${kind.label}: ${seedWord}`.slice(0, 60);
+    const description = `${kind.label} from narrative beat — ${narr.slice(0, 140)}`;
+    const tag = kind.label;
+    return { prompt, tag, assetName, description };
+  };
+
+  const generateImageDirect = async (assetId: number, prompt: string): Promise<boolean> => {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const res = await fetch(`${base}/api/projects/${projectId}/assets/${assetId}/generate-image`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ prompt }),
+    });
+    return res.ok;
+  };
+
+  const generateFromTile = async (tile: ComponentKind) => {
+    if (!narrative.trim() && !project?.description) {
+      toast({ title: "Add a narrative first", description: "Write a story seed above so the AI knows what to draw.", variant: "destructive" });
+      return;
+    }
+    setGeneratingTile(tile.id);
+    try {
+      const composed = composedPrompt(tile);
+      const created = await createAsset.mutateAsync({
+        projectId,
+        data: {
+          name: composed.assetName,
+          kind: tile.kind,
+          description: composed.description,
+          flavorText: composed.tag,
+        },
+      });
+      qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
+      const ok = await generateImageDirect(created.id, composed.prompt);
+      qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
+      if (ok) toast({ title: `${tile.label} generated` });
+      else toast({ title: "Image generation failed", description: "Asset created without image — try regenerating.", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Generation failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setGeneratingTile(null);
+    }
+  };
+
+  const generateFromFreeform = async () => {
+    const txt = freeformPrompt.trim();
+    if (!txt) return;
+    setGeneratingFreeform(true);
+    try {
+      const narr = narrative.trim() || project?.description || "";
+      const entityNames = (entities ?? []).slice(0, 4).map((e) => e.name).filter(Boolean);
+      const entityLine = entityNames.length ? ` Featuring: ${entityNames.join(", ")}.` : "";
+      const fullPrompt = narr
+        ? `${txt}. Narrative: ${narr}.${entityLine} Style: hand-painted, rich color, professional board-game art.`
+        : txt;
+      const created = await createAsset.mutateAsync({
+        projectId,
+        data: {
+          name: txt.slice(0, 60),
+          kind: "other",
+          description: `Custom — ${txt}`.slice(0, 240),
+          flavorText: "Custom",
+        },
+      });
+      qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
+      const ok = await generateImageDirect(created.id, fullPrompt);
+      qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
+      if (ok) {
+        toast({ title: "Asset generated" });
+        setFreeformPrompt("");
+      } else {
+        toast({ title: "Image generation failed", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Generation failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setGeneratingFreeform(false);
+    }
+  };
 
   const handleEnhance = async (assetId: number) => {
     setEnhancingId(assetId);
     try {
       await enhanceAsset.mutateAsync({ projectId, assetId });
       qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
-      toast({ title: "Asset enhanced", description: "AI improved the description and flavor." });
+      toast({ title: "Asset enhanced" });
     } catch (err) {
       toast({ title: "Enhance failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
@@ -75,14 +240,8 @@ export function Assets({ projectId }: { projectId: number }) {
   const generateImage = async (assetId: number, prompt: string) => {
     setGenerating(assetId);
     try {
-      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-      const res = await fetch(`${base}/api/projects/${projectId}/assets/${assetId}/generate-image`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ prompt }),
-      });
-      if (!res.ok) throw new Error("gen failed");
+      const ok = await generateImageDirect(assetId, prompt);
+      if (!ok) throw new Error("gen failed");
       refresh();
       toast({ title: "Image generated" });
     } catch { toast({ title: "Generation failed", variant: "destructive" }); }
@@ -107,18 +266,101 @@ export function Assets({ projectId }: { projectId: number }) {
     <div className="space-y-6 max-w-6xl">
       <div className="flex items-end justify-between">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2"><ImageIcon className="h-6 w-6 text-primary" /> Assets</h2>
-          <p className="text-muted-foreground text-sm mt-1">Cards, tokens, boards, and other game art.</p>
+          <h2 className="text-2xl font-bold flex items-center gap-2"><ImageIcon className="h-6 w-6 text-primary" /> Component Mockups</h2>
+          <p className="text-muted-foreground text-sm mt-1">Generate cards, boards, tokens, and key art from your story.</p>
         </div>
-        <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> New Asset</Button>
+        <Button variant="outline" onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> Manual asset</Button>
       </div>
+
+      <Card className="bg-card border-card-border">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-primary" />
+            <Label htmlFor="narrative-seed" className="font-semibold">Narrative seed</Label>
+            <span className="text-xs text-muted-foreground">— a short story setup the AI will weave into every component.</span>
+          </div>
+          <Textarea
+            id="narrative-seed"
+            data-testid="narrative-seed"
+            rows={3}
+            placeholder="A storm-wracked archipelago where rival cartels of weather-shapers race to claim drifting sky-islands…"
+            value={narrative}
+            onChange={(e) => { setNarrative(e.target.value); setNarrativeDirty(true); }}
+          />
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={saveNarrative}
+              disabled={!narrativeDirty || savingNarrative}
+              className="gap-2"
+              data-testid="save-narrative"
+            >
+              {savingNarrative ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              {savingNarrative ? "Saving…" : narrativeDirty ? "Save narrative" : "Saved"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div>
+        <h3 className="font-semibold mb-3 text-sm uppercase tracking-wider text-muted-foreground">Component types</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {COMPONENT_KINDS.map((tile) => {
+            const Icon = tile.icon;
+            const isLoading = generatingTile === tile.id;
+            return (
+              <button
+                key={tile.id}
+                onClick={() => generateFromTile(tile)}
+                disabled={isLoading || !!generatingTile}
+                data-testid={`tile-${tile.id}`}
+                className="group flex flex-col items-center justify-center gap-2 p-4 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                ) : (
+                  <Icon className="h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
+                )}
+                <span className="text-sm font-medium">{tile.label}</span>
+                <span className="text-[10px] text-muted-foreground line-clamp-2 text-center">{isLoading ? "Composing…" : "Click to generate"}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <Card className="bg-card border-card-border">
+        <CardContent className="p-4 space-y-2">
+          <Label htmlFor="freeform-prompt" className="text-sm font-semibold flex items-center gap-2">
+            <Wand2 className="h-3.5 w-3.5 text-primary" /> Or describe your own component
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              id="freeform-prompt"
+              data-testid="freeform-prompt"
+              placeholder="A weathered storm-shard talisman engraved with sky-glyphs"
+              value={freeformPrompt}
+              onChange={(e) => setFreeformPrompt(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !generatingFreeform) generateFromFreeform(); }}
+            />
+            <Button
+              onClick={generateFromFreeform}
+              disabled={!freeformPrompt.trim() || generatingFreeform}
+              data-testid="generate-freeform"
+              className="gap-2"
+            >
+              {generatingFreeform ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Generate
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-72" />)}</div>
       ) : !assets?.length ? (
-        <div className="text-center py-16 border border-dashed border-border rounded-xl">
-          <p className="text-muted-foreground mb-4">No assets yet. Design your first card or token.</p>
-          <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New Asset</Button>
+        <div className="text-center py-12 border border-dashed border-border rounded-xl">
+          <p className="text-muted-foreground">No mockups yet. Pick a component type above to get started.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -133,6 +375,11 @@ export function Assets({ projectId }: { projectId: number }) {
                   </div>
                 )}
                 <span className="absolute top-2 left-2 text-[10px] uppercase font-bold tracking-wider bg-black/60 text-white px-2 py-0.5 rounded">{a.kind}</span>
+                {a.flavorText && (
+                  <span className="absolute top-2 right-2 text-[10px] uppercase font-semibold tracking-wider bg-primary/90 text-primary-foreground px-2 py-0.5 rounded">
+                    {a.flavorText}
+                  </span>
+                )}
               </div>
               <CardContent className="p-4 flex-1 flex flex-col">
                 <div className="flex justify-between items-start gap-2 mb-1">
@@ -154,7 +401,6 @@ export function Assets({ projectId }: { projectId: number }) {
                   </div>
                 </div>
                 {a.description && <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{a.description}</p>}
-                {a.flavorText && <p className="text-xs italic text-muted-foreground/80 line-clamp-2 mb-3">"{a.flavorText}"</p>}
                 <div className="flex gap-2 mt-auto">
                   <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => openImagePrompt(a.id)} disabled={generating === a.id}>
                     <Sparkles className="h-3.5 w-3.5" /> {generating === a.id ? "Generating..." : a.imageDataUrl ? "Regenerate" : "Generate"}
@@ -190,7 +436,7 @@ export function Assets({ projectId }: { projectId: number }) {
               </div>
             </div>
             <div className="space-y-2"><Label>Description</Label><Textarea rows={3} value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Flavor text</Label><Textarea rows={2} value={form.flavorText} onChange={e => setForm({...form, flavorText: e.target.value})} /></div>
+            <div className="space-y-2"><Label>Flavor text / tag</Label><Textarea rows={2} value={form.flavorText} onChange={e => setForm({...form, flavorText: e.target.value})} /></div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit">{editing ? "Save" : "Create"}</Button>

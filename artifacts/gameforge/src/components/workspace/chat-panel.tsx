@@ -228,6 +228,29 @@ export function ChatPanel({ projectId, defaultPrompt, onPromptClear, activeTab }
     }
   };
 
+  if (collapsed) {
+    return (
+      <div className="w-10 border-l border-border bg-card flex flex-col items-center py-2 gap-2 h-full flex-shrink-0 z-20">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-primary hover:bg-primary/10"
+              onClick={() => setCollapsed(false)}
+              data-testid="chat-expand"
+              title="Expand chat"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Expand GameForge AI</TooltipContent>
+        </Tooltip>
+        <div className="rotate-180 [writing-mode:vertical-rl] text-[10px] uppercase tracking-widest text-muted-foreground select-none">GameForge AI</div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-96 border-l border-border bg-card flex flex-col h-full flex-shrink-0 z-20">
       <div className="h-12 border-b border-border flex items-center px-3 justify-between bg-card shrink-0 gap-2">
@@ -235,6 +258,20 @@ export function ChatPanel({ projectId, defaultPrompt, onPromptClear, activeTab }
           <Bot className="h-4 w-4" /> GameForge AI
         </div>
         <div className="flex items-center gap-1 min-w-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={() => setCollapsed(true)}
+                data-testid="chat-collapse"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Collapse</TooltipContent>
+          </Tooltip>
           <Select value={modelKey(selected)} onValueChange={handleModelChange}>
             <SelectTrigger className="h-8 text-xs px-2 max-w-[180px] truncate" data-testid="select-ai-model">
               <SelectValue />
@@ -276,8 +313,9 @@ export function ChatPanel({ projectId, defaultPrompt, onPromptClear, activeTab }
             {messages?.map(msg => {
               const labelOpt = findModelOption(undefined, msg.model ?? undefined)
                 ?? AVAILABLE_MODELS.find(m => m.model === msg.model);
+              const savedAs = savedMsgIds[msg.id];
               return (
-                <div key={msg.id} className={`flex flex-col gap-1 max-w-[92%] ${msg.role === 'user' ? 'self-end items-end' : 'self-start items-start'}`}>
+                <div key={msg.id} className={`group flex flex-col gap-1 max-w-[92%] ${msg.role === 'user' ? 'self-end items-end' : 'self-start items-start'}`}>
                   <div className={`px-3 py-2 rounded-lg text-sm ${msg.role === 'user'
                     ? 'bg-primary/20 text-foreground border border-primary/30 rounded-br-sm whitespace-pre-wrap'
                     : 'bg-sidebar text-sidebar-foreground border border-border rounded-bl-sm leading-relaxed'}`}>
@@ -290,6 +328,42 @@ export function ChatPanel({ projectId, defaultPrompt, onPromptClear, activeTab }
                       {msg.gameType && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground border border-border">{msg.gameType}</span>}
                       {msg.genre && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground border border-border">{msg.genre}</span>}
                       {msg.model && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground border border-border">{labelOpt?.label ?? msg.model}</span>}
+                    </div>
+                  )}
+                  {msg.role === 'assistant' && (
+                    <div className="flex items-center gap-1 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+                            onClick={() => handleSaveAsNote(msg.id, msg.content)}
+                            disabled={savedAs === "note"}
+                            data-testid={`chat-save-note-${msg.id}`}
+                          >
+                            {savedAs === "note" ? <Check className="h-3 w-3 mr-1" /> : <StickyNote className="h-3 w-3 mr-1" />}
+                            {savedAs === "note" ? "Saved" : "Note"}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Save to Notes</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+                            onClick={() => handleSaveAsTask(msg.id, msg.content)}
+                            disabled={savedAs === "task"}
+                            data-testid={`chat-save-task-${msg.id}`}
+                          >
+                            {savedAs === "task" ? <Check className="h-3 w-3 mr-1" /> : <ListChecks className="h-3 w-3 mr-1" />}
+                            {savedAs === "task" ? "Saved" : "Task"}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Save to Tasks</TooltipContent>
+                      </Tooltip>
                     </div>
                   )}
                 </div>
