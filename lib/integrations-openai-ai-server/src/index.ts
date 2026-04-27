@@ -1,4 +1,4 @@
 export { openai } from "./client";
 export { generateImageBuffer, editImages } from "./image";
 export { batchProcess, batchProcessWithSSE, isRateLimitError, type BatchOptions } from "./batch";
-export { default as OpenAI } from "openai";
+export { default as OpenAI, APIError } from "openai";

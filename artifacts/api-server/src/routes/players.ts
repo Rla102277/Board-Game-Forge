@@ -2,7 +2,12 @@ import { Router, type IRouter } from "express";
 import { and, eq, desc } from "drizzle-orm";
 import { db, players } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
-import { complete, tryParseJsonArray, tryParseJsonObject } from "../lib/aiRouter";
+import {
+  complete,
+  tryParseJsonArray,
+  tryParseJsonObject,
+  pickStringFields,
+} from "../lib/aiRouter";
 
 const router: IRouter = Router();
 
@@ -177,18 +182,27 @@ router.post(
       return;
     }
     try {
+      const editable = {
+        name: p.name,
+        role: p.role,
+        description: p.description,
+        strategy: p.strategy,
+        archetype: p.archetype,
+        victoryCondition: p.victoryCondition,
+        specialAbility: p.specialAbility,
+        playstyle: p.playstyle,
+        startingResources: p.startingResources,
+      };
       const text = await complete(req, {
         prompt: `Enhance this player archetype with vivid detail and a concrete special ability. Keep existing fields, but rewrite empty or weak fields.
 
 Existing:
-${JSON.stringify(p, null, 2)}
+${JSON.stringify(editable, null, 2)}
 
-Return ONLY a JSON object with the same field names: description, strategy, archetype, victoryCondition, specialAbility, playstyle, startingResources.
+Return ONLY a flat JSON object with these field names (no wrapper, no nesting): description, strategy, archetype, victoryCondition, specialAbility, playstyle, startingResources.
 Output JUST the JSON object.`,
         maxTokens: 800,
       });
-      const obj = tryParseJsonObject<Record<string, string>>(text) ?? {};
-      const update: Record<string, string> = {};
       const allowed = [
         "description",
         "strategy",
@@ -198,12 +212,17 @@ Output JUST the JSON object.`,
         "playstyle",
         "startingResources",
         "role",
-      ];
-      for (const k of allowed) {
-        if (obj[k]) update[k] = String(obj[k]);
-      }
+      ] as const;
+      const obj = tryParseJsonObject<Record<string, unknown>>(text);
+      const update = pickStringFields(obj, allowed);
       if (Object.keys(update).length === 0) {
-        res.status(502).json({ error: "AI returned no usable content. Try again or switch model." });
+        req.log.warn(
+          { aiTextSnippet: text.slice(0, 500) },
+          "enhance player: AI returned no usable fields",
+        );
+        res.status(502).json({
+          error: "AI returned no usable content. Try again or switch model.",
+        });
         return;
       }
       const [updated] = await db

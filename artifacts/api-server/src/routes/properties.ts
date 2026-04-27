@@ -175,6 +175,10 @@ Output JUST the JSON object.`,
         }>;
       }>(text);
       if (!obj?.description) {
+        req.log.warn(
+          { aiTextSnippet: text.slice(0, 500) },
+          "enhance property: AI returned no usable fields",
+        );
         res.status(502).json({ error: "AI returned no usable content. Try again or switch model." });
         return;
       }

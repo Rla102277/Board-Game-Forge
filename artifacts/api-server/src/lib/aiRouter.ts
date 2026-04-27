@@ -358,6 +358,41 @@ export function tryParseJsonObject<T = Record<string, unknown>>(
   }
 }
 
+// Pick string fields from a parsed AI JSON response, tolerating wrapped
+// shapes such as {"player": {...}}, {"data": {...}}, or {"result": {...}}.
+// If no allowed keys are found at the top level, looks EXACTLY one level
+// deep into immediate child object values and returns the first match.
+// Does not recurse further — deeper matches are intentionally ignored to
+// avoid pulling allowed-key names from unrelated nested noise.
+// Empty strings are skipped.
+export function pickStringFields(
+  obj: unknown,
+  allowed: readonly string[],
+): Record<string, string> {
+  const pickFlat = (v: unknown): Record<string, string> => {
+    const result: Record<string, string> = {};
+    if (!v || typeof v !== "object" || Array.isArray(v)) return result;
+    const rec = v as Record<string, unknown>;
+    for (const k of allowed) {
+      const val = rec[k];
+      if (typeof val === "string" && val.trim().length > 0) {
+        result[k] = val;
+      } else if (typeof val === "number" || typeof val === "boolean") {
+        result[k] = String(val);
+      }
+    }
+    return result;
+  };
+  const top = pickFlat(obj);
+  if (Object.keys(top).length > 0) return top;
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return top;
+  for (const child of Object.values(obj as Record<string, unknown>)) {
+    const nested = pickFlat(child);
+    if (Object.keys(nested).length > 0) return nested;
+  }
+  return top;
+}
+
 // Best-effort repair for JSON that was cut off mid-output (token cap, network).
 // Collects every "safe cut" position (after a closed string, value, or `}`/`]`)
 // while scanning, then attempts to close from the latest safe point and walks

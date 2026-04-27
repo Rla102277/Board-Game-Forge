@@ -206,6 +206,10 @@ Output JUST the JSON object.`,
         }>;
       }>(text);
       if (!obj?.rewrittenContent) {
+        req.log.warn(
+          { aiTextSnippet: text.slice(0, 500) },
+          "enhance rule: AI returned no usable fields",
+        );
         res.status(502).json({ error: "AI returned no usable content. Try again or switch model." });
         return;
       }
