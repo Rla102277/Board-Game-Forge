@@ -343,6 +343,35 @@ export interface RuleEnhanceSuggestion {
   relatedRuleSuggestions: RuleEnhanceSuggestionRelatedRuleSuggestionsItem[];
 }
 
+export interface AssetEnhanceSuggestion {
+  name?: string;
+  description?: string;
+  flavorText?: string;
+}
+
+export type AiTextEditBodyAction =
+  (typeof AiTextEditBodyAction)[keyof typeof AiTextEditBodyAction];
+
+export const AiTextEditBodyAction = {
+  shorter: "shorter",
+  longer: "longer",
+  rephrase: "rephrase",
+  vivid: "vivid",
+  punchy: "punchy",
+  formal: "formal",
+} as const;
+
+export interface AiTextEditBody {
+  text: string;
+  action: AiTextEditBodyAction;
+  /** Optional human label for what this text is (e.g. 'project description', 'rule content'). */
+  contextLabel?: string;
+}
+
+export interface AiTextEditResponse {
+  rewritten: string;
+}
+
 export interface Player {
   id: number;
   projectId: number;

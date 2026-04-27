@@ -21,7 +21,10 @@ import type {
   AdminUser,
   AiGenerateBody,
   AiProviderSettings,
+  AiTextEditBody,
+  AiTextEditResponse,
   Asset,
+  AssetEnhanceSuggestion,
   BalanceReport,
   ChangelogEntry,
   ChatMessage,
@@ -5346,11 +5349,14 @@ export const aiEnhanceAsset = async (
   projectId: number,
   assetId: number,
   options?: RequestInit,
-): Promise<Asset> => {
-  return customFetch<Asset>(getAiEnhanceAssetUrl(projectId, assetId), {
-    ...options,
-    method: "POST",
-  });
+): Promise<AssetEnhanceSuggestion> => {
+  return customFetch<AssetEnhanceSuggestion>(
+    getAiEnhanceAssetUrl(projectId, assetId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
 };
 
 export const getAiEnhanceAssetMutationOptions = <
@@ -5415,6 +5421,87 @@ export const useAiEnhanceAsset = <
   TContext
 > => {
   return useMutation(getAiEnhanceAssetMutationOptions(options));
+};
+
+export const getAiTextEditUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/ai/text-edit`;
+};
+
+export const aiTextEdit = async (
+  projectId: number,
+  aiTextEditBody: AiTextEditBody,
+  options?: RequestInit,
+): Promise<AiTextEditResponse> => {
+  return customFetch<AiTextEditResponse>(getAiTextEditUrl(projectId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(aiTextEditBody),
+  });
+};
+
+export const getAiTextEditMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiTextEdit>>,
+    TError,
+    { projectId: number; data: BodyType<AiTextEditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiTextEdit>>,
+  TError,
+  { projectId: number; data: BodyType<AiTextEditBody> },
+  TContext
+> => {
+  const mutationKey = ["aiTextEdit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiTextEdit>>,
+    { projectId: number; data: BodyType<AiTextEditBody> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return aiTextEdit(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiTextEditMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiTextEdit>>
+>;
+export type AiTextEditMutationBody = BodyType<AiTextEditBody>;
+export type AiTextEditMutationError = ErrorType<unknown>;
+
+export const useAiTextEdit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiTextEdit>>,
+    TError,
+    { projectId: number; data: BodyType<AiTextEditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiTextEdit>>,
+  TError,
+  { projectId: number; data: BodyType<AiTextEditBody> },
+  TContext
+> => {
+  return useMutation(getAiTextEditMutationOptions(options));
 };
 
 export const getAiDescribeAssetUrl = (projectId: number, assetId: number) => {

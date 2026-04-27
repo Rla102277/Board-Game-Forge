@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebounce } from "@/hooks/use-debounce";
+import { AiEditTextarea } from "@/components/workspace/ai-edit-textarea";
 import {
   LayoutDashboard, Activity, Users, FileText, CheckSquare, MessageSquare,
   Zap, Sparkles, Settings, MessageCircle,
@@ -183,19 +184,21 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                   data-testid="overview-name-input"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  className="min-h-[100px]"
-                  placeholder="A one-paragraph elevator pitch for your game…"
+                <AiEditTextarea
+                  projectId={projectId}
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  data-testid="overview-desc-input"
+                  onChange={(next) => setFormData((prev) => ({ ...prev, description: next }))}
+                  placeholder="A one-paragraph elevator pitch for your game…"
+                  rows={4}
+                  className="min-h-[100px]"
+                  contextLabel="project description"
+                  testId="overview-desc"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -205,7 +208,7 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                     id="gameType"
                     placeholder="e.g. Strategy, Party, Worker placement"
                     value={formData.gameType}
-                    onChange={(e) => setFormData({ ...formData, gameType: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, gameType: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -214,7 +217,7 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                     id="genre"
                     placeholder="e.g. Fantasy, Sci-fi, Historical"
                     value={formData.genre}
-                    onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, genre: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -223,7 +226,7 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                     id="playerCount"
                     placeholder="e.g. 2-5"
                     value={formData.playerCount}
-                    onChange={(e) => setFormData({ ...formData, playerCount: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, playerCount: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -232,7 +235,7 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                     id="targetDuration"
                     placeholder="e.g. 45–90 min"
                     value={formData.targetDuration}
-                    onChange={(e) => setFormData({ ...formData, targetDuration: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, targetDuration: e.target.value }))}
                   />
                 </div>
               </div>

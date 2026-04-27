@@ -342,11 +342,11 @@ Output JUST the JSON object.`,
       });
       const obj = tryParseJsonObject<Record<string, unknown>>(text);
       const picked = pickStringFields(obj, ["name", "description", "flavorText"] as const);
-      const update: Record<string, string> = {};
-      if (picked.name) update.name = picked.name;
-      if (picked.description) update.description = picked.description;
-      if (picked.flavorText) update.flavorText = picked.flavorText.replace(/^["']|["']$/g, "");
-      if (Object.keys(update).length === 0) {
+      const suggestion: { name?: string; description?: string; flavorText?: string } = {};
+      if (picked.name) suggestion.name = picked.name;
+      if (picked.description) suggestion.description = picked.description;
+      if (picked.flavorText) suggestion.flavorText = picked.flavorText.replace(/^["']|["']$/g, "");
+      if (Object.keys(suggestion).length === 0) {
         req.log.warn(
           { aiTextSnippet: text.slice(0, 500) },
           "enhance asset: AI returned no usable fields",
@@ -354,13 +354,16 @@ Output JUST the JSON object.`,
         res.status(502).json({ error: "AI returned no usable content" });
         return;
       }
-      const [updated] = await db
-        .update(assets)
-        .set(update)
-        .where(eq(assets.id, a.id))
-        .returning();
-      res.json(updated);
+      res.json(suggestion);
     } catch (err) {
+      if (err instanceof AiProviderDisabledError) {
+        res.status(503).json({
+          error: err.message,
+          provider: err.provider,
+          providerDisabled: true,
+        });
+        return;
+      }
       req.log.error({ err }, "enhance asset failed");
       res.status(500).json({ error: "Enhance failed" });
     }

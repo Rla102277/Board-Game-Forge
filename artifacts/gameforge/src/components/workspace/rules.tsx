@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   useListRules, useCreateRule, useUpdateRule, useDeleteRule,
-  useAiGenerateRules, getListRulesQueryKey,
+  useAiGenerateRules, useConflictCheckRules, getListRulesQueryKey,
   type Rule,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,14 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Edit2, Trash2, Wand2, FileText, Sparkles, Loader2, Copy,
   ChevronDown, ChevronRight, Search, Check, X, Info, AlertTriangle,
-  Lightbulb, RefreshCw,
+  Lightbulb, RefreshCw, ShieldAlert,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -77,6 +77,7 @@ export function Rules({ projectId }: RulesProps) {
   const updateRule = useUpdateRule();
   const deleteRule = useDeleteRule();
   const aiGenerate = useAiGenerateRules();
+  const conflictCheck = useConflictCheckRules();
   const { toast } = useToast();
 
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
@@ -85,7 +86,13 @@ export function Rules({ projectId }: RulesProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const [aiPrompt, setAiPrompt] = useState("");
+  const [isAiOpen, setIsAiOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isConflictsOpen, setIsConflictsOpen] = useState(false);
+  const [conflictReport, setConflictReport] = useState<{
+    summary: string;
+    conflicts: Array<{ ruleIds: number[]; severity: string; description: string; suggestion?: string }>;
+  } | null>(null);
   const [editRuleId, setEditRuleId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ title: "", content: "", category: "", priority: 0 });
 
@@ -135,10 +142,23 @@ export function Rules({ projectId }: RulesProps) {
     try {
       await aiGenerate.mutateAsync({ projectId, data: { prompt: aiPrompt, count: 3 } });
       setAiPrompt("");
+      setIsAiOpen(false);
       refresh();
       toast({ title: "AI rules generated" });
     } catch (err) {
       toast({ title: "AI generate failed", description: errMsg(err), variant: "destructive" });
+    }
+  };
+
+  const handleConflictCheck = async () => {
+    setIsConflictsOpen(true);
+    setConflictReport(null);
+    try {
+      const report = await conflictCheck.mutateAsync({ projectId });
+      setConflictReport(report);
+    } catch (err) {
+      toast({ title: "Conflict check failed", description: errMsg(err), variant: "destructive" });
+      setIsConflictsOpen(false);
     }
   };
 
@@ -215,37 +235,75 @@ export function Rules({ projectId }: RulesProps) {
     });
   }, [rules, filter, categoryFilter]);
 
+  const totalRules = rules?.length ?? 0;
+
   return (
-    <div className="space-y-6 pb-8">
-      {/* AI Generate + Add */}
-      <Card className="bg-card border-border overflow-hidden">
-        <div className="bg-primary/5 p-4 border-b border-border flex flex-wrap items-center gap-3">
-          <div className="flex-1 flex items-center gap-2 min-w-[280px]">
-            <Wand2 className="h-5 w-5 text-primary shrink-0" />
-            <Input
-              placeholder="e.g. combat resolution mechanics…"
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              className="bg-background flex-1 max-w-lg"
-              onKeyDown={(e) => e.key === "Enter" && handleAiGenerate()}
-              data-testid="rules-ai-prompt"
-            />
-            <Button onClick={handleAiGenerate} disabled={!aiPrompt || aiGenerate.isPending} data-testid="rules-ai-generate">
-              {aiGenerate.isPending ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</>
-              ) : (
-                <><Sparkles className="h-4 w-4 mr-2" /> Generate with AI</>
-              )}
-            </Button>
-          </div>
+    <div className="space-y-5 pb-8">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold leading-tight">Rules Library</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {totalRules} {totalRules === 1 ? "rule" : "rules"} · click <span className="text-primary font-medium">AI</span> on any card to enhance
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={handleConflictCheck}
+            disabled={conflictCheck.isPending}
+            className="gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200"
+            data-testid="rules-conflicts-button"
+          >
+            {conflictCheck.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+            Conflicts
+          </Button>
+          <Dialog open={isAiOpen} onOpenChange={setIsAiOpen}>
+            <DialogTrigger asChild>
+              <Button
+                className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+                data-testid="rules-ai-generate"
+              >
+                <Sparkles className="h-4 w-4" /> AI Generate
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Generate rules with AI</DialogTitle>
+                <DialogDescription>Describe the kind of rules you want — the AI will draft a few based on this project's context.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 py-2">
+                <Label htmlFor="rules-ai-prompt">What kind of rules?</Label>
+                <Input
+                  id="rules-ai-prompt"
+                  placeholder="e.g. combat resolution mechanics…"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAiGenerate()}
+                  data-testid="rules-ai-prompt"
+                  autoFocus
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAiOpen(false)}>Cancel</Button>
+                <Button onClick={handleAiGenerate} disabled={!aiPrompt || aiGenerate.isPending} className="gap-1.5">
+                  {aiGenerate.isPending ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+                  ) : (
+                    <><Sparkles className="h-4 w-4" /> Generate</>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button
-                variant="outline"
                 onClick={() => setFormData({ title: "", content: "", category: "movement", priority: 1 })}
+                className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
                 data-testid="rules-add-button"
               >
-                <Plus className="h-4 w-4 mr-2" /> Add rule
+                <Plus className="h-4 w-4" /> Add
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -275,48 +333,48 @@ export function Rules({ projectId }: RulesProps) {
             </DialogContent>
           </Dialog>
         </div>
+      </div>
 
-        {/* Filter row */}
-        <div className="px-4 py-3 flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Filter rules…"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="bg-background h-8 pl-8 text-sm"
-              data-testid="rules-search"
-            />
-          </div>
-          <button
-            onClick={() => setCategoryFilter("all")}
-            className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
-              categoryFilter === "all"
-                ? "bg-primary/15 text-primary border-primary/30"
-                : "bg-background text-muted-foreground border-border hover:text-foreground"
-            }`}
-          >
-            All <span className="opacity-60">({rules?.length ?? 0})</span>
-          </button>
-          {allCategories.map((c) => {
-            const meta = catMeta(c);
-            const isActive = categoryFilter === c;
-            return (
-              <button
-                key={c}
-                onClick={() => setCategoryFilter(c)}
-                className={`text-xs px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1.5 ${
-                  isActive ? `${meta.bg} ${meta.text} ${meta.border}` : "bg-background text-muted-foreground border-border hover:text-foreground"
-                }`}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-                {meta.label}
-                <span className="opacity-60">({counts[c] ?? 0})</span>
-              </button>
-            );
-          })}
+      {/* Filter row */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Filter rules…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="bg-background h-8 pl-8 text-sm"
+            data-testid="rules-search"
+          />
         </div>
-      </Card>
+        <button
+          onClick={() => setCategoryFilter("all")}
+          className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
+            categoryFilter === "all"
+              ? "bg-primary/15 text-primary border-primary/30"
+              : "bg-background text-muted-foreground border-border hover:text-foreground"
+          }`}
+        >
+          All <span className="opacity-60">({totalRules})</span>
+        </button>
+        {allCategories.map((c) => {
+          const meta = catMeta(c);
+          const isActive = categoryFilter === c;
+          return (
+            <button
+              key={c}
+              onClick={() => setCategoryFilter(c)}
+              className={`text-xs px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1.5 ${
+                isActive ? `${meta.bg} ${meta.text} ${meta.border}` : "bg-background text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+              {meta.label}
+              <span className="opacity-60">({counts[c] ?? 0})</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* List */}
       {isLoading ? (
@@ -378,6 +436,77 @@ export function Rules({ projectId }: RulesProps) {
             </div>
           </div>
           <DialogFooter><Button onClick={handleUpdate} disabled={!formData.title || !formData.content}>Save changes</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Conflicts Dialog */}
+      <Dialog open={isConflictsOpen} onOpenChange={setIsConflictsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-amber-400" /> Rule conflicts
+            </DialogTitle>
+            <DialogDescription>The AI scans every rule for contradictions, ambiguities, and overlaps.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto" data-testid="conflicts-report">
+            {conflictCheck.isPending || !conflictReport ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" /> Scanning rules…
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-foreground/90">{conflictReport.summary}</p>
+                {conflictReport.conflicts.length === 0 ? (
+                  <div className="flex items-center gap-2 text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-md p-3">
+                    <Check className="h-4 w-4" /> No conflicts found.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {conflictReport.conflicts.map((c, i) => {
+                      const sev = c.severity?.toLowerCase();
+                      const sevBg =
+                        sev === "high"   ? "border-red-500/40 bg-red-500/5" :
+                        sev === "medium" ? "border-amber-500/40 bg-amber-500/5" :
+                                           "border-slate-500/40 bg-slate-500/5";
+                      const sevText =
+                        sev === "high"   ? "text-red-400" :
+                        sev === "medium" ? "text-amber-400" :
+                                           "text-slate-400";
+                      return (
+                        <div key={i} className={`rounded-md border p-3 space-y-2 ${sevBg}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-[10px] uppercase font-bold tracking-wider ${sevText}`}>{c.severity}</span>
+                              {c.ruleIds?.length > 0 && (
+                                <span className="text-[11px] text-muted-foreground">Rules: {c.ruleIds.join(", ")}</span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-sm text-foreground/90">{c.description}</p>
+                          {c.suggestion && (
+                            <p className="text-xs text-muted-foreground border-l-2 border-primary/40 pl-2 italic">
+                              <span className="text-primary font-semibold not-italic">Suggestion:</span> {c.suggestion}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConflictsOpen(false)}>Close</Button>
+            <Button
+              onClick={handleConflictCheck}
+              disabled={conflictCheck.isPending}
+              className="gap-1.5"
+            >
+              {conflictCheck.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Re-scan
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

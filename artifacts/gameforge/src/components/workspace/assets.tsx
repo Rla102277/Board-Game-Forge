@@ -10,6 +10,8 @@ import {
   getListAssetsQueryKey,
   getGetProjectQueryKey,
   useListEntities,
+  type Asset,
+  type AssetEnhanceSuggestion,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -31,6 +33,9 @@ import {
   Map as MapIcon,
   Package,
   Tag,
+  Check,
+  X,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -74,7 +79,6 @@ export function Assets({ projectId }: { projectId: number }) {
   const deleteAsset = useDeleteAsset();
   const updateProject = useUpdateProject();
   const enhanceAsset = useAiEnhanceAsset();
-  const [enhancingId, setEnhancingId] = useState<number | null>(null);
 
   const [narrative, setNarrative] = useState("");
   const [narrativeDirty, setNarrativeDirty] = useState(false);
@@ -190,17 +194,14 @@ export function Assets({ projectId }: { projectId: number }) {
     }
   };
 
-  const handleEnhance = async (assetId: number) => {
-    setEnhancingId(assetId);
-    try {
-      await enhanceAsset.mutateAsync({ projectId, assetId });
-      qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
-      toast({ title: "Asset enhanced" });
-    } catch (err) {
-      toast({ title: "Enhance failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
-    } finally {
-      setEnhancingId(null);
-    }
+  const fetchEnhance = async (assetId: number): Promise<AssetEnhanceSuggestion> => {
+    return enhanceAsset.mutateAsync({ projectId, assetId });
+  };
+
+  const applyEnhance = async (assetId: number, fields: Partial<{ name: string; description: string; flavorText: string }>) => {
+    if (Object.keys(fields).length === 0) return;
+    await updateAsset.mutateAsync({ projectId, assetId, data: fields });
+    qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
   };
 
   const [open, setOpen] = useState(false);
@@ -262,12 +263,16 @@ export function Assets({ projectId }: { projectId: number }) {
     link.click();
   };
 
+  const totalAssets = assets?.length ?? 0;
+
   return (
     <div className="space-y-6 max-w-6xl">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2"><ImageIcon className="h-6 w-6 text-primary" /> Component Mockups</h2>
-          <p className="text-muted-foreground text-sm mt-1">Generate cards, boards, tokens, and key art from your story.</p>
+          <h2 className="text-2xl font-bold flex items-center gap-2"><ImageIcon className="h-6 w-6 text-primary" /> Asset Library</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {totalAssets} {totalAssets === 1 ? "asset" : "assets"} · click <span className="text-primary font-medium">AI</span> on any card to enhance its name, description, and flavor text
+          </p>
         </div>
         <Button variant="outline" onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> Manual asset</Button>
       </div>
@@ -364,51 +369,18 @@ export function Assets({ projectId }: { projectId: number }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {assets.map(a => (
-            <Card key={a.id} className="bg-card border-card-border overflow-hidden flex flex-col group">
-              <div className="aspect-square bg-muted/30 relative">
-                {a.imageDataUrl ? (
-                  <img src={a.imageDataUrl} alt={a.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    <ImageIcon className="h-12 w-12 opacity-30" />
-                  </div>
-                )}
-                <span className="absolute top-2 left-2 text-[10px] uppercase font-bold tracking-wider bg-black/60 text-white px-2 py-0.5 rounded">{a.kind}</span>
-                {a.flavorText && (
-                  <span className="absolute top-2 right-2 text-[10px] uppercase font-semibold tracking-wider bg-primary/90 text-primary-foreground px-2 py-0.5 rounded">
-                    {a.flavorText}
-                  </span>
-                )}
-              </div>
-              <CardContent className="p-4 flex-1 flex flex-col">
-                <div className="flex justify-between items-start gap-2 mb-1">
-                  <h3 className="font-semibold line-clamp-1">{a.name}</h3>
-                  <div className="opacity-0 group-hover:opacity-100 flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      title="AI Enhance text"
-                      onClick={() => handleEnhance(a.id)}
-                      disabled={enhancingId === a.id}
-                      data-testid={`enhance-asset-${a.id}`}
-                    >
-                      {enhancingId === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(a.id)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                  </div>
-                </div>
-                {a.description && <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{a.description}</p>}
-                <div className="flex gap-2 mt-auto">
-                  <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => openImagePrompt(a.id)} disabled={generating === a.id}>
-                    <Sparkles className="h-3.5 w-3.5" /> {generating === a.id ? "Generating..." : a.imageDataUrl ? "Regenerate" : "Generate"}
-                  </Button>
-                  {a.imageDataUrl && <Button size="sm" variant="outline" onClick={() => downloadImage(a)}><Download className="h-3.5 w-3.5" /></Button>}
-                </div>
-              </CardContent>
-            </Card>
+          {assets.map((a) => (
+            <AssetCard
+              key={a.id}
+              asset={a}
+              isGenerating={generating === a.id}
+              onEdit={() => openEdit(a.id)}
+              onDelete={() => remove(a.id)}
+              onGenerateImage={() => openImagePrompt(a.id)}
+              onDownload={() => downloadImage(a)}
+              fetchEnhance={() => fetchEnhance(a.id)}
+              applyEnhance={(fields) => applyEnhance(a.id, fields)}
+            />
           ))}
         </div>
       )}
@@ -462,6 +434,271 @@ export function Assets({ projectId }: { projectId: number }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// AssetCard — image, action row, and inline AI Enhancement preview panel
+// ════════════════════════════════════════════════════════════════════════════
+function AssetCard({
+  asset,
+  isGenerating,
+  onEdit,
+  onDelete,
+  onGenerateImage,
+  onDownload,
+  fetchEnhance,
+  applyEnhance,
+}: {
+  asset: Asset;
+  isGenerating: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onGenerateImage: () => void;
+  onDownload: () => void;
+  fetchEnhance: () => Promise<AssetEnhanceSuggestion>;
+  applyEnhance: (fields: Partial<{ name: string; description: string; flavorText: string }>) => Promise<void>;
+}) {
+  const { toast } = useToast();
+  const [showEnhance, setShowEnhance] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [suggestion, setSuggestion] = useState<AssetEnhanceSuggestion | null>(null);
+  const [picked, setPicked] = useState<{ name: boolean; description: boolean; flavorText: boolean }>({ name: true, description: true, flavorText: true });
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
+
+  const runEnhance = async () => {
+    setIsEnhancing(true);
+    setSuggestion(null);
+    setApplied(false);
+    setShowEnhance(true);
+    try {
+      const data = await fetchEnhance();
+      setSuggestion(data);
+      setPicked({
+        name: !!data.name && data.name !== asset.name,
+        description: !!data.description && data.description !== (asset.description ?? ""),
+        flavorText: !!data.flavorText && data.flavorText !== (asset.flavorText ?? ""),
+      });
+    } catch (err) {
+      const desc = err instanceof Error ? err.message : String(err);
+      toast({ title: "AI enhance failed", description: desc, variant: "destructive" });
+      setShowEnhance(false);
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleApply = async () => {
+    if (!suggestion) return;
+    const fields: Partial<{ name: string; description: string; flavorText: string }> = {};
+    if (picked.name && suggestion.name) fields.name = suggestion.name;
+    if (picked.description && suggestion.description) fields.description = suggestion.description;
+    if (picked.flavorText && suggestion.flavorText) fields.flavorText = suggestion.flavorText;
+    if (Object.keys(fields).length === 0) {
+      toast({ title: "Pick at least one field to apply", variant: "destructive" });
+      return;
+    }
+    setApplying(true);
+    try {
+      await applyEnhance(fields);
+      setApplied(true);
+      toast({ title: "Asset updated" });
+      setTimeout(() => {
+        setShowEnhance(false);
+        setSuggestion(null);
+        setApplied(false);
+      }, 1200);
+    } catch (err) {
+      toast({ title: "Apply failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  return (
+    <Card className="bg-card border-card-border overflow-hidden flex flex-col group" data-testid={`asset-card-${asset.id}`}>
+      <div className="aspect-square bg-muted/30 relative">
+        {asset.imageDataUrl ? (
+          <img src={asset.imageDataUrl} alt={asset.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+            <ImageIcon className="h-12 w-12 opacity-30" />
+          </div>
+        )}
+        <span className="absolute top-2 left-2 text-[10px] uppercase font-bold tracking-wider bg-black/60 text-white px-2 py-0.5 rounded">{asset.kind}</span>
+        {asset.flavorText && (
+          <span className="absolute top-2 right-2 text-[10px] uppercase font-semibold tracking-wider bg-primary/90 text-primary-foreground px-2 py-0.5 rounded">
+            {asset.flavorText}
+          </span>
+        )}
+      </div>
+      <CardContent className="p-4 flex-1 flex flex-col">
+        <div className="flex justify-between items-start gap-2 mb-1">
+          <h3 className="font-semibold line-clamp-1 flex-1">{asset.name}</h3>
+          <div className="flex gap-0.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`text-xs h-7 px-2 gap-1 ${showEnhance ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}
+              title="AI Enhance text"
+              onClick={runEnhance}
+              disabled={isEnhancing}
+              data-testid={`enhance-asset-${asset.id}`}
+            >
+              {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+              AI
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={onEdit} title="Edit"><Edit2 className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive" onClick={onDelete} title="Delete"><Trash2 className="h-3.5 w-3.5" /></Button>
+          </div>
+        </div>
+        {asset.description && <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{asset.description}</p>}
+        <div className="flex gap-2 mt-auto">
+          <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={onGenerateImage} disabled={isGenerating}>
+            <Sparkles className="h-3.5 w-3.5" /> {isGenerating ? "Generating..." : asset.imageDataUrl ? "Regenerate" : "Generate"}
+          </Button>
+          {asset.imageDataUrl && <Button size="sm" variant="outline" onClick={onDownload}><Download className="h-3.5 w-3.5" /></Button>}
+        </div>
+      </CardContent>
+
+      {/* AI Enhance Panel */}
+      {showEnhance && (
+        <div className="border-t border-border bg-primary/5 px-4 py-3 space-y-3" data-testid={`enhance-panel-asset-${asset.id}`}>
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-sm font-semibold text-primary flex-1">AI Enhancement</p>
+            <button
+              onClick={() => { setShowEnhance(false); setSuggestion(null); }}
+              className="text-muted-foreground hover:text-white transition-colors"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {isEnhancing && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" /> Rewriting copy…
+            </div>
+          )}
+
+          {suggestion && !isEnhancing && (
+            <div className="space-y-3">
+              <SuggestionField
+                label="Name"
+                current={asset.name}
+                proposed={suggestion.name}
+                checked={picked.name}
+                onToggle={() => setPicked({ ...picked, name: !picked.name })}
+              />
+              <SuggestionField
+                label="Description"
+                current={asset.description ?? ""}
+                proposed={suggestion.description}
+                checked={picked.description}
+                onToggle={() => setPicked({ ...picked, description: !picked.description })}
+              />
+              <SuggestionField
+                label="Flavor text"
+                current={asset.flavorText ?? ""}
+                proposed={suggestion.flavorText}
+                checked={picked.flavorText}
+                onToggle={() => setPicked({ ...picked, flavorText: !picked.flavorText })}
+              />
+
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                <Button
+                  size="sm"
+                  onClick={handleApply}
+                  disabled={applying || applied}
+                  className="bg-primary text-primary-foreground gap-1.5"
+                  data-testid={`apply-enhance-asset-${asset.id}`}
+                >
+                  {applied
+                    ? <><Check className="w-3.5 h-3.5" /> Applied!</>
+                    : applying
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Applying…</>
+                    : <><Wand2 className="w-3.5 h-3.5" /> Apply</>}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={runEnhance}
+                  disabled={isEnhancing}
+                  className="border-border text-muted-foreground hover:text-white gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Regenerate
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setShowEnhance(false); setSuggestion(null); }}
+                  className="text-muted-foreground hover:text-white ml-auto"
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function SuggestionField({
+  label,
+  current,
+  proposed,
+  checked,
+  onToggle,
+}: {
+  label: string;
+  current: string;
+  proposed?: string;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  if (!proposed) {
+    return (
+      <div className="space-y-1">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+        <p className="text-xs text-muted-foreground italic">No change suggested.</p>
+      </div>
+    );
+  }
+  if (proposed === current) {
+    return (
+      <div className="space-y-1">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+        <p className="text-xs text-muted-foreground italic">No change — AI returned the same value.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={onToggle}
+            className="h-3 w-3 accent-primary"
+          />
+          Apply this
+        </label>
+      </div>
+      {current && (
+        <p className="text-xs text-muted-foreground/70 line-through bg-background/40 border border-border rounded px-2 py-1">
+          {current}
+        </p>
+      )}
+      <p className={`text-xs leading-relaxed bg-background/60 border rounded px-2 py-1.5 ${checked ? "text-foreground border-primary/40" : "text-muted-foreground border-border"}`}>
+        {proposed}
+      </p>
     </div>
   );
 }

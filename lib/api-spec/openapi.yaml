@@ -1083,11 +1083,31 @@ paths:
         - $ref: "#/components/parameters/AssetId"
       responses:
         "200":
-          description: Enhanced asset
+          description: Structured AI enhancement preview (not yet applied)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Asset"
+                $ref: "#/components/schemas/AssetEnhanceSuggestion"
+
+  /projects/{projectId}/ai/text-edit:
+    post:
+      operationId: aiTextEdit
+      tags: [ai]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiTextEditBody"
+      responses:
+        "200":
+          description: Rewritten text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiTextEditResponse"
 
   /projects/{projectId}/assets/{assetId}/describe:
     post:
@@ -2113,6 +2133,36 @@ components:
                 type: string
             required: [title, content, category]
       required: [rewrittenContent, improvedTitle, relatedRuleSuggestions]
+
+    AssetEnhanceSuggestion:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        flavorText:
+          type: string
+
+    AiTextEditBody:
+      type: object
+      properties:
+        text:
+          type: string
+        action:
+          type: string
+          enum: [shorter, longer, rephrase, vivid, punchy, formal]
+        contextLabel:
+          type: string
+          description: "Optional human label for what this text is (e.g. 'project description', 'rule content')."
+      required: [text, action]
+
+    AiTextEditResponse:
+      type: object
+      properties:
+        rewritten:
+          type: string
+      required: [rewritten]
 
     Player:
       type: object

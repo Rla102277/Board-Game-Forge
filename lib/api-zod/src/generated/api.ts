@@ -1059,17 +1059,35 @@ export const AiEnhanceAssetParams = zod.object({
 });
 
 export const AiEnhanceAssetResponse = zod.object({
-  id: zod.number(),
-  projectId: zod.number(),
-  entityId: zod.number().nullish(),
-  name: zod.string(),
-  kind: zod.string(),
-  description: zod.string().nullish(),
-  flavorText: zod.string().nullish(),
-  imageDataUrl: zod.string().nullish(),
-  imagePrompt: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  name: zod.string().optional(),
+  description: zod.string().optional(),
+  flavorText: zod.string().optional(),
+});
+
+export const AiTextEditParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const AiTextEditBody = zod.object({
+  text: zod.string(),
+  action: zod.enum([
+    "shorter",
+    "longer",
+    "rephrase",
+    "vivid",
+    "punchy",
+    "formal",
+  ]),
+  contextLabel: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional human label for what this text is (e.g. 'project description', 'rule content').",
+    ),
+});
+
+export const AiTextEditResponse = zod.object({
+  rewritten: zod.string(),
 });
 
 export const AiDescribeAssetParams = zod.object({
