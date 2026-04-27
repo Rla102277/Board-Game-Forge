@@ -4,24 +4,64 @@
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
-## Stack
+This project hosts **GameForge**, a Replit-IDE-style SaaS for designing tabletop board games. It pairs a structured workspace (entities, rules, players, notes, tasks) with a persistent AI co-designer powered by Anthropic Claude.
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+## Artifacts
 
-## Key Commands
+- `artifacts/api-server` — Express 5 API server (port 8080). All routes mounted under `/api`. Schemas validated with Zod generated from the OpenAPI spec.
+- `artifacts/gameforge` — React + Vite + Tailwind v4 + shadcn frontend served at `/`. Wouter for routing, TanStack Query for data, lucide-react icons, framer-motion transitions.
+- `artifacts/mockup-sandbox` — Vite preview sandbox for canvas mockups (unused for end-user product).
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+## Backend (artifacts/api-server)
 
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+REST + SSE Express app. Route modules in `src/routes/`:
+
+- `health.ts` — `GET /api/healthz`
+- `projects.ts` — projects CRUD + `GET /api/projects/:id/stats`
+- `entities.ts` — CRUD + `POST /api/projects/:id/entities/ai-generate` (Claude generates structured entities)
+- `rules.ts` — CRUD + `POST /api/projects/:id/rules/ai-generate`
+- `players.ts`, `notes.ts`, `tasks.ts` — CRUD
+- `chat.ts` — list/clear messages and `POST /api/projects/:id/chat/send` which **streams Claude tokens via Server-Sent Events** using `anthropic.messages.stream`. The user message is persisted before streaming, the assistant message is persisted after the stream completes. Frontend chat panel calls this endpoint with raw `fetch` + `ReadableStream` (the generated React Query hook is bypassed for streaming).
+- `dashboard.ts` — `/api/dashboard/summary` (totals + game-type/genre breakdown) and `/api/dashboard/recent-activity` (merged feed from projects, entities, rules, chat).
+
+SSE event format: `data: {"content":"..."}\n\n` for chunks, `data: {"done":true}\n\n` to close. Allowed models: `claude-sonnet-4-6`, `claude-haiku-4-5`.
+
+## Frontend (artifacts/gameforge)
+
+- `src/App.tsx` — Wouter routes: `/` (Home dashboard), `/p/:projectId` (Workspace).
+- `src/pages/home.tsx` — Dashboard: stats cards, project grid with create/delete, recent activity feed.
+- `src/pages/workspace.tsx` — IDE shell: 56px left rail, 260px section sidebar with count badges, main panel that swaps content per section, persistent 380px AI chat panel on the right.
+- `src/components/chat-panel.tsx` — Streaming chat: model dropdown, message list, manual SSE consumption, two horizontally scrollable rows of chips below the input (game type + genre).
+- `src/components/sections/{overview,entities,rules,players,notes,tasks}.tsx` — Each workspace section is a complete CRUD surface; entities and rules expose AI generate panels.
+- `src/index.css` — Dark Replit-inspired theme (Tailwind v4 tokens).
+
+Game type chips: Strategy, Family, Party, Cooperative, Worker Placement, Deck-builder, Area Control, Eurogame, Wargame, Roll-and-Write, Dexterity, Legacy.
+Genre chips: Fantasy, Sci-Fi, Horror, Historical, Modern, Cyberpunk, Steampunk, Mystery, Adventure, Abstract.
+
+## Database (lib/db)
+
+Drizzle ORM + Postgres. Tables: `projects`, `entities`, `rules`, `players`, `notes`, `tasks`, `chat_messages`. All child tables FK to `projects.id` with cascade delete. Push schema with `pnpm --filter @workspace/db run push`.
+
+## API contract (lib/api-spec / lib/api-zod / lib/api-client-react)
+
+OpenAPI 3 spec at `lib/api-spec/openapi.yaml` is the source of truth. Codegen produces:
+- `lib/api-zod` — Zod schemas, exported under the `schemas` namespace (e.g. `schemas.CreateProjectBody`).
+- `lib/api-client-react` — TanStack Query hooks (`useListProjects`, `useGetDashboardSummary`, etc.). The chat send hook is intentionally NOT used; the chat panel calls fetch directly to consume SSE.
+
+Run codegen: `pnpm --filter @workspace/api-spec run codegen`.
+
+## AI integration
+
+`lib/integrations-anthropic-ai` wraps the Replit-managed Anthropic proxy. No customer-supplied API key needed; auth is handled by the integration env vars. Used in entities/rules generate routes (single-shot JSON) and chat route (streaming).
+
+## Workflows
+
+- `artifacts/api-server: API Server` — `pnpm --filter @workspace/api-server run dev`
+- `artifacts/gameforge: web` — `pnpm --filter @workspace/gameforge run dev` (Vite, port 25201)
+- `artifacts/mockup-sandbox: Component Preview Server`
+
+## Recent changes
+
+- Built initial GameForge product end-to-end (DB schema, OpenAPI, all API routes, full IDE-style frontend with persistent chat panel and 6 workspace sections).
+- Seeded three sample projects (Embers of Aldoria, Last Light Protocol, Smokestack) with entities, rules, players, notes, tasks, and chat history.
+- Verified end-to-end with automated browser tests (13/13 steps passing) and an architect code review; addressed type-safety and query-invalidation findings.
