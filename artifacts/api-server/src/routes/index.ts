@@ -23,6 +23,7 @@ import exportsRouter from "./exports";
 import blueprintRouter from "./blueprint";
 import kickstarterRouter from "./kickstarter";
 import workspacesRouter from "./workspaces";
+import learnRouter from "./learn";
 import {
   requireAuth,
   requireProjectAccess,
@@ -42,6 +43,10 @@ router.use(dashboardRouter);
 // Workspaces routes (auth required, workspace access enforced inside handlers)
 router.use("/workspaces", requireAuth);
 router.use(workspacesRouter);
+
+// Topic-scoped Learn tutor (authenticated, no project context)
+router.use("/learn", requireAuth);
+router.use(learnRouter);
 
 // Projects routes (auth required, project-scoped routes have ownership/membership check)
 router.use("/projects", requireAuth);

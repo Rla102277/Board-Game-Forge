@@ -4,7 +4,7 @@ import { useUser, useClerk } from "@clerk/react";
 import {
   Gamepad2, Plus, Sparkles, ArrowRight, Users, ChevronDown,
   LogOut, Shield, User as UserIcon, Folder, Crown, Trash2,
-  Loader2, Wand2, GraduationCap,
+  Loader2, Wand2, GraduationCap, BookOpen, MessageSquare, Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -360,6 +360,9 @@ export default function WorkspaceHome() {
           </div>
         </section>
 
+        {/* Learn the craft — prominent training surface */}
+        <LearnHighlights slug={slug} />
+
         {/* Existing projects */}
         <section className="space-y-3">
           <h2 className="text-2xl font-semibold">Your projects</h2>
@@ -467,6 +470,7 @@ export default function WorkspaceHome() {
         </DialogContent>
       </Dialog>
 
+      {/* (LearnHighlights defined below) */}
       <AlertDialog open={Boolean(confirmDelete)} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -482,5 +486,166 @@ export default function WorkspaceHome() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/* ============================================================================
+ * Learn the craft — prominent training surface on the workspace home
+ * ============================================================================ */
+
+const BIBLE_PROGRESS_KEY = "gameforge.learn.bible.completed";
+const DESIGN101_PROGRESS_KEY = "gameforge.learn.design101.completed";
+const BIBLE_TOTAL = 17;
+const DESIGN101_TOTAL = 8;
+
+const LEARN_HIGHLIGHTS: { tab: "bible" | "design101"; topic: string; title: string; blurb: string; icon: React.ComponentType<{ className?: string }>; }[] = [
+  {
+    tab: "design101",
+    topic: "01-what-is",
+    title: "What is a board game, really?",
+    blurb: "The medium's superpowers — and what to optimize for first.",
+    icon: Sparkles,
+  },
+  {
+    tab: "design101",
+    topic: "03-mechanics",
+    title: "Core mechanics in plain English",
+    blurb: "Worker placement, deck-building, area control — when to use which.",
+    icon: Trophy,
+  },
+  {
+    tab: "design101",
+    topic: "05-balance",
+    title: "Balance & math without the headache",
+    blurb: "Cost curves, dominance checks, action economy heuristics.",
+    icon: Wand2,
+  },
+  {
+    tab: "bible",
+    topic: "rules",
+    title: "Writing tight, unambiguous rules",
+    blurb: "How to use the Rules tab + AI Enhance to ship a clean rulebook.",
+    icon: BookOpen,
+  },
+];
+
+function readProgressCount(key: string): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return 0;
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function LearnHighlights({ slug }: { slug: string }) {
+  const [bibleDone, setBibleDone] = useState(0);
+  const [design101Done, setDesign101Done] = useState(0);
+
+  useEffect(() => {
+    setBibleDone(readProgressCount(BIBLE_PROGRESS_KEY));
+    setDesign101Done(readProgressCount(DESIGN101_PROGRESS_KEY));
+  }, []);
+
+  const stashReturn = () => {
+    try { sessionStorage.setItem("gameforge.learn.returnTo", `/${slug}`); } catch {/* ignore */}
+  };
+
+  const biblePct = Math.round((bibleDone / BIBLE_TOTAL) * 100);
+  const design101Pct = Math.round((design101Done / DESIGN101_TOTAL) * 100);
+
+  return (
+    <section className="space-y-4" data-testid="learn-highlights">
+      <div className="rounded-2xl border bg-gradient-to-br from-primary/10 via-card to-card p-5 md:p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="h-12 w-12 rounded-xl bg-primary/15 flex items-center justify-center text-primary shrink-0">
+              <GraduationCap className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold flex items-center gap-2">
+                Learn the craft
+                <Badge variant="outline" className="text-[10px] uppercase tracking-wider">Training</Badge>
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                A guided tour of every panel <em>and</em> an 8-lesson primer on board game design. Each topic has an AI tutor you can ask focused questions about.
+              </p>
+            </div>
+          </div>
+          <Link href="/learn" onClick={stashReturn}>
+            <Button size="lg" className="gap-2" data-testid="learn-cta-primary">
+              <BookOpen className="h-4 w-4" /> Open the training center <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-5">
+          <Link
+            href="/learn"
+            onClick={stashReturn}
+            className="group rounded-xl border bg-card/60 hover:border-primary/60 hover:bg-card p-4 transition-all"
+            data-testid="learn-track-bible"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-semibold">
+                <BookOpen className="h-4 w-4 text-primary" /> GameForge Bible
+              </div>
+              <span className="text-xs text-muted-foreground">{bibleDone}/{BIBLE_TOTAL} chapters</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Every panel, button, and AI feature explained — with deep-dives, pitfalls, and worked examples.</p>
+            <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${biblePct}%` }} />
+            </div>
+          </Link>
+
+          <Link
+            href="/learn"
+            onClick={stashReturn}
+            className="group rounded-xl border bg-card/60 hover:border-primary/60 hover:bg-card p-4 transition-all"
+            data-testid="learn-track-design101"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-semibold">
+                <GraduationCap className="h-4 w-4 text-primary" /> Board Game Design 101
+              </div>
+              <span className="text-xs text-muted-foreground">{design101Done}/{DESIGN101_TOTAL} lessons</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">An 8-lesson primer: from mechanics and balance through theme, playtesting, and publishing.</p>
+            <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${design101Pct}%` }} />
+            </div>
+          </Link>
+        </div>
+
+        <div className="mt-5">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+            <MessageSquare className="h-3 w-3" /> Popular topics — each opens with a focused tutor
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {LEARN_HIGHLIGHTS.map((h) => {
+              const Icon = h.icon;
+              return (
+                <Link
+                  key={`${h.tab}-${h.topic}`}
+                  href="/learn"
+                  onClick={stashReturn}
+                  className="group rounded-lg border bg-card/40 hover:border-primary/60 hover:bg-card p-3 transition-all flex flex-col gap-1"
+                  data-testid={`learn-highlight-${h.topic}`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs text-primary uppercase tracking-wider">
+                    <Icon className="h-3 w-3" /> {h.tab === "bible" ? "Bible" : "Design 101"}
+                  </div>
+                  <div className="font-semibold text-sm leading-snug">{h.title}</div>
+                  <div className="text-xs text-muted-foreground">{h.blurb}</div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
