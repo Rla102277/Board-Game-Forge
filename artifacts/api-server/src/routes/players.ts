@@ -202,6 +202,10 @@ Output JUST the JSON object.`,
       for (const k of allowed) {
         if (obj[k]) update[k] = String(obj[k]);
       }
+      if (Object.keys(update).length === 0) {
+        res.status(502).json({ error: "AI returned no usable content. Try again or switch model." });
+        return;
+      }
       const [updated] = await db
         .update(players)
         .set(update)

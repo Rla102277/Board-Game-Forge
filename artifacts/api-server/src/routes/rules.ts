@@ -173,6 +173,10 @@ Output JUST the JSON object.`,
       const update: Record<string, string> = {};
       if (obj?.title) update.title = String(obj.title);
       if (obj?.content) update.content = String(obj.content);
+      if (Object.keys(update).length === 0) {
+        res.status(502).json({ error: "AI returned no usable content. Try again or switch model." });
+        return;
+      }
       const [updated] = await db
         .update(rules)
         .set(update)

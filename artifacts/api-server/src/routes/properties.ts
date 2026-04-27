@@ -136,6 +136,10 @@ Output JUST the JSON object.`,
       const update: { description?: string; stats?: string } = {};
       if (obj?.description) update.description = String(obj.description);
       if (obj?.stats) update.stats = String(obj.stats);
+      if (Object.keys(update).length === 0) {
+        res.status(502).json({ error: "AI returned no usable content. Try again or switch model." });
+        return;
+      }
       const [updated] = await db
         .update(entities)
         .set(update)
