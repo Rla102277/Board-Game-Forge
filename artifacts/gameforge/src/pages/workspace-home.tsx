@@ -4,7 +4,7 @@ import { useUser, useClerk } from "@clerk/react";
 import {
   Gamepad2, Plus, Sparkles, ArrowRight, Users, ChevronDown,
   LogOut, Shield, User as UserIcon, Folder, Crown, Trash2,
-  Loader2, Wand2,
+  Loader2, Wand2, GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -241,6 +241,17 @@ export default function WorkspaceHome() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild><Link href="/account"><UserIcon className="h-4 w-4 mr-2" /> Account</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/learn"
+                    data-testid="open-learn-from-home"
+                    onClick={() => {
+                      try { sessionStorage.setItem("gameforge.learn.returnTo", window.location.pathname + window.location.search); } catch {/* ignore */}
+                    }}
+                  >
+                    <GraduationCap className="h-4 w-4 mr-2" /> Learn
+                  </Link>
+                </DropdownMenuItem>
                 {canManage && (
                   <DropdownMenuItem onClick={() => setAiProvidersOpen(true)} data-testid="open-ai-providers">
                     <Sparkles className="h-4 w-4 mr-2" /> AI providers

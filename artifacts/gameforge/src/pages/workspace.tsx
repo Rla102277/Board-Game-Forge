@@ -4,7 +4,7 @@ import { useGetProject, useGetProjectStats, useDeleteProject, getListProjectsQue
 import { useUser, useClerk } from "@clerk/react";
 import {
   Layout, Users, FileText, CheckSquare, ChevronLeft, Gamepad2, Activity, MoreVertical, Trash2,
-  BookOpen, Network, Dice5, ImageIcon, MapPin, Scale, Download, User as UserIcon, LogOut, Shield,
+  BookOpen, Network, Dice5, ImageIcon, MapPin, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -131,6 +131,17 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
             </DropdownMenuTrigger>
             <DropdownMenuContent side="right" align="end">
               <DropdownMenuItem asChild><Link href="/account"><UserIcon className="h-4 w-4 mr-2" /> Account</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/learn"
+                  data-testid="open-learn-from-workspace"
+                  onClick={() => {
+                    try { sessionStorage.setItem("gameforge.learn.returnTo", window.location.pathname + window.location.search); } catch {/* ignore */}
+                  }}
+                >
+                  <GraduationCap className="h-4 w-4 mr-2" /> Learn
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/admin"><Shield className="h-4 w-4 mr-2" /> Admin</Link></DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => signOut({ redirectUrl: "/" })}><LogOut className="h-4 w-4 mr-2" /> Sign out</DropdownMenuItem>

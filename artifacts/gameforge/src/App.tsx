@@ -11,6 +11,7 @@ import WorkspaceHome from "@/pages/workspace-home";
 import WorkspaceBySlug from "@/pages/workspace-by-slug";
 import Account from "@/pages/account";
 import Admin from "@/pages/admin";
+import LearnPage from "@/pages/learn";
 import Landing from "@/pages/landing";
 import PublicFeedback from "@/pages/public-feedback";
 
@@ -167,6 +168,11 @@ function Routes() {
       <Route path="/account">
         <ProtectedRoute>
           <Account />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/learn">
+        <ProtectedRoute>
+          <LearnPage />
         </ProtectedRoute>
       </Route>
       <Route path="/admin">
