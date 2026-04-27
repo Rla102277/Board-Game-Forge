@@ -332,6 +332,22 @@ export const DeleteResearchParams = zod.object({
   researchId: zod.coerce.number(),
 });
 
+export const AiEnhanceResearchParams = zod.object({
+  projectId: zod.coerce.number(),
+  researchId: zod.coerce.number(),
+});
+
+export const AiEnhanceResearchResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  content: zod.string().nullish(),
+  source: zod.string().nullish(),
+  tags: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
 export const AiGenerateResearchParams = zod.object({
   projectId: zod.coerce.number(),
 });
@@ -803,6 +819,24 @@ export const CreateNoteBody = zod.object({
   lookAtLater: zod.boolean().optional(),
 });
 
+export const AiEnhanceNoteParams = zod.object({
+  projectId: zod.coerce.number(),
+  noteId: zod.coerce.number(),
+});
+
+export const AiEnhanceNoteResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string().nullish(),
+  topic: zod.string().nullish(),
+  content: zod.string().nullish(),
+  color: zod.string().nullish(),
+  pinned: zod.boolean(),
+  lookAtLater: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
 export const UpdateNoteParams = zod.object({
   projectId: zod.coerce.number(),
   noteId: zod.coerce.number(),
@@ -1010,6 +1044,25 @@ export const UpdateAssetResponse = zod.object({
 export const DeleteAssetParams = zod.object({
   projectId: zod.coerce.number(),
   assetId: zod.coerce.number(),
+});
+
+export const AiEnhanceAssetParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const AiEnhanceAssetResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  entityId: zod.number().nullish(),
+  name: zod.string(),
+  kind: zod.string(),
+  description: zod.string().nullish(),
+  flavorText: zod.string().nullish(),
+  imageDataUrl: zod.string().nullish(),
+  imagePrompt: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
 });
 
 export const AiDescribeAssetParams = zod.object({
@@ -1258,6 +1311,27 @@ export const CreateStoryboardNodeBody = zod.object({
   positionX: zod.number().optional(),
   positionY: zod.number().optional(),
   linkedRuleId: zod.number().optional(),
+});
+
+export const AiEnhanceStoryboardNodeParams = zod.object({
+  projectId: zod.coerce.number(),
+  nodeId: zod.coerce.number(),
+});
+
+export const AiEnhanceStoryboardNodeResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  parentId: zod.number().nullish(),
+  title: zod.string(),
+  content: zod.string().nullish(),
+  nodeType: zod.string(),
+  status: zod.string(),
+  color: zod.string().nullish(),
+  positionX: zod.number(),
+  positionY: zod.number(),
+  linkedRuleId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
 });
 
 export const UpdateStoryboardNodeParams = zod.object({

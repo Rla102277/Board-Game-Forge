@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useListAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, getListAssetsQueryKey, useListEntities } from "@workspace/api-client-react";
+import { useListAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useAiEnhanceAsset, getListAssetsQueryKey, useListEntities } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ImageIcon, Edit2, Sparkles, Download } from "lucide-react";
+import { Plus, Trash2, ImageIcon, Edit2, Sparkles, Download, Loader2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,21 @@ export function Assets({ projectId }: { projectId: number }) {
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
   const deleteAsset = useDeleteAsset();
+  const enhanceAsset = useAiEnhanceAsset();
+  const [enhancingId, setEnhancingId] = useState<number | null>(null);
+
+  const handleEnhance = async (assetId: number) => {
+    setEnhancingId(assetId);
+    try {
+      await enhanceAsset.mutateAsync({ projectId, assetId });
+      qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
+      toast({ title: "Asset enhanced", description: "AI improved the description and flavor." });
+    } catch (err) {
+      toast({ title: "Enhance failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setEnhancingId(null);
+    }
+  };
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
@@ -123,6 +138,17 @@ export function Assets({ projectId }: { projectId: number }) {
                 <div className="flex justify-between items-start gap-2 mb-1">
                   <h3 className="font-semibold line-clamp-1">{a.name}</h3>
                   <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title="AI Enhance text"
+                      onClick={() => handleEnhance(a.id)}
+                      disabled={enhancingId === a.id}
+                      data-testid={`enhance-asset-${a.id}`}
+                    >
+                      {enhancingId === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(a.id)}><Edit2 className="h-3.5 w-3.5" /></Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(a.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListNotes, useCreateNote, useUpdateNote, useDeleteNote, getListNotesQueryKey } from "@workspace/api-client-react";
+import { useListNotes, useCreateNote, useUpdateNote, useDeleteNote, useAiEnhanceNote, getListNotesQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, StickyNote, Pin } from "lucide-react";
+import { Plus, Edit2, Trash2, StickyNote, Pin, Sparkles, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Note } from "@workspace/api-client-react";
 
@@ -29,6 +30,22 @@ export function Notes({ projectId }: NotesProps) {
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
+  const enhanceNote = useAiEnhanceNote();
+  const { toast } = useToast();
+  const [enhancingId, setEnhancingId] = useState<number | null>(null);
+
+  const handleEnhance = async (noteId: number) => {
+    setEnhancingId(noteId);
+    try {
+      await enhanceNote.mutateAsync({ projectId, noteId });
+      queryClient.invalidateQueries({ queryKey: getListNotesQueryKey(projectId) });
+      toast({ title: "Note enhanced", description: "AI tightened the writing." });
+    } catch (err) {
+      toast({ title: "Enhance failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setEnhancingId(null);
+    }
+  };
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editNoteId, setEditNoteId] = useState<number | null>(null);
@@ -127,6 +144,17 @@ export function Notes({ projectId }: NotesProps) {
             return (
               <Card key={note.id} className={`${colorDef.bg} ${colorDef.border} overflow-hidden relative group transition-all hover:-translate-y-1 hover:shadow-lg shadow-black/20`}>
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-7 w-7 ${colorDef.text} hover:bg-black/20`}
+                    onClick={() => handleEnhance(note.id)}
+                    disabled={enhancingId === note.id}
+                    title="AI Enhance"
+                    data-testid={`enhance-note-${note.id}`}
+                  >
+                    {enhancingId === note.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  </Button>
                   <Button variant="ghost" size="icon" className={`h-7 w-7 ${colorDef.text} hover:bg-black/20`} onClick={() => togglePin(note)}>
                     <Pin className={`h-3 w-3 ${note.pinned ? 'fill-current' : ''}`} />
                   </Button>

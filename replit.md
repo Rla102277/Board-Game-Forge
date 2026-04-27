@@ -67,3 +67,8 @@ Run codegen: `pnpm --filter @workspace/api-spec run codegen`.
 - Expanded to 14 workspace tabs (added Research, Ontology, Assets, Simulator, Playtesting, Balance, Storyboard, Exports), Clerk auth, multi-provider AI routing, image generation, public feedback share links, admin panel.
 - Added auth + ownership middleware (`middlewares/projectAuth.ts`): `requireAuth` and `requireProjectAccess` are mounted at the `/projects` route prefix in `routes/index.ts`. Project list filters by `ownerUserId` (admins see all). Dashboard endpoints are auth-protected and per-user scoped.
 - Verified ship-readiness with end-to-end browser tests (Clerk login → workspace → simulator/balance/exports/research) and an architect code review; all critical security and contract issues resolved.
+- Phase A: Multi-provider AI router (Anthropic / OpenAI / Gemini / OpenRouter for Grok+Perplexity), grouped model dropdown in chat panel and account, Markdown rendering via react-markdown + remark-gfm.
+- Phase B: AI Enhance buttons on every item type — rules, players, entities, notes, research, assets, and storyboard. Each enhance route is project-scoped, parses structured JSON output, returns 502 if unusable, and surfaces success/failure toasts in the UI.
+- Phase C: Gamma Kickstarter section in Exports with `kickstarter_assets` table; generate / poll / refresh / delete endpoints; Gamma API v1.0 client.
+- Phase D: Workspaces (companies) with auto-created "Personal" workspace per user, project slugs, slug-based routes `/:workspaceSlug/:projectSlug`, and a workspace switcher.
+- Phase E: Replit-style workspace home with chat-box prompt and game template tiles; "Generate" wizard fills project + entities + rules from one prompt.

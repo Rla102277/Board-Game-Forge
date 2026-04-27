@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useListStoryboardNodes, useCreateStoryboardNode, useUpdateStoryboardNode, useDeleteStoryboardNode, getListStoryboardNodesQueryKey } from "@workspace/api-client-react";
+import { useListStoryboardNodes, useCreateStoryboardNode, useUpdateStoryboardNode, useDeleteStoryboardNode, useAiEnhanceStoryboardNode, getListStoryboardNodesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Edit2, MapPin, GripVertical } from "lucide-react";
+import { Plus, Trash2, Edit2, MapPin, GripVertical, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,21 @@ export function Storyboard({ projectId }: { projectId: number }) {
   const createNode = useCreateStoryboardNode();
   const updateNode = useUpdateStoryboardNode();
   const deleteNode = useDeleteStoryboardNode();
+  const enhanceNode = useAiEnhanceStoryboardNode();
+  const [enhancingId, setEnhancingId] = useState<number | null>(null);
+
+  const handleEnhance = async (nodeId: number) => {
+    setEnhancingId(nodeId);
+    try {
+      await enhanceNode.mutateAsync({ projectId, nodeId });
+      qc.invalidateQueries({ queryKey: getListStoryboardNodesQueryKey(projectId) });
+      toast({ title: "Card enhanced", description: "AI sharpened the description." });
+    } catch (err) {
+      toast({ title: "Enhance failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setEnhancingId(null);
+    }
+  };
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
@@ -92,6 +107,17 @@ export function Storyboard({ projectId }: { projectId: number }) {
                       <div className="flex items-start justify-between gap-2">
                         <CardTitle className="text-sm leading-tight">{n.title}</CardTitle>
                         <div className="flex opacity-0 group-hover:opacity-100 -mr-1 -mt-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            title="AI Enhance"
+                            onClick={() => handleEnhance(n.id)}
+                            disabled={enhancingId === n.id}
+                            data-testid={`enhance-storyboard-${n.id}`}
+                          >
+                            {enhancingId === n.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                          </Button>
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEdit(n.id)}><Edit2 className="h-3 w-3" /></Button>
                           <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => remove(n.id)}><Trash2 className="h-3 w-3" /></Button>
                         </div>

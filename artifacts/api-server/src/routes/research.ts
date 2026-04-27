@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { and, eq, desc } from "drizzle-orm";
 import { db, researchItems } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
-import { complete, tryParseJsonArray } from "../lib/aiRouter";
+import { complete, tryParseJsonArray, tryParseJsonObject } from "../lib/aiRouter";
 import { logChange } from "../lib/changelog";
 
 const router: IRouter = Router();
@@ -141,6 +141,65 @@ Output JUST the JSON array.`,
     } catch (err) {
       req.log.error({ err }, "ai-generate-research failed");
       res.status(500).json({ error: "AI generation failed" });
+    }
+  },
+);
+
+router.post(
+  "/projects/:projectId/research/:researchId/enhance",
+  async (req, res): Promise<void> => {
+    const params = schemas.AiEnhanceResearchParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [r] = await db
+      .select()
+      .from(researchItems)
+      .where(
+        and(
+          eq(researchItems.id, params.data.researchId),
+          eq(researchItems.projectId, params.data.projectId),
+        ),
+      );
+    if (!r) {
+      res.status(404).json({ error: "Research item not found" });
+      return;
+    }
+    try {
+      const text = await complete(req, {
+        prompt: `Expand this research note for a tabletop game designer. Add concrete examples, comparable games, and a one-line takeaway. Tighten language; keep it punchy.
+
+Existing item:
+title: ${r.title}
+tags: ${r.tags ?? ""}
+content: ${r.content ?? ""}
+
+Return ONLY a JSON object: {"title":"...","content":"...","tags":"..."}.
+- title under 80 chars.
+- content can use markdown, 3-6 short paragraphs / bullets max.
+- tags is a comma-separated list of 2-5 short tags.
+Output JUST the JSON object.`,
+        maxTokens: 1100,
+      });
+      const obj = tryParseJsonObject<{ title?: string; content?: string; tags?: string }>(text);
+      const update: Record<string, string> = {};
+      if (obj?.title) update.title = String(obj.title);
+      if (obj?.content) update.content = String(obj.content);
+      if (obj?.tags) update.tags = String(obj.tags);
+      if (Object.keys(update).length === 0) {
+        res.status(502).json({ error: "AI returned no usable content" });
+        return;
+      }
+      const [updated] = await db
+        .update(researchItems)
+        .set(update)
+        .where(eq(researchItems.id, r.id))
+        .returning();
+      res.json(updated);
+    } catch (err) {
+      req.log.error({ err }, "enhance research failed");
+      res.status(500).json({ error: "Enhance failed" });
     }
   },
 );

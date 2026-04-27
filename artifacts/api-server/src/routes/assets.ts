@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { and, eq, desc } from "drizzle-orm";
 import { db, assets, entities } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
-import { complete } from "../lib/aiRouter";
+import { complete, tryParseJsonObject } from "../lib/aiRouter";
 import { generateImageBuffer } from "@workspace/integrations-openai-ai-server/image";
 
 const router: IRouter = Router();
@@ -181,6 +181,79 @@ router.post(
     } catch (err) {
       req.log.error({ err }, "generate-image failed");
       res.status(500).json({ error: "Image generation failed" });
+    }
+  },
+);
+
+router.post(
+  "/projects/:projectId/assets/:assetId/enhance",
+  async (req, res): Promise<void> => {
+    const params = schemas.AiEnhanceAssetParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [a] = await db
+      .select()
+      .from(assets)
+      .where(
+        and(
+          eq(assets.id, params.data.assetId),
+          eq(assets.projectId, params.data.projectId),
+        ),
+      );
+    if (!a) {
+      res.status(404).json({ error: "Asset not found" });
+      return;
+    }
+    let entityName: string | null = null;
+    if (a.entityId) {
+      const [e] = await db
+        .select()
+        .from(entities)
+        .where(eq(entities.id, a.entityId));
+      entityName = e?.name ?? null;
+    }
+    try {
+      const text = await complete(req, {
+        prompt: `Enhance this game asset's metadata. Tighten the name, sharpen the description into a designer-facing brief, and write evocative flavor text.
+
+Existing asset:
+kind: ${a.kind}
+name: ${a.name}
+${entityName ? `linked entity: ${entityName}` : ""}
+description: ${a.description ?? ""}
+flavorText: ${a.flavorText ?? ""}
+
+Return ONLY a JSON object: {"name":"...","description":"...","flavorText":"..."}.
+- name <= 60 chars; keep meaning, just tighten.
+- description: 1-2 sentences focused on what makes this asset useful in play.
+- flavorText: a single 1-2 sentence in-world quote (no surrounding quotes).
+Output JUST the JSON object.`,
+        maxTokens: 700,
+      });
+      const obj = tryParseJsonObject<{
+        name?: string;
+        description?: string;
+        flavorText?: string;
+      }>(text);
+      const update: Record<string, string> = {};
+      if (obj?.name) update.name = String(obj.name);
+      if (obj?.description) update.description = String(obj.description);
+      if (obj?.flavorText) update.flavorText = String(obj.flavorText).replace(/^["']|["']$/g, "");
+      if (Object.keys(update).length === 0) {
+        res.status(502).json({ error: "AI returned no usable content" });
+        return;
+      }
+      const [updated] = await db
+        .update(assets)
+        .set(update)
+        .where(eq(assets.id, a.id))
+        .returning();
+      res.json(updated);
+    } catch (err) {
+      req.log.error({ err }, "enhance asset failed");
+      res.status(500).json({ error: "Enhance failed" });
     }
   },
 );

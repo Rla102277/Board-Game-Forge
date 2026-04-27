@@ -400,6 +400,21 @@ paths:
         "204":
           description: Deleted
 
+  /projects/{projectId}/research/{researchId}/enhance:
+    post:
+      operationId: aiEnhanceResearch
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ResearchId"
+      responses:
+        "200":
+          description: Enhanced research item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchItem"
+
   /projects/{projectId}/research/ai-generate:
     post:
       operationId: aiGenerateResearch
@@ -841,6 +856,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/Note"
 
+  /projects/{projectId}/notes/{noteId}/enhance:
+    post:
+      operationId: aiEnhanceNote
+      tags: [notes]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/NoteId"
+      responses:
+        "200":
+          description: Enhanced note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+
   /projects/{projectId}/notes/{noteId}:
     patch:
       operationId: updateNote
@@ -1043,6 +1073,21 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /projects/{projectId}/assets/{assetId}/enhance:
+    post:
+      operationId: aiEnhanceAsset
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: Enhanced asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
 
   /projects/{projectId}/assets/{assetId}/describe:
     post:
@@ -1276,6 +1321,21 @@ paths:
       responses:
         "201":
           description: Created node
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoryboardNode"
+
+  /projects/{projectId}/storyboard/{nodeId}/enhance:
+    post:
+      operationId: aiEnhanceStoryboardNode
+      tags: [storyboard]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/NodeId"
+      responses:
+        "200":
+          description: Enhanced storyboard node
           content:
             application/json:
               schema:

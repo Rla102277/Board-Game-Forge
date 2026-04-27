@@ -1886,6 +1886,91 @@ export const useDeleteResearch = <
   return useMutation(getDeleteResearchMutationOptions(options));
 };
 
+export const getAiEnhanceResearchUrl = (
+  projectId: number,
+  researchId: number,
+) => {
+  return `/api/projects/${projectId}/research/${researchId}/enhance`;
+};
+
+export const aiEnhanceResearch = async (
+  projectId: number,
+  researchId: number,
+  options?: RequestInit,
+): Promise<ResearchItem> => {
+  return customFetch<ResearchItem>(
+    getAiEnhanceResearchUrl(projectId, researchId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAiEnhanceResearchMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiEnhanceResearch>>,
+    TError,
+    { projectId: number; researchId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiEnhanceResearch>>,
+  TError,
+  { projectId: number; researchId: number },
+  TContext
+> => {
+  const mutationKey = ["aiEnhanceResearch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiEnhanceResearch>>,
+    { projectId: number; researchId: number }
+  > = (props) => {
+    const { projectId, researchId } = props ?? {};
+
+    return aiEnhanceResearch(projectId, researchId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiEnhanceResearchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiEnhanceResearch>>
+>;
+
+export type AiEnhanceResearchMutationError = ErrorType<unknown>;
+
+export const useAiEnhanceResearch = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiEnhanceResearch>>,
+    TError,
+    { projectId: number; researchId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiEnhanceResearch>>,
+  TError,
+  { projectId: number; researchId: number },
+  TContext
+> => {
+  return useMutation(getAiEnhanceResearchMutationOptions(options));
+};
+
 export const getAiGenerateResearchUrl = (projectId: number) => {
   return `/api/projects/${projectId}/research/ai-generate`;
 };
@@ -4072,6 +4157,85 @@ export const useCreateNote = <
   return useMutation(getCreateNoteMutationOptions(options));
 };
 
+export const getAiEnhanceNoteUrl = (projectId: number, noteId: number) => {
+  return `/api/projects/${projectId}/notes/${noteId}/enhance`;
+};
+
+export const aiEnhanceNote = async (
+  projectId: number,
+  noteId: number,
+  options?: RequestInit,
+): Promise<Note> => {
+  return customFetch<Note>(getAiEnhanceNoteUrl(projectId, noteId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAiEnhanceNoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiEnhanceNote>>,
+    TError,
+    { projectId: number; noteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiEnhanceNote>>,
+  TError,
+  { projectId: number; noteId: number },
+  TContext
+> => {
+  const mutationKey = ["aiEnhanceNote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiEnhanceNote>>,
+    { projectId: number; noteId: number }
+  > = (props) => {
+    const { projectId, noteId } = props ?? {};
+
+    return aiEnhanceNote(projectId, noteId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiEnhanceNoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiEnhanceNote>>
+>;
+
+export type AiEnhanceNoteMutationError = ErrorType<unknown>;
+
+export const useAiEnhanceNote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiEnhanceNote>>,
+    TError,
+    { projectId: number; noteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiEnhanceNote>>,
+  TError,
+  { projectId: number; noteId: number },
+  TContext
+> => {
+  return useMutation(getAiEnhanceNoteMutationOptions(options));
+};
+
 export const getUpdateNoteUrl = (projectId: number, noteId: number) => {
   return `/api/projects/${projectId}/notes/${noteId}`;
 };
@@ -5164,6 +5328,85 @@ export const useDeleteAsset = <
   TContext
 > => {
   return useMutation(getDeleteAssetMutationOptions(options));
+};
+
+export const getAiEnhanceAssetUrl = (projectId: number, assetId: number) => {
+  return `/api/projects/${projectId}/assets/${assetId}/enhance`;
+};
+
+export const aiEnhanceAsset = async (
+  projectId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getAiEnhanceAssetUrl(projectId, assetId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAiEnhanceAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiEnhanceAsset>>,
+    TError,
+    { projectId: number; assetId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiEnhanceAsset>>,
+  TError,
+  { projectId: number; assetId: number },
+  TContext
+> => {
+  const mutationKey = ["aiEnhanceAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiEnhanceAsset>>,
+    { projectId: number; assetId: number }
+  > = (props) => {
+    const { projectId, assetId } = props ?? {};
+
+    return aiEnhanceAsset(projectId, assetId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiEnhanceAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiEnhanceAsset>>
+>;
+
+export type AiEnhanceAssetMutationError = ErrorType<unknown>;
+
+export const useAiEnhanceAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiEnhanceAsset>>,
+    TError,
+    { projectId: number; assetId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiEnhanceAsset>>,
+  TError,
+  { projectId: number; assetId: number },
+  TContext
+> => {
+  return useMutation(getAiEnhanceAssetMutationOptions(options));
 };
 
 export const getAiDescribeAssetUrl = (projectId: number, assetId: number) => {
@@ -6351,6 +6594,91 @@ export const useCreateStoryboardNode = <
   TContext
 > => {
   return useMutation(getCreateStoryboardNodeMutationOptions(options));
+};
+
+export const getAiEnhanceStoryboardNodeUrl = (
+  projectId: number,
+  nodeId: number,
+) => {
+  return `/api/projects/${projectId}/storyboard/${nodeId}/enhance`;
+};
+
+export const aiEnhanceStoryboardNode = async (
+  projectId: number,
+  nodeId: number,
+  options?: RequestInit,
+): Promise<StoryboardNode> => {
+  return customFetch<StoryboardNode>(
+    getAiEnhanceStoryboardNodeUrl(projectId, nodeId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAiEnhanceStoryboardNodeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>,
+    TError,
+    { projectId: number; nodeId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>,
+  TError,
+  { projectId: number; nodeId: number },
+  TContext
+> => {
+  const mutationKey = ["aiEnhanceStoryboardNode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>,
+    { projectId: number; nodeId: number }
+  > = (props) => {
+    const { projectId, nodeId } = props ?? {};
+
+    return aiEnhanceStoryboardNode(projectId, nodeId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiEnhanceStoryboardNodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>
+>;
+
+export type AiEnhanceStoryboardNodeMutationError = ErrorType<unknown>;
+
+export const useAiEnhanceStoryboardNode = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>,
+    TError,
+    { projectId: number; nodeId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>,
+  TError,
+  { projectId: number; nodeId: number },
+  TContext
+> => {
+  return useMutation(getAiEnhanceStoryboardNodeMutationOptions(options));
 };
 
 export const getUpdateStoryboardNodeUrl = (

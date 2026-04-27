@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useListResearch, useCreateResearch, useUpdateResearch, useDeleteResearch, getListResearchQueryKey } from "@workspace/api-client-react";
+import { useListResearch, useCreateResearch, useUpdateResearch, useDeleteResearch, useAiEnhanceResearch, getListResearchQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Trash2, ExternalLink, Edit2, Tag, BookOpen, Sparkles } from "lucide-react";
+import { Plus, Search, Trash2, ExternalLink, Edit2, Tag, BookOpen, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,21 @@ export function Research({ projectId }: { projectId: number }) {
   const createItem = useCreateResearch();
   const updateItem = useUpdateResearch();
   const deleteItem = useDeleteResearch();
+  const enhanceItem = useAiEnhanceResearch();
+  const [enhancingId, setEnhancingId] = useState<number | null>(null);
+
+  const handleEnhance = async (researchId: number) => {
+    setEnhancingId(researchId);
+    try {
+      await enhanceItem.mutateAsync({ projectId, researchId });
+      qc.invalidateQueries({ queryKey: getListResearchQueryKey(projectId) });
+      toast({ title: "Research enhanced", description: "AI improved the summary." });
+    } catch (err) {
+      toast({ title: "Enhance failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setEnhancingId(null);
+    }
+  };
 
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -113,6 +128,17 @@ export function Research({ projectId }: { projectId: number }) {
                 <div className="flex justify-between items-start gap-2">
                   <CardTitle className="text-base line-clamp-1">{it.title}</CardTitle>
                   <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      title="AI Enhance"
+                      onClick={() => handleEnhance(it.id)}
+                      disabled={enhancingId === it.id}
+                      data-testid={`enhance-research-${it.id}`}
+                    >
+                      {enhancingId === it.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(it.id)}><Edit2 className="h-3.5 w-3.5" /></Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeItem(it.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
