@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import {
   db,
   projects,
@@ -284,7 +284,16 @@ router.post(
       res.json(updated);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      res.status(502).json({ ...row, status: "failed", errorMessage: msg });
+      const [updated] = await db
+        .update(kickstarterAssets)
+        .set({
+          status: "failed",
+          errorMessage: msg,
+          completedAt: new Date(),
+        })
+        .where(eq(kickstarterAssets.id, assetId))
+        .returning();
+      res.status(502).json(updated ?? { ...row, status: "failed", errorMessage: msg });
     }
   },
 );
@@ -298,9 +307,19 @@ router.delete(
       res.status(400).json({ error: "Invalid id" });
       return;
     }
-    await db
+    const deleted = await db
       .delete(kickstarterAssets)
-      .where(eq(kickstarterAssets.id, assetId));
+      .where(
+        and(
+          eq(kickstarterAssets.id, assetId),
+          eq(kickstarterAssets.projectId, projectId),
+        ),
+      )
+      .returning({ id: kickstarterAssets.id });
+    if (deleted.length === 0) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
     res.status(204).end();
   },
 );

@@ -1,4 +1,4 @@
-const GAMMA_API_BASE = "https://public-api.gamma.app/v0.2";
+const GAMMA_API_BASE = "https://public-api.gamma.app/v1.0";
 
 export interface GammaGenerateOptions {
   inputText: string;

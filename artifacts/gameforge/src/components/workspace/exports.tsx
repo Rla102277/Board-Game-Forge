@@ -117,21 +117,40 @@ export function Exports({ projectId }: { projectId: number }) {
         method: "POST",
         credentials: "include",
       });
-      if (r.ok) {
-        const updated = (await r.json()) as KickstarterAsset;
-        setGammaAssets(prev => prev.map(x => x.id === updated.id ? updated : x));
+      const data = await r.json().catch(() => null);
+      if (r.ok && data) {
+        setGammaAssets(prev => prev.map(x => x.id === (data as KickstarterAsset).id ? data as KickstarterAsset : x));
+      } else {
+        toast({
+          title: "Refresh failed",
+          description: (data && (data as { error?: string }).error) || `HTTP ${r.status}`,
+          variant: "destructive",
+        });
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      toast({ title: "Refresh failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    }
   };
 
   const deleteAsset = async (id: number) => {
     try {
-      await fetch(`${apiBase()}/api/projects/${projectId}/kickstarter/${id}`, {
+      const r = await fetch(`${apiBase()}/api/projects/${projectId}/kickstarter/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
+      if (!r.ok) {
+        const data = await r.json().catch(() => null);
+        toast({
+          title: "Delete failed",
+          description: (data && (data as { error?: string }).error) || `HTTP ${r.status}`,
+          variant: "destructive",
+        });
+        return;
+      }
       setGammaAssets(prev => prev.filter(x => x.id !== id));
-    } catch { /* ignore */ }
+    } catch (e) {
+      toast({ title: "Delete failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    }
   };
 
   const downloadFile = async (kind: typeof FORMATS[number]["kind"]) => {
