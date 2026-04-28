@@ -167,16 +167,16 @@ router.post(
       const text = await complete(req, {
         prompt: `You are a senior board-game rules editor. Improve this rule and provide designer notes.
 
-Return ONLY a JSON object — no prose, no code fences:
+Return ONLY a JSON object — no prose, no code fences. List the keys in EXACTLY this order so the most important fields are emitted first:
 {
+  "rewrittenContent": "1-4 sentences. Precise, unambiguous. May include 'Example:' on its own line. Keep under 600 characters.",
   "improvedTitle": "tightened title (<= 60 chars). If already good, repeat the original.",
-  "rewrittenContent": "1-4 sentences. Precise, unambiguous. May include 'Example:' on its own line.",
-  "designNotes": "1-2 sentences explaining the DESIGN INTENT — why this rule exists, what tension it creates, how it shapes player decisions. (<= 280 chars)",
-  "edgeCases": "1-3 short bullet points (separated by ' • ') describing tricky cases, exceptions, or common rule-lawyering attempts. (<= 280 chars)",
+  "designNotes": "1-2 sentences explaining the DESIGN INTENT — why this rule exists, what tension it creates, how it shapes player decisions. (<= 240 chars)",
+  "edgeCases": "1-3 short bullet points (separated by ' • ') describing tricky cases, exceptions, or common rule-lawyering attempts. (<= 240 chars)",
   "relatedRuleSuggestions": [
     {
-      "title": "title for a NEW related rule",
-      "content": "1-2 sentences",
+      "title": "title for a NEW related rule (<= 60 chars)",
+      "content": "1-2 sentences (<= 200 chars)",
       "category": "movement | combat | economy | turn_structure | variant"
     }
   ]
@@ -191,8 +191,8 @@ category: ${r.category ?? "(none)"}
 priority: ${r.priority}
 content: ${r.content}
 
-Output JUST the JSON object.`,
-        maxTokens: 1500,
+Output JUST the JSON object. Keep total length under 1800 characters.`,
+        maxTokens: 3000,
       });
       const obj = tryParseJsonObject<{
         improvedTitle?: string;
