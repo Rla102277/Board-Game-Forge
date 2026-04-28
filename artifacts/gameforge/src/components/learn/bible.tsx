@@ -40,8 +40,8 @@ const CHAPTERS: Chapter[] = [
         points: [
           "Capture your game's vision (theme, player count, duration) in one place that the AI keeps in context.",
           "Build a structured ontology of entities, rules, and players that the AI can reason over instead of guessing.",
-          "Brainstorm with multiple AI providers (Claude, GPT, Gemini, Grok) — switch any time without losing thread history.",
-          "Run Monte Carlo balance simulations to see win-rate skew and dominant strategies before you cut your first prototype.",
+          "Brainstorm with multiple AI providers (Claude, GPT, Gemini, Grok) — switch any time without losing your conversation history.",
+          "Run balance simulations to spot dominant strategies and win-rate skew before you cut your first prototype.",
           "Generate component art (cards, boards, tokens) tied to a single narrative seed so the look stays cohesive.",
           "Track playtests, notes, and tasks the same way a real studio would — including public feedback links for testers.",
         ],
@@ -50,7 +50,7 @@ const CHAPTERS: Chapter[] = [
         heading: "The three things to learn first",
         points: [
           "The left rail switches between projects; the section sidebar inside a project switches between tabs.",
-          "The right-hand chat panel is your AI co-designer — it follows you across every tab and persists per-tab.",
+          "The chat panel on the right is your AI co-designer — it stays with you as you move between tabs and remembers each tab's conversation separately.",
           "Almost every list (rules, entities, notes, assets) has a Sparkles button — that's AI Enhance, the single most useful feature in the app.",
         ],
       },
@@ -59,9 +59,9 @@ const CHAPTERS: Chapter[] = [
       {
         heading: "How GameForge thinks",
         points: [
-          "The AI never sees raw fields blindly — it always gets a curated 'project context' (name, description, type, key entities, top rules).",
+          "The AI always sees a summary of your project (name, description, type, key entities, and top rules) so its suggestions stay relevant.",
           "Most AI actions are preview-first: the AI proposes structured changes, you approve or reject before they're saved.",
-          "BYOK (Bring Your Own Key) at the workspace level: paste your provider key and every AI call uses it instead of the platform default.",
+          "Bring your own API key: paste your provider key at the workspace level and every AI call uses it instead of the platform default.",
         ],
       },
       {
@@ -105,7 +105,7 @@ const CHAPTERS: Chapter[] = [
       {
         heading: "Project metadata",
         points: [
-          "Name, description, game type, genre, player count, duration — saved automatically as you type (debounced).",
+          "Name, description, game type, genre, player count, duration — saved automatically as you type.",
           "These fields seed the AI's context across every tab. Treat them like a one-paragraph design pitch — vague descriptions yield vague AI output.",
           "The duration field is the TARGET, not what your prototype currently plays at; the Simulator compares actual vs. target.",
         ],
@@ -162,7 +162,7 @@ const CHAPTERS: Chapter[] = [
         points: [
           "Drop in 5–10 competitor games at the start. The AI uses them as anchors when proposing mechanics.",
           "Add playtest reports here, not Notes — Research is intentionally read-only for the AI, so it won't accidentally turn feedback into rules.",
-          "Tag entries with short labels (e.g. 'comp', 'mechanic', 'theme', 'art ref') for filterable later searches.",
+          "Tag entries with short labels (e.g. 'comp', 'mechanic', 'theme', 'art ref') so you can filter them later.",
         ],
       },
     ],
@@ -207,7 +207,7 @@ const CHAPTERS: Chapter[] = [
       {
         heading: "Rule ↔ Entity links",
         points: [
-          "GameForge auto-detects when a rule mentions an entity by name (substring matching).",
+          "GameForge automatically detects when a rule mentions an entity by name.",
           "Use this to find orphan rules (no entity touches them) or untouched entities (no rule uses them) — both are bugs.",
           "Hover a link to see the exact rule sentence that triggered the match.",
         ],
@@ -217,7 +217,7 @@ const CHAPTERS: Chapter[] = [
       {
         heading: "Reading the ontology like an architect",
         points: [
-          "Hub entities (high in-degree, many rules touch them) are your game's CORE LOOP — make sure they're polished, not afterthoughts.",
+          "Hub entities (the ones referenced by many rules) are your game's CORE LOOP — make sure they're polished, not afterthoughts.",
           "Leaf entities (no rule touches them) are either flavor text or design debt. Decide which.",
           "Cross-type clusters (e.g. items linked to events linked to factions) reveal emergent subsystems — usually what playtesters call 'the cool part'.",
         ],
@@ -232,11 +232,11 @@ const CHAPTERS: Chapter[] = [
       },
     ],
     pitfalls: [
-      "Renaming entities mid-design without updating rules. The link detector is substring-based, not symbolic — it loses links when names diverge.",
+      "Renaming entities without updating your rules. The system connects rules to entities by name — rename one without updating the other and the link breaks.",
       "Adding entities without properties. They'll show in the taxonomy but the Simulator and Balance tabs will ignore them.",
     ],
     tips: [
-      "Rename your entities consistently — the link detector matches on substrings.",
+      "Keep entity names consistent — the system links rules to entities by matching their names exactly.",
       "After a big rules edit, return here to scan for new orphans.",
     ],
     starters: [
@@ -281,7 +281,7 @@ const CHAPTERS: Chapter[] = [
         points: [
           "Names should be one short noun phrase ('Iron Gauntlet'), not a sentence ('A Gauntlet Made of Iron').",
           "Pick a casing convention (Title Case for proper nouns, lower for generic items) and apply it everywhere — the AI will mirror it.",
-          "Avoid two entities whose names are substrings of each other ('Sword' / 'Greatsword') — the Ontology link detector confuses them.",
+          "Avoid two entities whose names overlap ('Sword' / 'Greatsword') — the Ontology view can confuse them when scanning rule text.",
         ],
       },
       {
@@ -550,7 +550,7 @@ const CHAPTERS: Chapter[] = [
       "Generating final-print art. Treat outputs as prototypes; budget human art for shipping.",
     ],
     tips: [
-      "BYOK an OpenAI key in workspace settings if you're hitting rate limits.",
+      "Add your own OpenAI API key in workspace settings if you're hitting rate limits.",
       "Save the best 1–2 images per concept and delete the rest — clutter slows down asset selection.",
     ],
     starters: [
@@ -568,7 +568,7 @@ const CHAPTERS: Chapter[] = [
       {
         heading: "Public feedback links",
         points: [
-          "Each session can spawn a tokenized URL — playtesters fill it out without an account.",
+          "Each session can generate a unique shareable link — playtesters fill out your feedback form without creating an account.",
           "Responses flow back into the session record automatically.",
           "Token expires when the session is closed; safe to share on social media or BGG.",
         ],
@@ -918,34 +918,34 @@ const CHAPTERS: Chapter[] = [
   },
   {
     id: "ai-providers",
-    title: "AI Providers (admin)",
+    title: "AI Providers",
     icon: KeyRound,
-    blurb: "Workspace-level controls for which AI providers your team can use, plus BYOK for billing and policy control.",
+    blurb: "Workspace-level controls for which AI providers your team can use, plus the option to bring your own API key for billing or rate-limit control.",
     body: [
       {
         heading: "Disable providers",
         points: [
-          "Switch any provider off and members of the workspace can no longer route to it.",
-          "Useful when your org has policy or cost constraints.",
+          "Switch any provider off and no one in the workspace can use it.",
+          "Useful when your team has budget or policy constraints on specific services.",
           "Disabling does NOT delete history — past chat with a disabled provider is still readable.",
         ],
       },
       {
-        heading: "BYOK (Bring Your Own Key)",
+        heading: "Bring your own API key",
         points: [
-          "Paste your own provider API key — encrypted at rest with AES-256-GCM.",
-          "All AI calls from this workspace then use your key, not the platform default.",
-          "Rotate keys at any time; old keys become inactive immediately.",
+          "Paste your own provider API key — it's encrypted and stored securely.",
+          "All AI calls from this workspace then use your key instead of the platform default.",
+          "Rotate keys at any time; the old key stops working immediately.",
         ],
       },
     ],
     deepDive: [
       {
-        heading: "When to BYOK",
+        heading: "When to use your own API key",
         points: [
-          "You're hitting the platform default rate limits.",
-          "Your organization requires usage to bill to a known account for compliance.",
-          "You want to use a model variant the platform default doesn't expose.",
+          "You're hitting usage limits on the platform's default key.",
+          "Your organization needs AI usage billed to a known account.",
+          "You want access to a model version not available by default.",
         ],
       },
       {
@@ -960,13 +960,13 @@ const CHAPTERS: Chapter[] = [
     ],
     pitfalls: [
       "Hardcoding one provider for everything. Different tasks favor different models — leave the router free.",
-      "Forgetting to rotate a leaked key. Encryption protects at rest, not in transit if a member shares a screen.",
+      "Forgetting to rotate a leaked key. If someone accidentally exposes it on a shared screen, rotate it right away.",
     ],
     tips: [
       "Only owners and admins of the workspace see the AI Providers menu item.",
     ],
     starters: [
-      "When should I BYOK instead of using the platform default?",
+      "When should I use my own API key instead of the platform default?",
       "Which provider is cheapest for fast brainstorming?",
       "What happens to chat history if I disable a provider?",
     ],

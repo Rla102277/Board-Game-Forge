@@ -1,0 +1,211 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { MessageSquare, Send, Sparkles, Loader2, Trash2 } from "lucide-react";
+
+type Msg = { role: "user" | "assistant"; content: string };
+
+interface LearnChatProps {
+  topicId: string;
+  topicTitle: string;
+  starterQuestions?: string[];
+}
+
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const MAX_PERSISTED_MESSAGES = 40;
+
+function storageKey(topicId: string) {
+  return `gameforge.learn.chat.${topicId}`;
+}
+
+function isValidMsg(x: unknown): x is Msg {
+  if (!x || typeof x !== "object") return false;
+  const r = x as Record<string, unknown>;
+  return (r.role === "user" || r.role === "assistant") && typeof r.content === "string";
+}
+
+export function LearnChat({ topicId, topicTitle, starterQuestions = [] }: LearnChatProps) {
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load persisted history per topic.
+  useEffect(() => {
+    setError(null);
+    setDraft("");
+    try {
+      const raw = localStorage.getItem(storageKey(topicId));
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) {
+        setMessages(parsed.filter(isValidMsg).slice(-MAX_PERSISTED_MESSAGES));
+      } else {
+        setMessages([]);
+      }
+    } catch {
+      setMessages([]);
+    }
+  }, [topicId]);
+
+  useEffect(() => {
+    try {
+      const trimmed = messages.slice(-MAX_PERSISTED_MESSAGES);
+      localStorage.setItem(storageKey(topicId), JSON.stringify(trimmed));
+    } catch {/* ignore */}
+  }, [messages, topicId]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, loading]);
+
+  const send = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || loading) return;
+    const next: Msg[] = [...messages, { role: "user", content: trimmed }];
+    setMessages(next);
+    setDraft("");
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/learn/chat`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topicId,
+          message: trimmed,
+          history: messages.slice(-10),
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as { reply: string };
+      setMessages([...next, { role: "assistant", content: data.reply }]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clear = () => {
+    setMessages([]);
+    setError(null);
+    try { localStorage.removeItem(storageKey(topicId)); } catch {/* ignore */}
+  };
+
+  const showStarters = useMemo(() => messages.length === 0 && starterQuestions.length > 0, [messages, starterQuestions]);
+
+  return (
+    <Card className="bg-card border-border" data-testid="learn-chat">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-primary" />
+            Ask about this topic
+            <Badge variant="outline" className="text-[10px] uppercase tracking-wider">Scoped</Badge>
+          </CardTitle>
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+              onClick={clear}
+              data-testid="learn-chat-clear"
+            >
+              <Trash2 className="h-3 w-3" /> Clear
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          The tutor only answers questions about <span className="text-foreground font-medium">{topicTitle}</span>.
+          Switch chapters above to change scope.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div
+          ref={scrollRef}
+          className="max-h-[320px] overflow-y-auto space-y-2.5 pr-1"
+          data-testid="learn-chat-thread"
+        >
+          {showStarters && (
+            <div className="rounded-md border border-dashed border-border/60 p-3 space-y-2">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" /> Try asking
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {starterQuestions.map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={() => send(q)}
+                    disabled={loading}
+                    className="text-left text-xs rounded-md border border-border/60 bg-muted/30 hover:bg-muted/60 px-2.5 py-1.5 transition-colors disabled:opacity-50"
+                    data-testid={`learn-chat-starter-${i}`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={`text-sm leading-relaxed rounded-md px-3 py-2 ${
+                m.role === "user"
+                  ? "bg-primary/10 border border-primary/30 text-foreground"
+                  : "bg-muted/40 border border-border/60 text-foreground/90 whitespace-pre-wrap"
+              }`}
+            >
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
+                {m.role === "user" ? "You" : "Tutor"}
+              </div>
+              {m.content}
+            </div>
+          ))}
+          {loading && (
+            <div className="text-sm rounded-md px-3 py-2 bg-muted/40 border border-border/60 flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Tutor is thinking…
+            </div>
+          )}
+          {error && (
+            <div className="text-xs rounded-md px-3 py-2 bg-destructive/10 border border-destructive/40 text-destructive">
+              {error}
+            </div>
+          )}
+        </div>
+        <div className="flex items-end gap-2 pt-1">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send(draft);
+              }
+            }}
+            placeholder={`Ask anything about "${topicTitle}"…`}
+            disabled={loading}
+            className="min-h-[48px] max-h-[120px] resize-none bg-muted/30 border-border/60 text-sm"
+            data-testid="learn-chat-input"
+          />
+          <Button
+            onClick={() => send(draft)}
+            disabled={!draft.trim() || loading}
+            size="sm"
+            className="h-10 gap-1.5 shrink-0"
+            data-testid="learn-chat-send"
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            Send
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

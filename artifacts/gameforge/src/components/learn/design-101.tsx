@@ -319,7 +319,7 @@ const LESSONS: Lesson[] = [
       { name: "Variance vs. determinism", explanation: "Dice swing the game; cards smooth over time. Decide how much randomness fits your audience." },
       { name: "Catch-up vs. snowball", explanation: "Engine-builders snowball — the rich get richer. Catch-up mechanisms (rubber-banding) keep last place engaged." },
       { name: "Action economy", explanation: "Count actions per turn × turns per game. That's your design budget — every rule competes for it." },
-      { name: "Expected value", explanation: "For dice or random draws: average outcome × probability. Players don't compute it consciously, but they FEEL when it's wrong." },
+      { name: "Expected value", explanation: "On average, what does a random card draw or dice roll give a player? Players don't do the math consciously, but they feel immediately when the odds seem off." },
       { name: "Swing vs. tightness", explanation: "Swing games (Munchkin) reward big plays; tight games (Chess) reward small advantages. Both can be balanced — you choose which." },
     ],
     examples: [
@@ -329,20 +329,20 @@ const LESSONS: Lesson[] = [
     ],
     deepDive: [
       {
-        heading: "Heuristics for cost curves",
+        heading: "Reading your cost curve",
         points: [
-          "Linear baseline: power = k × cost. Pick k from a bench game (e.g. in Dominion, k ≈ 1 card per coin).",
-          "Allow ±20% variance off the line — that's where 'flavor' lives.",
-          "Anything ±50% off is a bug or intentional gimmick. Be honest about which.",
-          "Plot the curve in a spreadsheet before playtesting; eyeballing fails for games with >15 entities.",
+          "The simplest balance rule: something that costs twice as much should be roughly twice as powerful. Pick one card or entity as your benchmark and compare everything else to it.",
+          "A little variation is fine — that's where personality lives. Something wildly above the line is overpowered; wildly below is a trap nobody picks.",
+          "Be honest: if something is way off, it's either a bug to fix or an intentional twist. Know which.",
+          "Sketch the curve in a spreadsheet before playtesting — eyeballing breaks down once you have more than 15 entities.",
         ],
       },
       {
         heading: "Action economy in plain English",
         points: [
-          "Count: avg actions per turn × players × turns per game = total design surface.",
-          "Example: 3 actions × 4 players × 8 turns = 96 actions of fun. Every rule competes for one of those 96 slots.",
-          "Cut anything that triggers <5% of the time unless it's a key memorable moment.",
+          "Multiply: average actions per turn × number of players × turns per game. That's your game's total activity budget.",
+          "Example: 3 actions × 4 players × 8 turns = 96 moments of decision. Every rule is competing for a share of those.",
+          "Cut any rule that almost never comes up — unless it creates a genuinely memorable moment when it does.",
         ],
       },
       {
@@ -355,13 +355,13 @@ const LESSONS: Lesson[] = [
         ],
       },
       {
-        heading: "Variance dial",
+        heading: "How much randomness is right?",
         points: [
-          "0% (pure skill): Chess. Punishing, niche.",
-          "10–20%: Most modern Euros. Skill-dominant with surprise.",
-          "30–50%: Catan, Risk. Casual-friendly.",
-          "60%+: Munchkin, party games. Stories over wins.",
-          "Pick a number for YOUR game and tune everything to it.",
+          "No randomness: Chess. Extremely skill-based, steep learning curve.",
+          "Low randomness (10–20%): Most modern strategy games. Skill wins most of the time, but surprises happen.",
+          "Medium randomness (30–50%): Catan, Risk. Luck plays a real role — more accessible to casual players.",
+          "High randomness (60%+): Munchkin, party games. The fun is in the chaos and the stories, not the outcome.",
+          "Pick a level that matches your audience and tune your game toward it consistently.",
         ],
       },
       {
@@ -549,7 +549,7 @@ const LESSONS: Lesson[] = [
       { name: "License to a publisher", explanation: "Pitch at conventions like Spiel or Origins. Royalty is typically 4–8% of wholesale. Lower upside, lower risk." },
       { name: "Crowdfund (Kickstarter / Gamefound)", explanation: "Pre-sell to your audience. Validates demand, funds the print run. Marketing is everything; expect 12+ months of work." },
       { name: "Build an audience early", explanation: "BoardGameGeek presence, BGG hot list, social posts during playtesting. Audiences take years to grow, not weeks." },
-      { name: "Know your costs", explanation: "MSRP ÷ 5 ≈ landed cost ceiling. If your game can't be made at that cost, redesign components or accept a higher price." },
+      { name: "Know your costs", explanation: "As a rough rule, your game should cost no more than one-fifth of its retail price to manufacture (a $50 game = ≤$10 to make). If it costs more, redesign components or accept a higher retail price." },
       { name: "The pitch is its own design", explanation: "Publishers see hundreds of pitches. A 30-second hook, 1-page summary, and clean prototype matters more than feature count." },
     ],
     examples: [

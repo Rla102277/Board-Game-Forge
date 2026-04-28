@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Send, Sparkles, Loader2, Trash2 } from "lucide-react";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -107,8 +106,7 @@ export function LearnChat({ topicId, topicTitle, starterQuestions = [] }: LearnC
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-primary" />
-            Ask about this topic
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wider">Scoped</Badge>
+            Ask the tutor
           </CardTitle>
           {messages.length > 0 && (
             <Button
@@ -123,8 +121,8 @@ export function LearnChat({ topicId, topicTitle, starterQuestions = [] }: LearnC
           )}
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          The tutor only answers questions about <span className="text-foreground font-medium">{topicTitle}</span>.
-          Switch chapters above to change scope.
+          Ask anything about <span className="text-foreground font-medium">{topicTitle}</span>.
+          Switch chapters to ask about a different topic.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
