@@ -40,14 +40,17 @@ import type {
   CreateProjectBody,
   CreateResearchBody,
   CreateRuleBody,
+  CreateSnapshotBody,
   CreateStoryboardNodeBody,
   CreateTaskBody,
   DashboardSummary,
+  DuplicateProjectBody,
   Entity,
   EntityEnhanceSuggestion,
   EntityProperty,
   ExportResult,
   ForbiddenResponse,
+  ForkSnapshotBody,
   GenerateBlueprintBody,
   GenerateImageBody,
   HealthStatus,
@@ -62,9 +65,11 @@ import type {
   PlaytestSession,
   PlaythroughBody,
   Project,
+  ProjectSnapshot,
   ProjectStats,
   PublicFeedbackProject,
   ResearchItem,
+  RestoreSnapshotResponse,
   Rule,
   RuleEnhanceSuggestion,
   SendChatMessageBody,
@@ -1214,6 +1219,526 @@ export function useGetProjectStats<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List saved versions of a project
+ */
+export const getListSnapshotsUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/snapshots`;
+};
+
+export const listSnapshots = async (
+  projectId: number,
+  options?: RequestInit,
+): Promise<ProjectSnapshot[]> => {
+  return customFetch<ProjectSnapshot[]>(getListSnapshotsUrl(projectId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSnapshotsQueryKey = (projectId: number) => {
+  return [`/api/projects/${projectId}/snapshots`] as const;
+};
+
+export const getListSnapshotsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSnapshots>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSnapshots>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSnapshotsQueryKey(projectId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSnapshots>>> = ({
+    signal,
+  }) => listSnapshots(projectId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSnapshots>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSnapshotsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSnapshots>>
+>;
+export type ListSnapshotsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List saved versions of a project
+ */
+
+export function useListSnapshots<
+  TData = Awaited<ReturnType<typeof listSnapshots>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSnapshots>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSnapshotsQueryOptions(projectId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save the current project state as a new version
+ */
+export const getCreateSnapshotUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/snapshots`;
+};
+
+export const createSnapshot = async (
+  projectId: number,
+  createSnapshotBody: CreateSnapshotBody,
+  options?: RequestInit,
+): Promise<ProjectSnapshot> => {
+  return customFetch<ProjectSnapshot>(getCreateSnapshotUrl(projectId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSnapshotBody),
+  });
+};
+
+export const getCreateSnapshotMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSnapshot>>,
+    TError,
+    { projectId: number; data: BodyType<CreateSnapshotBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSnapshot>>,
+  TError,
+  { projectId: number; data: BodyType<CreateSnapshotBody> },
+  TContext
+> => {
+  const mutationKey = ["createSnapshot"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSnapshot>>,
+    { projectId: number; data: BodyType<CreateSnapshotBody> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return createSnapshot(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSnapshotMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSnapshot>>
+>;
+export type CreateSnapshotMutationBody = BodyType<CreateSnapshotBody>;
+export type CreateSnapshotMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save the current project state as a new version
+ */
+export const useCreateSnapshot = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSnapshot>>,
+    TError,
+    { projectId: number; data: BodyType<CreateSnapshotBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSnapshot>>,
+  TError,
+  { projectId: number; data: BodyType<CreateSnapshotBody> },
+  TContext
+> => {
+  return useMutation(getCreateSnapshotMutationOptions(options));
+};
+
+export const getDeleteSnapshotUrl = (projectId: number, snapshotId: number) => {
+  return `/api/projects/${projectId}/snapshots/${snapshotId}`;
+};
+
+export const deleteSnapshot = async (
+  projectId: number,
+  snapshotId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSnapshotUrl(projectId, snapshotId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSnapshotMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSnapshot>>,
+    TError,
+    { projectId: number; snapshotId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSnapshot>>,
+  TError,
+  { projectId: number; snapshotId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSnapshot"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSnapshot>>,
+    { projectId: number; snapshotId: number }
+  > = (props) => {
+    const { projectId, snapshotId } = props ?? {};
+
+    return deleteSnapshot(projectId, snapshotId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSnapshotMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSnapshot>>
+>;
+
+export type DeleteSnapshotMutationError = ErrorType<unknown>;
+
+export const useDeleteSnapshot = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSnapshot>>,
+    TError,
+    { projectId: number; snapshotId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSnapshot>>,
+  TError,
+  { projectId: number; snapshotId: number },
+  TContext
+> => {
+  return useMutation(getDeleteSnapshotMutationOptions(options));
+};
+
+/**
+ * @summary Restore the project to a saved version (auto-saves current state first)
+ */
+export const getRestoreSnapshotUrl = (
+  projectId: number,
+  snapshotId: number,
+) => {
+  return `/api/projects/${projectId}/snapshots/${snapshotId}/restore`;
+};
+
+export const restoreSnapshot = async (
+  projectId: number,
+  snapshotId: number,
+  options?: RequestInit,
+): Promise<RestoreSnapshotResponse> => {
+  return customFetch<RestoreSnapshotResponse>(
+    getRestoreSnapshotUrl(projectId, snapshotId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRestoreSnapshotMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreSnapshot>>,
+    TError,
+    { projectId: number; snapshotId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restoreSnapshot>>,
+  TError,
+  { projectId: number; snapshotId: number },
+  TContext
+> => {
+  const mutationKey = ["restoreSnapshot"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restoreSnapshot>>,
+    { projectId: number; snapshotId: number }
+  > = (props) => {
+    const { projectId, snapshotId } = props ?? {};
+
+    return restoreSnapshot(projectId, snapshotId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestoreSnapshotMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restoreSnapshot>>
+>;
+
+export type RestoreSnapshotMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Restore the project to a saved version (auto-saves current state first)
+ */
+export const useRestoreSnapshot = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreSnapshot>>,
+    TError,
+    { projectId: number; snapshotId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restoreSnapshot>>,
+  TError,
+  { projectId: number; snapshotId: number },
+  TContext
+> => {
+  return useMutation(getRestoreSnapshotMutationOptions(options));
+};
+
+/**
+ * @summary Create a new project from a saved version
+ */
+export const getForkSnapshotUrl = (projectId: number, snapshotId: number) => {
+  return `/api/projects/${projectId}/snapshots/${snapshotId}/fork`;
+};
+
+export const forkSnapshot = async (
+  projectId: number,
+  snapshotId: number,
+  forkSnapshotBody: ForkSnapshotBody,
+  options?: RequestInit,
+): Promise<Project> => {
+  return customFetch<Project>(getForkSnapshotUrl(projectId, snapshotId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(forkSnapshotBody),
+  });
+};
+
+export const getForkSnapshotMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof forkSnapshot>>,
+    TError,
+    { projectId: number; snapshotId: number; data: BodyType<ForkSnapshotBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof forkSnapshot>>,
+  TError,
+  { projectId: number; snapshotId: number; data: BodyType<ForkSnapshotBody> },
+  TContext
+> => {
+  const mutationKey = ["forkSnapshot"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof forkSnapshot>>,
+    { projectId: number; snapshotId: number; data: BodyType<ForkSnapshotBody> }
+  > = (props) => {
+    const { projectId, snapshotId, data } = props ?? {};
+
+    return forkSnapshot(projectId, snapshotId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ForkSnapshotMutationResult = NonNullable<
+  Awaited<ReturnType<typeof forkSnapshot>>
+>;
+export type ForkSnapshotMutationBody = BodyType<ForkSnapshotBody>;
+export type ForkSnapshotMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new project from a saved version
+ */
+export const useForkSnapshot = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof forkSnapshot>>,
+    TError,
+    { projectId: number; snapshotId: number; data: BodyType<ForkSnapshotBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof forkSnapshot>>,
+  TError,
+  { projectId: number; snapshotId: number; data: BodyType<ForkSnapshotBody> },
+  TContext
+> => {
+  return useMutation(getForkSnapshotMutationOptions(options));
+};
+
+/**
+ * @summary Duplicate the current project state into a brand-new project
+ */
+export const getDuplicateProjectUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/duplicate`;
+};
+
+export const duplicateProject = async (
+  projectId: number,
+  duplicateProjectBody: DuplicateProjectBody,
+  options?: RequestInit,
+): Promise<Project> => {
+  return customFetch<Project>(getDuplicateProjectUrl(projectId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(duplicateProjectBody),
+  });
+};
+
+export const getDuplicateProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof duplicateProject>>,
+    TError,
+    { projectId: number; data: BodyType<DuplicateProjectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof duplicateProject>>,
+  TError,
+  { projectId: number; data: BodyType<DuplicateProjectBody> },
+  TContext
+> => {
+  const mutationKey = ["duplicateProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof duplicateProject>>,
+    { projectId: number; data: BodyType<DuplicateProjectBody> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return duplicateProject(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DuplicateProjectMutationResult = NonNullable<
+  Awaited<ReturnType<typeof duplicateProject>>
+>;
+export type DuplicateProjectMutationBody = BodyType<DuplicateProjectBody>;
+export type DuplicateProjectMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Duplicate the current project state into a brand-new project
+ */
+export const useDuplicateProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof duplicateProject>>,
+    TError,
+    { projectId: number; data: BodyType<DuplicateProjectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof duplicateProject>>,
+  TError,
+  { projectId: number; data: BodyType<DuplicateProjectBody> },
+  TContext
+> => {
+  return useMutation(getDuplicateProjectMutationOptions(options));
+};
 
 export const getComputeComplexityUrl = (projectId: number) => {
   return `/api/projects/${projectId}/complexity`;

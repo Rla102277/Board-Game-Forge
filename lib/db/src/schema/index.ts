@@ -17,3 +17,4 @@ export * from "./storyboardNodes";
 export * from "./changelogEntries";
 export * from "./kickstarterAssets";
 export * from "./workspaces";
+export * from "./projectSnapshots";

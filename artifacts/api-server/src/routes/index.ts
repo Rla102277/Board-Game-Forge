@@ -25,6 +25,7 @@ import kickstarterRouter from "./kickstarter";
 import workspacesRouter from "./workspaces";
 import learnRouter from "./learn";
 import aiTextRouter from "./aiText";
+import snapshotsRouter from "./snapshots";
 import {
   requireAuth,
   requireProjectAccess,
@@ -72,5 +73,6 @@ router.use(exportsRouter);
 router.use(blueprintRouter);
 router.use(kickstarterRouter);
 router.use(aiTextRouter);
+router.use(snapshotsRouter);
 
 export default router;

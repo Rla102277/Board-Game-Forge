@@ -211,6 +211,82 @@ export const GetProjectStatsResponse = zod.object({
   playtestCount: zod.number(),
 });
 
+/**
+ * @summary List saved versions of a project
+ */
+export const ListSnapshotsParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListSnapshotsResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  isAutoSnapshot: zod.boolean(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListSnapshotsResponse = zod.array(ListSnapshotsResponseItem);
+
+/**
+ * @summary Save the current project state as a new version
+ */
+export const CreateSnapshotParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const createSnapshotBodyNameMax = 200;
+
+export const CreateSnapshotBody = zod.object({
+  name: zod.string().min(1).max(createSnapshotBodyNameMax),
+  description: zod.string().nullish(),
+});
+
+export const DeleteSnapshotParams = zod.object({
+  projectId: zod.coerce.number(),
+  snapshotId: zod.coerce.number(),
+});
+
+/**
+ * @summary Restore the project to a saved version (auto-saves current state first)
+ */
+export const RestoreSnapshotParams = zod.object({
+  projectId: zod.coerce.number(),
+  snapshotId: zod.coerce.number(),
+});
+
+export const RestoreSnapshotResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Create a new project from a saved version
+ */
+export const ForkSnapshotParams = zod.object({
+  projectId: zod.coerce.number(),
+  snapshotId: zod.coerce.number(),
+});
+
+export const forkSnapshotBodyNameMax = 200;
+
+export const ForkSnapshotBody = zod.object({
+  name: zod.string().max(forkSnapshotBodyNameMax).optional(),
+});
+
+/**
+ * @summary Duplicate the current project state into a brand-new project
+ */
+export const DuplicateProjectParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const duplicateProjectBodyNameMax = 200;
+
+export const DuplicateProjectBody = zod.object({
+  name: zod.string().max(duplicateProjectBodyNameMax).optional(),
+});
+
 export const ComputeComplexityParams = zod.object({
   projectId: zod.coerce.number(),
 });

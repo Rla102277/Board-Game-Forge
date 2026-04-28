@@ -18,6 +18,8 @@ export const projects = pgTable(
     complexityScore: integer("complexity_score"),
     blueprint: text("blueprint"),
     narrative: text("narrative"),
+    forkedFromProjectId: integer("forked_from_project_id"),
+    forkedFromSnapshotId: integer("forked_from_snapshot_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

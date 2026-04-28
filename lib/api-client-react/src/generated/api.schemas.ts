@@ -118,6 +118,39 @@ export interface ProjectStats {
   playtestCount: number;
 }
 
+export interface ProjectSnapshot {
+  id: number;
+  projectId: number;
+  name: string;
+  description?: string | null;
+  isAutoSnapshot: boolean;
+  createdByName?: string | null;
+  createdAt: string;
+}
+
+export interface CreateSnapshotBody {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  name: string;
+  description?: string | null;
+}
+
+export interface DuplicateProjectBody {
+  /** @maxLength 200 */
+  name?: string;
+}
+
+export interface ForkSnapshotBody {
+  /** @maxLength 200 */
+  name?: string;
+}
+
+export interface RestoreSnapshotResponse {
+  ok: boolean;
+}
+
 export type ComplexityScoreBreakdownItem = {
   factor: string;
   value: number;

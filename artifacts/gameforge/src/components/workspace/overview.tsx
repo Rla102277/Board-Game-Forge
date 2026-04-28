@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebounce } from "@/hooks/use-debounce";
 import { AiEditTextarea } from "@/components/workspace/ai-edit-textarea";
+import { ProjectVersions } from "@/components/workspace/project-versions";
 import {
   LayoutDashboard, Activity, Users, FileText, CheckSquare, MessageSquare,
   Zap, Sparkles, Settings, MessageCircle,
@@ -241,6 +242,8 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
               </div>
             </CardContent>
           </Card>
+
+          <ProjectVersions projectId={projectId} />
         </div>
 
         {/* AI Quick Actions */}

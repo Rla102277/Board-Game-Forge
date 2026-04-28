@@ -1,88 +1,62 @@
-# Workspace
+# GameForge
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+GameForge is a Replit-IDE-style SaaS application designed for tabletop board game creation. It provides a structured workspace for managing game components (entities, rules, players, notes, tasks) and integrates a persistent AI co-designer powered by Anthropic Claude. The platform aims to streamline the game design process, from initial concept to playtesting and export.
 
-This project hosts **GameForge**, a Replit-IDE-style SaaS for designing tabletop board games. It pairs a structured workspace (entities, rules, players, notes, tasks) with a persistent AI co-designer powered by Anthropic Claude.
+Key capabilities include:
+- A structured environment for managing all aspects of game design.
+- AI-powered assistance for generating entities, rules, and conversational design support.
+- Project versioning and duplication for iterative design.
+- Workspace-based organization with user authentication and access control.
+- Integration with external AI providers for diverse co-design capabilities, including image generation.
+- Learning resources for game design principles and platform usage.
 
-## Artifacts
+The project's ambition is to become a comprehensive platform for board game creators, offering robust tools and intelligent assistance to foster creativity and efficiency in game development.
 
-- `artifacts/api-server` — Express 5 API server (port 8080). All routes mounted under `/api`. Schemas validated with Zod generated from the OpenAPI spec.
-- `artifacts/gameforge` — React + Vite + Tailwind v4 + shadcn frontend served at `/`. Wouter for routing, TanStack Query for data, lucide-react icons, framer-motion transitions.
-- `artifacts/mockup-sandbox` — Vite preview sandbox for canvas mockups (unused for end-user product).
+## User Preferences
 
-## Backend (artifacts/api-server)
+No explicit user preferences were provided in the original document.
 
-REST + SSE Express app. Route modules in `src/routes/`:
+## System Architecture
 
-- `health.ts` — `GET /api/healthz`
-- `projects.ts` — projects CRUD + `GET /api/projects/:id/stats`
-- `entities.ts` — CRUD + `POST /api/projects/:id/entities/ai-generate` (Claude generates structured entities)
-- `rules.ts` — CRUD + `POST /api/projects/:id/rules/ai-generate`
-- `players.ts`, `notes.ts`, `tasks.ts` — CRUD
-- `chat.ts` — list/clear messages and `POST /api/projects/:id/chat/send` which **streams Claude tokens via Server-Sent Events** using `anthropic.messages.stream`. The user message is persisted before streaming, the assistant message is persisted after the stream completes. Frontend chat panel calls this endpoint with raw `fetch` + `ReadableStream` (the generated React Query hook is bypassed for streaming).
-- `dashboard.ts` — `/api/dashboard/summary` (totals + game-type/genre breakdown) and `/api/dashboard/recent-activity` (merged feed from projects, entities, rules, chat).
+GameForge is a pnpm workspace monorepo using TypeScript, comprising three main artifacts: `api-server`, `gameforge` (frontend), and `mockup-sandbox`.
 
-SSE event format: `data: {"content":"..."}\n\n` for chunks, `data: {"done":true}\n\n` to close. Allowed models: `claude-sonnet-4-6`, `claude-haiku-4-5`.
+**UI/UX Decisions:**
+- The frontend (`artifacts/gameforge`) is built with React, Vite, Tailwind v4, and shadcn, utilizing Wouter for routing, TanStack Query for data management, lucide-react for icons, and framer-motion for transitions.
+- The UI features a dark, Replit-inspired theme.
+- The workspace interface includes a left rail, a section sidebar with count badges, a main content panel, and a persistent right-hand AI chat panel.
+- Interactive elements like chips for game types and genres are used for categorization and filtering.
+- Visual components like stat cards, project grids, and activity feeds enhance dashboard usability.
+- Design elements for workspace tabs (Overview, Rules, Ontology) have been refined to align with user reference shots, introducing features like an "AI Design Advisor" card, categorized rule badges, and collapsible primer cards for entity types.
 
-## Frontend (artifacts/gameforge)
+**Technical Implementations:**
+- **Backend (`artifacts/api-server`):** An Express 5 API server supporting REST and Server-Sent Events (SSE). It handles CRUD operations for project components and facilitates AI interactions. Zod schemas generated from an OpenAPI spec are used for request validation.
+- **Frontend (`artifacts/gameforge`):** Manages user interaction, data display, and communication with the backend. It includes dedicated pages for the dashboard and individual project workspaces, each with specific components for different sections (overview, entities, rules, players, notes, tasks). Streaming chat responses from the AI are handled via raw `fetch` and `ReadableStream`.
+- **Database (`lib/db`):** Uses Drizzle ORM with Postgres. The schema includes tables for `projects`, `entities`, `rules`, `players`, `notes`, `tasks`, `chat_messages`, `project_snapshots`, `workspace_ai_settings`, and `kickstarter_assets`. All child tables are linked to `projects.id` with cascade delete.
+- **API Contract:** Defined by an OpenAPI 3 specification (`lib/api-spec/openapi.yaml`). Codegen generates Zod schemas (`lib/api-zod`) and TanStack Query hooks (`lib/api-client-react`).
+- **AI Integration (`lib/integrations-anthropic-ai`):** Wraps a Replit-managed Anthropic proxy for AI calls, handling authentication internally. Supports both single-shot JSON generation for entities/rules and streaming for chat.
+- **Authentication and Authorization:** Implemented with Clerk auth. Middleware (`middlewares/projectAuth.ts`) enforces `requireAuth` and `requireProjectAccess`, ensuring project list filtering by `ownerUserId` and protecting dashboard endpoints.
+- **AI Enhancement Features:** Dedicated routes and UI components for "AI Enhance" buttons on various item types (rules, players, entities, notes, research, assets, storyboard), parsing structured JSON output from AI.
+- **Multi-provider AI Routing:** Supports multiple AI providers (Anthropic, OpenAI, Gemini, OpenRouter) with a flexible routing mechanism (`aiRouter.complete/stream`) that can utilize workspace-specific API keys (BYOK) stored securely with AES-256-GCM encryption.
+- **Image Generation:** Integration with OpenAI for image generation, including retry logic and user-friendly error handling.
+- **Project Versioning:** `project_snapshots` table stores JSONB payloads of project state, enabling snapshot creation, restoration, duplication, and forking. A `projectSerializer.ts` handles cross-table ID remapping during these operations.
+- **Text Editing with AI:** An `<AiEditTextarea>` component allows users to apply AI-driven text transformations (shorter, longer, rephrase, etc.) to project descriptions, interacting with a dedicated `POST /api/projects/:projectId/ai/text-edit` endpoint.
 
-- `src/App.tsx` — Wouter routes: `/` (Home dashboard), `/p/:projectId` (Workspace).
-- `src/pages/home.tsx` — Dashboard: stats cards, project grid with create/delete, recent activity feed.
-- `src/pages/workspace.tsx` — IDE shell: 56px left rail, 260px section sidebar with count badges, main panel that swaps content per section, persistent 380px AI chat panel on the right.
-- `src/components/chat-panel.tsx` — Streaming chat: model dropdown, message list, manual SSE consumption, two horizontally scrollable rows of chips below the input (game type + genre).
-- `src/components/sections/{overview,entities,rules,players,notes,tasks}.tsx` — Each workspace section is a complete CRUD surface; entities and rules expose AI generate panels.
-- `src/index.css` — Dark Replit-inspired theme (Tailwind v4 tokens).
+## External Dependencies
 
-Game type chips: Strategy, Family, Party, Cooperative, Worker Placement, Deck-builder, Area Control, Eurogame, Wargame, Roll-and-Write, Dexterity, Legacy.
-Genre chips: Fantasy, Sci-Fi, Horror, Historical, Modern, Cyberpunk, Steampunk, Mystery, Adventure, Abstract.
-
-## Database (lib/db)
-
-Drizzle ORM + Postgres. Tables: `projects`, `entities`, `rules`, `players`, `notes`, `tasks`, `chat_messages`. All child tables FK to `projects.id` with cascade delete. Push schema with `pnpm --filter @workspace/db run push`.
-
-## API contract (lib/api-spec / lib/api-zod / lib/api-client-react)
-
-OpenAPI 3 spec at `lib/api-spec/openapi.yaml` is the source of truth. Codegen produces:
-- `lib/api-zod` — Zod schemas, exported under the `schemas` namespace (e.g. `schemas.CreateProjectBody`).
-- `lib/api-client-react` — TanStack Query hooks (`useListProjects`, `useGetDashboardSummary`, etc.). The chat send hook is intentionally NOT used; the chat panel calls fetch directly to consume SSE.
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`.
-
-## AI integration
-
-`lib/integrations-anthropic-ai` wraps the Replit-managed Anthropic proxy. No customer-supplied API key needed; auth is handled by the integration env vars. Used in entities/rules generate routes (single-shot JSON) and chat route (streaming).
-
-## Workflows
-
-- `artifacts/api-server: API Server` — `pnpm --filter @workspace/api-server run dev`
-- `artifacts/gameforge: web` — `pnpm --filter @workspace/gameforge run dev` (Vite, port 25201)
-- `artifacts/mockup-sandbox: Component Preview Server`
-
-## Recent changes
-
-- Built initial GameForge product end-to-end (DB schema, OpenAPI, all API routes, full IDE-style frontend with persistent chat panel and 6 workspace sections).
-- Seeded three sample projects (Embers of Aldoria, Last Light Protocol, Smokestack) with entities, rules, players, notes, tasks, and chat history.
-- Expanded to 14 workspace tabs (added Research, Ontology, Assets, Simulator, Playtesting, Balance, Storyboard, Exports), Clerk auth, multi-provider AI routing, image generation, public feedback share links, admin panel.
-- Added auth + ownership middleware (`middlewares/projectAuth.ts`): `requireAuth` and `requireProjectAccess` are mounted at the `/projects` route prefix in `routes/index.ts`. Project list filters by `ownerUserId` (admins see all). Dashboard endpoints are auth-protected and per-user scoped.
-- Verified ship-readiness with end-to-end browser tests (Clerk login → workspace → simulator/balance/exports/research) and an architect code review; all critical security and contract issues resolved.
-- Phase A: Multi-provider AI router (Anthropic / OpenAI / Gemini / OpenRouter for Grok+Perplexity), grouped model dropdown in chat panel and account, Markdown rendering via react-markdown + remark-gfm.
-- Phase B: AI Enhance buttons on every item type — rules, players, entities, notes, research, assets, and storyboard. Each enhance route is project-scoped, parses structured JSON output, returns 502 if unusable, and surfaces success/failure toasts in the UI. (Follow-up fix: the rules / players / entities cards were initially missing the per-row Sparkles button on the frontend even though their backend enhance routes existed; the buttons are now wired up via the generated useAiEnhance{Rule,Player,Entity} hooks with data-testid="enhance-{type}-{id}".)
-- Phase C: Gamma Kickstarter section in Exports with `kickstarter_assets` table; generate / poll / refresh / delete endpoints; Gamma API v1.0 client.
-- Phase D: Workspaces (companies) with auto-created "Personal" workspace per user, project slugs, slug-based routes `/:workspaceSlug/:projectSlug`, and a workspace switcher.
-- Phase E: Replit-style workspace home with chat-box prompt and game template tiles; "Generate" wizard fills project + entities + rules from one prompt.
-- Hotfix (workspace generate 502): bumped maxTokens 3000→8000 and tightened the blueprint prompt so the AI response is unlikely to be truncated; added an iterative truncated-JSON repair pass in `aiRouter.tryParseJsonObject` (shared by every enhance route); added a minimum-viability check on the generated payload (blueprint OR rules OR entities required) plus a fallback project name and a friendlier transient error toast when generation fails.
-- Phase F (G1 — Chat panel UX): chat panel now collapses to a thin sidebar via a header toggle, persisted to localStorage (`gameforge.chatpanel.collapsed`); each assistant message exposes hover Save-to-Notes / Save-to-Tasks buttons that POST to the existing notes/tasks routes and surface a "Saved" check.
-- Phase F (F1 — Narrative-driven Assets): added `projects.narrative` text column; the Assets tab is now a dashboard with a project-level narrative seed textarea (saved via the existing UpdateProject route), 8 component-type tiles (Card / Board / Token / Dice / Character / Map / Box / Logo) that compose `narrative + entities + kind` into the asset prompt, plus a freeform prompt input. Asset cards surface narrative tags as chips.
-- Phase F (H1 — Workspace AI providers + BYOK): new `workspace_ai_settings` table (one row per workspace × provider, with `enabled` flag and AES-256-GCM encrypted API key derived from `SESSION_SECRET`). Admin/owner-only `GET/PUT /api/workspaces/:slug/ai-settings[/provider]` routes. `aiRouter.complete/stream` and the new `getOpenAiImageClient` helper resolve workspace context from `req.workspace` or `req.params.projectId`, refuse calls when a provider is disabled (`AiProviderDisabledError → 503`), build per-call SDK clients with the BYOK key when present, and hard-fail (`AiProviderKeyDecryptError`) instead of silently falling back when a stored key cannot be decrypted. Workspace-home dropdown gains an "AI providers" dialog (visible only to owners/admins) listing all 4 providers with a toggle, masked key input, save and clear actions.
-- Phase G (Learn page): new `/learn` protected route with two tabs — **GameForge Bible** (a 16-chapter walkthrough of every workspace area + chat panel + AI providers, with localStorage-tracked completion and a progress bar) and **Design 101** (an 8-lesson board-game-design course covering goals, mechanics, components, balance, iteration, theme, and publishing — with examples and exercises). Lives under `src/pages/learn.tsx` and `src/components/learn/{bible,design-101}.tsx`. Linked from the user dropdown in both `workspace.tsx` and `workspace-home.tsx`; `sessionStorage` stashes the prior URL so the in-page Back button returns the user to where they came from.
-- Phase G (Cosmetic refresh — overview / rules / ontology): the three workspace tabs were redesigned to mirror the look/function of the reference repo while keeping the existing dark theme. Overview gains an "AI Design Advisor" quick-questions card on top + colored stat tiles. Rules gains category color badges (movement / combat / economy / turn_structure / variant), a 5-dot priority indicator, expand/collapse for long content, a Duplicate action, a search box, category filter chips, and consistent destructive-toast error handling on every CRUD/AI action. Ontology gains an "Entity-type reference" section with collapsible primer cards for Item / Faction / Location / Event (tagline, description, idea list, suggested properties, design tip), plus colored badges for the live taxonomy.
-- Production hardening (AI Enhance + Image gen reliability): two fixes for production bug reports.
-  - **Enhance 502 fix**: AI sometimes wraps its JSON response in an outer key (e.g. `{"player": {...}}`) and the original code only checked for allowed keys at the top level, returning 502 with no diagnostic. Added `pickStringFields(obj, allowed)` helper in `aiRouter.ts` that picks string fields from the top level and, if none match, looks **exactly one level deep** into immediate child object values. Player and asset enhance routes now use it; player enhance also strips internal fields (`id`, `projectId`, `createdAt`, `updatedAt`) from the input JSON before sending to the AI. All four single-item enhance routes (player, asset, rule, property) now log a 500-char snippet of the AI response on the no-usable-content path for diagnosability.
-  - **Image gen retry + friendly errors**: `routes/assets.ts` now wraps `client.images.generate(...)` in `generateImageWithRetry()` (2 retries with 800ms / 2000ms backoff) for 408/425/429/500/502/503/504 status codes and common transient network errors (`ECONNRESET`, `ETIMEDOUT`, `EAI_AGAIN`, `fetch failed`, `socket hang up`). `mapImageProviderError()` translates surviving failures into user-friendly responses: upstream 5xx → 503 "AI image provider is temporarily unavailable", non-APIError network errors → 503 "temporarily unreachable", 429 → 429 rate-limit message, 400/content-policy → 400 prompt-rejected message. Added empty-base64 guard returning 502 with friendly message. `APIError` is now re-exported from `@workspace/integrations-openai-ai-server` so the bundler resolves it through the existing workspace dep.
-- Phase H (Workspace polish — Rules/Assets/Overview): three surfaces aligned to user reference shots while keeping the existing dark theme.
-  - **Rules tab** header redesigned: "Rules Library" title + live count subtitle + right-side buttons "Conflicts" (amber outline, opens new dialog), "AI Generate" (primary, opens existing AI prompt as a dialog), "+ Add" (primary). New Conflicts dialog calls `useConflictCheckRules`, renders summary + per-conflict cards with severity color-coding (high=red / medium=amber / low=slate) and inline AI suggestions; supports re-scan.
-  - **Assets tab** redesigned: header now "Asset Library" + count subtitle. Each asset card refactored into a standalone `AssetCard` component with an inline AI Enhancement preview panel (shows proposed Name / Description / Flavor next to current values with per-field checkboxes; Apply persists chosen fields via `useUpdateAsset`, Regenerate re-fetches, Dismiss clears). Backend `/projects/:id/assets/:id/enhance` no longer mutates — it returns `AssetEnhanceSuggestion {name?, description?, flavorText?}` so the user previews then applies.
-  - **Overview Description** uses new reusable `<AiEditTextarea>` (`components/workspace/ai-edit-textarea.tsx`) wrapping `Textarea` with a chip row: Shorter / Longer / Rephrase / More Vivid / Punchy / Formal. Each chip POSTs to the new `POST /api/projects/:projectId/ai/text-edit` endpoint (action enum: shorter|longer|rephrase|vivid|punchy|formal) and replaces the value with the rewritten text. Includes single-step Undo. Auto-save debounce still fires.
-  - Backend additions: new `routes/aiText.ts` exposes the text-edit endpoint using `aiRouter.complete()` + per-action prompt instructions and `stripWrapping()` to clean ``` / quotes / labels from AI output. OpenAPI gained `AssetEnhanceSuggestion`, `AiTextEditBody`, `AiTextEditResponse` schemas; codegen produced `useAiTextEdit` and updated `useAiEnhanceAsset` hooks.
+- **Anthropic Claude:** Primary AI co-designer, integrated via a Replit-managed proxy (`lib/integrations-anthropic-ai`).
+- **Postgres:** Database system used with Drizzle ORM.
+- **Clerk:** Authentication and user management service.
+- **OpenAI:** Used for image generation and as an alternative AI provider.
+- **Google Gemini:** Supported as an alternative AI provider.
+- **OpenRouter:** Integrated to support additional AI models like Grok and Perplexity.
+- **Vite:** Frontend build tool.
+- **Tailwind CSS v4:** Utility-first CSS framework for styling.
+- **shadcn/ui:** UI component library.
+- **Wouter:** Lightweight React router.
+- **TanStack Query:** Data fetching and caching library for React.
+- **lucide-react:** Icon library.
+- **framer-motion:** Animation library.
+- **react-markdown + remark-gfm:** For Markdown rendering.
+- **Gamma API v1.0 Client:** For Kickstarter section integration.

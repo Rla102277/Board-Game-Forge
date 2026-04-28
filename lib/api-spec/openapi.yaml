@@ -261,6 +261,124 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProjectStats"
 
+  /projects/{projectId}/snapshots:
+    get:
+      operationId: listSnapshots
+      tags: [projects]
+      summary: List saved versions of a project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: List of snapshots (newest first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectSnapshot"
+    post:
+      operationId: createSnapshot
+      tags: [projects]
+      summary: Save the current project state as a new version
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSnapshotBody"
+      responses:
+        "201":
+          description: Created snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectSnapshot"
+
+  /projects/{projectId}/snapshots/{snapshotId}:
+    delete:
+      operationId: deleteSnapshot
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/snapshots/{snapshotId}/restore:
+    post:
+      operationId: restoreSnapshot
+      tags: [projects]
+      summary: Restore the project to a saved version (auto-saves current state first)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreSnapshotResponse"
+
+  /projects/{projectId}/snapshots/{snapshotId}/fork:
+    post:
+      operationId: forkSnapshot
+      tags: [projects]
+      summary: Create a new project from a saved version
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForkSnapshotBody"
+      responses:
+        "201":
+          description: New project created from snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}/duplicate:
+    post:
+      operationId: duplicateProject
+      tags: [projects]
+      summary: Duplicate the current project state into a brand-new project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DuplicateProjectBody"
+      responses:
+        "201":
+          description: New project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
   /projects/{projectId}/complexity:
     post:
       operationId: computeComplexity
@@ -1735,6 +1853,68 @@ components:
         - researchCount
         - assetCount
         - playtestCount
+
+    ProjectSnapshot:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isAutoSnapshot:
+          type: boolean
+        createdByName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - projectId
+        - name
+        - isAutoSnapshot
+        - createdAt
+
+    CreateSnapshotBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+      required:
+        - name
+
+    DuplicateProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+
+    ForkSnapshotBody:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+
+    RestoreSnapshotResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
 
     ComplexityScore:
       type: object
