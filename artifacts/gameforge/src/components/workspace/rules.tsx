@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   useListRules, useCreateRule, useUpdateRule, useDeleteRule,
-  useAiGenerateRules, useConflictCheckRules, getListRulesQueryKey,
+  useAiGenerateRules, useAiEnhanceRule, useConflictCheckRules, getListRulesQueryKey,
   type Rule,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -532,6 +532,7 @@ function RuleCard({
   const queryClient = useQueryClient();
   const updateRule = useUpdateRule();
   const createRule = useCreateRule();
+  const enhanceRule = useAiEnhanceRule();
   const { toast } = useToast();
 
   const [showEnhance, setShowEnhance] = useState(false);
@@ -553,51 +554,35 @@ function RuleCard({
     setEnhance(null);
     setShowEnhance(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/rules/${rule.id}/enhance`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: "{}",
-      });
-      if (res.ok) {
-        const raw = (await res.json()) as Partial<AIEnhance> | null;
-        const safeRelated = Array.isArray(raw?.relatedRuleSuggestions)
-          ? raw!.relatedRuleSuggestions.filter((s): s is { title: string; content: string; category: string } =>
-              !!s &&
-              typeof s === "object" &&
-              typeof s.title === "string" &&
-              typeof s.content === "string",
-            ).map((s) => ({
-              title: s.title,
-              content: s.content,
-              category: typeof s.category === "string" ? s.category : "movement",
-            }))
-          : [];
-        const data: AIEnhance = {
-          rewrittenContent: typeof raw?.rewrittenContent === "string" ? raw.rewrittenContent : "",
-          improvedTitle: typeof raw?.improvedTitle === "string" ? raw.improvedTitle : rule.title,
-          designNotes: typeof raw?.designNotes === "string" ? raw.designNotes : undefined,
-          edgeCases: typeof raw?.edgeCases === "string" ? raw.edgeCases : undefined,
-          relatedRuleSuggestions: safeRelated,
-        };
-        if (!data.rewrittenContent) {
-          toast({
-            title: "AI returned no usable rewrite",
-            description: "Try regenerating with a different model.",
-            variant: "destructive",
-          });
-          setShowEnhance(false);
-        } else {
-          setEnhance(data);
-        }
-      } else {
-        const body = await res.json().catch(() => ({}));
+      const raw = await enhanceRule.mutateAsync({ projectId, ruleId: rule.id }) as Partial<AIEnhance> | null;
+      const safeRelated = Array.isArray(raw?.relatedRuleSuggestions)
+        ? raw!.relatedRuleSuggestions.filter((s): s is { title: string; content: string; category: string } =>
+            !!s &&
+            typeof s === "object" &&
+            typeof s.title === "string" &&
+            typeof s.content === "string",
+          ).map((s) => ({
+            title: s.title,
+            content: s.content,
+            category: typeof s.category === "string" ? s.category : "movement",
+          }))
+        : [];
+      const data: AIEnhance = {
+        rewrittenContent: typeof raw?.rewrittenContent === "string" ? raw.rewrittenContent : "",
+        improvedTitle: typeof raw?.improvedTitle === "string" ? raw.improvedTitle : rule.title,
+        designNotes: typeof raw?.designNotes === "string" ? raw.designNotes : undefined,
+        edgeCases: typeof raw?.edgeCases === "string" ? raw.edgeCases : undefined,
+        relatedRuleSuggestions: safeRelated,
+      };
+      if (!data.rewrittenContent) {
         toast({
-          title: "AI enhance failed",
-          description: body?.error ?? "Please try again.",
+          title: "AI returned no usable rewrite",
+          description: "Try regenerating with a different model.",
           variant: "destructive",
         });
         setShowEnhance(false);
+      } else {
+        setEnhance(data);
       }
     } catch {
       toast({

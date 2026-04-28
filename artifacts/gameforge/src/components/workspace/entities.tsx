@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   useListEntities, useCreateEntity, useUpdateEntity, useDeleteEntity,
-  useAiGenerateEntities,
+  useAiGenerateEntities, useAiEnhanceEntity,
   useListEntityProperties, useCreateEntityProperty, useUpdateEntityProperty, useDeleteEntityProperty,
   getListEntitiesQueryKey, getListEntityPropertiesQueryKey,
   type Entity, type EntityProperty,
@@ -318,6 +318,7 @@ function EntityCard({
   const updateEntity = useUpdateEntity();
   const createEntity = useCreateEntity();
   const createProperty = useCreateEntityProperty();
+  const enhanceEntity = useAiEnhanceEntity();
   const { toast } = useToast();
 
   const [showEnhance, setShowEnhance] = useState(false);
@@ -374,49 +375,33 @@ function EntityCard({
     setEnhance(null);
     setShowEnhance(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/entities/${entity.id}/enhance`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: "{}",
-      });
-      if (res.ok) {
-        const raw = (await res.json()) as Partial<AIEnhance> | null;
-        const safeProps = Array.isArray(raw?.suggestedProperties)
-          ? raw!.suggestedProperties.filter((p): p is AIEnhance["suggestedProperties"][number] =>
-              !!p && typeof p === "object" && typeof p.name === "string",
-            )
-          : [];
-        const data: AIEnhance = {
-          description: typeof raw?.description === "string" ? raw.description : "",
-          lore: typeof raw?.lore === "string" ? raw.lore : undefined,
-          designNotes: typeof raw?.designNotes === "string" ? raw.designNotes : undefined,
-          suggestedProperties: safeProps,
-        };
-        if (!data.description && data.suggestedProperties.length === 0) {
-          toast({
-            title: "AI returned no usable suggestions",
-            description: "Try regenerating with a different model.",
-            variant: "destructive",
-          });
-          setShowEnhance(false);
-        } else {
-          setEnhance(data);
-          setSelectedProps(new Set(data.suggestedProperties.map((_, i) => i)));
-        }
-      } else {
-        const body = await res.json().catch(() => ({}));
+      const raw = await enhanceEntity.mutateAsync({ projectId, entityId: entity.id });
+      const safeProps = Array.isArray(raw?.suggestedProperties)
+        ? raw.suggestedProperties.filter((p): p is AIEnhance["suggestedProperties"][number] =>
+            !!p && typeof p === "object" && typeof p.name === "string",
+          )
+        : [];
+      const data: AIEnhance = {
+        description: typeof raw?.description === "string" ? raw.description : "",
+        lore: typeof raw?.lore === "string" ? raw.lore : undefined,
+        designNotes: typeof raw?.designNotes === "string" ? raw.designNotes : undefined,
+        suggestedProperties: safeProps,
+      };
+      if (!data.description && data.suggestedProperties.length === 0) {
         toast({
-          title: "AI enhance failed",
-          description: body?.error ?? "Please try again.",
+          title: "AI returned no usable suggestions",
+          description: "Try regenerating with a different model.",
           variant: "destructive",
         });
         setShowEnhance(false);
+      } else {
+        setEnhance(data);
+        setSelectedProps(new Set(data.suggestedProperties.map((_, i) => i)));
       }
-    } catch {
+    } catch (err) {
       toast({
         title: "AI enhance failed",
-        description: "Could not reach the server.",
+        description: errMsg(err),
         variant: "destructive",
       });
       setShowEnhance(false);
