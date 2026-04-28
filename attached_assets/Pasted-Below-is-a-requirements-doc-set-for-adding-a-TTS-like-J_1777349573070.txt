@@ -1,0 +1,1463 @@
+Below is a requirements doc set for adding a TTS-like JSON-driven tabletop simulator to your existing app.
+
+I’m calling it TTS Runtime in the docs, but internally I would name it something like:
+
+Tabletop Runtime
+JSON Game Runtime
+Prototype Tabletop Engine
+Game Lab Runtime
+
+Because “TTS” can confuse people with text-to-speech.
+
+⸻
+
+Requirement Doc Set: JSON-Driven Tabletop Runtime
+
+1. Product Requirements Document
+
+Product Name
+
+Tabletop Runtime
+
+Purpose
+
+Add an embedded tabletop simulator-style experience to the existing app that allows users to load a structured game definition in JSON and instantly render a playable multiplayer board/card game inside the app.
+
+The system should support rapid multiplayer prototyping for tabletop games, card games, board games, deck-builders, tactical games, and hybrid tabletop concepts.
+
+Product Vision
+
+The user should be able to:
+
+Create or generate a game definition
+↓
+Load JSON into the app
+↓
+See a playable table appear
+↓
+Invite other players
+↓
+Playtest the game
+↓
+Record actions and feedback
+↓
+Revise the JSON
+↓
+Replay or test again
+
+Long-term, the system becomes a board-game design workbench where AI can generate rules, cards, decks, boards, and setup scripts, then the runtime spins them up into playable prototypes.
+
+⸻
+
+2. Core User Stories
+
+Game Designer
+
+As a game designer, I want to upload or generate a JSON game definition so that I can instantly test a board/card game concept without building a custom app for every prototype.
+
+Acceptance Criteria
+
+* User can create a new prototype.
+* User can attach or paste JSON.
+* System validates the JSON.
+* System renders a table from the JSON.
+* User can interact with cards, decks, tokens, zones, and player areas.
+* User can save the prototype.
+
+⸻
+
+Playtester
+
+As a playtester, I want to join a game room from a link so that I can test the prototype with other players.
+
+Acceptance Criteria
+
+* User can join a multiplayer room.
+* User is assigned a player seat.
+* User can only see private information that belongs to them.
+* User sees public game state in real time.
+* User can take allowed actions on their turn.
+* User can leave and rejoin the room.
+
+⸻
+
+Game Creator With AI
+
+As a creator, I want AI to generate game JSON so that I can rapidly test new game ideas.
+
+Acceptance Criteria
+
+* AI-generated JSON must conform to schema.
+* Invalid JSON produces clear validation errors.
+* User can preview the generated game before starting a multiplayer session.
+* User can edit JSON and re-render the table.
+
+⸻
+
+Admin / Developer
+
+As a developer, I want the tabletop runtime to be modular so that new component types and game actions can be added without rewriting the whole system.
+
+Acceptance Criteria
+
+* Renderer, rules engine, schemas, and multiplayer engine are separated.
+* New tabletop object types can be registered.
+* New action types can be added through action resolvers.
+* Runtime state remains JSON-serializable.
+
+⸻
+
+3. MVP Scope
+
+MVP Goal
+
+Build a 2D JSON-driven tabletop runtime capable of rendering and playing simple multiplayer card/board games.
+
+The MVP should not attempt to recreate full 3D Tabletop Simulator physics.
+
+MVP Must Support
+
+Cards
+Decks
+Hands
+Discard piles
+Public rows
+Player tableaus
+Simple board image
+Tokens
+Basic dice
+Turn order
+Draw card
+Play card
+Move card
+Discard card
+Shuffle deck
+End turn
+Private hand visibility
+Multiplayer room
+Action log
+JSON validation
+Save/load prototype
+
+MVP Should Not Support Yet
+
+3D physics
+Full scripting language
+Complex animations
+Workshop marketplace
+Spectator mode
+AI opponent
+Ranked matchmaking
+Mobile-first controls
+Nested containers
+Campaign persistence
+Advanced fog of war
+Real-time twitch gameplay
+Voice/video chat
+
+⸻
+
+4. Technical Architecture
+
+Recommended Stack
+
+Frontend:
+React + TypeScript
+App framework:
+Vite or Next.js
+Tabletop UI:
+React components
+Drag and drop:
+dnd-kit
+Game engine:
+boardgame.io
+State sync:
+boardgame.io multiplayer server
+Validation:
+Zod and/or JSON Schema
+Persistence:
+Existing app database, Firebase, Supabase, or Postgres
+Asset storage:
+Existing app storage, Firebase Storage, Supabase Storage, S3, or equivalent
+
+⸻
+
+5. System Architecture
+
+Existing App
+  ↓
+Game Prototype Manager
+  ↓
+JSON Game Definition
+  ↓
+Schema Validator
+  ↓
+Tabletop Runtime
+  ↓
+React Renderers
+  ↓
+boardgame.io Game Engine
+  ↓
+Multiplayer Room
+  ↓
+Persistence / Logs / Analytics
+
+⸻
+
+6. Major Modules
+
+A. Prototype Manager
+
+Responsible for creating, editing, saving, loading, and launching game prototypes.
+
+Responsibilities
+
+Create prototype
+Edit prototype metadata
+Store game JSON
+Validate game JSON
+Launch local preview
+Launch multiplayer session
+Track prototype version
+Track playtest sessions
+
+Data Fields
+
+{
+  "prototypeId": "demo-card-game",
+  "name": "Demo Card Game",
+  "description": "A simple card game prototype.",
+  "version": "0.1.0",
+  "status": "draft",
+  "createdBy": "user_123",
+  "createdAt": "2026-04-27T00:00:00Z",
+  "updatedAt": "2026-04-27T00:00:00Z"
+}
+
+⸻
+
+B. JSON Schema Validator
+
+Responsible for checking whether the game definition is usable.
+
+Responsibilities
+
+Validate required fields
+Validate component references
+Validate card IDs
+Validate deck sources
+Validate zone IDs
+Validate player area definitions
+Validate move definitions
+Validate setup actions
+Return friendly errors
+Block launch if critical errors exist
+
+Example Validation Errors
+
+[
+  {
+    "severity": "error",
+    "path": "components.decks[0].cardSource",
+    "message": "Deck references unknown card source: mainCards"
+  },
+  {
+    "severity": "error",
+    "path": "setup[1].to",
+    "message": "Setup action references unknown zone: player.hand"
+  },
+  {
+    "severity": "warning",
+    "path": "cards.main[2].frontImage",
+    "message": "Card image is missing. Placeholder will be used."
+  }
+]
+
+⸻
+
+C. Tabletop Runtime
+
+Responsible for turning a valid game definition and current game state into an interactive table.
+
+Responsibilities
+
+Load game definition
+Load current game state
+Render boards
+Render decks
+Render cards
+Render zones
+Render hands
+Render tokens
+Render dice
+Apply visibility rules
+Handle user interactions
+Send attempted actions to game engine
+Re-render after state updates
+
+Main Runtime Contract
+
+<TabletopRuntime
+  definition={gameDefinition}
+  state={gameState}
+  playerID={playerID}
+  moves={moves}
+  isPreview={false}
+/>
+
+⸻
+
+D. Renderer Registry
+
+Responsible for mapping tabletop object types to React renderers.
+
+Supported MVP Renderers
+
+BoardRenderer
+CardRenderer
+DeckRenderer
+ZoneRenderer
+HandRenderer
+TableauRenderer
+TokenRenderer
+DiceRenderer
+ActionLogRenderer
+PlayerPanelRenderer
+
+Renderer Registration Pattern
+
+const rendererRegistry = {
+  board: BoardRenderer,
+  card: CardRenderer,
+  deck: DeckRenderer,
+  zone: ZoneRenderer,
+  hand: HandRenderer,
+  tableau: TableauRenderer,
+  token: TokenRenderer,
+  die: DiceRenderer
+};
+
+⸻
+
+E. Game Engine Adapter
+
+Responsible for converting the JSON game definition into a boardgame.io game object.
+
+Responsibilities
+
+Create boardgame.io game config
+Run setup actions
+Register generic moves
+Resolve turn order
+Resolve phases
+Validate moves
+Apply effects
+Update game state
+Emit action log entries
+
+Core Adapter Function
+
+createGameFromDefinition(gameDefinition)
+
+Example
+
+export function createGameFromDefinition(definition) {
+  return {
+    name: definition.game.id,
+    setup: ({ ctx }) => {
+      return setupInitialState(definition, ctx);
+    },
+    moves: {
+      drawCard: ({ G, ctx, playerID }, args) => {
+        return resolveMove(G, ctx, playerID, {
+          type: "drawCard",
+          ...args
+        });
+      },
+      moveCard: ({ G, ctx, playerID }, args) => {
+        return resolveMove(G, ctx, playerID, {
+          type: "moveCard",
+          ...args
+        });
+      },
+      endTurn: ({ events }) => {
+        events.endTurn();
+      }
+    }
+  };
+}
+
+⸻
+
+F. Rules Engine
+
+Responsible for determining whether a player action is legal and applying its effects.
+
+Responsibilities
+
+Check current player
+Check phase
+Check card ownership
+Check zone permissions
+Check resource costs
+Check target legality
+Apply action effects
+Update game state
+Record action log
+Return success or error
+
+Rule Engine Principle
+
+The UI must never directly mutate final game state.
+
+Correct pattern:
+
+User tries action
+↓
+UI sends action request
+↓
+Engine validates action
+↓
+Engine updates state
+↓
+Renderer redraws state
+
+Incorrect pattern:
+
+User drags card
+↓
+UI moves card directly
+↓
+State is assumed valid
+
+⸻
+
+G. Visibility Resolver
+
+Responsible for hiding private game information from players.
+
+Responsibilities
+
+Show each player their own hand
+Hide opponent hands
+Show public zones
+Show face-down cards correctly
+Show private objectives only to owner
+Support spectator-safe state later
+
+Example Visibility Rules
+
+{
+  "visibility": {
+    "player.hand": "ownerOnly",
+    "player.tableau": "public",
+    "marketRow": "public",
+    "mainDeck": "countOnly",
+    "discardPile": "public"
+  }
+}
+
+⸻
+
+H. Multiplayer Room Manager
+
+Responsible for creating and managing playable sessions.
+
+Responsibilities
+
+Create match
+Join match
+Assign player seat
+Reconnect player
+Handle abandoned player
+Start game
+End game
+Store final game state
+Store action log
+
+Room Concepts
+
+prototypeId
+matchId
+playerId
+seatId
+roomStatus
+gameState
+connectedPlayers
+actionLog
+
+⸻
+
+7. Game Definition JSON Requirements
+
+Top-Level Structure
+
+{
+  "game": {},
+  "table": {},
+  "components": {},
+  "cards": {},
+  "setup": [],
+  "moves": [],
+  "phases": [],
+  "winConditions": []
+}
+
+⸻
+
+Game Metadata
+
+{
+  "game": {
+    "id": "demo-card-game",
+    "name": "Demo Card Game",
+    "description": "A simple card game prototype.",
+    "minPlayers": 2,
+    "maxPlayers": 4,
+    "version": "0.1.0"
+  }
+}
+
+Requirements
+
+game.id is required
+game.name is required
+game.minPlayers is required
+game.maxPlayers is required
+game.version is required
+
+⸻
+
+Table Definition
+
+{
+  "table": {
+    "width": 1600,
+    "height": 1000,
+    "background": "#1f2937"
+  }
+}
+
+Requirements
+
+table.width is required
+table.height is required
+table.background is optional
+
+⸻
+
+Component Definition
+
+{
+  "components": {
+    "boards": [],
+    "decks": [],
+    "zones": [],
+    "playerAreas": [],
+    "tokens": [],
+    "dice": []
+  }
+}
+
+⸻
+
+Deck Definition
+
+{
+  "id": "mainDeck",
+  "name": "Main Deck",
+  "cardSource": "mainCards",
+  "position": { "x": 120, "y": 300 },
+  "faceDown": true
+}
+
+Requirements
+
+deck.id is required
+deck.cardSource is required
+deck.position is required
+deck.cardSource must reference an existing cards collection
+
+⸻
+
+Zone Definition
+
+{
+  "id": "discardPile",
+  "type": "pile",
+  "position": { "x": 260, "y": 300 },
+  "accepts": ["card"],
+  "visibility": "public"
+}
+
+Supported Zone Types
+
+pile
+row
+grid
+slot
+discard
+market
+tableau
+hand
+
+⸻
+
+Player Area Definition
+
+{
+  "id": "hand",
+  "type": "hand",
+  "owner": "player",
+  "position": "bottom",
+  "visibility": "ownerOnly"
+}
+
+Supported Visibility Values
+
+public
+ownerOnly
+hidden
+countOnly
+faceDown
+
+⸻
+
+Card Definition
+
+{
+  "id": "card_001",
+  "name": "Scout",
+  "type": "unit",
+  "cost": 1,
+  "text": "Draw 1 card.",
+  "frontImage": "/assets/cards/scout.png",
+  "backImage": "/assets/cards/back.png",
+  "tags": ["starter", "unit"]
+}
+
+Required Fields
+
+id
+name
+type
+text
+frontImage or generatedFallback
+backImage or defaultCardBack
+
+⸻
+
+Setup Actions
+
+[
+  {
+    "action": "shuffle",
+    "target": "mainDeck"
+  },
+  {
+    "action": "deal",
+    "from": "mainDeck",
+    "to": "player.hand",
+    "count": 5,
+    "eachPlayer": true
+  },
+  {
+    "action": "deal",
+    "from": "mainDeck",
+    "to": "marketRow",
+    "count": 5
+  }
+]
+
+MVP Setup Actions
+
+shuffle
+deal
+placeToken
+setResource
+fillZone
+createDiscardPile
+
+⸻
+
+Move Definitions
+
+[
+  {
+    "id": "drawCard",
+    "label": "Draw Card",
+    "type": "drawCard",
+    "from": "mainDeck",
+    "to": "player.hand",
+    "count": 1,
+    "requires": ["isCurrentPlayer"]
+  },
+  {
+    "id": "playCard",
+    "label": "Play Card",
+    "type": "moveCard",
+    "from": "player.hand",
+    "to": "player.tableau",
+    "requires": ["isCurrentPlayer", "cardInSourceZone"]
+  },
+  {
+    "id": "endTurn",
+    "label": "End Turn",
+    "type": "endTurn"
+  }
+]
+
+⸻
+
+8. Runtime Game State Requirements
+
+The runtime game state must be separate from the static game definition.
+
+Static Definition Contains
+
+Card names
+Card text
+Card images
+Board image
+Component layout
+Setup rules
+Move definitions
+
+Runtime State Contains
+
+Card locations
+Deck order
+Player hands
+Token positions
+Resources
+Current turn
+Current phase
+Action log
+Game status
+
+⸻
+
+Example Runtime State
+
+{
+  "zones": {
+    "mainDeck": ["card_022", "card_008", "card_014"],
+    "discardPile": [],
+    "marketRow": ["card_001", "card_002", "card_003"],
+    "player_0.hand": ["card_011", "card_012", "card_013"],
+    "player_0.tableau": [],
+    "player_1.hand": ["card_004", "card_005", "card_006"],
+    "player_1.tableau": []
+  },
+  "tokens": {
+    "player_0.pawn": {
+      "space": "space_001"
+    },
+    "player_1.pawn": {
+      "space": "space_001"
+    }
+  },
+  "resources": {
+    "player_0": {
+      "energy": 3,
+      "coins": 0
+    },
+    "player_1": {
+      "energy": 3,
+      "coins": 0
+    }
+  },
+  "turn": {
+    "currentPlayer": "player_0",
+    "phase": "main"
+  },
+  "log": []
+}
+
+⸻
+
+9. MVP Generic Actions
+
+The runtime should support a limited library of reusable generic actions.
+
+Required MVP Actions
+
+shuffleDeck
+dealCards
+drawCard
+moveCard
+discardCard
+revealCard
+flipCard
+moveToken
+rollDie
+gainResource
+spendResource
+endTurn
+startPhase
+endGame
+
+⸻
+
+Action: drawCard
+
+Input
+
+{
+  "type": "drawCard",
+  "from": "mainDeck",
+  "to": "player.hand",
+  "count": 1
+}
+
+Acceptance Criteria
+
+Card is removed from top of deck
+Card is added to correct player hand
+Deck count updates
+Only owner sees card face
+Action is logged
+
+⸻
+
+Action: moveCard
+
+Input
+
+{
+  "type": "moveCard",
+  "cardId": "card_001",
+  "from": "player.hand",
+  "to": "player.tableau"
+}
+
+Acceptance Criteria
+
+Card must exist in source zone
+Player must have permission to move card
+Target zone must accept cards
+State updates for all clients
+Action is logged
+
+⸻
+
+Action: endTurn
+
+Input
+
+{
+  "type": "endTurn"
+}
+
+Acceptance Criteria
+
+Current player advances
+Turn counter updates if needed
+Phase resets if needed
+All clients receive updated turn state
+Action is logged
+
+⸻
+
+10. UI Requirements
+
+Prototype Dashboard
+
+Features
+
+List prototypes
+Create new prototype
+Edit prototype
+Duplicate prototype
+Delete prototype
+Launch preview
+Launch multiplayer room
+View playtest history
+
+⸻
+
+JSON Editor
+
+Features
+
+Paste JSON
+Edit JSON
+Validate JSON
+Show validation errors
+Format JSON
+Save version
+Revert version
+Launch preview
+
+⸻
+
+Tabletop View
+
+Features
+
+Render game table
+Show player hand
+Show current turn
+Show available actions
+Show action log
+Show connected players
+Support drag/drop
+Support click actions
+Support card zoom
+Support private/public information
+
+⸻
+
+Multiplayer Lobby
+
+Features
+
+Create game room
+Copy invite link
+Join as player
+Choose seat
+Ready check
+Start game
+Return to prototype editor
+
+⸻
+
+Card Interaction Requirements
+
+Required Interactions
+
+Click card to zoom
+Drag card to legal zone
+Right-click or context menu for actions
+Flip card if allowed
+Discard card if allowed
+Play card if allowed
+
+⸻
+
+11. Non-Functional Requirements
+
+Performance
+
+Runtime should support 2-6 players in MVP
+Runtime should support at least 300 cards in definition
+Runtime should support at least 100 visible tabletop objects
+State updates should feel near real-time for turn-based play
+Card dragging should be smooth on desktop
+
+Security
+
+Players cannot see hidden cards through client state
+Players cannot call illegal moves directly
+Server validates all moves
+Prototype ownership is enforced
+Only invited users can join private rooms
+
+Reliability
+
+Players can refresh and rejoin
+Game state persists during active match
+Action log records all successful moves
+Invalid actions return readable errors
+
+Maintainability
+
+Renderer components must be modular
+Game engine must be separate from UI
+Schemas must be versioned
+Runtime state must remain JSON-serializable
+Generic actions must be reusable across games
+
+⸻
+
+12. Recommended Folder Structure
+
+/src
+  /features
+    /prototype-manager
+      PrototypeDashboard.tsx
+      PrototypeEditor.tsx
+      PrototypeVersionHistory.tsx
+    /tabletop-runtime
+      TabletopRuntime.tsx
+      TabletopProvider.tsx
+      rendererRegistry.ts
+      /renderers
+        BoardRenderer.tsx
+        CardRenderer.tsx
+        DeckRenderer.tsx
+        ZoneRenderer.tsx
+        HandRenderer.tsx
+        TableauRenderer.tsx
+        TokenRenderer.tsx
+        DiceRenderer.tsx
+        ActionLogRenderer.tsx
+      /interactions
+        dragDropManager.ts
+        cardInteractionManager.ts
+        selectionManager.ts
+        contextMenuManager.ts
+    /game-engine
+      createGameFromDefinition.ts
+      setupResolver.ts
+      moveResolver.ts
+      actionResolver.ts
+      ruleValidator.ts
+      visibilityResolver.ts
+      scoringResolver.ts
+      winConditionResolver.ts
+    /multiplayer
+      boardgameClient.ts
+      boardgameServer.ts
+      lobbyService.ts
+      matchService.ts
+    /schemas
+      gameDefinition.schema.json
+      card.schema.json
+      component.schema.json
+      move.schema.json
+      setup.schema.json
+    /data
+      sample-game.game.json
+      sample-game.cards.json
+      sample-game.board.json
+
+⸻
+
+13. Data Model
+
+Prototype
+
+{
+  "id": "prototype_001",
+  "name": "Relic Run",
+  "description": "A lightweight dungeon card game.",
+  "ownerId": "user_123",
+  "status": "draft",
+  "currentVersionId": "version_001",
+  "createdAt": "2026-04-27T00:00:00Z",
+  "updatedAt": "2026-04-27T00:00:00Z"
+}
+
+⸻
+
+Prototype Version
+
+{
+  "id": "version_001",
+  "prototypeId": "prototype_001",
+  "version": "0.1.0",
+  "gameDefinition": {},
+  "cardsDefinition": {},
+  "boardDefinition": {},
+  "notes": "Initial generated prototype.",
+  "createdAt": "2026-04-27T00:00:00Z"
+}
+
+⸻
+
+Playtest Session
+
+{
+  "id": "session_001",
+  "prototypeId": "prototype_001",
+  "versionId": "version_001",
+  "matchId": "match_001",
+  "status": "completed",
+  "players": ["user_123", "user_456"],
+  "startedAt": "2026-04-27T00:00:00Z",
+  "endedAt": "2026-04-27T01:10:00Z"
+}
+
+⸻
+
+Action Log Entry
+
+{
+  "id": "log_001",
+  "sessionId": "session_001",
+  "turn": 3,
+  "phase": "main",
+  "playerId": "player_0",
+  "action": "playCard",
+  "payload": {
+    "cardId": "card_001",
+    "from": "player_0.hand",
+    "to": "player_0.tableau"
+  },
+  "timestamp": "2026-04-27T00:12:00Z"
+}
+
+⸻
+
+14. MVP Milestones
+
+Milestone 1: Static JSON Renderer
+
+Goal
+
+JSON renders a visible tabletop.
+
+Deliverables
+
+Game definition schema
+Sample game JSON
+TabletopRuntime component
+Board renderer
+Card renderer
+Deck renderer
+Zone renderer
+Player hand renderer
+Basic layout support
+
+Acceptance Criteria
+
+Developer can load sample JSON
+Table appears inside app
+Deck appears
+Cards appear
+Player hand appears
+Discard pile appears
+No multiplayer required yet
+
+⸻
+
+Milestone 2: Local Play Engine
+
+Goal
+
+Single-machine playable prototype.
+
+Deliverables
+
+setupResolver
+shuffleDeck
+dealCards
+drawCard
+moveCard
+discardCard
+endTurn
+local game state
+action log
+
+Acceptance Criteria
+
+Game can be started locally
+Deck shuffles
+Cards deal to players
+Player can draw card
+Player can play card
+Turn can advance
+Action log records moves
+
+⸻
+
+Milestone 3: boardgame.io Integration
+
+Goal
+
+Move game state into boardgame.io.
+
+Deliverables
+
+createGameFromDefinition
+boardgame.io game object
+generic move registry
+client wrapper
+server configuration
+
+Acceptance Criteria
+
+Game setup runs through boardgame.io
+Moves update boardgame.io state
+React renderer updates from boardgame.io state
+Turn order works
+Illegal moves are rejected
+
+⸻
+
+Milestone 4: Multiplayer Room
+
+Goal
+
+Two users can play the same prototype.
+
+Deliverables
+
+Create match
+Join match
+Assign playerID
+Lobby page
+Invite link
+Private hands
+Reconnect support
+
+Acceptance Criteria
+
+Player 1 creates room
+Player 2 joins room
+Both players see shared public state
+Each player sees only their own hand
+Turns advance correctly
+Actions sync between clients
+
+⸻
+
+Milestone 5: Prototype Editor
+
+Goal
+
+User can edit JSON and relaunch prototype.
+
+Deliverables
+
+JSON editor
+Schema validation
+Validation error panel
+Save prototype version
+Launch preview
+Launch multiplayer session
+
+Acceptance Criteria
+
+User can paste JSON
+Invalid JSON shows errors
+Valid JSON can launch preview
+User can save version
+User can duplicate prototype
+
+⸻
+
+15. Definition of Done
+
+The MVP is done when:
+
+A user can create or load a game JSON file
+The app validates the game definition
+The app renders the tabletop inside the app
+Two players can join the same game
+Each player can see their own hand only
+Players can draw, play, discard, and move cards
+Players can end turns
+The system records an action log
+The prototype can be saved and relaunched
+
+⸻
+
+16. Example MVP Game JSON
+
+{
+  "game": {
+    "id": "draw-and-score",
+    "name": "Draw and Score",
+    "description": "A minimal card game used to test the tabletop runtime.",
+    "minPlayers": 2,
+    "maxPlayers": 2,
+    "version": "0.1.0"
+  },
+  "table": {
+    "width": 1600,
+    "height": 1000,
+    "background": "#1f2937"
+  },
+  "components": {
+    "decks": [
+      {
+        "id": "mainDeck",
+        "name": "Main Deck",
+        "cardSource": "scoreCards",
+        "position": { "x": 160, "y": 360 },
+        "faceDown": true
+      }
+    ],
+    "zones": [
+      {
+        "id": "discardPile",
+        "type": "pile",
+        "position": { "x": 340, "y": 360 },
+        "accepts": ["card"],
+        "visibility": "public"
+      },
+      {
+        "id": "scoreRow",
+        "type": "row",
+        "position": { "x": 600, "y": 400 },
+        "slots": 10,
+        "accepts": ["card"],
+        "visibility": "public"
+      }
+    ],
+    "playerAreas": [
+      {
+        "id": "hand",
+        "type": "hand",
+        "owner": "player",
+        "position": "bottom",
+        "visibility": "ownerOnly"
+      },
+      {
+        "id": "tableau",
+        "type": "tableau",
+        "owner": "player",
+        "position": "front",
+        "visibility": "public"
+      }
+    ],
+    "dice": []
+  },
+  "cards": {
+    "scoreCards": [
+      {
+        "id": "card_001",
+        "name": "One",
+        "type": "score",
+        "value": 1,
+        "text": "Worth 1 point.",
+        "frontImage": "/assets/cards/one.png",
+        "backImage": "/assets/cards/back.png"
+      },
+      {
+        "id": "card_002",
+        "name": "Two",
+        "type": "score",
+        "value": 2,
+        "text": "Worth 2 points.",
+        "frontImage": "/assets/cards/two.png",
+        "backImage": "/assets/cards/back.png"
+      },
+      {
+        "id": "card_003",
+        "name": "Three",
+        "type": "score",
+        "value": 3,
+        "text": "Worth 3 points.",
+        "frontImage": "/assets/cards/three.png",
+        "backImage": "/assets/cards/back.png"
+      }
+    ]
+  },
+  "setup": [
+    {
+      "action": "shuffle",
+      "target": "mainDeck"
+    },
+    {
+      "action": "deal",
+      "from": "mainDeck",
+      "to": "player.hand",
+      "count": 3,
+      "eachPlayer": true
+    }
+  ],
+  "moves": [
+    {
+      "id": "drawCard",
+      "label": "Draw Card",
+      "type": "drawCard",
+      "from": "mainDeck",
+      "to": "player.hand",
+      "count": 1,
+      "requires": ["isCurrentPlayer"]
+    },
+    {
+      "id": "playCard",
+      "label": "Play Card",
+      "type": "moveCard",
+      "from": "player.hand",
+      "to": "player.tableau",
+      "requires": ["isCurrentPlayer", "cardInSourceZone"]
+    },
+    {
+      "id": "discardCard",
+      "label": "Discard Card",
+      "type": "moveCard",
+      "from": "player.hand",
+      "to": "discardPile",
+      "requires": ["isCurrentPlayer", "cardInSourceZone"]
+    },
+    {
+      "id": "endTurn",
+      "label": "End Turn",
+      "type": "endTurn"
+    }
+  ],
+  "winConditions": [
+    {
+      "type": "highestScore",
+      "zone": "player.tableau",
+      "scoreField": "value",
+      "trigger": "deckEmpty"
+    }
+  ]
+}
+
+⸻
+
+17. Prompt for Coding Agent
+
+Use this as the opening prompt for your app-building agent.
+
+You are adding a JSON-driven tabletop runtime to an existing React/TypeScript app.
+Goal:
+Build a 2D Tabletop Simulator-like runtime that can load a game definition from JSON, validate it, render a playable board/card game inside the app, and support multiplayer playtesting through boardgame.io.
+Architecture rules:
+- Keep static game definitions in /data or persisted prototype records.
+- Keep schemas in /schemas.
+- Keep rendering components in /tabletop-runtime.
+- Keep game logic in /game-engine.
+- Do not mix UI state with authoritative game state.
+- The UI may request actions, but the game engine must validate and resolve them.
+- Runtime state must remain JSON-serializable.
+- Start with cards, decks, zones, hands, discard piles, tableaus, simple tokens, and basic dice.
+- Do not build 3D physics.
+- Do not build a universal scripting language yet.
+- Implement generic actions first: shuffleDeck, dealCards, drawCard, moveCard, discardCard, revealCard, flipCard, moveToken, rollDie, gainResource, spendResource, endTurn.
+- Use boardgame.io for turn-based multiplayer state.
+- Use dnd-kit for drag/drop interactions.
+- Add JSON validation before rendering.
+- Add clear validation errors for broken references.
+MVP:
+1. Load a sample game JSON.
+2. Validate the JSON.
+3. Render the tabletop.
+4. Start a local game.
+5. Draw, play, discard, and move cards.
+6. End turn.
+7. Add boardgame.io state management.
+8. Add two-player multiplayer.
+9. Enforce private hand visibility.
+10. Record an action log.
+First test game:
+Build a simple two-player card game called Draw and Score. Players draw numbered cards, play them to their tableau, and highest score wins when the deck is empty.
+Do not rewrite the whole app. Add this as a modular feature.
+Before coding, inspect the existing app structure and propose a small-file implementation plan.
+
+⸻
+
+18. Blunt Build Guidance
+
+The most important decision: do not build a full Tabletop Simulator clone.
+
+Build this:
+
+JSON-driven
+2D
+Turn-based
+Card/board focused
+Multiplayer
+AI-generatable
+Schema-validated
+
+Not this:
+
+3D
+Physics-heavy
+Steam Workshop clone
+Universal sandbox
+Rules engine that can model every game ever made
+
+Your MVP should prove one thing:
+
+Can a JSON file create a playable multiplayer tabletop prototype inside my app?
+
+Everything else is later.
