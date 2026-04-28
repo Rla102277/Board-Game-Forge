@@ -100,16 +100,18 @@ router.post("/projects/:projectId/rules/ai-generate", async (req, res): Promise<
       prompt: `You are codifying the rulebook for a tabletop board game.
 Generate exactly ${count} concise game rules based on this brief: "${parsed.data.prompt}"
 
-Return ONLY a JSON array (no prose, no code fences):
-[{"title":"...","category":"...","content":"...","priority":0}]
-- category is one of: "Setup","Turn","Combat","Scoring","Endgame","Component","Variant","Optional"
+Return ONLY a JSON array (no prose, no code fences). Emit each rule's keys in EXACTLY this order so the most important fields are produced first:
+[{"title":"...","content":"...","category":"...","priority":0,"designNotes":"...","edgeCases":"..."}]
 - title under 60 chars.
-- content is 1-3 sentences.
+- content is 1-3 sentences (<= 400 chars).
+- category is one of: "movement","combat","economy","turn_structure","variant".
 - priority 0 (highest) to 4 (lowest).
+- designNotes: 1-2 sentences (<= 200 chars) explaining the DESIGN INTENT — why this rule exists, what tension it creates, how it shapes player decisions.
+- edgeCases: 1-3 short bullet points separated by ' • ' (<= 200 chars) describing tricky cases, exceptions, or common rule-lawyering attempts.
 Output JUST the JSON array.`,
-      maxTokens: 2048,
+      maxTokens: 4000,
     });
-    const generated = tryParseJsonArray<{ title?: string; content?: string; category?: string; priority?: number }>(text);
+    const generated = tryParseJsonArray<{ title?: string; content?: string; category?: string; priority?: number; designNotes?: string; edgeCases?: string }>(text);
     if (generated.length === 0) {
       res.status(502).json({ error: "AI returned no rules" });
       return;
@@ -123,6 +125,8 @@ Output JUST the JSON array.`,
           content: String(r.content ?? ""),
           category: r.category ? String(r.category) : null,
           priority: typeof r.priority === "number" ? r.priority : 1,
+          designNotes: typeof r.designNotes === "string" && r.designNotes.trim() ? r.designNotes : null,
+          edgeCases: typeof r.edgeCases === "string" && r.edgeCases.trim() ? r.edgeCases : null,
         })),
       )
       .returning();

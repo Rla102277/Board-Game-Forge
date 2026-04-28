@@ -14,6 +14,10 @@ export interface Rule {
   /** @nullable */
   category?: string | null;
   priority: number;
+  /** @nullable */
+  designNotes?: string | null;
+  /** @nullable */
+  edgeCases?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

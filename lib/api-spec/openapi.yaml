@@ -2208,6 +2208,10 @@ components:
           type: [string, "null"]
         priority:
           type: integer
+        designNotes:
+          type: [string, "null"]
+        edgeCases:
+          type: [string, "null"]
         createdAt:
           type: string
           format: date-time
@@ -2227,6 +2231,10 @@ components:
           type: string
         priority:
           type: integer
+        designNotes:
+          type: string
+        edgeCases:
+          type: string
       required: [title, content]
 
     UpdateRuleBody:
@@ -2240,6 +2248,10 @@ components:
           type: string
         priority:
           type: integer
+        designNotes:
+          type: string
+        edgeCases:
+          type: string
 
     ConflictReport:
       type: object

@@ -12,6 +12,8 @@ export const rules = pgTable("rules", {
   content: text("content").notNull(),
   category: text("category"),
   priority: integer("priority").default(0).notNull(),
+  designNotes: text("design_notes"),
+  edgeCases: text("edge_cases"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

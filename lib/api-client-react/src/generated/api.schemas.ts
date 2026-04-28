@@ -318,6 +318,10 @@ export interface Rule {
   /** @nullable */
   category?: string | null;
   priority: number;
+  /** @nullable */
+  designNotes?: string | null;
+  /** @nullable */
+  edgeCases?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -327,6 +331,8 @@ export interface CreateRuleBody {
   content: string;
   category?: string;
   priority?: number;
+  designNotes?: string;
+  edgeCases?: string;
 }
 
 export interface UpdateRuleBody {
@@ -334,6 +340,8 @@ export interface UpdateRuleBody {
   content?: string;
   category?: string;
   priority?: number;
+  designNotes?: string;
+  edgeCases?: string;
 }
 
 export type ConflictReportConflictsItem = {

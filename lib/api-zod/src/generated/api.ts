@@ -647,6 +647,8 @@ export const ListRulesResponseItem = zod.object({
   content: zod.string(),
   category: zod.string().nullish(),
   priority: zod.number(),
+  designNotes: zod.string().nullish(),
+  edgeCases: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -661,6 +663,8 @@ export const CreateRuleBody = zod.object({
   content: zod.string(),
   category: zod.string().optional(),
   priority: zod.number().optional(),
+  designNotes: zod.string().optional(),
+  edgeCases: zod.string().optional(),
 });
 
 export const UpdateRuleParams = zod.object({
@@ -673,6 +677,8 @@ export const UpdateRuleBody = zod.object({
   content: zod.string().optional(),
   category: zod.string().optional(),
   priority: zod.number().optional(),
+  designNotes: zod.string().optional(),
+  edgeCases: zod.string().optional(),
 });
 
 export const UpdateRuleResponse = zod.object({
@@ -682,6 +688,8 @@ export const UpdateRuleResponse = zod.object({
   content: zod.string(),
   category: zod.string().nullish(),
   priority: zod.number(),
+  designNotes: zod.string().nullish(),
+  edgeCases: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -707,6 +715,8 @@ export const AiGenerateRulesResponseItem = zod.object({
   content: zod.string(),
   category: zod.string().nullish(),
   priority: zod.number(),
+  designNotes: zod.string().nullish(),
+  edgeCases: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

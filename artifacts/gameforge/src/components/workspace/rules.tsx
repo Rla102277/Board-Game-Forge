@@ -622,6 +622,8 @@ function RuleCard({
         data: {
           title: enhance.improvedTitle || rule.title,
           content: enhance.rewrittenContent,
+          designNotes: enhance.designNotes ?? "",
+          edgeCases: enhance.edgeCases ?? "",
         },
       });
       setApplied(true);
@@ -734,6 +736,40 @@ function RuleCard({
           >
             {isExpanded ? <><ChevronDown className="h-3 w-3" /> Show less</> : <><ChevronRight className="h-3 w-3" /> Show more</>}
           </button>
+        )}
+
+        {isExpanded && (rule.designNotes || rule.edgeCases) && (
+          <div
+            className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3"
+            data-testid={`rule-meta-${rule.id}`}
+          >
+            {rule.designNotes && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                  <Info className="w-3 h-3" /> Designer's Notes
+                </p>
+                <p
+                  className="text-xs text-muted-foreground leading-relaxed bg-background/40 border border-border/50 rounded p-2.5 whitespace-pre-wrap"
+                  data-testid={`rule-design-notes-${rule.id}`}
+                >
+                  {rule.designNotes}
+                </p>
+              </div>
+            )}
+            {rule.edgeCases && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wider flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Edge Cases
+                </p>
+                <p
+                  className="text-xs text-muted-foreground leading-relaxed bg-amber-500/5 border border-amber-500/20 rounded p-2.5 whitespace-pre-wrap"
+                  data-testid={`rule-edge-cases-${rule.id}`}
+                >
+                  {rule.edgeCases}
+                </p>
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
 
