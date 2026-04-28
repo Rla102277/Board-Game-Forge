@@ -18,3 +18,6 @@ export * from "./changelogEntries";
 export * from "./kickstarterAssets";
 export * from "./workspaces";
 export * from "./projectSnapshots";
+export * from "./comments";
+export * from "./activityFeed";
+export * from "./projectVersions";

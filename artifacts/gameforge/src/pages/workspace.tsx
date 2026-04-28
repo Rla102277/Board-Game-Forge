@@ -5,7 +5,7 @@ import { useUser, useClerk } from "@clerk/react";
 import {
   Layout, Users, FileText, CheckSquare, ChevronLeft, Gamepad2, Activity, MoreVertical, Trash2,
   BookOpen, Network, Dice5, ImageIcon, MapPin, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
-  MessageSquare, History,
+  MessageSquare, History, Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -33,6 +33,7 @@ import { CollaborationPresence } from "@/components/collaboration/cursor-indicat
 import { ActivityFeed } from "@/components/collaboration/activity-feed";
 import { CommentsPanel } from "@/components/collaboration/comments-panel";
 import { VersionHistory } from "@/components/collaboration/version-history";
+import { ShareDialog } from "@/components/collaboration/share-dialog";
 
 const SECTIONS = [
   { id: "overview", label: "Overview", icon: Layout, statKey: null },
@@ -70,6 +71,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
   const [activeSection, setActiveSection] = useState<string>("overview");
   const [chatPrompt, setChatPrompt] = useState<string | undefined>();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   if (projectLoading) {
     return <div className="h-screen w-full flex items-center justify-center bg-background text-foreground"><Skeleton className="h-32 w-64" /></div>;
@@ -172,6 +174,9 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)}>
+                  <Share2 className="h-4 w-4 mr-2" /> Share
+                </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={() => setIsDeleteDialogOpen(true)}>
                   <Trash2 className="h-4 w-4 mr-2" /> Delete Project
                 </DropdownMenuItem>
@@ -242,6 +247,13 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ShareDialog
+        open={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        projectId={projectId}
+        projectName={project.name}
+      />
     </div>
   );
 }

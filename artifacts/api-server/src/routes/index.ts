@@ -26,6 +26,7 @@ import workspacesRouter from "./workspaces";
 import learnRouter from "./learn";
 import aiTextRouter from "./aiText";
 import snapshotsRouter from "./snapshots";
+import collaborationRouter from "./collaboration";
 import {
   requireAuth,
   requireProjectAccess,
@@ -74,5 +75,6 @@ router.use(blueprintRouter);
 router.use(kickstarterRouter);
 router.use(aiTextRouter);
 router.use(snapshotsRouter);
+router.use(collaborationRouter);
 
 export default router;
