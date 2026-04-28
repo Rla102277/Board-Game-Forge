@@ -1,7 +1,9 @@
 {
   "numStartups": 1,
   "tipsHistory": {
-    "new-user-warmup": 1
+    "new-user-warmup": 1,
+    "plan-mode-for-complex-tasks": 1,
+    "terminal-setup": 1
   },
   "cachedGrowthBookFeatures": {
     "tengu_system_prompt_global_cache": true,
@@ -523,5 +525,6 @@
   "claudeAiMcpEverConnected": [
     "claude.ai Gmail",
     "claude.ai Gamma"
-  ]
+  ],
+  "remoteControlUpsellSeenCount": 1
 }

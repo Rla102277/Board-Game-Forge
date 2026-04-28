@@ -5,6 +5,7 @@ import { useUser, useClerk } from "@clerk/react";
 import {
   Layout, Users, FileText, CheckSquare, ChevronLeft, Gamepad2, Activity, MoreVertical, Trash2,
   BookOpen, Network, Dice5, ImageIcon, MapPin, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
+  MessageSquare, History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -28,6 +29,10 @@ import { Balance } from "@/components/workspace/balance";
 import { Storyboard } from "@/components/workspace/storyboard";
 import { Exports } from "@/components/workspace/exports";
 import { ChatPanel } from "@/components/workspace/chat-panel";
+import { CollaborationPresence } from "@/components/collaboration/cursor-indicators";
+import { ActivityFeed } from "@/components/collaboration/activity-feed";
+import { CommentsPanel } from "@/components/collaboration/comments-panel";
+import { VersionHistory } from "@/components/collaboration/version-history";
 
 const SECTIONS = [
   { id: "overview", label: "Overview", icon: Layout, statKey: null },
@@ -44,6 +49,9 @@ const SECTIONS = [
   { id: "storyboard", label: "Storyboard", icon: MapPin, statKey: null },
   { id: "balance", label: "Balance", icon: Scale, statKey: null },
   { id: "export", label: "Export", icon: Download, statKey: null },
+  { id: "comments", label: "Comments", icon: MessageSquare, statKey: null },
+  { id: "activity", label: "Activity", icon: History, statKey: null },
+  { id: "versions", label: "Versions", icon: History, statKey: null },
 ] as const;
 
 export default function Workspace({ projectId: projectIdProp }: { projectId?: number } = {}) {
@@ -98,6 +106,9 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       case "storyboard": return <Storyboard projectId={projectId} />;
       case "balance": return <Balance projectId={projectId} />;
       case "export": return <Exports projectId={projectId} />;
+      case "comments": return <CommentsPanel projectId={projectId} />;
+      case "activity": return <ActivityFeed projectId={projectId} />;
+      case "versions": return <VersionHistory projectId={projectId} />;
       default: return null;
     }
   };
@@ -170,6 +181,9 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           <div className="flex flex-wrap gap-1.5 mt-3">
             {project.gameType && <span className="text-[10px] uppercase font-bold tracking-wider bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30">{project.gameType}</span>}
             {project.genre && <span className="text-[10px] uppercase font-bold tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border">{project.genre}</span>}
+          </div>
+          <div className="mt-3 pt-3 border-t">
+            <CollaborationPresence projectId={projectId} />
           </div>
         </div>
 

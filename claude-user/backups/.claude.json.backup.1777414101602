@@ -1,6 +1,5 @@
 {
   "numStartups": 2,
-  "installMethod": "global",
   "tipsHistory": {
     "new-user-warmup": 1,
     "plan-mode-for-complex-tasks": 1,
@@ -531,5 +530,5 @@
     "claude.ai Gmail",
     "claude.ai Gamma"
   ],
-  "remoteControlUpsellSeenCount": 2
+  "remoteControlUpsellSeenCount": 1
 }

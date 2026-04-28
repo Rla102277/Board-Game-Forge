@@ -2,8 +2,8 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware, getAuth } from "@clerk/express";
-import { and, eq } from "drizzle-orm";
-import { db, appUsers, workspaceMembers } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { db, appUsers } from "@workspace/db";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -72,26 +72,14 @@ app.use(async (req: Request, _res: Response, next: NextFunction) => {
         // First user gets admin
         const total = await db.select().from(appUsers);
         const role = total.length === 0 ? "admin" : "user";
-        const [newUser] = await db.insert(appUsers).values({
+        await db.insert(appUsers).values({
           clerkUserId: userId,
           email,
           firstName,
           lastName,
           imageUrl,
           role,
-        }).returning();
-        // Activate any pending workspace invitations for this email.
-        if (newUser && email) {
-          await db
-            .update(workspaceMembers)
-            .set({ userId: newUser.id, status: "active", joinedAt: new Date() })
-            .where(
-              and(
-                eq(workspaceMembers.invitedEmail, email),
-                eq(workspaceMembers.status, "pending"),
-              ),
-            );
-        }
+        });
       } else if (
         email !== existing[0]!.email ||
         firstName !== existing[0]!.firstName ||

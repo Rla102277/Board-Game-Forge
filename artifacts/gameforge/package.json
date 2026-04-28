@@ -78,6 +78,10 @@
     "@clerk/react": "^6.4.5",
     "@clerk/themes": "^2.4.57",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "yjs": "^13.6.18",
+    "y-websocket": "^2.0.4",
+    "y-indexeddb": "^9.0.12",
+    "diff": "^7.0.0"
   }
 }

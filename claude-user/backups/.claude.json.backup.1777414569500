@@ -1,6 +1,5 @@
 {
   "numStartups": 2,
-  "installMethod": "global",
   "tipsHistory": {
     "new-user-warmup": 1,
     "plan-mode-for-complex-tasks": 1,
