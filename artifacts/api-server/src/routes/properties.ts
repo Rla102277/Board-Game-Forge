@@ -136,17 +136,17 @@ router.post(
       const text = await complete(req, {
         prompt: `You are a senior board-game designer enhancing one entity in a game's design document.
 
-Return ONLY a JSON object — no prose, no code fences:
+Return ONLY a JSON object — no prose, no code fences. Emit keys in EXACTLY this order so the most important fields are produced first:
 {
   "description": "1-2 vivid, concrete sentences (<= 200 chars) describing what this entity IS in the game.",
   "lore": "1 short flavor / world-building sentence in-character (<= 160 chars). Optional but encouraged.",
-  "designNotes": "1-2 sentences explaining the DESIGN INTENT — why this entity exists, how it interacts with other systems, what tension/decisions it creates. (<= 240 chars)",
+  "designNotes": "1-2 sentences explaining the DESIGN INTENT — why this entity exists, how it interacts with other systems, what tension/decisions it creates. (<= 220 chars)",
   "suggestedProperties": [
     {
       "name": "snake_case_name",
       "dataType": "number | string | boolean | enum",
       "defaultValue": "starting value as a string (e.g. \\"10\\", \\"common\\", \\"true\\"). Optional.",
-      "reason": "1 sentence saying why this property matters. (<= 120 chars)"
+      "reason": "1 sentence saying why this property matters. (<= 100 chars)"
     }
   ]
 }
@@ -160,8 +160,8 @@ description: ${entity.description ?? ""}
 stats: ${entity.stats ?? ""}
 existing properties: ${existingNames}
 
-Output JUST the JSON object.`,
-        maxTokens: 1400,
+Output JUST the JSON object. Keep total length under 1800 characters.`,
+        maxTokens: 3000,
       });
       const obj = tryParseJsonObject<{
         description?: string;

@@ -622,8 +622,8 @@ function RuleCard({
         data: {
           title: enhance.improvedTitle || rule.title,
           content: enhance.rewrittenContent,
-          designNotes: enhance.designNotes ?? "",
-          edgeCases: enhance.edgeCases ?? "",
+          ...(enhance.designNotes ? { designNotes: enhance.designNotes } : {}),
+          ...(enhance.edgeCases ? { edgeCases: enhance.edgeCases } : {}),
         },
       });
       setApplied(true);

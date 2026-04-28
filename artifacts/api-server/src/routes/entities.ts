@@ -116,15 +116,17 @@ router.post(
       const text = await complete(req, {
         prompt: `Design ${count} distinct game entities for a tabletop game with this brief: "${parsed.data.prompt}".
 
-Return ONLY a JSON array (no prose, no code fences):
-[{"name":"...","type":"...","subtype":"...","description":"...","stats":"...","relatedTo":"..."}]
-- type is one of "Item","Faction","Location","Event"
-- subtype is a more specific tag like "Weapon", "Tribe", "City", "Disaster"
+Return ONLY a JSON array (no prose, no code fences). Emit each entity's keys in EXACTLY this order so the most important fields are produced first:
+[{"name":"...","type":"...","subtype":"...","description":"...","stats":"...","relatedTo":"...","lore":"...","designNotes":"..."}]
+- type is one of "Item","Faction","Location","Event".
+- subtype is a more specific tag like "Weapon", "Tribe", "City", "Disaster".
 - description: 1 sentence under 140 chars.
 - stats: short stat line under 60 chars.
 - relatedTo: comma-separated names of related entities (or empty).
+- lore: 1 short flavor / world-building sentence in-character (<= 160 chars).
+- designNotes: 1-2 sentences (<= 200 chars) explaining the DESIGN INTENT — why this entity exists, how it interacts with other systems, what tension/decisions it creates.
 Output JUST the JSON array.`,
-        maxTokens: 2048,
+        maxTokens: 4000,
       });
       const generated = tryParseJsonArray<{
         name?: string;
@@ -133,6 +135,8 @@ Output JUST the JSON array.`,
         description?: string;
         stats?: string;
         relatedTo?: string;
+        lore?: string;
+        designNotes?: string;
       }>(text);
       if (generated.length === 0) {
         res.status(502).json({ error: "AI returned no entities" });
@@ -151,6 +155,8 @@ Output JUST the JSON array.`,
               description: e.description ? String(e.description) : null,
               stats: e.stats ? String(e.stats) : null,
               relatedTo: e.relatedTo ? String(e.relatedTo) : null,
+              lore: typeof e.lore === "string" && e.lore.trim() ? e.lore : null,
+              designNotes: typeof e.designNotes === "string" && e.designNotes.trim() ? e.designNotes : null,
               color: TYPE_COLORS[t] ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length] ?? "#7c3aed",
             };
           }),

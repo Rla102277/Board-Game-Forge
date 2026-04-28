@@ -245,6 +245,10 @@ export interface Entity {
   color?: string | null;
   /** @nullable */
   relatedTo?: string | null;
+  /** @nullable */
+  lore?: string | null;
+  /** @nullable */
+  designNotes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -257,6 +261,8 @@ export interface CreateEntityBody {
   stats?: string;
   color?: string;
   relatedTo?: string;
+  lore?: string;
+  designNotes?: string;
 }
 
 export interface UpdateEntityBody {
@@ -267,6 +273,8 @@ export interface UpdateEntityBody {
   stats?: string;
   color?: string;
   relatedTo?: string;
+  lore?: string;
+  designNotes?: string;
 }
 
 export interface EntityProperty {

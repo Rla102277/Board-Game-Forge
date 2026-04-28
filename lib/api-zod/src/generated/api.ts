@@ -465,6 +465,8 @@ export const ListEntitiesResponseItem = zod.object({
   stats: zod.string().nullish(),
   color: zod.string().nullish(),
   relatedTo: zod.string().nullish(),
+  lore: zod.string().nullish(),
+  designNotes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -482,6 +484,8 @@ export const CreateEntityBody = zod.object({
   stats: zod.string().optional(),
   color: zod.string().optional(),
   relatedTo: zod.string().optional(),
+  lore: zod.string().optional(),
+  designNotes: zod.string().optional(),
 });
 
 export const UpdateEntityParams = zod.object({
@@ -497,6 +501,8 @@ export const UpdateEntityBody = zod.object({
   stats: zod.string().optional(),
   color: zod.string().optional(),
   relatedTo: zod.string().optional(),
+  lore: zod.string().optional(),
+  designNotes: zod.string().optional(),
 });
 
 export const UpdateEntityResponse = zod.object({
@@ -509,6 +515,8 @@ export const UpdateEntityResponse = zod.object({
   stats: zod.string().nullish(),
   color: zod.string().nullish(),
   relatedTo: zod.string().nullish(),
+  lore: zod.string().nullish(),
+  designNotes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -537,6 +545,8 @@ export const AiGenerateEntitiesResponseItem = zod.object({
   stats: zod.string().nullish(),
   color: zod.string().nullish(),
   relatedTo: zod.string().nullish(),
+  lore: zod.string().nullish(),
+  designNotes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

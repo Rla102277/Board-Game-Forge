@@ -21,6 +21,10 @@ export interface Entity {
   color?: string | null;
   /** @nullable */
   relatedTo?: string | null;
+  /** @nullable */
+  lore?: string | null;
+  /** @nullable */
+  designNotes?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

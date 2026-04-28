@@ -2082,6 +2082,10 @@ components:
           type: [string, "null"]
         relatedTo:
           type: [string, "null"]
+        lore:
+          type: [string, "null"]
+        designNotes:
+          type: [string, "null"]
         createdAt:
           type: string
           format: date-time
@@ -2107,6 +2111,10 @@ components:
           type: string
         relatedTo:
           type: string
+        lore:
+          type: string
+        designNotes:
+          type: string
       required: [name, type]
 
     UpdateEntityBody:
@@ -2125,6 +2133,10 @@ components:
         color:
           type: string
         relatedTo:
+          type: string
+        lore:
+          type: string
+        designNotes:
           type: string
 
     EntityProperty:

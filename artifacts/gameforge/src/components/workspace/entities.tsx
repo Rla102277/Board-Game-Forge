@@ -433,11 +433,16 @@ function EntityCard({
     if (!enhance) return;
     setApplying(true);
     try {
-      // Apply description
+      // Apply description, lore, designNotes — only send keys the AI returned
+      // so we don't clobber any value the user typed manually.
       await updateEntity.mutateAsync({
         projectId,
         entityId: entity.id,
-        data: { description: enhance.description },
+        data: {
+          description: enhance.description,
+          ...(enhance.lore ? { lore: enhance.lore } : {}),
+          ...(enhance.designNotes ? { designNotes: enhance.designNotes } : {}),
+        },
       });
       // Add selected properties
       const propsToAdd = enhance.suggestedProperties.filter((_, i) => selectedProps.has(i));
@@ -721,9 +726,42 @@ function EntityCard({
         </div>
       )}
 
-      {/* Properties panel (expanded) */}
+      {/* Expanded panel — lore / design notes / properties */}
       {isExpanded && (
-        <div className="px-5 py-4 border-t border-border bg-muted/5">
+        <div className="px-5 py-4 border-t border-border bg-muted/5 space-y-4">
+          {(entity.lore || entity.designNotes) && (
+            <div
+              className="grid grid-cols-1 md:grid-cols-2 gap-3"
+              data-testid={`entity-meta-${entity.id}`}
+            >
+              {entity.lore && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Flavor / Lore
+                  </p>
+                  <p
+                    className="text-xs text-muted-foreground italic leading-relaxed bg-background/40 border border-border/50 rounded p-2.5 whitespace-pre-wrap"
+                    data-testid={`entity-lore-${entity.id}`}
+                  >
+                    "{entity.lore}"
+                  </p>
+                </div>
+              )}
+              {entity.designNotes && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Designer's Notes
+                  </p>
+                  <p
+                    className="text-xs text-muted-foreground leading-relaxed bg-background/40 border border-border/50 rounded p-2.5 whitespace-pre-wrap"
+                    data-testid={`entity-design-notes-${entity.id}`}
+                  >
+                    {entity.designNotes}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
           <EntityProperties projectId={projectId} entityId={entity.id} />
         </div>
       )}

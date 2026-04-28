@@ -14,4 +14,6 @@ export interface UpdateEntityBody {
   stats?: string;
   color?: string;
   relatedTo?: string;
+  lore?: string;
+  designNotes?: string;
 }
