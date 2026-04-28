@@ -3067,6 +3067,94 @@ export const useAiEnhanceEntity = <
   return useMutation(getAiEnhanceEntityMutationOptions(options));
 };
 
+export const getListProjectEntityPropertiesUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/entity-properties`;
+};
+
+export const listProjectEntityProperties = async (
+  projectId: number,
+  options?: RequestInit,
+): Promise<EntityProperty[]> => {
+  return customFetch<EntityProperty[]>(
+    getListProjectEntityPropertiesUrl(projectId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListProjectEntityPropertiesQueryKey = (projectId: number) => {
+  return [`/api/projects/${projectId}/entity-properties`] as const;
+};
+
+export const getListProjectEntityPropertiesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listProjectEntityProperties>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectEntityProperties>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListProjectEntityPropertiesQueryKey(projectId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listProjectEntityProperties>>
+  > = ({ signal }) =>
+    listProjectEntityProperties(projectId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listProjectEntityProperties>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListProjectEntityPropertiesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listProjectEntityProperties>>
+>;
+export type ListProjectEntityPropertiesQueryError = ErrorType<unknown>;
+
+export function useListProjectEntityProperties<
+  TData = Awaited<ReturnType<typeof listProjectEntityProperties>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listProjectEntityProperties>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListProjectEntityPropertiesQueryOptions(
+    projectId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
 export const getListEntityPropertiesUrl = (
   projectId: number,
   entityId: number,

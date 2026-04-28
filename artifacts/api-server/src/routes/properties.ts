@@ -23,6 +23,39 @@ router.get(
   },
 );
 
+// Project-wide flat list of all entity properties (for the Ontology
+// browser + property dictionary — avoids N round-trips).
+router.get(
+  "/projects/:projectId/entity-properties",
+  async (req, res): Promise<void> => {
+    const params = schemas.ListProjectEntityPropertiesParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    // Single JOIN — avoids the N+1-style two-query approach and any
+    // inArray parameter-limit issues on large projects.
+    const rows = await db
+      .select({
+        id: entityProperties.id,
+        entityId: entityProperties.entityId,
+        name: entityProperties.name,
+        dataType: entityProperties.dataType,
+        unit: entityProperties.unit,
+        value: entityProperties.value,
+        textValue: entityProperties.textValue,
+        minValue: entityProperties.minValue,
+        maxValue: entityProperties.maxValue,
+        defaultValue: entityProperties.defaultValue,
+      })
+      .from(entityProperties)
+      .innerJoin(entities, eq(entities.id, entityProperties.entityId))
+      .where(eq(entities.projectId, params.data.projectId))
+      .orderBy(asc(entityProperties.id));
+    res.json(rows);
+  },
+);
+
 router.post(
   "/projects/:projectId/entities/:entityId/properties",
   async (req, res): Promise<void> => {

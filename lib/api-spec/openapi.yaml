@@ -656,6 +656,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/EntityEnhanceSuggestion"
 
+  /projects/{projectId}/entity-properties:
+    get:
+      operationId: listProjectEntityProperties
+      tags: [properties]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Flat list of all entity properties for the project
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EntityProperty"
+
   /projects/{projectId}/entities/{entityId}/properties:
     get:
       operationId: listEntityProperties

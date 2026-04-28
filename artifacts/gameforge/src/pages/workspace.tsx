@@ -86,7 +86,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
     switch (activeSection) {
       case "overview": return <Overview projectId={projectId} onPromptSend={setChatPrompt} />;
       case "research": return <Research projectId={projectId} />;
-      case "ontology": return <Ontology projectId={projectId} />;
+      case "ontology": return <Ontology projectId={projectId} onJump={setActiveSection} />;
       case "entities": return <Entities projectId={projectId} />;
       case "players": return <Players projectId={projectId} />;
       case "rules": return <Rules projectId={projectId} />;

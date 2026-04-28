@@ -573,6 +573,26 @@ export const AiEnhanceEntityResponse = zod.object({
   ),
 });
 
+export const ListProjectEntityPropertiesParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListProjectEntityPropertiesResponseItem = zod.object({
+  id: zod.number(),
+  entityId: zod.number(),
+  name: zod.string(),
+  dataType: zod.string(),
+  unit: zod.string().nullish(),
+  value: zod.number().nullish(),
+  textValue: zod.string().nullish(),
+  minValue: zod.number().nullish(),
+  maxValue: zod.number().nullish(),
+  defaultValue: zod.number().nullish(),
+});
+export const ListProjectEntityPropertiesResponse = zod.array(
+  ListProjectEntityPropertiesResponseItem,
+);
+
 export const ListEntityPropertiesParams = zod.object({
   projectId: zod.coerce.number(),
   entityId: zod.coerce.number(),
