@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, StickyNote, Pin, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, StickyNote, Pin, Sparkles, Loader2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Note } from "@workspace/api-client-react";
@@ -47,24 +46,31 @@ export function Notes({ projectId }: NotesProps) {
     }
   };
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [editNoteId, setEditNoteId] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({ title: "", content: "", color: "default", pinned: false });
 
+  const isFormOpen = showAdd || editNoteId !== null;
+  const isEditing = editNoteId !== null;
+
+  const closeForm = () => {
+    setShowAdd(false);
+    setEditNoteId(null);
+    setFormData({ title: "", content: "", color: "default", pinned: false });
+  };
+
   const handleCreate = async () => {
     if (!formData.content) return;
     await createNote.mutateAsync({ projectId, data: formData });
-    setIsCreateOpen(false);
-    setFormData({ title: "", content: "", color: "default", pinned: false });
+    closeForm();
     queryClient.invalidateQueries({ queryKey: getListNotesQueryKey(projectId) });
   };
 
   const handleUpdate = async () => {
     if (!editNoteId || !formData.content) return;
     await updateNote.mutateAsync({ projectId, noteId: editNoteId, data: formData });
-    setEditNoteId(null);
-    setFormData({ title: "", content: "", color: "default", pinned: false });
+    closeForm();
     queryClient.invalidateQueries({ queryKey: getListNotesQueryKey(projectId) });
   };
 
@@ -78,7 +84,14 @@ export function Notes({ projectId }: NotesProps) {
     queryClient.invalidateQueries({ queryKey: getListNotesQueryKey(projectId) });
   };
 
+  const openAdd = () => {
+    setEditNoteId(null);
+    setFormData({ title: "", content: "", color: "default", pinned: false });
+    setShowAdd(true);
+  };
+
   const openEdit = (note: Note) => {
+    setShowAdd(false);
     setFormData({
       title: note.title || "",
       content: note.content || "",
@@ -97,35 +110,44 @@ export function Notes({ projectId }: NotesProps) {
     <div className="space-y-8 pb-8">
       <div className="flex justify-between items-center border-b border-border pb-4">
         <h2 className="text-xl font-bold">Design Notes</h2>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setFormData({ title: "", content: "", color: "default", pinned: false })}>
-              <Plus className="h-4 w-4 mr-2" /> Add Note
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Add Note</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2"><Label>Title (optional)</Label><Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Combat Ideas" /></div>
-              <div className="space-y-2"><Label>Content *</Label><Textarea value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} className="min-h-[120px]" /></div>
-              <div className="space-y-2">
-                <Label>Color</Label>
-                <div className="flex gap-2">
-                  {COLORS.map(c => (
-                    <button 
-                      key={c.value} 
-                      type="button"
-                      className={`w-8 h-8 rounded-full border-2 ${c.bg} ${c.border} ${formData.color === c.value ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
-                      onClick={() => setFormData({...formData, color: c.value})}
-                    />
-                  ))}
-                </div>
+        {!isFormOpen && (
+          <Button onClick={openAdd} data-testid="add-note-button">
+            <Plus className="h-4 w-4 mr-2" /> Add Note
+          </Button>
+        )}
+      </div>
+
+      {isFormOpen && (
+        <Card className="bg-card border-primary/40" data-testid="note-form-panel">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">{isEditing ? "Edit Note" : "Add Note"}</CardTitle>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForm}><X className="h-4 w-4" /></Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2"><Label>Title (optional)</Label><Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Combat Ideas" autoFocus /></div>
+            <div className="space-y-2"><Label>Content *</Label><Textarea value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} className="min-h-[120px]" /></div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <div className="flex gap-2">
+                {COLORS.map(c => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    className={`w-8 h-8 rounded-full border-2 ${c.bg} ${c.border} ${formData.color === c.value ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+                    onClick={() => setFormData({...formData, color: c.value})}
+                  />
+                ))}
               </div>
             </div>
-            <DialogFooter><Button onClick={handleCreate} disabled={!formData.content}>Create</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={closeForm}>Cancel</Button>
+              <Button onClick={isEditing ? handleUpdate : handleCreate} disabled={!formData.content}>
+                {isEditing ? "Save Changes" : "Create"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -162,7 +184,7 @@ export function Notes({ projectId }: NotesProps) {
                   <Button variant="ghost" size="icon" className={`h-7 w-7 ${colorDef.text} hover:bg-black/20 hover:text-red-400`} onClick={() => handleDelete(note.id)}><Trash2 className="h-3 w-3" /></Button>
                 </div>
                 {note.pinned && <div className="absolute top-3 right-3 opacity-100 group-hover:opacity-0 transition-opacity"><Pin className={`h-3 w-3 ${colorDef.text} fill-current`} /></div>}
-                
+
                 {note.title && (
                   <CardHeader className="pb-2 pt-4 px-4">
                     <CardTitle className={`text-base pr-6 ${colorDef.text}`}>{note.title}</CardTitle>
@@ -176,31 +198,6 @@ export function Notes({ projectId }: NotesProps) {
           })}
         </div>
       )}
-
-      {/* Edit Dialog */}
-      <Dialog open={!!editNoteId} onOpenChange={o => !o && setEditNoteId(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit Note</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>Title (optional)</Label><Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Content *</Label><Textarea value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} className="min-h-[120px]" /></div>
-            <div className="space-y-2">
-              <Label>Color</Label>
-              <div className="flex gap-2">
-                {COLORS.map(c => (
-                  <button 
-                    key={c.value} 
-                    type="button"
-                    className={`w-8 h-8 rounded-full border-2 ${c.bg} ${c.border} ${formData.color === c.value ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
-                    onClick={() => setFormData({...formData, color: c.value})}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter><Button onClick={handleUpdate} disabled={!formData.content}>Save Changes</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

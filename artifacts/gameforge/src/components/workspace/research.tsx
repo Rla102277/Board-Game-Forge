@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { useListResearch, useCreateResearch, useUpdateResearch, useDeleteResearch, useAiEnhanceResearch, getListResearchQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Trash2, ExternalLink, Edit2, Tag, BookOpen, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Search, Trash2, ExternalLink, Edit2, Tag, BookOpen, Sparkles, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 export function Research({ projectId }: { projectId: number }) {
@@ -35,25 +34,40 @@ export function Research({ projectId }: { projectId: number }) {
   };
 
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   const [form, setForm] = useState({ title: "", source: "", content: "", tags: "" });
 
-  const [ingestOpen, setIngestOpen] = useState(false);
+  const [showIngest, setShowIngest] = useState(false);
   const [ingestUrl, setIngestUrl] = useState("");
   const [ingestText, setIngestText] = useState("");
   const [ingesting, setIngesting] = useState(false);
 
+  const isFormOpen = showAdd || editing !== null;
+
   const refresh = () => qc.invalidateQueries({ queryKey: getListResearchQueryKey(projectId) });
   const filtered = items?.filter(i => !search || (i.title + (i.content || "") + (i.tags || "")).toLowerCase().includes(search.toLowerCase()));
 
-  const openCreate = () => { setEditing(null); setForm({ title: "", source: "", content: "", tags: "" }); setOpen(true); };
+  const closeForm = () => {
+    setShowAdd(false);
+    setEditing(null);
+    setForm({ title: "", source: "", content: "", tags: "" });
+  };
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ title: "", source: "", content: "", tags: "" });
+    setShowIngest(false);
+    setShowAdd(true);
+  };
+
   const openEdit = (id: number) => {
     const it = items?.find(i => i.id === id);
     if (!it) return;
+    setShowAdd(false);
+    setShowIngest(false);
     setEditing(id);
     setForm({ title: it.title, source: it.source || "", content: it.content || "", tags: it.tags || "" });
-    setOpen(true);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -65,13 +79,19 @@ export function Research({ projectId }: { projectId: number }) {
       } else {
         await createItem.mutateAsync({ projectId, data: form });
       }
-      setOpen(false); refresh();
+      closeForm(); refresh();
     } catch { toast({ title: "Save failed", variant: "destructive" }); }
   };
 
   const removeItem = async (id: number) => {
     try { await deleteItem.mutateAsync({ projectId, researchId: id }); refresh(); }
     catch { toast({ title: "Delete failed", variant: "destructive" }); }
+  };
+
+  const closeIngest = () => {
+    setShowIngest(false);
+    setIngestUrl("");
+    setIngestText("");
   };
 
   const ingest = async () => {
@@ -89,7 +109,8 @@ export function Research({ projectId }: { projectId: number }) {
         body: JSON.stringify({ prompt, count: 1 }),
       });
       if (!res.ok) throw new Error("ingest failed");
-      setIngestOpen(false); setIngestUrl(""); setIngestText(""); refresh();
+      closeIngest();
+      refresh();
       toast({ title: "Ingested", description: "AI summarized and added the source." });
     } catch { toast({ title: "Ingest failed", variant: "destructive" }); }
     finally { setIngesting(false); }
@@ -103,10 +124,58 @@ export function Research({ projectId }: { projectId: number }) {
           <p className="text-muted-foreground text-sm mt-1">Capture inspirations, references, and design notes.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIngestOpen(true)} className="gap-2"><Sparkles className="h-4 w-4" /> AI Ingest</Button>
-          <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> Add Source</Button>
+          {!showIngest && !isFormOpen && (
+            <Button variant="outline" onClick={() => { setShowAdd(false); setEditing(null); setShowIngest(true); }} className="gap-2"><Sparkles className="h-4 w-4" /> AI Ingest</Button>
+          )}
+          {!isFormOpen && !showIngest && (
+            <Button onClick={openCreate} className="gap-2" data-testid="add-research-button"><Plus className="h-4 w-4" /> Add Source</Button>
+          )}
         </div>
       </div>
+
+      {isFormOpen && (
+        <Card className="bg-card border-primary/40" data-testid="research-form-panel">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">{editing ? "Edit research source" : "Add research source"}</CardTitle>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForm}><X className="h-4 w-4" /></Button>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={submit} className="space-y-4">
+              <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={e => setForm({...form, title: e.target.value})} required autoFocus /></div>
+              <div className="space-y-2"><Label>Source URL or citation</Label><Input value={form.source} onChange={e => setForm({...form, source: e.target.value})} placeholder="https://..." /></div>
+              <div className="space-y-2"><Label>Notes</Label><Textarea rows={5} value={form.content} onChange={e => setForm({...form, content: e.target.value})} /></div>
+              <div className="space-y-2"><Label>Tags (comma-separated)</Label><Input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} placeholder="combat, economy" /></div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={closeForm}>Cancel</Button>
+                <Button type="submit">{editing ? "Save" : "Add"}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {showIngest && (
+        <Card className="bg-card border-primary/40" data-testid="research-ingest-panel">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle className="text-base">AI Ingest</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">Paste a URL or text and let AI summarize it into a research item.</p>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeIngest}><X className="h-4 w-4" /></Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2"><Label>URL</Label><Input value={ingestUrl} onChange={e => setIngestUrl(e.target.value)} placeholder="https://..." autoFocus /></div>
+            <div className="text-center text-xs text-muted-foreground">— or —</div>
+            <div className="space-y-2"><Label>Paste text</Label><Textarea rows={6} value={ingestText} onChange={e => setIngestText(e.target.value)} /></div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={closeIngest}>Cancel</Button>
+              <Button onClick={ingest} disabled={ingesting || (!ingestUrl && !ingestText)} className="gap-2">
+                <Sparkles className="h-4 w-4" /> {ingesting ? "Ingesting..." : "Ingest"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -118,7 +187,7 @@ export function Research({ projectId }: { projectId: number }) {
       ) : !filtered?.length ? (
         <div className="text-center py-16 border border-dashed border-border rounded-xl">
           <p className="text-muted-foreground mb-4">{search ? "No matching sources." : "No research yet. Start capturing inspirations."}</p>
-          {!search && <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> Add Source</Button>}
+          {!search && !isFormOpen && <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> Add Source</Button>}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -169,42 +238,6 @@ export function Research({ projectId }: { projectId: number }) {
           ))}
         </div>
       )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>{editing ? "Edit" : "Add"} research source</DialogTitle></DialogHeader>
-          <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={e => setForm({...form, title: e.target.value})} required autoFocus /></div>
-            <div className="space-y-2"><Label>Source URL or citation</Label><Input value={form.source} onChange={e => setForm({...form, source: e.target.value})} placeholder="https://..." /></div>
-            <div className="space-y-2"><Label>Notes</Label><Textarea rows={5} value={form.content} onChange={e => setForm({...form, content: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Tags (comma-separated)</Label><Input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} placeholder="combat, economy" /></div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">{editing ? "Save" : "Add"}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={ingestOpen} onOpenChange={setIngestOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>AI Ingest</DialogTitle>
-            <DialogDescription>Paste a URL or text and let AI summarize it into a research item.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2"><Label>URL</Label><Input value={ingestUrl} onChange={e => setIngestUrl(e.target.value)} placeholder="https://..." /></div>
-            <div className="text-center text-xs text-muted-foreground">— or —</div>
-            <div className="space-y-2"><Label>Paste text</Label><Textarea rows={6} value={ingestText} onChange={e => setIngestText(e.target.value)} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIngestOpen(false)}>Cancel</Button>
-            <Button onClick={ingest} disabled={ingesting || (!ingestUrl && !ingestText)} className="gap-2">
-              <Sparkles className="h-4 w-4" /> {ingesting ? "Ingesting..." : "Ingest"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -4,12 +4,12 @@ import {
   useAiGenerateRules, useAiEnhanceRule, useConflictCheckRules, getListRulesQueryKey,
   type Rule,
 } from "@workspace/api-client-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -150,6 +150,28 @@ export function Rules({ projectId }: RulesProps) {
     }
   };
 
+  const closeForms = () => {
+    setIsAiOpen(false);
+    setIsCreateOpen(false);
+    setEditRuleId(null);
+    setFormData({ title: "", content: "", category: "", priority: 0 });
+  };
+
+  const openCreate = () => {
+    setEditRuleId(null);
+    setIsAiOpen(false);
+    setFormData({ title: "", content: "", category: "movement", priority: 1 });
+    setIsCreateOpen(true);
+  };
+
+  const openAi = () => {
+    setIsCreateOpen(false);
+    setEditRuleId(null);
+    setIsAiOpen(true);
+  };
+
+  const isFormPanelOpen = isAiOpen || isCreateOpen || editRuleId !== null;
+
   const handleConflictCheck = async () => {
     setIsConflictsOpen(true);
     setConflictReport(null);
@@ -184,6 +206,8 @@ export function Rules({ projectId }: RulesProps) {
   };
 
   const openEdit = (rule: Rule) => {
+    setIsAiOpen(false);
+    setIsCreateOpen(false);
     setFormData({
       title: rule.title,
       content: rule.content,
@@ -258,82 +282,103 @@ export function Rules({ projectId }: RulesProps) {
             {conflictCheck.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
             Conflicts
           </Button>
-          <Dialog open={isAiOpen} onOpenChange={setIsAiOpen}>
-            <DialogTrigger asChild>
+          {!isFormPanelOpen && (
+            <>
               <Button
+                onClick={openAi}
                 className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
                 data-testid="rules-ai-generate"
               >
                 <Sparkles className="h-4 w-4" /> AI Generate
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Generate rules with AI</DialogTitle>
-                <DialogDescription>Describe the kind of rules you want — the AI will draft a few based on this project's context.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2 py-2">
-                <Label htmlFor="rules-ai-prompt">What kind of rules?</Label>
-                <Input
-                  id="rules-ai-prompt"
-                  placeholder="e.g. combat resolution mechanics…"
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAiGenerate()}
-                  data-testid="rules-ai-prompt"
-                  autoFocus
-                />
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAiOpen(false)}>Cancel</Button>
-                <Button onClick={handleAiGenerate} disabled={!aiPrompt || aiGenerate.isPending} className="gap-1.5">
-                  {aiGenerate.isPending ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
-                  ) : (
-                    <><Sparkles className="h-4 w-4" /> Generate</>
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
               <Button
-                onClick={() => setFormData({ title: "", content: "", category: "movement", priority: 1 })}
+                onClick={openCreate}
                 className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
                 data-testid="rules-add-button"
               >
                 <Plus className="h-4 w-4" /> Add
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Add rule</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Title *</Label><Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Content *</Label><Textarea value={formData.content} onChange={(e) => setFormData({ ...formData, content: e.target.value })} className="min-h-[120px]" /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Category</Label>
-                    <Select value={formData.category || "movement"} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIES.map((c) => (
-                          <SelectItem key={c} value={c}>{catMeta(c).label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Priority (0–5)</Label>
-                    <Input type="number" min={0} max={5} value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: Math.max(0, Math.min(5, parseInt(e.target.value) || 0)) })} />
-                  </div>
-                </div>
-              </div>
-              <DialogFooter><Button onClick={handleCreate} disabled={!formData.title || !formData.content}>Create</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Inline AI Generate panel */}
+      {isAiOpen && (
+        <Card className="bg-card border-primary/40" data-testid="rules-ai-panel">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle className="text-base">Generate rules with AI</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">Describe the kind of rules you want — the AI will draft a few based on this project's context.</p>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForms}><X className="h-4 w-4" /></Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="rules-ai-prompt">What kind of rules?</Label>
+              <Input
+                id="rules-ai-prompt"
+                placeholder="e.g. combat resolution mechanics…"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAiGenerate()}
+                data-testid="rules-ai-prompt"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={closeForms}>Cancel</Button>
+              <Button onClick={handleAiGenerate} disabled={!aiPrompt || aiGenerate.isPending} className="gap-1.5">
+                {aiGenerate.isPending ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+                ) : (
+                  <><Sparkles className="h-4 w-4" /> Generate</>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Inline Add / Edit Rule panel */}
+      {(isCreateOpen || editRuleId !== null) && (
+        <Card className="bg-card border-primary/40" data-testid="rules-form-panel">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">{editRuleId !== null ? "Edit rule" : "Add rule"}</CardTitle>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForms}><X className="h-4 w-4" /></Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2"><Label>Title *</Label><Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} autoFocus /></div>
+            <div className="space-y-2"><Label>Content *</Label><Textarea value={formData.content} onChange={(e) => setFormData({ ...formData, content: e.target.value })} className="min-h-[120px]" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={(formData.category || "movement").toLowerCase()} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>{catMeta(c).label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Priority (0–5)</Label>
+                <Input type="number" min={0} max={5} value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: Math.max(0, Math.min(5, parseInt(e.target.value) || 0)) })} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={closeForms}>Cancel</Button>
+              <Button
+                onClick={editRuleId !== null ? handleUpdate : handleCreate}
+                disabled={!formData.title || !formData.content}
+              >
+                {editRuleId !== null ? "Save changes" : "Create"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filter row */}
       <div className="flex flex-wrap items-center gap-2">
@@ -409,35 +454,6 @@ export function Rules({ projectId }: RulesProps) {
           ))}
         </div>
       )}
-
-      {/* Edit Dialog */}
-      <Dialog open={!!editRuleId} onOpenChange={(o) => !o && setEditRuleId(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit rule</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>Title *</Label><Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Content *</Label><Textarea value={formData.content} onChange={(e) => setFormData({ ...formData, content: e.target.value })} className="min-h-[120px]" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={(formData.category || "movement").toLowerCase()} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>{catMeta(c).label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Priority (0–5)</Label>
-                <Input type="number" min={0} max={5} value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: Math.max(0, Math.min(5, parseInt(e.target.value) || 0)) })} />
-              </div>
-            </div>
-          </div>
-          <DialogFooter><Button onClick={handleUpdate} disabled={!formData.title || !formData.content}>Save changes</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Conflicts Dialog */}
       <Dialog open={isConflictsOpen} onOpenChange={setIsConflictsOpen}>

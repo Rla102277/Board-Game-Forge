@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useListStoryboardNodes, useCreateStoryboardNode, useUpdateStoryboardNode, useDeleteStoryboardNode, useAiEnhanceStoryboardNode, getListStoryboardNodesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Edit2, MapPin, GripVertical, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Trash2, Edit2, MapPin, GripVertical, Sparkles, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 const STATUSES = [
@@ -44,18 +43,31 @@ export function Storyboard({ projectId }: { projectId: number }) {
     }
   };
 
-  const [open, setOpen] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   const [form, setForm] = useState({ title: "", content: "", nodeType: "idea", status: "idea" });
 
+  const isFormOpen = showAdd || editing !== null;
+
   const refresh = () => qc.invalidateQueries({ queryKey: getListStoryboardNodesQueryKey(projectId) });
 
-  const openCreate = () => { setEditing(null); setForm({ title: "", content: "", nodeType: "idea", status: "idea" }); setOpen(true); };
+  const closeForm = () => {
+    setShowAdd(false);
+    setEditing(null);
+    setForm({ title: "", content: "", nodeType: "idea", status: "idea" });
+  };
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ title: "", content: "", nodeType: "idea", status: "idea" });
+    setShowAdd(true);
+  };
+
   const openEdit = (id: number) => {
     const n = nodes?.find(x => x.id === id); if (!n) return;
+    setShowAdd(false);
     setEditing(id);
     setForm({ title: n.title, content: n.content || "", nodeType: n.nodeType, status: n.status });
-    setOpen(true);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -63,7 +75,7 @@ export function Storyboard({ projectId }: { projectId: number }) {
     try {
       if (editing) await updateNode.mutateAsync({ projectId, nodeId: editing, data: form });
       else await createNode.mutateAsync({ projectId, data: form });
-      setOpen(false); refresh();
+      closeForm(); refresh();
     } catch { toast({ title: "Save failed", variant: "destructive" }); }
   };
 
@@ -86,8 +98,43 @@ export function Storyboard({ projectId }: { projectId: number }) {
           <h2 className="text-2xl font-bold flex items-center gap-2"><MapPin className="h-6 w-6 text-primary" /> Storyboard</h2>
           <p className="text-muted-foreground text-sm mt-1">Visualize the design pipeline kanban-style.</p>
         </div>
-        <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> New Card</Button>
+        {!isFormOpen && (
+          <Button onClick={openCreate} className="gap-2" data-testid="add-storyboard-button"><Plus className="h-4 w-4" /> New Card</Button>
+        )}
       </div>
+
+      {isFormOpen && (
+        <Card className="bg-card border-primary/40" data-testid="storyboard-form-panel">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">{editing ? "Edit storyboard card" : "New storyboard card"}</CardTitle>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForm}><X className="h-4 w-4" /></Button>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={submit} className="space-y-4">
+              <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={e => setForm({...form, title: e.target.value})} required autoFocus /></div>
+              <div className="space-y-2"><Label>Description</Label><Textarea rows={4} value={form.content} onChange={e => setForm({...form, content: e.target.value})} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2"><Label>Type</Label>
+                  <Select value={form.nodeType} onValueChange={v => setForm({...form, nodeType: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{NODE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Status</Label>
+                  <Select value={form.status} onValueChange={v => setForm({...form, status: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={closeForm}>Cancel</Button>
+                <Button type="submit">{editing ? "Save" : "Create"}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">{STATUSES.map(s => <Skeleton key={s.value} className="h-96" />)}</div>
@@ -139,34 +186,6 @@ export function Storyboard({ projectId }: { projectId: number }) {
           ))}
         </div>
       )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Edit" : "New"} storyboard card</DialogTitle></DialogHeader>
-          <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={e => setForm({...form, title: e.target.value})} required autoFocus /></div>
-            <div className="space-y-2"><Label>Description</Label><Textarea rows={4} value={form.content} onChange={e => setForm({...form, content: e.target.value})} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>Type</Label>
-                <Select value={form.nodeType} onValueChange={v => setForm({...form, nodeType: v})}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{NODE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2"><Label>Status</Label>
-                <Select value={form.status} onValueChange={v => setForm({...form, status: v})}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">{editing ? "Save" : "Create"}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

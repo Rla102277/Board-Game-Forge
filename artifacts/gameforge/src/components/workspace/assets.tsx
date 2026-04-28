@@ -44,7 +44,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 const KINDS = ["card", "token", "board", "tile", "rulebook", "other"];
@@ -204,20 +203,31 @@ export function Assets({ projectId }: { projectId: number }) {
     qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
   };
 
-  const [open, setOpen] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", kind: "card", description: "", flavorText: "", entityId: "" });
   const [generating, setGenerating] = useState<number | null>(null);
-  const [imagePromptOpen, setImagePromptOpen] = useState<number | null>(null);
+  const [imagePromptId, setImagePromptId] = useState<number | null>(null);
   const [imagePrompt, setImagePrompt] = useState("");
 
+  const isFormOpen = showAdd || editing !== null;
+
   const refresh = () => qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
-  const openCreate = () => { setEditing(null); setForm({ name: "", kind: "card", description: "", flavorText: "", entityId: "" }); setOpen(true); };
+  const closeForm = () => {
+    setShowAdd(false);
+    setEditing(null);
+    setForm({ name: "", kind: "card", description: "", flavorText: "", entityId: "" });
+  };
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ name: "", kind: "card", description: "", flavorText: "", entityId: "" });
+    setShowAdd(true);
+  };
   const openEdit = (id: number) => {
     const a = assets?.find(x => x.id === id); if (!a) return;
+    setShowAdd(false);
     setEditing(id);
     setForm({ name: a.name, kind: a.kind, description: a.description || "", flavorText: a.flavorText || "", entityId: a.entityId ? String(a.entityId) : "" });
-    setOpen(true);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -229,7 +239,7 @@ export function Assets({ projectId }: { projectId: number }) {
     try {
       if (editing) await updateAsset.mutateAsync({ projectId, assetId: editing, data });
       else await createAsset.mutateAsync({ projectId, data });
-      setOpen(false); refresh();
+      closeForm(); refresh();
     } catch { toast({ title: "Save failed", variant: "destructive" }); }
   };
 
@@ -252,7 +262,11 @@ export function Assets({ projectId }: { projectId: number }) {
   const openImagePrompt = (id: number) => {
     const a = assets?.find(x => x.id === id);
     setImagePrompt(a?.imagePrompt || `${a?.name} ${a?.description || ""}`.trim());
-    setImagePromptOpen(id);
+    setImagePromptId(id);
+  };
+  const closeImagePrompt = () => {
+    setImagePromptId(null);
+    setImagePrompt("");
   };
 
   const downloadImage = (a: { name: string; imageDataUrl?: string | null }) => {
@@ -274,8 +288,68 @@ export function Assets({ projectId }: { projectId: number }) {
             {totalAssets} {totalAssets === 1 ? "asset" : "assets"} · click <span className="text-primary font-medium">AI</span> on any card to enhance its name, description, and flavor text
           </p>
         </div>
-        <Button variant="outline" onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> Manual asset</Button>
+        {!isFormOpen && (
+          <Button variant="outline" onClick={openCreate} className="gap-2" data-testid="add-asset-button"><Plus className="h-4 w-4" /> Manual asset</Button>
+        )}
       </div>
+
+      {isFormOpen && (
+        <Card className="bg-card border-primary/40" data-testid="asset-form-panel">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold">{editing ? "Edit Asset" : "New Asset"}</div>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForm}><X className="h-4 w-4" /></Button>
+            </div>
+            <form onSubmit={submit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2 col-span-2"><Label>Name *</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required autoFocus /></div>
+                <div className="space-y-2"><Label>Kind</Label>
+                  <Select value={form.kind} onValueChange={v => setForm({...form, kind: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{KINDS.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Linked Entity</Label>
+                  <Select value={form.entityId || "none"} onValueChange={v => setForm({...form, entityId: v === "none" ? "" : v})}>
+                    <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {entities?.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2"><Label>Description</Label><Textarea rows={3} value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
+              <div className="space-y-2"><Label>Flavor text / tag</Label><Textarea rows={2} value={form.flavorText} onChange={e => setForm({...form, flavorText: e.target.value})} /></div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={closeForm}>Cancel</Button>
+                <Button type="submit">{editing ? "Save" : "Create"}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {imagePromptId !== null && (
+        <Card className="bg-card border-primary/40" data-testid="image-prompt-panel">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold">Generate image</div>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeImagePrompt}><X className="h-4 w-4" /></Button>
+            </div>
+            <div className="space-y-2">
+              <Label>Image prompt</Label>
+              <Textarea rows={5} value={imagePrompt} onChange={e => setImagePrompt(e.target.value)} placeholder="A fantasy card showing..." autoFocus />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeImagePrompt}>Cancel</Button>
+              <Button onClick={() => { if (imagePromptId) { generateImage(imagePromptId, imagePrompt); closeImagePrompt(); } }} disabled={!imagePrompt.trim()} className="gap-2">
+                <Sparkles className="h-4 w-4" /> Generate
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="bg-card border-card-border">
         <CardContent className="p-4 space-y-3">
@@ -385,55 +459,6 @@ export function Assets({ projectId }: { projectId: number }) {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Edit Asset" : "New Asset"}</DialogTitle></DialogHeader>
-          <form onSubmit={submit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2 col-span-2"><Label>Name *</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required autoFocus /></div>
-              <div className="space-y-2"><Label>Kind</Label>
-                <Select value={form.kind} onValueChange={v => setForm({...form, kind: v})}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{KINDS.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2"><Label>Linked Entity</Label>
-                <Select value={form.entityId || "none"} onValueChange={v => setForm({...form, entityId: v === "none" ? "" : v})}>
-                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {entities?.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2"><Label>Description</Label><Textarea rows={3} value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Flavor text / tag</Label><Textarea rows={2} value={form.flavorText} onChange={e => setForm({...form, flavorText: e.target.value})} /></div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">{editing ? "Save" : "Create"}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={imagePromptOpen !== null} onOpenChange={(o) => !o && setImagePromptOpen(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generate image</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label>Image prompt</Label>
-            <Textarea rows={5} value={imagePrompt} onChange={e => setImagePrompt(e.target.value)} placeholder="A fantasy card showing..." />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setImagePromptOpen(null)}>Cancel</Button>
-            <Button onClick={() => { if (imagePromptOpen) { generateImage(imagePromptOpen, imagePrompt); setImagePromptOpen(null); } }} disabled={!imagePrompt.trim()} className="gap-2">
-              <Sparkles className="h-4 w-4" /> Generate
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, CheckSquare, MoreHorizontal } from "lucide-react";
+import { Plus, Edit2, Trash2, CheckSquare, MoreHorizontal, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { Task } from "@workspace/api-client-react";
@@ -29,24 +28,31 @@ export function Tasks({ projectId }: TasksProps) {
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [editTaskId, setEditTaskId] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({ title: "", description: "", status: "backlog" });
 
+  const isFormOpen = showAdd || editTaskId !== null;
+  const isEditing = editTaskId !== null;
+
+  const closeForm = () => {
+    setShowAdd(false);
+    setEditTaskId(null);
+    setFormData({ title: "", description: "", status: "backlog" });
+  };
+
   const handleCreate = async () => {
     if (!formData.title) return;
     await createTask.mutateAsync({ projectId, data: formData });
-    setIsCreateOpen(false);
-    setFormData({ title: "", description: "", status: "backlog" });
+    closeForm();
     queryClient.invalidateQueries({ queryKey: getListTasksQueryKey(projectId) });
   };
 
   const handleUpdate = async () => {
     if (!editTaskId || !formData.title) return;
     await updateTask.mutateAsync({ projectId, taskId: editTaskId, data: formData });
-    setEditTaskId(null);
-    setFormData({ title: "", description: "", status: "backlog" });
+    closeForm();
     queryClient.invalidateQueries({ queryKey: getListTasksQueryKey(projectId) });
   };
 
@@ -60,7 +66,14 @@ export function Tasks({ projectId }: TasksProps) {
     queryClient.invalidateQueries({ queryKey: getListTasksQueryKey(projectId) });
   };
 
+  const openAdd = (status: string = "backlog") => {
+    setEditTaskId(null);
+    setFormData({ title: "", description: "", status });
+    setShowAdd(true);
+  };
+
   const openEdit = (task: Task) => {
+    setShowAdd(false);
     setFormData({
       title: task.title,
       description: task.description || "",
@@ -78,32 +91,41 @@ export function Tasks({ projectId }: TasksProps) {
     <div className="h-full flex flex-col pb-8">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold">Project Tasks</h2>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setFormData({ title: "", description: "", status: "backlog" })}>
-              <Plus className="h-4 w-4 mr-2" /> Add Task
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Add Task</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2"><Label>Title *</Label><Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Design combat icons" /></div>
-              <div className="space-y-2"><Label>Description</Label><Textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <select 
-                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={formData.status} 
-                  onChange={e => setFormData({...formData, status: e.target.value})}
-                >
-                  {COLUMNS.map(col => <option key={col.id} value={col.id}>{col.label}</option>)}
-                </select>
-              </div>
-            </div>
-            <DialogFooter><Button onClick={handleCreate} disabled={!formData.title}>Create</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {!isFormOpen && (
+          <Button onClick={() => openAdd()} data-testid="add-task-button">
+            <Plus className="h-4 w-4 mr-2" /> Add Task
+          </Button>
+        )}
       </div>
+
+      {isFormOpen && (
+        <Card className="bg-card border-primary/40 mb-6" data-testid="task-form-panel">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">{isEditing ? "Edit Task" : "Add Task"}</CardTitle>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForm}><X className="h-4 w-4" /></Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2"><Label>Title *</Label><Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Design combat icons" autoFocus /></div>
+            <div className="space-y-2"><Label>Description</Label><Textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <select
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={formData.status}
+                onChange={e => setFormData({...formData, status: e.target.value})}
+              >
+                {COLUMNS.map(col => <option key={col.id} value={col.id}>{col.label}</option>)}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={closeForm}>Cancel</Button>
+              <Button onClick={isEditing ? handleUpdate : handleCreate} disabled={!formData.title}>
+                {isEditing ? "Save Changes" : "Create"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-3 gap-6 flex-1">
@@ -115,14 +137,16 @@ export function Tasks({ projectId }: TasksProps) {
             <div key={col.id} className="bg-sidebar rounded-xl p-4 flex flex-col gap-4 max-h-full border border-border">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold flex items-center gap-2">
-                  {col.label} 
+                  {col.label}
                   <span className="bg-background text-muted-foreground text-xs px-2 py-0.5 rounded-full border border-border">{groupedTasks[col.id].length}</span>
                 </h3>
-                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-background" onClick={() => { setFormData({ title: "", description: "", status: col.id }); setIsCreateOpen(true); }}>
-                  <Plus className="h-4 w-4" />
-                </Button>
+                {!isFormOpen && (
+                  <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-background" onClick={() => openAdd(col.id)}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
-              
+
               <div className="flex flex-col gap-3 overflow-y-auto pr-1">
                 {groupedTasks[col.id].map(task => (
                   <Card key={task.id} className="bg-card border-border hover:border-primary/50 transition-colors group cursor-default">
@@ -142,7 +166,7 @@ export function Tasks({ projectId }: TasksProps) {
                     </CardHeader>
                     <CardContent className="p-3 pt-2">
                       {task.description && <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{task.description}</p>}
-                      <select 
+                      <select
                         className="w-full bg-background border border-border rounded text-xs p-1 mt-auto"
                         value={task.status}
                         onChange={(e) => setStatus(task.id, e.target.value)}
@@ -163,28 +187,6 @@ export function Tasks({ projectId }: TasksProps) {
           ))}
         </div>
       )}
-
-      {/* Edit Dialog */}
-      <Dialog open={!!editTaskId} onOpenChange={o => !o && setEditTaskId(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit Task</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>Title *</Label><Input value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Description</Label><Textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <select 
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                value={formData.status} 
-                onChange={e => setFormData({...formData, status: e.target.value})}
-              >
-                {COLUMNS.map(col => <option key={col.id} value={col.id}>{col.label}</option>)}
-              </select>
-            </div>
-          </div>
-          <DialogFooter><Button onClick={handleUpdate} disabled={!formData.title}>Save Changes</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { useListPlaytestSessions, useCreatePlaytestSession, useDeletePlaytestSession, useGetPlaytestShareLink, useListPlaytestFeedback, getListPlaytestSessionsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Users, Calendar, Star, Link as LinkIcon, Copy, MessageSquare } from "lucide-react";
+import { Plus, Trash2, Users, Calendar, Star, Link as LinkIcon, Copy, MessageSquare, X } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,17 +21,21 @@ export function Playtesting({ projectId }: { projectId: number }) {
   const createSession = useCreatePlaytestSession();
   const deleteSession = useDeletePlaytestSession();
 
-  const [open, setOpen] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ playerCount: 2, durationMinutes: 60, rating: 4, notes: "", positives: "", issues: "", suggestions: "" });
 
   const refresh = () => qc.invalidateQueries({ queryKey: getListPlaytestSessionsQueryKey(projectId) });
+
+  const closeForm = () => {
+    setShowAdd(false);
+    setForm({ playerCount: 2, durationMinutes: 60, rating: 4, notes: "", positives: "", issues: "", suggestions: "" });
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await createSession.mutateAsync({ projectId, data: form });
-      setOpen(false);
-      setForm({ playerCount: 2, durationMinutes: 60, rating: 4, notes: "", positives: "", issues: "", suggestions: "" });
+      closeForm();
       refresh();
     } catch { toast({ title: "Save failed", variant: "destructive" }); }
   };
@@ -55,8 +58,36 @@ export function Playtesting({ projectId }: { projectId: number }) {
           <h2 className="text-2xl font-bold flex items-center gap-2"><Users className="h-6 w-6 text-primary" /> Playtesting</h2>
           <p className="text-muted-foreground text-sm mt-1">Log sessions and collect public feedback.</p>
         </div>
-        <Button onClick={() => setOpen(true)} className="gap-2"><Plus className="h-4 w-4" /> Log Session</Button>
+        {!showAdd && (
+          <Button onClick={() => setShowAdd(true)} className="gap-2" data-testid="add-session-button"><Plus className="h-4 w-4" /> Log Session</Button>
+        )}
       </div>
+
+      {showAdd && (
+        <Card className="bg-card border-primary/40" data-testid="session-form-panel">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">Log playtest session</CardTitle>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForm}><X className="h-4 w-4" /></Button>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={submit} className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2"><Label>Players</Label><Input type="number" min={1} value={form.playerCount} onChange={e => setForm({...form, playerCount: parseInt(e.target.value) || 0})} /></div>
+                <div className="space-y-2"><Label>Duration (min)</Label><Input type="number" min={0} value={form.durationMinutes} onChange={e => setForm({...form, durationMinutes: parseInt(e.target.value) || 0})} /></div>
+                <div className="space-y-2"><Label>Rating</Label><Input type="number" min={1} max={5} value={form.rating} onChange={e => setForm({...form, rating: parseInt(e.target.value) || 0})} /></div>
+              </div>
+              <div className="space-y-2"><Label>What worked</Label><Textarea rows={2} value={form.positives} onChange={e => setForm({...form, positives: e.target.value})} /></div>
+              <div className="space-y-2"><Label>Issues</Label><Textarea rows={2} value={form.issues} onChange={e => setForm({...form, issues: e.target.value})} /></div>
+              <div className="space-y-2"><Label>Suggestions</Label><Textarea rows={2} value={form.suggestions} onChange={e => setForm({...form, suggestions: e.target.value})} /></div>
+              <div className="space-y-2"><Label>Notes</Label><Textarea rows={2} value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} /></div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={closeForm}>Cancel</Button>
+                <Button type="submit">Save</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {shareLink?.url && (
         <Card className="bg-primary/5 border-primary/20">
@@ -83,7 +114,7 @@ export function Playtesting({ projectId }: { projectId: number }) {
           ) : !sessions?.length ? (
             <div className="text-center py-16 border border-dashed border-border rounded-xl">
               <p className="text-muted-foreground mb-4">No playtest sessions yet.</p>
-              <Button onClick={() => setOpen(true)}><Plus className="mr-2 h-4 w-4" /> Log Session</Button>
+              {!showAdd && <Button onClick={() => setShowAdd(true)}><Plus className="mr-2 h-4 w-4" /> Log Session</Button>}
             </div>
           ) : (
             <div className="space-y-3">
@@ -144,27 +175,6 @@ export function Playtesting({ projectId }: { projectId: number }) {
           )}
         </TabsContent>
       </Tabs>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Log playtest session</DialogTitle></DialogHeader>
-          <form onSubmit={submit} className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2"><Label>Players</Label><Input type="number" min={1} value={form.playerCount} onChange={e => setForm({...form, playerCount: parseInt(e.target.value) || 0})} /></div>
-              <div className="space-y-2"><Label>Duration (min)</Label><Input type="number" min={0} value={form.durationMinutes} onChange={e => setForm({...form, durationMinutes: parseInt(e.target.value) || 0})} /></div>
-              <div className="space-y-2"><Label>Rating</Label><Input type="number" min={1} max={5} value={form.rating} onChange={e => setForm({...form, rating: parseInt(e.target.value) || 0})} /></div>
-            </div>
-            <div className="space-y-2"><Label>What worked</Label><Textarea rows={2} value={form.positives} onChange={e => setForm({...form, positives: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Issues</Label><Textarea rows={2} value={form.issues} onChange={e => setForm({...form, issues: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Suggestions</Label><Textarea rows={2} value={form.suggestions} onChange={e => setForm({...form, suggestions: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Notes</Label><Textarea rows={2} value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} /></div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit">Save</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

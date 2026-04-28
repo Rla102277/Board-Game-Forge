@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, Users, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Users, Sparkles, Loader2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Player } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -39,24 +38,31 @@ export function Players({ projectId }: PlayersProps) {
     }
   };
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [editPlayerId, setEditPlayerId] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({ name: "", role: "", description: "", strategy: "" });
 
+  const isFormOpen = showAdd || editPlayerId !== null;
+  const isEditing = editPlayerId !== null;
+
+  const closeForm = () => {
+    setShowAdd(false);
+    setEditPlayerId(null);
+    setFormData({ name: "", role: "", description: "", strategy: "" });
+  };
+
   const handleCreate = async () => {
     if (!formData.name) return;
     await createPlayer.mutateAsync({ projectId, data: formData });
-    setIsCreateOpen(false);
-    setFormData({ name: "", role: "", description: "", strategy: "" });
+    closeForm();
     queryClient.invalidateQueries({ queryKey: getListPlayersQueryKey(projectId) });
   };
 
   const handleUpdate = async () => {
     if (!editPlayerId || !formData.name) return;
     await updatePlayer.mutateAsync({ projectId, playerId: editPlayerId, data: formData });
-    setEditPlayerId(null);
-    setFormData({ name: "", role: "", description: "", strategy: "" });
+    closeForm();
     queryClient.invalidateQueries({ queryKey: getListPlayersQueryKey(projectId) });
   };
 
@@ -65,7 +71,14 @@ export function Players({ projectId }: PlayersProps) {
     queryClient.invalidateQueries({ queryKey: getListPlayersQueryKey(projectId) });
   };
 
+  const openAdd = () => {
+    setEditPlayerId(null);
+    setFormData({ name: "", role: "", description: "", strategy: "" });
+    setShowAdd(true);
+  };
+
   const openEdit = (player: Player) => {
+    setShowAdd(false);
     setFormData({
       name: player.name,
       role: player.role || "",
@@ -79,24 +92,33 @@ export function Players({ projectId }: PlayersProps) {
     <div className="space-y-8 pb-8">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold">Player Profiles</h2>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setFormData({ name: "", role: "", description: "", strategy: "" })}>
-              <Plus className="h-4 w-4 mr-2" /> Add Player
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Add Player Profile</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2"><Label>Name/Persona *</Label><Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. The Aggressor" /></div>
-              <div className="space-y-2"><Label>Role</Label><Input value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} placeholder="e.g. Attacker, Support" /></div>
-              <div className="space-y-2"><Label>Description</Label><Textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div>
-              <div className="space-y-2"><Label>Typical Strategy</Label><Textarea value={formData.strategy} onChange={e => setFormData({...formData, strategy: e.target.value})} /></div>
-            </div>
-            <DialogFooter><Button onClick={handleCreate} disabled={!formData.name}>Create</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {!isFormOpen && (
+          <Button onClick={openAdd} data-testid="add-player-button">
+            <Plus className="h-4 w-4 mr-2" /> Add Player
+          </Button>
+        )}
       </div>
+
+      {isFormOpen && (
+        <Card className="bg-card border-primary/40" data-testid="player-form-panel">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">{isEditing ? "Edit Player Profile" : "Add Player Profile"}</CardTitle>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForm}><X className="h-4 w-4" /></Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2"><Label>Name/Persona *</Label><Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. The Aggressor" autoFocus /></div>
+            <div className="space-y-2"><Label>Role</Label><Input value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} placeholder="e.g. Attacker, Support" /></div>
+            <div className="space-y-2"><Label>Description</Label><Textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div>
+            <div className="space-y-2"><Label>Typical Strategy</Label><Textarea value={formData.strategy} onChange={e => setFormData({...formData, strategy: e.target.value})} /></div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={closeForm}>Cancel</Button>
+              <Button onClick={isEditing ? handleUpdate : handleCreate} disabled={!formData.name}>
+                {isEditing ? "Save Changes" : "Create"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -150,20 +172,6 @@ export function Players({ projectId }: PlayersProps) {
           ))}
         </div>
       )}
-
-      {/* Edit Dialog */}
-      <Dialog open={!!editPlayerId} onOpenChange={o => !o && setEditPlayerId(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit Player Profile</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>Name/Persona *</Label><Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Role</Label><Input value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Description</Label><Textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div>
-            <div className="space-y-2"><Label>Typical Strategy</Label><Textarea value={formData.strategy} onChange={e => setFormData({...formData, strategy: e.target.value})} /></div>
-          </div>
-          <DialogFooter><Button onClick={handleUpdate} disabled={!formData.name}>Save Changes</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
