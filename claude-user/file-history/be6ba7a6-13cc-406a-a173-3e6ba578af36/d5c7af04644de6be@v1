@@ -43,11 +43,8 @@ router.use(meRouter);
 router.use(adminRouter);
 router.use(dashboardRouter);
 
-// Workspaces join preview is public (no auth); all other /workspaces routes require auth.
-router.use("/workspaces", (req, res, next) => {
-  if (req.method === "GET" && /^\/workspaces\/join\/[^/]+$/.test(req.path)) return next();
-  return requireAuth(req, res, next);
-});
+// Workspaces routes (auth required, workspace access enforced inside handlers)
+router.use("/workspaces", requireAuth);
 router.use(workspacesRouter);
 
 // Topic-scoped Learn tutor (authenticated, no project context)

@@ -73,7 +73,7 @@ export default function WorkspaceHome() {
   const { signOut } = useClerk();
   const { toast } = useToast();
 
-  const { workspaces, error: workspacesError, reload: reloadWorkspaces } = useWorkspacesList();
+  const { workspaces, reload: reloadWorkspaces } = useWorkspacesList();
   const [detail, setDetail] = useState<WorkspaceDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(true);
   const [prompt, setPrompt] = useState("");
@@ -107,23 +107,7 @@ export default function WorkspaceHome() {
   if (!slug) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-background text-foreground">
-        {workspacesError ? (
-          <div className="text-center space-y-3">
-            <p className="text-destructive font-medium">Could not load workspaces</p>
-            <p className="text-sm text-muted-foreground">{workspacesError}</p>
-            <button
-              className="text-sm text-primary underline"
-              onClick={() => reloadWorkspaces()}
-            >
-              Try again
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading workspaces…
-          </div>
-        )}
+        <div className="text-muted-foreground">Loading workspaces…</div>
       </div>
     );
   }

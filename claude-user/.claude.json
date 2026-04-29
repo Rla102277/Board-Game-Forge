@@ -10,7 +10,8 @@
     "theme-command": 3,
     "status-line": 3,
     "prompt-queue": 3,
-    "enter-to-steer-in-relatime": 3
+    "enter-to-steer-in-relatime": 3,
+    "todo-list": 3
   },
   "cachedGrowthBookFeatures": {
     "tengu_classifier_summary_llm_emit": false,
