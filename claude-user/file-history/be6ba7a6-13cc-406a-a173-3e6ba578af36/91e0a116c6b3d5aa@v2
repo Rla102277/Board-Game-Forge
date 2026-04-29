@@ -600,7 +600,7 @@ function LearnHighlights({ slug }: { slug: string }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-5">
           <Link
-            href="/learn?tab=bible"
+            href="/learn"
             onClick={stashReturn}
             className="group rounded-xl border bg-card/60 hover:border-primary/60 hover:bg-card p-4 transition-all"
             data-testid="learn-track-bible"
@@ -618,7 +618,7 @@ function LearnHighlights({ slug }: { slug: string }) {
           </Link>
 
           <Link
-            href="/learn?tab=design101"
+            href="/learn"
             onClick={stashReturn}
             className="group rounded-xl border bg-card/60 hover:border-primary/60 hover:bg-card p-4 transition-all"
             data-testid="learn-track-design101"
@@ -646,7 +646,7 @@ function LearnHighlights({ slug }: { slug: string }) {
               return (
                 <Link
                   key={`${h.tab}-${h.topic}`}
-                  href={`/learn?tab=${h.tab}&chapter=${h.topic}`}
+                  href="/learn"
                   onClick={stashReturn}
                   className="group rounded-lg border bg-card/40 hover:border-primary/60 hover:bg-card p-3 transition-all flex flex-col gap-1"
                   data-testid={`learn-highlight-${h.topic}`}

@@ -7,7 +7,11 @@
     "terminal-setup": 1,
     "color-when-multi-clauding": 2,
     "memory-command": 3,
-    "theme-command": 3
+    "theme-command": 3,
+    "status-line": 3,
+    "prompt-queue": 3,
+    "enter-to-steer-in-relatime": 3,
+    "todo-list": 3
   },
   "cachedGrowthBookFeatures": {
     "tengu_classifier_summary_llm_emit": false,
@@ -525,5 +529,5 @@
     "claude.ai Gmail",
     "claude.ai Gamma"
   ],
-  "remoteControlUpsellSeenCount": 2
+  "remoteControlUpsellSeenCount": 3
 }

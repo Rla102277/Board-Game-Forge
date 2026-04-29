@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearch } from "wouter";
+import { Link } from "wouter";
 import { GraduationCap, BookOpen, ArrowLeft, Gamepad2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -27,12 +27,6 @@ function deriveReturnTo(): string {
 
 export default function LearnPage() {
   const [returnTo, setReturnTo] = useState<string>("/");
-  const search = useSearch();
-  const params = new URLSearchParams(search);
-  const tabParam = params.get("tab");
-  const chapterParam = params.get("chapter") ?? undefined;
-  const initialTab = tabParam === "design101" ? "design101" : "bible";
-  const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
     setReturnTo(deriveReturnTo());
@@ -62,7 +56,7 @@ export default function LearnPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs defaultValue="bible" className="space-y-6">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="bible" data-testid="tab-bible" className="gap-2">
               <BookOpen className="h-4 w-4" /> GameForge Bible
@@ -79,7 +73,7 @@ export default function LearnPage() {
                 A guided tour of every panel and AI feature. Mark chapters complete as you go — your progress is saved on this device.
               </p>
             </div>
-            <BibleContent initialChapterId={activeTab === "bible" ? chapterParam : undefined} />
+            <BibleContent />
           </TabsContent>
 
           <TabsContent value="design101" className="mt-6">
@@ -89,7 +83,7 @@ export default function LearnPage() {
                 An eight-lesson primer on designing tabletop games — from your first rule to your first crowdfund campaign.
               </p>
             </div>
-            <Design101Content initialChapterId={activeTab === "design101" ? chapterParam : undefined} />
+            <Design101Content />
           </TabsContent>
         </Tabs>
       </main>
