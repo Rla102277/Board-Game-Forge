@@ -14,6 +14,7 @@ import Admin from "@/pages/admin";
 import LearnPage from "@/pages/learn";
 import Landing from "@/pages/landing";
 import PublicFeedback from "@/pages/public-feedback";
+import JoinWorkspace from "@/pages/join-workspace";
 
 const queryClient = new QueryClient();
 
@@ -122,7 +123,7 @@ function HomeRedirect() {
 }
 
 const RESERVED_TOP_PATHS = new Set([
-  "sign-in", "sign-up", "feedback", "account", "admin", "p", "api", "_assets", "favicon.ico",
+  "sign-in", "sign-up", "feedback", "account", "admin", "p", "api", "_assets", "favicon.ico", "join",
 ]);
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -165,6 +166,7 @@ function Routes() {
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/feedback/:token" component={PublicFeedback} />
+      <Route path="/join/:code" component={JoinWorkspace} />
       <Route path="/account">
         <ProtectedRoute>
           <Account />

@@ -1,0 +1,29 @@
+import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+
+export const appUsers = pgTable("app_users", {
+  id: serial("id").primaryKey(),
+  clerkUserId: text("clerk_user_id").notNull().unique(),
+  email: text("email"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  imageUrl: text("image_url"),
+  role: text("role").default("user").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
+export const insertAppUserSchema = createInsertSchema(appUsers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type AppUser = typeof appUsers.$inferSelect;
+export type InsertAppUser = z.infer<typeof insertAppUserSchema>;

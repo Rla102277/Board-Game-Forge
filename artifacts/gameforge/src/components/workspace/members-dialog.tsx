@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trash2, UserPlus, Mail } from "lucide-react";
+import { Trash2, UserPlus, Mail, Link2, RefreshCw, Copy, Check } from "lucide-react";
 import { workspacesApi, type WorkspaceMember } from "@/lib/workspaces-api";
 
 interface Props {
@@ -21,6 +21,36 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const [joinUrl, setJoinUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (open && canManage) {
+      workspacesApi.getInviteCode(workspaceSlug)
+        .then((r) => setJoinUrl(r.joinUrl))
+        .catch(() => {/* non-fatal */});
+    }
+  }, [open, canManage, workspaceSlug]);
+
+  const copyLink = async () => {
+    if (!joinUrl) return;
+    await navigator.clipboard.writeText(joinUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const refreshLink = async () => {
+    setBusy(true);
+    try {
+      const r = await workspacesApi.refreshInviteCode(workspaceSlug);
+      setJoinUrl(r.joinUrl);
+      toast({ title: "Invite link refreshed", description: "The old link is now invalid." });
+    } catch (err) {
+      toast({ title: "Failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const invite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,20 +89,44 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
         </DialogHeader>
         <div className="space-y-4">
           {canManage && (
-            <form onSubmit={invite} className="flex items-end gap-2">
-              <div className="flex-1 space-y-1.5">
-                <Label htmlFor="invite-email">Invite by email</Label>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  placeholder="teammate@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={busy}
-                />
+            <div className="space-y-3">
+              <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Link2 className="h-4 w-4 text-primary" /> Invite link
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Anyone with this link can join this workspace as a member.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={joinUrl ?? "Generating…"}
+                    className="text-xs font-mono bg-background"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <Button size="icon" variant="outline" onClick={copyLink} disabled={!joinUrl} title="Copy link">
+                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                  <Button size="icon" variant="outline" onClick={refreshLink} disabled={busy} title="Reset link">
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <Button type="submit" disabled={busy || !email.trim()}>Invite</Button>
-            </form>
+              <form onSubmit={invite} className="flex items-end gap-2">
+                <div className="flex-1 space-y-1.5">
+                  <Label htmlFor="invite-email">Or invite by email</Label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    placeholder="teammate@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={busy}
+                  />
+                </div>
+                <Button type="submit" disabled={busy || !email.trim()}>Invite</Button>
+              </form>
+            </div>
           )}
           <div className="border rounded-md divide-y">
             {members.length === 0 && (

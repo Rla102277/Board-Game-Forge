@@ -95,6 +95,14 @@ export const workspacesApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  getInviteCode: (slug: string) =>
+    request<{ inviteCode: string; joinUrl: string }>(`/workspaces/${slug}/invite-code`),
+  refreshInviteCode: (slug: string) =>
+    request<{ inviteCode: string; joinUrl: string }>(`/workspaces/${slug}/invite-code/refresh`, { method: "POST" }),
+  previewJoin: (code: string) =>
+    request<{ id: number; name: string; slug: string; memberCount: number }>(`/workspaces/join/${code}`),
+  joinByCode: (code: string) =>
+    request<{ slug: string; name: string }>(`/workspaces/join/${code}`, { method: "POST" }),
   listAiSettings: (slug: string) =>
     request<WorkspaceProviderSetting[]>(`/workspaces/${slug}/ai-settings`),
   updateAiSetting: (

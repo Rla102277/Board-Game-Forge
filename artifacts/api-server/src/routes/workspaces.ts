@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { and, asc, desc, eq, or } from "drizzle-orm";
+import crypto from "node:crypto";
+import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
 import {
   db,
   workspaces,
@@ -72,6 +73,40 @@ async function loadWorkspace(
 }
 
 // GET /workspaces — list user's workspaces (ensures Personal exists)
+function generateInviteCode(): string {
+  return crypto.randomBytes(12).toString("hex");
+}
+
+// GET /workspaces/join/:code — preview a workspace by invite code (no auth required)
+router.get("/workspaces/join/:code", async (req, res): Promise<void> => {
+  const code = String(req.params.code ?? "").trim();
+  if (!code) { res.status(400).json({ error: "Missing code" }); return; }
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.inviteCode, code));
+  if (!ws) { res.status(404).json({ error: "Invalid or expired invite link" }); return; }
+  const [{ memberCount }] = await db
+    .select({ memberCount: sql<number>`count(*)::int` })
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.status, "active")));
+  res.json({ id: ws.id, name: ws.name, slug: ws.slug, memberCount });
+});
+
+// POST /workspaces/join/:code — join workspace via invite code (requires auth)
+router.post("/workspaces/join/:code", async (req, res): Promise<void> => {
+  if (!req.appUserId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const code = String(req.params.code ?? "").trim();
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.inviteCode, code));
+  if (!ws) { res.status(404).json({ error: "Invalid or expired invite link" }); return; }
+  await db
+    .insert(workspaceMembers)
+    .values({ workspaceId: ws.id, userId: req.appUserId, role: "member", status: "active", joinedAt: new Date() })
+    .onConflictDoUpdate({
+      target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+      set: { status: "active", joinedAt: new Date() },
+    });
+  res.json({ slug: ws.slug, name: ws.name });
+});
+
+// GET /workspaces — list user's workspaces (ensures Personal exists)
 router.get("/workspaces", async (req, res): Promise<void> => {
   if (!req.appUserId) {
     res.status(401).json({ error: "Unauthorized" });
@@ -136,7 +171,7 @@ router.get("/workspaces/:workspaceSlug", loadWorkspace, async (req, res): Promis
   const projs = await db
     .select()
     .from(projects)
-    .where(eq(projects.workspaceId, ws.id))
+    .where(and(eq(projects.workspaceId, ws.id), isNull(projects.deletedAt)))
     .orderBy(desc(projects.updatedAt));
   const memberRows = await db
     .select({
@@ -171,6 +206,48 @@ router.get("/workspaces/:workspaceSlug", loadWorkspace, async (req, res): Promis
     members,
   });
 });
+
+// GET /workspaces/:slug/invite-code — get (or lazily create) invite code
+router.get(
+  "/workspaces/:workspaceSlug/invite-code",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    let ws = req.workspace!;
+    if (!ws.inviteCode) {
+      const [updated] = await db
+        .update(workspaces)
+        .set({ inviteCode: generateInviteCode() })
+        .where(eq(workspaces.id, ws.id))
+        .returning();
+      ws = updated;
+    }
+    const origin = `${req.protocol}://${req.get("host")}`;
+    res.json({ inviteCode: ws.inviteCode, joinUrl: `${origin}/join/${ws.inviteCode}` });
+  },
+);
+
+// POST /workspaces/:slug/invite-code/refresh — regenerate invite code (invalidates old link)
+router.post(
+  "/workspaces/:workspaceSlug/invite-code/refresh",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const [updated] = await db
+      .update(workspaces)
+      .set({ inviteCode: generateInviteCode() })
+      .where(eq(workspaces.id, req.workspace!.id))
+      .returning();
+    const origin = `${req.protocol}://${req.get("host")}`;
+    res.json({ inviteCode: updated.inviteCode, joinUrl: `${origin}/join/${updated.inviteCode}` });
+  },
+);
 
 // PATCH /workspaces/:slug — rename
 router.patch("/workspaces/:workspaceSlug", loadWorkspace, async (req, res): Promise<void> => {
@@ -346,6 +423,10 @@ router.post(
   "/workspaces/:workspaceSlug/projects",
   loadWorkspace,
   async (req, res): Promise<void> => {
+    if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
     const name = String(req.body?.name ?? "").trim();
     if (!name) {
       res.status(400).json({ error: "Name required" });
@@ -381,7 +462,7 @@ router.get(
       res.status(404).json({ error: "Project not found" });
       return;
     }
-    const [proj] = await db.select().from(projects).where(eq(projects.id, found.id));
+    const [proj] = await db.select().from(projects).where(and(eq(projects.id, found.id), isNull(projects.deletedAt)));
     res.json(proj);
   },
 );
@@ -400,6 +481,113 @@ const TEMPLATE_HINTS: Record<string, string> = {
   dexterity: "dexterity / physical-action game where skill with the components matters",
 };
 
+type GeneratedGame = {
+  name?: string;
+  description?: string;
+  gameType?: string;
+  genre?: string;
+  playerCount?: string;
+  targetDuration?: string;
+  complexityScore?: number;
+  blueprint?: string;
+  entities?: Array<{ name?: string; type?: string; description?: string }>;
+  rules?: Array<{ title?: string; category?: string; content?: string }>;
+  players?: Array<{ name?: string; role?: string; description?: string }>;
+  notes?: Array<{ title?: string; content?: string }>;
+};
+
+function buildGeneratePrompt(prompt: string, templateHint: string | null): string {
+  return [
+    "Design a complete, playable, original tabletop board game prototype.",
+    templateHint ? `It should be a ${templateHint}.` : "",
+    prompt ? `User direction: ${prompt}` : "",
+    "",
+    "Output ONLY a valid JSON object with this exact shape (no markdown, no commentary):",
+    `{
+  "name": "string — short and memorable (max 30 chars)",
+  "description": "string — 2-3 sentence elevator pitch",
+  "gameType": "Strategy|Party|Cooperative|Deck-builder|...",
+  "genre": "Fantasy|Sci-fi|Modern|Historical|Abstract|...",
+  "playerCount": "e.g. 2-4",
+  "targetDuration": "e.g. 30-45 minutes",
+  "complexityScore": 1-10,
+  "blueprint": "string — 3-5 short paragraphs covering core loop, win condition, turn structure, balance",
+  "entities": [{ "name": "string", "type": "card|token|board|piece|resource|other", "description": "string (1-2 sentences)" }],
+  "rules": [{ "title": "string", "category": "Setup|Turn|Action|Scoring|Endgame", "content": "string — 1-3 sentences, clear and actionable" }],
+  "players": [{ "name": "string — role/archetype name", "role": "string", "description": "string (1-2 sentences)" }],
+  "notes": [{ "title": "string", "content": "string — short designer note" }]
+}`,
+    "",
+    "Aim for: ~5-7 entities, ~5-7 rules, ~3-4 player roles (only if relevant), ~2 notes.",
+    "Keep every string concise. Total response must fit comfortably in the JSON. All text must be production-quality and immediately usable.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function checkGeneratedViability(parsed: GeneratedGame): string | null {
+  const ruleCount = Array.isArray(parsed.rules) ? parsed.rules.length : 0;
+  const entityCount = Array.isArray(parsed.entities) ? parsed.entities.length : 0;
+  const hasBlueprint = !!(parsed.blueprint && String(parsed.blueprint).trim().length > 50);
+  if (!hasBlueprint && ruleCount === 0 && entityCount === 0) {
+    return "The AI generated an empty project. Please try again — using a template tile usually gives more reliable results.";
+  }
+  return null;
+}
+
+function deriveProjectName(prompt: string, rawTemplate: string, parsed: GeneratedGame): string {
+  const seed = (prompt || rawTemplate || "Untitled Game").trim();
+  const fallback = seed.replace(/\s+/g, " ").slice(0, 30);
+  const fallbackName = fallback.charAt(0).toUpperCase() + fallback.slice(1);
+  return String(parsed.name ?? fallbackName).slice(0, 100) || "Untitled Game";
+}
+
+async function insertGeneratedComponents(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  projectId: number,
+  parsed: GeneratedGame,
+): Promise<void> {
+  if (Array.isArray(parsed.entities) && parsed.entities.length) {
+    await tx.insert(entities).values(
+      parsed.entities.slice(0, 20).map((e) => ({
+        projectId,
+        name: String(e.name ?? "Entity").slice(0, 80),
+        type: String(e.type ?? "other").slice(0, 40),
+        description: e.description ? String(e.description) : null,
+      })),
+    );
+  }
+  if (Array.isArray(parsed.rules) && parsed.rules.length) {
+    await tx.insert(rules).values(
+      parsed.rules.slice(0, 20).map((r) => ({
+        projectId,
+        title: String(r.title ?? "Rule").slice(0, 100),
+        category: r.category ? String(r.category).slice(0, 40) : null,
+        content: String(r.content ?? ""),
+      })),
+    );
+  }
+  if (Array.isArray(parsed.players) && parsed.players.length) {
+    await tx.insert(players).values(
+      parsed.players.slice(0, 12).map((p) => ({
+        projectId,
+        name: String(p.name ?? "Role").slice(0, 80),
+        role: p.role ? String(p.role).slice(0, 80) : null,
+        description: p.description ? String(p.description) : null,
+      })),
+    );
+  }
+  if (Array.isArray(parsed.notes) && parsed.notes.length) {
+    await tx.insert(notes).values(
+      parsed.notes.slice(0, 8).map((n) => ({
+        projectId,
+        title: n.title ? String(n.title).slice(0, 100) : "Designer note",
+        content: n.content ? String(n.content) : null,
+      })),
+    );
+  }
+}
+
 router.post(
   "/workspaces/:workspaceSlug/generate",
   loadWorkspace,
@@ -414,37 +602,11 @@ router.post(
       res.status(400).json({ error: "Prompt or template required" });
       return;
     }
-    const fullPrompt = [
-      "Design a complete, playable, original tabletop board game prototype.",
-      templateHint ? `It should be a ${templateHint}.` : "",
-      prompt ? `User direction: ${prompt}` : "",
-      "",
-      "Output ONLY a valid JSON object with this exact shape (no markdown, no commentary):",
-      `{
-  "name": "string — short and memorable (max 30 chars)",
-  "description": "string — 2-3 sentence elevator pitch",
-  "gameType": "Strategy|Party|Cooperative|Deck-builder|...",
-  "genre": "Fantasy|Sci-fi|Modern|Historical|Abstract|...",
-  "playerCount": "e.g. 2-4",
-  "targetDuration": "e.g. 30-45 minutes",
-  "complexityScore": 1-10,
-  "blueprint": "string — 3-5 short paragraphs covering core loop, win condition, turn structure, balance",
-  "entities": [{ "name": "string", "type": "card|token|board|piece|resource|other", "description": "string (1-2 sentences)" }],
-  "rules": [{ "title": "string", "category": "Setup|Turn|Action|Scoring|Endgame", "content": "string — 1-3 sentences, clear and actionable" }],
-  "players": [{ "name": "string — role/archetype name", "role": "string", "description": "string (1-2 sentences)" }],
-  "notes": [{ "title": "string", "content": "string — short designer note" }]
-}`,
-      "",
-      "Aim for: ~5-7 entities, ~5-7 rules, ~3-4 player roles (only if relevant), ~2 notes.",
-      "Keep every string concise. Total response must fit comfortably in the JSON. All text must be production-quality and immediately usable.",
-    ]
-      .filter(Boolean)
-      .join("\n");
 
     let raw: string;
     try {
       raw = await complete(req, {
-        prompt: fullPrompt,
+        prompt: buildGeneratePrompt(prompt, templateHint),
         system:
           "You are a world-class senior tabletop game designer. You only output the requested JSON, never any prose, markdown, or commentary. Be concise so the JSON always closes cleanly.",
         maxTokens: 8000,
@@ -457,59 +619,30 @@ router.post(
       return;
     }
 
-    const parsed = tryParseJsonObject<{
-      name?: string;
-      description?: string;
-      gameType?: string;
-      genre?: string;
-      playerCount?: string;
-      targetDuration?: string;
-      complexityScore?: number;
-      blueprint?: string;
-      entities?: Array<{ name?: string; type?: string; description?: string }>;
-      rules?: Array<{ title?: string; category?: string; content?: string }>;
-      players?: Array<{ name?: string; role?: string; description?: string }>;
-      notes?: Array<{ title?: string; content?: string }>;
-    }>(raw);
+    const parsed = tryParseJsonObject<GeneratedGame>(raw);
     if (!parsed) {
       req.log.warn({ rawPreview: raw.slice(0, 500) }, "workspace generate: AI output unparseable");
       res.status(502).json({
-        error:
-          "The AI returned an unreadable response. This is usually transient — please try again, or simplify your prompt.",
+        error: "The AI returned an unreadable response. This is usually transient — please try again, or simplify your prompt.",
       });
       return;
     }
 
-    // Minimum-viability check: at least one of blueprint/rules/entities must be present,
-    // otherwise the generated project is too empty to be useful.
-    const ruleCount = Array.isArray(parsed.rules) ? parsed.rules.length : 0;
-    const entityCount = Array.isArray(parsed.entities) ? parsed.entities.length : 0;
-    const hasBlueprint = !!(parsed.blueprint && String(parsed.blueprint).trim().length > 50);
-    if (!hasBlueprint && ruleCount === 0 && entityCount === 0) {
+    const viabilityError = checkGeneratedViability(parsed);
+    if (viabilityError) {
       req.log.warn(
-        { rawPreview: raw.slice(0, 500), ruleCount, entityCount, hasBlueprint },
+        { rawPreview: raw.slice(0, 500) },
         "workspace generate: AI output too sparse",
       );
-      res.status(502).json({
-        error:
-          "The AI generated an empty project. Please try again — using a template tile usually gives more reliable results.",
-      });
+      res.status(502).json({ error: viabilityError });
       return;
     }
 
-    // Be forgiving: if the AI omitted a name but gave us other content, synthesize one
-    // from the user prompt / template so we still create a usable project.
-    const fallbackName = (() => {
-      const seed = (prompt || rawTemplate || "Untitled Game").trim();
-      const cleaned = seed.replace(/\s+/g, " ").slice(0, 30);
-      return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-    })();
-    const name = String(parsed.name ?? fallbackName).slice(0, 100) || "Untitled Game";
+    const name = deriveProjectName(prompt, rawTemplate, parsed);
 
     let project: typeof projects.$inferSelect | undefined;
     try {
       project = await db.transaction(async (tx) => {
-        // Slug allocation inside the txn — retry once on collision.
         let attempt = 0;
         let inserted: typeof projects.$inferSelect | undefined;
         while (attempt < 5 && !inserted) {
@@ -538,50 +671,10 @@ router.post(
             inserted = rows[0];
           } catch (err) {
             if (!isUniqueViolation(err)) throw err;
-            // raced — loop with a fresh slug
           }
         }
         if (!inserted) throw new Error("Could not allocate project slug");
-
-        if (Array.isArray(parsed.entities) && parsed.entities.length) {
-          await tx.insert(entities).values(
-            parsed.entities.slice(0, 20).map((e) => ({
-              projectId: inserted!.id,
-              name: String(e.name ?? "Entity").slice(0, 80),
-              type: String(e.type ?? "other").slice(0, 40),
-              description: e.description ? String(e.description) : null,
-            })),
-          );
-        }
-        if (Array.isArray(parsed.rules) && parsed.rules.length) {
-          await tx.insert(rules).values(
-            parsed.rules.slice(0, 20).map((r) => ({
-              projectId: inserted!.id,
-              title: String(r.title ?? "Rule").slice(0, 100),
-              category: r.category ? String(r.category).slice(0, 40) : null,
-              content: String(r.content ?? ""),
-            })),
-          );
-        }
-        if (Array.isArray(parsed.players) && parsed.players.length) {
-          await tx.insert(players).values(
-            parsed.players.slice(0, 12).map((p) => ({
-              projectId: inserted!.id,
-              name: String(p.name ?? "Role").slice(0, 80),
-              role: p.role ? String(p.role).slice(0, 80) : null,
-              description: p.description ? String(p.description) : null,
-            })),
-          );
-        }
-        if (Array.isArray(parsed.notes) && parsed.notes.length) {
-          await tx.insert(notes).values(
-            parsed.notes.slice(0, 8).map((n) => ({
-              projectId: inserted!.id,
-              title: n.title ? String(n.title).slice(0, 100) : "Designer note",
-              content: n.content ? String(n.content) : null,
-            })),
-          );
-        }
+        await insertGeneratedComponents(tx, inserted.id, parsed);
         return inserted;
       });
     } catch (e) {

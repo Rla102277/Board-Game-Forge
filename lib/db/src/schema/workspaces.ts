@@ -19,6 +19,7 @@ export const workspaces = pgTable(
       .defaultNow()
       .notNull()
       .$onUpdate(() => new Date()),
+    inviteCode: text("invite_code").unique(),
   },
   (t) => ({
     slugUnique: uniqueIndex("workspaces_slug_unique").on(t.slug),
