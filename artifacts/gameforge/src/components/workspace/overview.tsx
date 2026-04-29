@@ -11,9 +11,11 @@ import { AiEditTextarea } from "@/components/workspace/ai-edit-textarea";
 import { ProjectVersions } from "@/components/workspace/project-versions";
 import {
   LayoutDashboard, Activity, Users, FileText, CheckSquare, MessageSquare,
-  Zap, Sparkles, Settings, MessageCircle,
+  Zap, Sparkles, Settings, MessageCircle, ChevronRight,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { GAME_TEMPLATES, type GameTemplate } from "@/lib/game-templates";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface OverviewProps {
   projectId: number;
@@ -44,6 +46,25 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
   const [formData, setFormData] = useState({
     name: "", description: "", gameType: "", genre: "", playerCount: "", targetDuration: "",
   });
+  const [selectedTemplate, setSelectedTemplate] = useState<GameTemplate | null>(null);
+
+  const handleApplyTemplate = (template: GameTemplate) => {
+    setFormData({
+      ...formData,
+      gameType: template.gameType,
+      genre: template.genre,
+      playerCount: template.playerCount,
+      targetDuration: template.targetDuration,
+      description: formData.description || template.description,
+    });
+    setSelectedTemplate(template);
+    // Auto-save will trigger via debounce
+  };
+
+  const handleSuggestFromTemplate = (template: GameTemplate) => {
+    const prompt = `Based on the ${template.name} template, suggest entities, rules, and players for my game "${formData.name || project?.name}". Include: ${template.suggestedEntities.map(e => e.name).join(', ')}.`;
+    onPromptSend(prompt);
+  };
 
   const debouncedName = useDebounce(formData.name, 1000);
   const debouncedDesc = useDebounce(formData.description, 1000);
@@ -114,6 +135,74 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
 
   return (
     <div className="space-y-8 pb-8">
+      {/* Game Templates */}
+      <Card className="bg-card border-border border-purple-500/20">
+        <CardHeader className="border-b border-border py-4 px-5 flex-row items-center gap-2">
+          <Sparkles className="w-4 h-4 text-purple-400" />
+          <div className="flex-1">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              Game Design Templates
+              <span className="text-[10px] font-medium bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded">AI-POWERED</span>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Start with a proven game framework and customize it for your vision.</p>
+          </div>
+        </CardHeader>
+        <CardContent className="px-5 py-4">
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Select onValueChange={(value) => {
+                const template = GAME_TEMPLATES.find(t => t.id === value);
+                if (template) handleApplyTemplate(template);
+              }}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select a template to apply..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {GAME_TEMPLATES.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{template.name}</span>
+                        <span className="text-xs text-muted-foreground">({template.playerCount})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {selectedTemplate && (
+              <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-purple-300">{selectedTemplate.name}</h4>
+                    <p className="text-xs text-muted-foreground">{selectedTemplate.description}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs border-purple-500/30 hover:bg-purple-500/10"
+                    onClick={() => handleSuggestFromTemplate(selectedTemplate)}
+                  >
+                    <Zap className="h-3 w-3 mr-1" />
+                    AI Generate
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {selectedTemplate.suggestedEntities.slice(0, 3).map((entity, i) => (
+                    <span key={i} className="text-[10px] bg-purple-500/10 border border-purple-500/20 text-purple-300 px-2 py-0.5 rounded">
+                      {entity.name}
+                    </span>
+                  ))}
+                  {selectedTemplate.suggestedEntities.length > 3 && (
+                    <span className="text-[10px] text-muted-foreground">+{selectedTemplate.suggestedEntities.length - 3} more</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* AI Design Advisor — Quick Questions */}
       <Card className="bg-card border-border border-blue-500/20">
         <CardHeader className="border-b border-border py-4 px-5 flex-row items-center gap-2">

@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Share2, Mail, Copy, Check, X, Shield, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useGetProject } from "@workspace/api-client-react";
+import { workspacesApi, type WorkspaceMember } from "@/lib/workspaces-api";
 
 interface ShareDialogProps {
   open: boolean;
@@ -35,25 +37,55 @@ export function ShareDialog({ open, onOpenChange, projectId, projectName }: Shar
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"member" | "admin">("member");
   const [inviting, setInviting] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [workspaceSlug, setWorkspaceSlug] = useState<string | null>(null);
   const { toast } = useToast();
+  const { data: project } = useGetProject(projectId);
 
   useEffect(() => {
     if (open) {
-      loadMembers();
+      loadWorkspaceAndMembers();
     }
-  }, [open]);
+  }, [open, project]);
 
-  const loadMembers = async () => {
+  const loadWorkspaceAndMembers = async () => {
     try {
       setLoading(true);
-      // TODO: Get workspace ID from project and load members
-      // For now, empty list
-      setMembers([]);
+      // Get all workspaces to find the one containing this project
+      const workspaces = await workspacesApi.list();
+      
+      // Check each workspace's projects to find which one contains our project
+      let foundWorkspaceSlug: string | null = null;
+      let foundMembers: WorkspaceMember[] = [];
+      
+      for (const workspace of workspaces) {
+        try {
+          const detail = await workspacesApi.detail(workspace.slug);
+          const projectInWorkspace = detail.projects.find(p => p.id === projectId);
+          if (projectInWorkspace) {
+            foundWorkspaceSlug = workspace.slug;
+            foundMembers = detail.members;
+            break;
+          }
+        } catch (e) {
+          // Skip workspaces we can't access
+          continue;
+        }
+      }
+      
+      if (!foundWorkspaceSlug) {
+        console.error("Workspace not found for project");
+        setMembers([]);
+        return;
+      }
+
+      setWorkspaceSlug(foundWorkspaceSlug);
+      setMembers(foundMembers);
     } catch (err) {
       console.error("Failed to load members:", err);
+      setMembers([]);
     } finally {
       setLoading(false);
     }
@@ -61,17 +93,17 @@ export function ShareDialog({ open, onOpenChange, projectId, projectName }: Shar
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!email.trim() || !workspaceSlug) return;
 
     try {
       setInviting(true);
-      // TODO: Call invite API
+      await workspacesApi.invite(workspaceSlug, email.trim(), role);
       toast({
         title: "Invitation sent",
         description: `Invitation sent to ${email}`,
       });
       setEmail("");
-      await loadMembers();
+      await loadWorkspaceAndMembers();
     } catch (err) {
       toast({
         title: "Failed to invite",
@@ -84,13 +116,15 @@ export function ShareDialog({ open, onOpenChange, projectId, projectName }: Shar
   };
 
   const handleRemove = async (memberId: number) => {
+    if (!workspaceSlug) return;
+
     try {
-      // TODO: Call remove API
+      await workspacesApi.removeMember(workspaceSlug, memberId);
       toast({
         title: "Member removed",
         description: "Member has been removed from the workspace",
       });
-      await loadMembers();
+      await loadWorkspaceAndMembers();
     } catch (err) {
       toast({
         title: "Failed to remove",

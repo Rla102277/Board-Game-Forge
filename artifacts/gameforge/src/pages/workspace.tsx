@@ -1,5 +1,5 @@
 import { useParams, Link } from "wouter";
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { useGetProject, useGetProjectStats, useDeleteProject, getListProjectsQueryKey } from "@workspace/api-client-react";
 import { useUser, useClerk } from "@clerk/react";
 import {
@@ -13,46 +13,49 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useQueryClient } from "@tanstack/react-query";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
-import { Overview } from "@/components/workspace/overview";
-import { Research } from "@/components/workspace/research";
-import { Ontology } from "@/components/workspace/ontology";
-import { Entities } from "@/components/workspace/entities";
-import { Players } from "@/components/workspace/players";
-import { Rules } from "@/components/workspace/rules";
-import { Simulator } from "@/components/workspace/simulator";
-import { Assets } from "@/components/workspace/assets";
-import { Playtesting } from "@/components/workspace/playtesting";
-import { Notes } from "@/components/workspace/notes";
-import { Tasks } from "@/components/workspace/tasks";
-import { Balance } from "@/components/workspace/balance";
-import { Storyboard } from "@/components/workspace/storyboard";
-import { Exports } from "@/components/workspace/exports";
-import { ChatPanel } from "@/components/workspace/chat-panel";
-import { CollaborationPresence } from "@/components/collaboration/cursor-indicators";
-import { ActivityFeed } from "@/components/collaboration/activity-feed";
-import { CommentsPanel } from "@/components/collaboration/comments-panel";
-import { VersionHistory } from "@/components/collaboration/version-history";
-import { ShareDialog } from "@/components/collaboration/share-dialog";
+// Lazy load workspace components for code splitting
+const Overview = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.Overview })));
+const Research = lazy(() => import("@/components/workspace/research").then(m => ({ default: m.Research })));
+const Ontology = lazy(() => import("@/components/workspace/ontology").then(m => ({ default: m.Ontology })));
+const Entities = lazy(() => import("@/components/workspace/entities").then(m => ({ default: m.Entities })));
+const Players = lazy(() => import("@/components/workspace/players").then(m => ({ default: m.Players })));
+const Rules = lazy(() => import("@/components/workspace/rules").then(m => ({ default: m.Rules })));
+const Simulator = lazy(() => import("@/components/workspace/simulator").then(m => ({ default: m.Simulator })));
+const Assets = lazy(() => import("@/components/workspace/assets").then(m => ({ default: m.Assets })));
+const Playtesting = lazy(() => import("@/components/workspace/playtesting").then(m => ({ default: m.Playtesting })));
+const Notes = lazy(() => import("@/components/workspace/notes").then(m => ({ default: m.Notes })));
+const Tasks = lazy(() => import("@/components/workspace/tasks").then(m => ({ default: m.Tasks })));
+const Balance = lazy(() => import("@/components/workspace/balance").then(m => ({ default: m.Balance })));
+const Storyboard = lazy(() => import("@/components/workspace/storyboard").then(m => ({ default: m.Storyboard })));
+const Exports = lazy(() => import("@/components/workspace/exports").then(m => ({ default: m.Exports })));
+const ChatPanel = lazy(() => import("@/components/workspace/chat-panel").then(m => ({ default: m.ChatPanel })));
+const CollaborationPresence = lazy(() => import("@/components/collaboration/cursor-indicators").then(m => ({ default: m.CollaborationPresence })));
+const ActivityFeed = lazy(() => import("@/components/collaboration/activity-feed").then(m => ({ default: m.ActivityFeed })));
+const CommentsPanel = lazy(() => import("@/components/collaboration/comments-panel").then(m => ({ default: m.CommentsPanel })));
+const VersionHistory = lazy(() => import("@/components/collaboration/version-history").then(m => ({ default: m.VersionHistory })));
+const ShareDialog = lazy(() => import("@/components/collaboration/share-dialog").then(m => ({ default: m.ShareDialog })));
 
 const SECTIONS = [
-  { id: "overview", label: "Overview", icon: Layout, statKey: null },
-  { id: "research", label: "Research", icon: BookOpen, statKey: "researchCount" },
-  { id: "ontology", label: "Ontology", icon: Network, statKey: "entityCount" },
-  { id: "entities", label: "Entities", icon: Layout, statKey: "entityCount" },
-  { id: "players", label: "Players", icon: Users, statKey: "playerCount" },
-  { id: "rules", label: "Rules Sandbox", icon: Activity, statKey: "ruleCount" },
-  { id: "simulator", label: "Simulator", icon: Dice5, statKey: null },
-  { id: "assets", label: "Assets", icon: ImageIcon, statKey: "assetCount" },
-  { id: "playtesting", label: "Playtesting", icon: Users, statKey: "playtestCount" },
-  { id: "notes", label: "Notes", icon: FileText, statKey: "noteCount" },
-  { id: "tasks", label: "Tasks", icon: CheckSquare, statKey: "taskCount" },
-  { id: "storyboard", label: "Storyboard", icon: MapPin, statKey: null },
-  { id: "balance", label: "Balance", icon: Scale, statKey: null },
-  { id: "export", label: "Export", icon: Download, statKey: null },
-  { id: "comments", label: "Comments", icon: MessageSquare, statKey: null },
-  { id: "activity", label: "Activity", icon: History, statKey: null },
-  { id: "versions", label: "Versions", icon: History, statKey: null },
+  { id: "overview", label: "Overview", icon: Layout, statKey: null, shortcut: "1" },
+  { id: "research", label: "Research", icon: BookOpen, statKey: "researchCount", shortcut: "2" },
+  { id: "ontology", label: "Ontology", icon: Network, statKey: "entityCount", shortcut: "3" },
+  { id: "entities", label: "Entities", icon: Layout, statKey: "entityCount", shortcut: "4" },
+  { id: "players", label: "Players", icon: Users, statKey: "playerCount", shortcut: "5" },
+  { id: "rules", label: "Rules Sandbox", icon: Activity, statKey: "ruleCount", shortcut: "6" },
+  { id: "simulator", label: "Simulator", icon: Dice5, statKey: null, shortcut: "7" },
+  { id: "assets", label: "Assets", icon: ImageIcon, statKey: "assetCount", shortcut: "8" },
+  { id: "playtesting", label: "Playtesting", icon: Users, statKey: "playtestCount", shortcut: "9" },
+  { id: "notes", label: "Notes", icon: FileText, statKey: "noteCount", shortcut: null },
+  { id: "tasks", label: "Tasks", icon: CheckSquare, statKey: "taskCount", shortcut: null },
+  { id: "storyboard", label: "Storyboard", icon: MapPin, statKey: null, shortcut: null },
+  { id: "balance", label: "Balance", icon: Scale, statKey: null, shortcut: null },
+  { id: "export", label: "Export", icon: Download, statKey: null, shortcut: null },
+  { id: "comments", label: "Comments", icon: MessageSquare, statKey: null, shortcut: null },
+  { id: "activity", label: "Activity", icon: History, statKey: null, shortcut: null },
+  { id: "versions", label: "Versions", icon: History, statKey: null, shortcut: null },
 ] as const;
 
 export default function Workspace({ projectId: projectIdProp }: { projectId?: number } = {}) {
@@ -72,6 +75,32 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
   const [chatPrompt, setChatPrompt] = useState<string | undefined>();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    quickActions: () => setChatPrompt(""),
+    search: () => {
+      // Focus on search if available, or show search UI
+      const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement;
+      if (searchInput) searchInput.focus();
+    },
+    escape: () => {
+      setIsDeleteDialogOpen(false);
+      setIsShareDialogOpen(false);
+    },
+    nav1: () => setActiveSection("overview"),
+    nav2: () => setActiveSection("research"),
+    nav3: () => setActiveSection("ontology"),
+    nav4: () => setActiveSection("entities"),
+    nav5: () => setActiveSection("players"),
+    nav6: () => setActiveSection("rules"),
+    nav7: () => setActiveSection("simulator"),
+    nav8: () => setActiveSection("assets"),
+    nav9: () => setActiveSection("playtesting"),
+    quickCreateEntity: () => setActiveSection("entities"),
+    quickCreateRule: () => setActiveSection("rules"),
+    quickCreateTask: () => setActiveSection("tasks"),
+  });
 
   if (projectLoading) {
     return <div className="h-screen w-full flex items-center justify-center bg-background text-foreground"><Skeleton className="h-32 w-64" /></div>;
@@ -93,24 +122,132 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
   };
 
   const renderSection = () => {
+    const loadingFallback = (
+      <div className="flex items-center justify-center h-full">
+        <Skeleton className="h-32 w-64" />
+      </div>
+    );
+
     switch (activeSection) {
-      case "overview": return <Overview projectId={projectId} onPromptSend={setChatPrompt} />;
-      case "research": return <Research projectId={projectId} />;
-      case "ontology": return <Ontology projectId={projectId} onJump={setActiveSection} />;
-      case "entities": return <Entities projectId={projectId} />;
-      case "players": return <Players projectId={projectId} />;
-      case "rules": return <Rules projectId={projectId} />;
-      case "simulator": return <Simulator projectId={projectId} />;
-      case "assets": return <Assets projectId={projectId} />;
-      case "playtesting": return <Playtesting projectId={projectId} />;
-      case "notes": return <Notes projectId={projectId} />;
-      case "tasks": return <Tasks projectId={projectId} />;
-      case "storyboard": return <Storyboard projectId={projectId} />;
-      case "balance": return <Balance projectId={projectId} />;
-      case "export": return <Exports projectId={projectId} />;
-      case "comments": return <CommentsPanel projectId={projectId} />;
-      case "activity": return <ActivityFeed projectId={projectId} />;
-      case "versions": return <VersionHistory projectId={projectId} />;
+      case "overview": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Overview projectId={projectId} onPromptSend={setChatPrompt} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "research": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Research projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "ontology": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Ontology projectId={projectId} onJump={setActiveSection} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "entities": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Entities projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "players": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Players projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "rules": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Rules projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "simulator": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Simulator projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "assets": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Assets projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "playtesting": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Playtesting projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "notes": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Notes projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "tasks": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Tasks projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "storyboard": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Storyboard projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "balance": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Balance projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "export": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Exports projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "comments": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <CommentsPanel projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "activity": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <ActivityFeed projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "versions": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <VersionHistory projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
       default: return null;
     }
   };
@@ -183,38 +320,58 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {project.gameType && <span className="text-[10px] uppercase font-bold tracking-wider bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30">{project.gameType}</span>}
-            {project.genre && <span className="text-[10px] uppercase font-bold tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border">{project.genre}</span>}
+          <div className="flex gap-1.5 flex-wrap text-xs text-muted-foreground">
+            {project.gameType && <span className="px-2 py-0.5 bg-sidebar-accent rounded-full">{project.gameType}</span>}
+            {project.genre && <span className="px-2 py-0.5 bg-sidebar-accent rounded-full">{project.genre}</span>}
+            {project.playerCount && <span className="px-2 py-0.5 bg-sidebar-accent rounded-full">{project.playerCount}</span>}
           </div>
           <div className="mt-3 pt-3 border-t">
             <CollaborationPresence projectId={projectId} />
           </div>
         </div>
 
-        <div className="flex-1 py-3 overflow-y-auto px-3 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {SECTIONS.map((section) => {
             const Icon = section.icon;
-            const count = getSectionCount(section.statKey);
-            const isActive = activeSection === section.id;
+            const statValue = section.statKey && stats ? (stats as any)[section.statKey] : null;
             return (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between transition-all ${isActive ? 'bg-primary/10 text-primary font-medium border border-primary/20' : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground border border-transparent'}`}
-              >
-                <div className="flex items-center gap-3 text-sm">
-                  <Icon className={`h-4 w-4 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                  {section.label}
-                </div>
-                {count !== null && (
-                  <span className={`text-xs px-1.5 py-0 rounded-full ${isActive ? 'bg-primary/20 text-primary' : 'bg-background border border-border text-muted-foreground'}`}>
-                    {count}
-                  </span>
-                )}
-              </button>
+              <Tooltip key={section.id}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setActiveSection(section.id)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                      activeSection === section.id
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 text-left">{section.label}</span>
+                    {statValue !== null && statValue !== undefined && (
+                      <span className="text-xs opacity-60">{statValue}</span>
+                    )}
+                    {section.shortcut && (
+                      <span className="text-xs opacity-40 ml-auto">{section.shortcut}</span>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>{section.label} {section.shortcut && `(Press ${section.shortcut})`}</p>
+                </TooltipContent>
+              </Tooltip>
             );
           })}
+        </nav>
+
+        <div className="p-3 border-t border-border text-xs text-muted-foreground">
+          <div className="flex items-center gap-1 mb-2">
+            <kbd className="px-1.5 py-0.5 bg-sidebar-accent rounded text-[10px] font-mono">⌘K</kbd>
+            <span>Quick actions</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 bg-sidebar-accent rounded text-[10px] font-mono">⌘/</kbd>
+            <span>Search</span>
+          </div>
         </div>
       </div>
 
