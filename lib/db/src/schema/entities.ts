@@ -14,6 +14,7 @@ export const entities = pgTable("entities", {
   description: text("description"),
   stats: text("stats"),
   color: text("color"),
+  parentEntityId: integer("parent_entity_id"),
   relatedTo: text("related_to"),
   lore: text("lore"),
   designNotes: text("design_notes"),

@@ -84,20 +84,17 @@ router.delete("/projects/:projectId/entities/:entityId", async (req, res): Promi
 });
 
 const TYPE_COLORS: Record<string, string> = {
-  // Physical game components
-  Card:     "#7c3aed",
-  Deck:     "#4f46e5",
-  Token:    "#d97706",
-  Die:      "#dc2626",
-  Tile:     "#059669",
-  Meeple:   "#2563eb",
-  Board:    "#64748b",
-  // World / narrative components
-  Location: "#0891b2",
-  Faction:  "#9333ea",
-  Event:    "#ea580c",
-  Resource: "#0d9488",
-  Ability:  "#db2777",
+  Item: "#f59e0b",
+  Faction: "#7c3aed",
+  Location: "#06b6d4",
+  Event: "#ef4444",
+  card: "#7c3aed",
+  token: "#06b6d4",
+  unit: "#ef4444",
+  resource: "#10b981",
+  tile: "#f59e0b",
+  deck: "#3b82f6",
+  board: "#ec4899",
 };
 const FALLBACK_COLORS = ["#7c3aed", "#06b6d4", "#f59e0b", "#ef4444", "#10b981", "#ec4899", "#8b5cf6", "#3b82f6"];
 
@@ -117,33 +114,17 @@ router.post(
     const count = parsed.data.count ?? 4;
     try {
       const text = await complete(req, {
-        prompt: `Design ${count} distinct game components for a tabletop game with this brief: "${parsed.data.prompt}".
+        prompt: `Design ${count} distinct game entities for a tabletop game with this brief: "${parsed.data.prompt}".
 
-Return ONLY a JSON array (no prose, no code fences). Emit each component's keys in EXACTLY this order:
+Return ONLY a JSON array (no prose, no code fences). Emit each entity's keys in EXACTLY this order so the most important fields are produced first:
 [{"name":"...","type":"...","subtype":"...","description":"...","stats":"...","relatedTo":"...","lore":"...","designNotes":"..."}]
-
-Component types and their typical subtypes:
-- "Card": Action, Item, Spell, Event, Quest, Encounter, Treasure, Attack, Defense
-- "Deck": Item Deck, Event Deck, Encounter Deck, Spell Deck, Quest Deck
-- "Token": Resource, Currency, Health, Status, Marker, Victory Point
-- "Die": Action Die, Combat Die, Event Die, Skill Die, Custom
-- "Tile": Map Tile, Dungeon Tile, Terrain, Room, Hex, Starting Tile
-- "Meeple": Pawn, Figure, Standee, Miniature, Ship, Vehicle
-- "Board": Main Board, Player Board, Map, Reference Sheet
-- "Location": City, Dungeon, Region, Shop, Landmark, Lair
-- "Faction": Guild, Tribe, Nation, Team, House, Order
-- "Event": Random Event, Scenario, Story Beat, Encounter, Trigger
-- "Resource": Currency, Material, Food, Energy, Mana, Influence
-- "Ability": Passive, Active, Triggered, Ultimate, Reaction, Aura
-
-Rules:
-- type must be exactly one of the 12 types listed above.
-- subtype is the most fitting specific tag from that type's list.
+- type is one of "Item","Faction","Location","Event".
+- subtype is a more specific tag like "Weapon", "Tribe", "City", "Disaster".
 - description: 1 sentence under 140 chars.
-- stats: short stat line under 60 chars (e.g. "ATK 3 / DEF 1 / Cost 2" or "Qty: 20 / Value: 1 gold").
-- relatedTo: comma-separated names of related components (or empty).
-- lore: 1 short flavor sentence in-character (<= 160 chars).
-- designNotes: 1-2 sentences explaining DESIGN INTENT — why this exists, how it interacts with other systems, what tension it creates.
+- stats: short stat line under 60 chars.
+- relatedTo: comma-separated names of related entities (or empty).
+- lore: 1 short flavor / world-building sentence in-character (<= 160 chars).
+- designNotes: 1-2 sentences (<= 200 chars) explaining the DESIGN INTENT — why this entity exists, how it interacts with other systems, what tension/decisions it creates.
 Output JUST the JSON array.`,
         maxTokens: 4000,
       });

@@ -3,21 +3,20 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { projects } from "./projects";
 
-export const players = pgTable("players", {
+export const entities = pgTable("entities", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  playerType: text("player_type").default("Character").notNull(),
-  role: text("role"),
-  archetype: text("archetype"),
+  type: text("type").notNull(),
+  subtype: text("subtype"),
   description: text("description"),
-  strategy: text("strategy"),
-  startingResources: text("starting_resources"),
-  victoryCondition: text("victory_condition"),
-  specialAbility: text("special_ability"),
-  playstyle: text("playstyle"),
+  stats: text("stats"),
+  color: text("color"),
+  relatedTo: text("related_to"),
+  lore: text("lore"),
+  designNotes: text("design_notes"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -27,11 +26,11 @@ export const players = pgTable("players", {
     .$onUpdate(() => new Date()),
 });
 
-export const insertPlayerSchema = createInsertSchema(players).omit({
+export const insertEntitySchema = createInsertSchema(entities).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export type Player = typeof players.$inferSelect;
-export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
+export type Entity = typeof entities.$inferSelect;
+export type InsertEntity = z.infer<typeof insertEntitySchema>;

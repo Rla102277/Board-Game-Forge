@@ -9,7 +9,6 @@ export const players = pgTable("players", {
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  playerType: text("player_type").default("Character").notNull(),
   role: text("role"),
   archetype: text("archetype"),
   description: text("description"),

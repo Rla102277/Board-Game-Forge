@@ -238,8 +238,6 @@ export interface Entity {
   /** @nullable */
   subtype?: string | null;
   /** @nullable */
-  parentEntityId?: number | null;
-  /** @nullable */
   description?: string | null;
   /** @nullable */
   stats?: string | null;
@@ -259,7 +257,6 @@ export interface CreateEntityBody {
   name: string;
   type: string;
   subtype?: string;
-  parentEntityId?: number;
   description?: string;
   stats?: string;
   color?: string;
@@ -272,7 +269,6 @@ export interface UpdateEntityBody {
   name?: string;
   type?: string;
   subtype?: string;
-  parentEntityId?: number | null;
   description?: string;
   stats?: string;
   color?: string;
@@ -429,7 +425,6 @@ export interface Player {
   id: number;
   projectId: number;
   name: string;
-  playerType: string;
   /** @nullable */
   role?: string | null;
   /** @nullable */
@@ -452,7 +447,6 @@ export interface Player {
 
 export interface CreatePlayerBody {
   name: string;
-  playerType?: string;
   role?: string;
   archetype?: string;
   description?: string;
@@ -465,7 +459,6 @@ export interface CreatePlayerBody {
 
 export interface UpdatePlayerBody {
   name?: string;
-  playerType?: string;
   role?: string;
   archetype?: string;
   description?: string;

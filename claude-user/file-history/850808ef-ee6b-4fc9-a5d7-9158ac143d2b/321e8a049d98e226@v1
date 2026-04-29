@@ -2090,8 +2090,6 @@ components:
           type: string
         subtype:
           type: [string, "null"]
-        parentEntityId:
-          type: [integer, "null"]
         description:
           type: [string, "null"]
         stats:
@@ -2121,8 +2119,6 @@ components:
           type: string
         subtype:
           type: string
-        parentEntityId:
-          type: integer
         description:
           type: string
         stats:
@@ -2146,8 +2142,6 @@ components:
           type: string
         subtype:
           type: string
-        parentEntityId:
-          type: integer
         description:
           type: string
         stats:
@@ -2399,8 +2393,6 @@ components:
           type: integer
         name:
           type: string
-        playerType:
-          type: string
         role:
           type: [string, "null"]
         archetype:
@@ -2430,8 +2422,6 @@ components:
       properties:
         name:
           type: string
-        playerType:
-          type: string
         role:
           type: string
         archetype:
@@ -2454,8 +2444,6 @@ components:
       type: object
       properties:
         name:
-          type: string
-        playerType:
           type: string
         role:
           type: string

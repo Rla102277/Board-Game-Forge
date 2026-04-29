@@ -17,8 +17,7 @@
     "install-slack-app": 4,
     "drag-and-drop-images": 4,
     "double-esc-code-restore": 4,
-    "continue": 4,
-    "shift-tab": 4
+    "continue": 4
   },
   "cachedGrowthBookFeatures": {
     "tengu_flint_harbor_share": false,
