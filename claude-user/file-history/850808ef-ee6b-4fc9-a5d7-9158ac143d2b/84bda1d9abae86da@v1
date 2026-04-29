@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trash2, UserPlus, Mail, Link2, RefreshCw, Copy, Check, AlertCircle } from "lucide-react";
+import { Trash2, UserPlus, Mail, Link2, RefreshCw, Copy, Check } from "lucide-react";
 import { workspacesApi, type WorkspaceMember } from "@/lib/workspaces-api";
 
 interface Props {
@@ -23,8 +23,6 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
   const [busy, setBusy] = useState(false);
   const [joinUrl, setJoinUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [copiedPending, setCopiedPending] = useState<number | null>(null);
-  const [lastInvitedEmail, setLastInvitedEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && canManage) {
@@ -32,7 +30,6 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
         .then((r) => setJoinUrl(r.joinUrl))
         .catch(() => {/* non-fatal */});
     }
-    if (!open) setLastInvitedEmail(null);
   }, [open, canManage, workspaceSlug]);
 
   const copyLink = async () => {
@@ -55,22 +52,14 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
     }
   };
 
-  const copyForPending = async (memberId: number) => {
-    if (!joinUrl) return;
-    await navigator.clipboard.writeText(joinUrl);
-    setCopiedPending(memberId);
-    setTimeout(() => setCopiedPending(null), 2000);
-  };
-
   const invite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
-    const invitedEmail = email.trim();
     setBusy(true);
     try {
-      await workspacesApi.invite(workspaceSlug, invitedEmail);
+      await workspacesApi.invite(workspaceSlug, email.trim());
       setEmail("");
-      setLastInvitedEmail(invitedEmail);
+      toast({ title: "Invitation added", description: `${email} can now access this workspace.` });
       onChanged();
     } catch (err) {
       toast({ title: "Invite failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
@@ -125,7 +114,7 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
               </div>
               <form onSubmit={invite} className="flex items-end gap-2">
                 <div className="flex-1 space-y-1.5">
-                  <Label htmlFor="invite-email">Or reserve a spot by email</Label>
+                  <Label htmlFor="invite-email">Or invite by email</Label>
                   <Input
                     id="invite-email"
                     type="email"
@@ -135,30 +124,8 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
                     disabled={busy}
                   />
                 </div>
-                <Button type="submit" disabled={busy || !email.trim()}>Add</Button>
+                <Button type="submit" disabled={busy || !email.trim()}>Invite</Button>
               </form>
-
-              {lastInvitedEmail && joinUrl && (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
-                  <div className="flex items-start gap-2 text-sm text-amber-600 dark:text-amber-400">
-                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                    <span>
-                      <span className="font-medium">{lastInvitedEmail}</span> was added but no email was sent. Send them the invite link so they can join.
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value={joinUrl}
-                      className="text-xs font-mono bg-background"
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
-                    />
-                    <Button size="icon" variant="outline" onClick={copyLink} title="Copy link">
-                      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
           <div className="border rounded-md divide-y">
@@ -183,21 +150,7 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
                       {m.status === "pending" && <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500"><Mail className="h-3 w-3" /> Pending</span>}
                     </div>
                   </div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground mr-1">{m.role}</div>
-                  {canManage && m.status === "pending" && joinUrl && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-muted-foreground"
-                      title="Copy invite link to send to this person"
-                      onClick={() => copyForPending(m.id)}
-                      disabled={busy}
-                    >
-                      {copiedPending === m.id
-                        ? <Check className="h-3.5 w-3.5 text-green-500" />
-                        : <Copy className="h-3.5 w-3.5" />}
-                    </Button>
-                  )}
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground mr-2">{m.role}</div>
                   {canManage && m.role !== "owner" && (
                     <Button
                       size="icon"

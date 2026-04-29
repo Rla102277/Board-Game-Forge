@@ -561,6 +561,19 @@
       ]
     },
     {
+      "name": "crowdstrike-falcon-foundry",
+      "description": "CrowdStrike Falcon Foundry development skills for building cybersecurity applications on the Falcon platform. Includes UI development, collections, functions, workflows, API integration, security patterns, and debugging workflows.",
+      "author": {
+        "name": "CrowdStrike"
+      },
+      "category": "security",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/CrowdStrike/foundry-skills.git"
+      },
+      "homepage": "https://github.com/CrowdStrike/foundry-skills"
+    },
+    {
       "name": "csharp-lsp",
       "description": "C# language server for code intelligence",
       "version": "1.0.0",

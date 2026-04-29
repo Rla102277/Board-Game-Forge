@@ -1,0 +1,1204 @@
+import { Router, type IRouter, type Request } from "express";
+import { and, eq, desc, asc, inArray } from "drizzle-orm";
+import {
+  db,
+  comments,
+  activityFeed,
+  projectVersions,
+  appUsers,
+} from "@workspace/db";
+
+const router: IRouter = Router();
+
+// `req.appUserId` is populated by the `requireAuth` middleware mounted
+// upstream in `routes/index.ts`. The project-scoped routes below also pass
+// through `requireProjectAccess`, so we do not re-verify access here.
+function currentUserId(req: Request): number | null {
+  return typeof req.appUserId === "number" ? req.appUserId : null;
+}
+
+type AuthorInfo = {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  imageUrl: string | null;
+  email: string | null;
+} | null;
+
+async function getUsersById(userIds: number[]): Promise<Map<number, AuthorInfo>> {
+  const map = new Map<number, AuthorInfo>();
+  if (userIds.length === 0) return map;
+  const unique = [...new Set(userIds)];
+  const rows = await db.select().from(appUsers).where(inArray(appUsers.id, unique));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  for (const id of unique) {
+    const u = byId.get(id);
+    map.set(
+      id,
+      u
+        ? {
+            id: u.id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            imageUrl: u.imageUrl,
+            email: u.email,
+          }
+        : null,
+    );
+  }
+  return map;
+}
+
+function paramAsString(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (Array.isArray(v) && typeof v[0] === "string") return v[0];
+  return "";
+}
+
+function parseProjectId(req: Request): number {
+  return parseInt(paramAsString(req.params.projectId), 10);
+}
+
+function parseRouteId(req: Request, key: string): number {
+  return parseInt(paramAsString(req.params[key]) || "0", 10);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// COMMENTS
+// ──────────────────────────────────────────────────────────────────────────
+
+// List comments. POST is used (legacy from frontend) so the body can carry
+// optional entityType / entityId filters.
+router.post(
+  "/projects/:projectId/comments",
+  async (req, res): Promise<void> => {
+    if (!currentUserId(req)) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const projectId = parseProjectId(req);
+    const entityType: string | undefined = req.body?.entityType;
+    const entityId: number | undefined = req.body?.entityId;
+
+    const conds = [eq(comments.projectId, projectId)];
+    if (entityType) conds.push(eq(comments.entityType, entityType));
+    if (entityId !== undefined && entityId !== null) {
+      conds.push(eq(comments.entityId, entityId));
+    }
+
+    try {
+      const allComments = await db
+        .select()
+        .from(comments)
+        .where(and(...conds))
+        .orderBy(asc(comments.createdAt));
+
+      const authors = await getUsersById(allComments.map((c) => c.authorId));
+
+      type EnrichedComment = (typeof allComments)[number] & {
+        author: AuthorInfo;
+        replies: EnrichedComment[];
+      };
+      const enrichedById = new Map<number, EnrichedComment>();
+      const roots: EnrichedComment[] = [];
+
+      for (const c of allComments) {
+        enrichedById.set(c.id, {
+          ...c,
+          author: authors.get(c.authorId) ?? null,
+          replies: [],
+        });
+      }
+      for (const c of allComments) {
+        const node = enrichedById.get(c.id)!;
+        if (c.parentId && enrichedById.has(c.parentId)) {
+          enrichedById.get(c.parentId)!.replies.push(node);
+        } else {
+          roots.push(node);
+        }
+      }
+      res.json(roots);
+    } catch (err) {
+      req.log.error({ err }, "list comments failed");
+      res.status(500).json({ error: "Failed to list comments" });
+    }
+  },
+);
+
+// Create a comment.
+router.post(
+  "/projects/:projectId/comments/create",
+  async (req, res): Promise<void> => {
+    const userId = currentUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const projectId = parseProjectId(req);
+    const { entityType, entityId, content, parentId } = req.body ?? {};
+    if (!content || typeof content !== "string") {
+      res.status(400).json({ error: "content is required" });
+      return;
+    }
+    try {
+      const [newComment] = await db
+        .insert(comments)
+        .values({
+          projectId,
+          entityType: entityType || "general",
+          entityId: entityId ?? null,
+          authorId: userId,
+          content,
+          parentId: parentId ?? null,
+        })
+        .returning();
+
+      await db.insert(activityFeed).values({
+        projectId,
+        userId,
+        action: "commented",
+        entityType: entityType || "general",
+        entityId: entityId ?? null,
+        description: "Added a comment",
+      });
+
+      const authors = await getUsersById([newComment.authorId]);
+      res.json({
+        ...newComment,
+        author: authors.get(newComment.authorId) ?? null,
+        replies: [],
+      });
+    } catch (err) {
+      req.log.error({ err }, "create comment failed");
+      res.status(500).json({ error: "Failed to create comment" });
+    }
+  },
+);
+
+// Update a comment.
+router.patch(
+  "/projects/:projectId/comments/:commentId",
+  async (req, res): Promise<void> => {
+    if (!currentUserId(req)) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const commentId = parseRouteId(req, "commentId");
+    const { content } = req.body ?? {};
+    if (!content || typeof content !== "string") {
+      res.status(400).json({ error: "content is required" });
+      return;
+    }
+    try {
+      const [updated] = await db
+        .update(comments)
+        .set({ content })
+        .where(eq(comments.id, commentId))
+        .returning();
+      if (!updated) {
+        res.status(404).json({ error: "Comment not found" });
+        return;
+      }
+      const authors = await getUsersById([updated.authorId]);
+      res.json({
+        ...updated,
+        author: authors.get(updated.authorId) ?? null,
+        replies: [],
+      });
+    } catch (err) {
+      req.log.error({ err }, "update comment failed");
+      res.status(500).json({ error: "Failed to update comment" });
+    }
+  },
+);
+
+// Delete a comment.
+router.delete(
+  "/projects/:projectId/comments/:commentId",
+  async (req, res): Promise<void> => {
+    if (!currentUserId(req)) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const commentId = parseRouteId(req, "commentId");
+    try {
+      await db.delete(comments).where(eq(comments.id, commentId));
+      res.status(204).send();
+    } catch (err) {
+      req.log.error({ err }, "delete comment failed");
+      res.status(500).json({ error: "Failed to delete comment" });
+    }
+  },
+);
+
+// Resolve / unresolve a comment.
+router.patch(
+  "/projects/:projectId/comments/:commentId/resolve",
+  async (req, res): Promise<void> => {
+    const userId = currentUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const projectId = parseProjectId(req);
+    const commentId = parseRouteId(req, "commentId");
+    const resolved: boolean = !!req.body?.resolved;
+    try {
+      const [updated] = await db
+        .update(comments)
+        .set({ resolved })
+        .where(eq(comments.id, commentId))
+        .returning();
+      if (!updated) {
+        res.status(404).json({ error: "Comment not found" });
+        return;
+      }
+      await db.insert(activityFeed).values({
+        projectId,
+        userId,
+        action: "resolved",
+        entityType: "comment",
+        entityId: commentId,
+        description: resolved ? "Resolved a comment" : "Reopened a comment",
+      });
+      const authors = await getUsersById([updated.authorId]);
+      res.json({
+        ...updated,
+        author: authors.get(updated.authorId) ?? null,
+        replies: [],
+      });
+    } catch (err) {
+      req.log.error({ err }, "resolve comment failed");
+      res.status(500).json({ error: "Failed to resolve comment" });
+    }
+  },
+);
+
+// ──────────────────────────────────────────────────────────────────────────
+// ACTIVITY FEED
+// ──────────────────────────────────────────────────────────────────────────
+
+router.get(
+  "/projects/:projectId/activity",
+  async (req, res): Promise<void> => {
+    if (!currentUserId(req)) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const projectId = parseProjectId(req);
+    const limitRaw = req.query.limit;
+    const limit = limitRaw ? Math.max(1, Math.min(200, parseInt(String(limitRaw), 10) || 10)) : 10;
+    try {
+      const activities = await db
+        .select()
+        .from(activityFeed)
+        .where(eq(activityFeed.projectId, projectId))
+        .orderBy(desc(activityFeed.createdAt))
+        .limit(limit);
+
+      const users = await getUsersById(activities.map((a) => a.userId));
+      const enriched = activities.map((a) => ({
+        ...a,
+        user: users.get(a.userId) ?? null,
+      }));
+      res.json(enriched);
+    } catch (err) {
+      req.log.error({ err }, "activity feed failed");
+      res.status(500).json({ error: "Failed to get activity feed" });
+    }
+  },
+);
+
+// ──────────────────────────────────────────────────────────────────────────
+// VERSION HISTORY
+//
+// Note: a richer snapshot system lives in `routes/snapshots.ts`. These
+// endpoints back the legacy `<VersionHistory />` component and intentionally
+// keep a thin surface area.
+// ──────────────────────────────────────────────────────────────────────────
+
+// List versions.
+router.get(
+  "/projects/:projectId/versions",
+  async (req, res): Promise<void> => {
+    if (!currentUserId(req)) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const projectId = parseProjectId(req);
+    try {
+      const versions = await db
+        .select()
+        .from(projectVersions)
+        .where(eq(projectVersions.projectId, projectId))
+        .orderBy(desc(projectVersions.createdAt));
+
+      const users = await getUsersById(versions.map((v) => v.createdBy));
+      const enriched = versions.map((v) => ({
+        ...v,
+        creator: users.get(v.createdBy) ?? null,
+      }));
+      res.json(enriched);
+    } catch (err) {
+      req.log.error({ err }, "list versions failed");
+      res.status(500).json({ error: "Failed to list versions" });
+    }
+  },
+);
+
+// Create a version snapshot (placeholder — full snapshot logic lives in
+// the snapshots router).
+router.post(
+  "/projects/:projectId/versions",
+  async (req, res): Promise<void> => {
+    const userId = currentUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const projectId = parseProjectId(req);
+    const { version, description } = req.body ?? {};
+    if (!version || typeof version !== "string") {
+      res.status(400).json({ error: "version is required" });
+      return;
+    }
+    try {
+      const snapshot = {
+        entities: [],
+        rules: [],
+        players: [],
+        notes: [],
+      };
+      const [newVersion] = await db
+        .insert(projectVersions)
+        .values({
+          projectId,
+          version,
+          description: description ?? null,
+          createdBy: userId,
+          snapshot,
+        })
+        .returning();
+
+      await db.insert(activityFeed).values({
+        projectId,
+        userId,
+        action: "created",
+        entityType: "project",
+        entityId: projectId,
+        entityName: version,
+        description: `Created version ${version}`,
+      });
+
+      const users = await getUsersById([newVersion.createdBy]);
+      res.json({
+        ...newVersion,
+        creator: users.get(newVersion.createdBy) ?? null,
+      });
+    } catch (err) {
+      req.log.error({ err }, "create version failed");
+      res.status(500).json({ error: "Failed to create version" });
+    }
+  },
+);
+
+// Compare two versions. Declared BEFORE the `:versionId` route so Express
+// matches `compare` as a literal segment rather than treating it as an id.
+router.get(
+  "/projects/:projectId/versions/compare",
+  async (req, res): Promise<void> => {
+    if (!currentUserId(req)) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const v1 = parseInt(String(req.query.v1 ?? "0"), 10);
+    const v2 = parseInt(String(req.query.v2 ?? "0"), 10);
+    if (!v1 || !v2) {
+      res.status(400).json({ error: "v1 and v2 query params are required" });
+      return;
+    }
+    try {
+      const [version1] = await db
+        .select()
+        .from(projectVersions)
+        .where(eq(projectVersions.id, v1))
+        .limit(1);
+      const [version2] = await db
+        .select()
+        .from(projectVersions)
+        .where(eq(projectVersions.id, v2))
+        .limit(1);
+      if (!version1 || !version2) {
+        res.status(404).json({ error: "One or more versions not found" });
+        return;
+      }
+      // `snapshot` is a JSONB column typed as `unknown` — narrow with a Record
+      // cast since we just compare presence of the four known top-level keys.
+      const s1 = (version1.snapshot ?? {}) as Record<string, unknown>;
+      const s2 = (version2.snapshot ?? {}) as Record<string, unknown>;
+      const diff = {
+        entities: JSON.stringify(s1.entities) !== JSON.stringify(s2.entities),
+        rules: JSON.stringify(s1.rules) !== JSON.stringify(s2.rules),
+        players: JSON.stringify(s1.players) !== JSON.stringify(s2.players),
+        notes: JSON.stringify(s1.notes) !== JSON.stringify(s2.notes),
+      };
+      res.json({ diff });
+    } catch (err) {
+      req.log.error({ err }, "compare versions failed");
+      res.status(500).json({ error: "Failed to compare versions" });
+    }
+  },
+);
+
+// Get a specific version.
+router.get(
+  "/projects/:projectId/versions/:versionId",
+  async (req, res): Promise<void> => {
+    if (!currentUserId(req)) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const versionId = parseRouteId(req, "versionId");
+    try {
+      const [version] = await db
+        .select()
+        .from(projectVersions)
+        .where(eq(projectVersions.id, versionId))
+        .limit(1);
+      if (!version) {
+        res.status(404).json({ error: "Version not found" });
+        return;
+      }
+      const users = await getUsersById([version.createdBy]);
+      res.json({ ...version, creator: users.get(version.createdBy) ?? null });
+    } catch (err) {
+      req.log.error({ err }, "get version failed");
+      res.status(500).json({ error: "Failed to get version" });
+    }
+  },
+);
+
+// Restore a version (no-op acknowledgement — full restore logic lives in
+// the snapshots router).
+router.post(
+  "/projects/:projectId/versions/:versionId/restore",
+  async (req, res): Promise<void> => {
+    const userId = currentUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const projectId = parseProjectId(req);
+    const versionId = parseRouteId(req, "versionId");
+    try {
+      await db.insert(activityFeed).values({
+        projectId,
+        userId,
+        action: "updated",
+        entityType: "project",
+        entityId: projectId,
+        description: `Restored project to version ${versionId}`,
+      });
+      res.json({ message: "Version restored" });
+    } catch (err) {
+      req.log.error({ err }, "restore version failed");
+      res.status(500).json({ error: "Failed to restore version" });
+    }
+  },
+);
+
+export default router;
+---
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import crypto from "node:crypto";
+import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
+import {
+  db,
+  workspaces,
+  workspaceMembers,
+  projects,
+  appUsers,
+  entities,
+  rules,
+  players,
+  notes,
+  type Workspace,
+} from "@workspace/db";
+import {
+  ensurePersonalWorkspace,
+  findProjectInWorkspace,
+  findWorkspaceBySlug,
+  generateProjectSlug,
+  isUniqueViolation,
+  listUserWorkspaces,
+  userHasWorkspaceAccess,
+} from "../lib/workspaceHelpers";
+import { ensureUniqueSlug } from "../lib/slug";
+import { complete, tryParseJsonObject } from "../lib/aiRouter";
+import {
+  ALL_PROVIDERS,
+  listWorkspaceProviderSettings,
+  upsertWorkspaceProviderSettings,
+  type WorkspaceProvider,
+} from "../lib/workspaceAiSettings";
+
+const router: IRouter = Router();
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      workspace?: Workspace;
+      workspaceRole?: string;
+    }
+  }
+}
+
+async function loadWorkspace(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const slug = String(req.params.workspaceSlug ?? "");
+  if (!slug) {
+    res.status(400).json({ error: "Missing workspace slug" });
+    return;
+  }
+  const ws = await findWorkspaceBySlug(slug);
+  if (!ws) {
+    res.status(404).json({ error: "Workspace not found" });
+    return;
+  }
+  if (!req.appUserId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const access = await userHasWorkspaceAccess(ws.id, req.appUserId);
+  if (!access.access && req.appUserRole !== "admin") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  req.workspace = ws;
+  req.workspaceRole = access.role ?? (req.appUserRole === "admin" ? "admin" : null) ?? "viewer";
+  next();
+}
+
+// GET /workspaces — list user's workspaces (ensures Personal exists)
+function generateInviteCode(): string {
+  return crypto.randomBytes(12).toString("hex");
+}
+
+// GET /workspaces/join/:code — preview a workspace by invite code (no auth required)
+router.get("/workspaces/join/:code", async (req, res): Promise<void> => {
+  const code = String(req.params.code ?? "").trim();
+  if (!code) { res.status(400).json({ error: "Missing code" }); return; }
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.inviteCode, code));
+  if (!ws) { res.status(404).json({ error: "Invalid or expired invite link" }); return; }
+  const [{ memberCount }] = await db
+    .select({ memberCount: sql<number>`count(*)::int` })
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.status, "active")));
+  res.json({ id: ws.id, name: ws.name, slug: ws.slug, memberCount });
+});
+
+// POST /workspaces/join/:code — join workspace via invite code (requires auth)
+router.post("/workspaces/join/:code", async (req, res): Promise<void> => {
+  if (!req.appUserId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const code = String(req.params.code ?? "").trim();
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.inviteCode, code));
+  if (!ws) { res.status(404).json({ error: "Invalid or expired invite link" }); return; }
+  await db
+    .insert(workspaceMembers)
+    .values({ workspaceId: ws.id, userId: req.appUserId, role: "member", status: "active", joinedAt: new Date() })
+    .onConflictDoUpdate({
+      target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+      set: { status: "active", joinedAt: new Date() },
+    });
+  res.json({ slug: ws.slug, name: ws.name });
+});
+
+// GET /workspaces — list user's workspaces (ensures Personal exists)
+router.get("/workspaces", async (req, res): Promise<void> => {
+  if (!req.appUserId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  await ensurePersonalWorkspace(req.appUserId);
+  const list = await listUserWorkspaces(req.appUserId);
+  res.json(list);
+});
+
+// POST /workspaces — create workspace
+router.post("/workspaces", async (req, res): Promise<void> => {
+  if (!req.appUserId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const name = String(req.body?.name ?? "").trim();
+  if (!name) {
+    res.status(400).json({ error: "Name required" });
+    return;
+  }
+  const baseSlug = String(req.body?.slug || name);
+  let created: Workspace | undefined;
+  let attempt = 0;
+  while (attempt < 5 && !created) {
+    attempt += 1;
+    const slug = await ensureUniqueSlug(baseSlug, async (s) => {
+      const [hit] = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.slug, s));
+      return Boolean(hit);
+    });
+    try {
+      const rows = await db
+        .insert(workspaces)
+        .values({ slug, name, ownerUserId: req.appUserId, isPersonal: 0 })
+        .returning();
+      created = rows[0];
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
+      // raced — loop with a fresh slug
+    }
+  }
+  if (!created) {
+    res.status(500).json({ error: "Could not allocate workspace slug" });
+    return;
+  }
+  await db
+    .insert(workspaceMembers)
+    .values({
+      workspaceId: created.id,
+      userId: req.appUserId,
+      role: "owner",
+      status: "active",
+      joinedAt: new Date(),
+    })
+    .onConflictDoNothing();
+  res.status(201).json(created);
+});
+
+// GET /workspaces/:slug — workspace + projects + members
+router.get("/workspaces/:workspaceSlug", loadWorkspace, async (req, res): Promise<void> => {
+  const ws = req.workspace!;
+  const projs = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.workspaceId, ws.id), isNull(projects.deletedAt)))
+    .orderBy(desc(projects.updatedAt));
+  const memberRows = await db
+    .select({
+      m: workspaceMembers,
+      u: appUsers,
+    })
+    .from(workspaceMembers)
+    .leftJoin(appUsers, eq(workspaceMembers.userId, appUsers.id))
+    .where(eq(workspaceMembers.workspaceId, ws.id))
+    .orderBy(asc(workspaceMembers.createdAt));
+  const members = memberRows.map((r) => ({
+    id: r.m.id,
+    role: r.m.role,
+    status: r.m.status,
+    invitedEmail: r.m.invitedEmail,
+    user: r.u
+      ? {
+          id: r.u.id,
+          email: r.u.email,
+          firstName: r.u.firstName,
+          lastName: r.u.lastName,
+          imageUrl: r.u.imageUrl,
+        }
+      : null,
+    joinedAt: r.m.joinedAt,
+    invitedAt: r.m.invitedAt,
+  }));
+  res.json({
+    workspace: ws,
+    role: req.workspaceRole,
+    projects: projs,
+    members,
+  });
+});
+
+// GET /workspaces/:slug/invite-code — get (or lazily create) invite code
+router.get(
+  "/workspaces/:workspaceSlug/invite-code",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    let ws = req.workspace!;
+    if (!ws.inviteCode) {
+      const [updated] = await db
+        .update(workspaces)
+        .set({ inviteCode: generateInviteCode() })
+        .where(eq(workspaces.id, ws.id))
+        .returning();
+      ws = updated;
+    }
+    const origin = `${req.protocol}://${req.get("host")}`;
+    res.json({ inviteCode: ws.inviteCode, joinUrl: `${origin}/join/${ws.inviteCode}` });
+  },
+);
+
+// POST /workspaces/:slug/invite-code/refresh — regenerate invite code (invalidates old link)
+router.post(
+  "/workspaces/:workspaceSlug/invite-code/refresh",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const [updated] = await db
+      .update(workspaces)
+      .set({ inviteCode: generateInviteCode() })
+      .where(eq(workspaces.id, req.workspace!.id))
+      .returning();
+    const origin = `${req.protocol}://${req.get("host")}`;
+    res.json({ inviteCode: updated.inviteCode, joinUrl: `${origin}/join/${updated.inviteCode}` });
+  },
+);
+
+// PATCH /workspaces/:slug — rename
+router.patch("/workspaces/:workspaceSlug", loadWorkspace, async (req, res): Promise<void> => {
+  if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const name = req.body?.name ? String(req.body.name).trim() : undefined;
+  if (!name) {
+    res.status(400).json({ error: "Name required" });
+    return;
+  }
+  const [updated] = await db
+    .update(workspaces)
+    .set({ name })
+    .where(eq(workspaces.id, req.workspace!.id))
+    .returning();
+  res.json(updated);
+});
+
+// GET /workspaces/:slug/ai-settings — admin/owner only
+router.get(
+  "/workspaces/:workspaceSlug/ai-settings",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const settings = await listWorkspaceProviderSettings(req.workspace!.id);
+    res.json(settings);
+  },
+);
+
+// PUT /workspaces/:slug/ai-settings/:provider — admin/owner only
+router.put(
+  "/workspaces/:workspaceSlug/ai-settings/:provider",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const provider = String(req.params.provider) as WorkspaceProvider;
+    if (!ALL_PROVIDERS.includes(provider)) {
+      res.status(400).json({ error: "Unknown provider" });
+      return;
+    }
+    const body = req.body ?? {};
+    const patch: { enabled?: boolean; apiKey?: string | null } = {};
+    if (body.enabled !== undefined) {
+      if (typeof body.enabled !== "boolean") {
+        res.status(400).json({ error: "enabled must be boolean" });
+        return;
+      }
+      patch.enabled = body.enabled;
+    }
+    if (body.apiKey !== undefined) {
+      if (body.apiKey === null) patch.apiKey = null;
+      else if (typeof body.apiKey === "string") patch.apiKey = body.apiKey;
+      else {
+        res.status(400).json({ error: "apiKey must be string or null" });
+        return;
+      }
+    }
+    try {
+      const updated = await upsertWorkspaceProviderSettings(req.workspace!.id, provider, patch);
+      res.json(updated);
+    } catch (err) {
+      req.log.error({ err }, "ai-settings update failed");
+      res.status(500).json({ error: err instanceof Error ? err.message : "Update failed" });
+    }
+  },
+);
+
+// DELETE /workspaces/:slug — owner only, not personal
+router.delete("/workspaces/:workspaceSlug", loadWorkspace, async (req, res): Promise<void> => {
+  const ws = req.workspace!;
+  if (ws.isPersonal === 1) {
+    res.status(400).json({ error: "Cannot delete personal workspace" });
+    return;
+  }
+  if (ws.ownerUserId !== req.appUserId && req.appUserRole !== "admin") {
+    res.status(403).json({ error: "Only the owner can delete a workspace" });
+    return;
+  }
+  await db.delete(workspaces).where(eq(workspaces.id, ws.id));
+  res.status(204).end();
+});
+
+// POST /workspaces/:slug/members — invite by email
+router.post("/workspaces/:workspaceSlug/members", loadWorkspace, async (req, res): Promise<void> => {
+  if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const email = String(req.body?.email ?? "").trim().toLowerCase();
+  const role = String(req.body?.role ?? "member");
+  if (!email || !email.includes("@")) {
+    res.status(400).json({ error: "Valid email required" });
+    return;
+  }
+  if (!["member", "admin"].includes(role)) {
+    res.status(400).json({ error: "Invalid role" });
+    return;
+  }
+  const [existingUser] = await db.select().from(appUsers).where(eq(appUsers.email, email));
+  // Idempotent invite: don't leak whether the email belongs to a registered account.
+  // Check BOTH keys (user_id match AND invited_email match) so a pending email row
+  // and a registered-user row are both detected as duplicates.
+  const dupConditions = [eq(workspaceMembers.invitedEmail, email)];
+  if (existingUser) dupConditions.push(eq(workspaceMembers.userId, existingUser.id));
+  const existing = await db
+    .select()
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.workspaceId, req.workspace!.id), or(...dupConditions)));
+  if (existing.length > 0) {
+    res.status(200).json({ ok: true, alreadyInvited: true });
+    return;
+  }
+  try {
+    await db.insert(workspaceMembers).values({
+      workspaceId: req.workspace!.id,
+      userId: existingUser?.id ?? null,
+      invitedEmail: email,
+      role,
+      status: existingUser ? "active" : "pending",
+      joinedAt: existingUser ? new Date() : null,
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      res.status(200).json({ ok: true, alreadyInvited: true });
+      return;
+    }
+    throw err;
+  }
+  res.status(201).json({ ok: true, alreadyInvited: false });
+});
+
+// DELETE /workspaces/:slug/members/:memberId
+router.delete(
+  "/workspaces/:workspaceSlug/members/:memberId",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    const memberId = Number(req.params.memberId);
+    if (!Number.isFinite(memberId)) {
+      res.status(400).json({ error: "Invalid member id" });
+      return;
+    }
+    const isAdmin = ["owner", "admin"].includes(req.workspaceRole ?? "") || req.appUserRole === "admin";
+    const [target] = await db.select().from(workspaceMembers).where(eq(workspaceMembers.id, memberId));
+    if (!target || target.workspaceId !== req.workspace!.id) {
+      res.status(404).json({ error: "Member not found" });
+      return;
+    }
+    // Allow admins to remove anyone except the owner; allow self-removal
+    const isSelf = target.userId === req.appUserId;
+    if (!isAdmin && !isSelf) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    if (target.userId === req.workspace!.ownerUserId) {
+      res.status(400).json({ error: "Cannot remove the workspace owner" });
+      return;
+    }
+    await db.delete(workspaceMembers).where(eq(workspaceMembers.id, memberId));
+    res.status(204).end();
+  },
+);
+
+// POST /workspaces/:slug/projects — create new project in workspace
+router.post(
+  "/workspaces/:workspaceSlug/projects",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    if (!["owner", "admin"].includes(req.workspaceRole ?? "") && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const name = String(req.body?.name ?? "").trim();
+    if (!name) {
+      res.status(400).json({ error: "Name required" });
+      return;
+    }
+    const slug = await generateProjectSlug(req.workspace!.id, name);
+    const [created] = await db
+      .insert(projects)
+      .values({
+        workspaceId: req.workspace!.id,
+        ownerUserId: req.appUserId ?? undefined,
+        slug,
+        name,
+        description: req.body?.description ?? null,
+        gameType: req.body?.gameType ?? null,
+        genre: req.body?.genre ?? null,
+        playerCount: req.body?.playerCount ?? null,
+        targetDuration: req.body?.targetDuration ?? null,
+      })
+      .returning();
+    res.status(201).json({ project: created, workspaceSlug: req.workspace!.slug });
+  },
+);
+
+// GET /workspaces/:slug/projects/:projectSlug — resolve to project id
+router.get(
+  "/workspaces/:workspaceSlug/projects/:projectSlug",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    const projSlug = String(req.params.projectSlug);
+    const found = await findProjectInWorkspace(req.workspace!.id, projSlug);
+    if (!found) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    const [proj] = await db.select().from(projects).where(and(eq(projects.id, found.id), isNull(projects.deletedAt)));
+    res.json(proj);
+  },
+);
+
+// POST /workspaces/:slug/generate — Replit-style: prompt → full project
+const TEMPLATE_HINTS: Record<string, string> = {
+  strategy: "deep strategic competitive game with engine-building and meaningful decisions",
+  party: "fast, social, hilarious party game for groups of 4-8 in 20-30 min",
+  cooperative: "cooperative game where players work together against a shared challenge",
+  "deck-builder": "deck-building game where players craft an ever-improving deck of cards",
+  "roll-and-write": "roll-and-write game with shared dice and personal score sheets",
+  "worker-placement": "worker placement game with action selection and resource management",
+  "tile-laying": "tile-laying game with spatial puzzles and pattern building",
+  "trick-taking": "modern trick-taking card game with twists on classic mechanics",
+  "social-deduction": "hidden-role social deduction game for 5-10 players",
+  dexterity: "dexterity / physical-action game where skill with the components matters",
+};
+
+type GeneratedGame = {
+  name?: string;
+  description?: string;
+  gameType?: string;
+  genre?: string;
+  playerCount?: string;
+  targetDuration?: string;
+  complexityScore?: number;
+  blueprint?: string;
+  entities?: Array<{ name?: string; type?: string; description?: string }>;
+  rules?: Array<{ title?: string; category?: string; content?: string }>;
+  players?: Array<{ name?: string; role?: string; description?: string }>;
+  notes?: Array<{ title?: string; content?: string }>;
+};
+
+function buildGeneratePrompt(prompt: string, templateHint: string | null): string {
+  return [
+    "Design a complete, playable, original tabletop board game prototype.",
+    templateHint ? `It should be a ${templateHint}.` : "",
+    prompt ? `User direction: ${prompt}` : "",
+    "",
+    "Output ONLY a valid JSON object with this exact shape (no markdown, no commentary):",
+    `{
+  "name": "string — short and memorable (max 30 chars)",
+  "description": "string — 2-3 sentence elevator pitch",
+  "gameType": "Strategy|Party|Cooperative|Deck-builder|...",
+  "genre": "Fantasy|Sci-fi|Modern|Historical|Abstract|...",
+  "playerCount": "e.g. 2-4",
+  "targetDuration": "e.g. 30-45 minutes",
+  "complexityScore": 1-10,
+  "blueprint": "string — 3-5 short paragraphs covering core loop, win condition, turn structure, balance",
+  "entities": [{ "name": "string", "type": "card|token|board|piece|resource|other", "description": "string (1-2 sentences)" }],
+  "rules": [{ "title": "string", "category": "Setup|Turn|Action|Scoring|Endgame", "content": "string — 1-3 sentences, clear and actionable" }],
+  "players": [{ "name": "string — role/archetype name", "role": "string", "description": "string (1-2 sentences)" }],
+  "notes": [{ "title": "string", "content": "string — short designer note" }]
+}`,
+    "",
+    "Aim for: ~5-7 entities, ~5-7 rules, ~3-4 player roles (only if relevant), ~2 notes.",
+    "Keep every string concise. Total response must fit comfortably in the JSON. All text must be production-quality and immediately usable.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function checkGeneratedViability(parsed: GeneratedGame): string | null {
+  const ruleCount = Array.isArray(parsed.rules) ? parsed.rules.length : 0;
+  const entityCount = Array.isArray(parsed.entities) ? parsed.entities.length : 0;
+  const hasBlueprint = !!(parsed.blueprint && String(parsed.blueprint).trim().length > 50);
+  if (!hasBlueprint && ruleCount === 0 && entityCount === 0) {
+    return "The AI generated an empty project. Please try again — using a template tile usually gives more reliable results.";
+  }
+  return null;
+}
+
+function deriveProjectName(prompt: string, rawTemplate: string, parsed: GeneratedGame): string {
+  const seed = (prompt || rawTemplate || "Untitled Game").trim();
+  const fallback = seed.replace(/\s+/g, " ").slice(0, 30);
+  const fallbackName = fallback.charAt(0).toUpperCase() + fallback.slice(1);
+  return String(parsed.name ?? fallbackName).slice(0, 100) || "Untitled Game";
+}
+
+async function insertGeneratedComponents(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  projectId: number,
+  parsed: GeneratedGame,
+): Promise<void> {
+  if (Array.isArray(parsed.entities) && parsed.entities.length) {
+    await tx.insert(entities).values(
+      parsed.entities.slice(0, 20).map((e) => ({
+        projectId,
+        name: String(e.name ?? "Entity").slice(0, 80),
+        type: String(e.type ?? "other").slice(0, 40),
+        description: e.description ? String(e.description) : null,
+      })),
+    );
+  }
+  if (Array.isArray(parsed.rules) && parsed.rules.length) {
+    await tx.insert(rules).values(
+      parsed.rules.slice(0, 20).map((r) => ({
+        projectId,
+        title: String(r.title ?? "Rule").slice(0, 100),
+        category: r.category ? String(r.category).slice(0, 40) : null,
+        content: String(r.content ?? ""),
+      })),
+    );
+  }
+  if (Array.isArray(parsed.players) && parsed.players.length) {
+    await tx.insert(players).values(
+      parsed.players.slice(0, 12).map((p) => ({
+        projectId,
+        name: String(p.name ?? "Role").slice(0, 80),
+        role: p.role ? String(p.role).slice(0, 80) : null,
+        description: p.description ? String(p.description) : null,
+      })),
+    );
+  }
+  if (Array.isArray(parsed.notes) && parsed.notes.length) {
+    await tx.insert(notes).values(
+      parsed.notes.slice(0, 8).map((n) => ({
+        projectId,
+        title: n.title ? String(n.title).slice(0, 100) : "Designer note",
+        content: n.content ? String(n.content) : null,
+      })),
+    );
+  }
+}
+
+router.post(
+  "/workspaces/:workspaceSlug/generate",
+  loadWorkspace,
+  async (req, res): Promise<void> => {
+    const prompt = String(req.body?.prompt ?? "").trim();
+    const rawTemplate = String(req.body?.template ?? "").trim();
+    const templateHint = rawTemplate
+      ? (TEMPLATE_HINTS[rawTemplate] ??
+        `tabletop board game in the "${rawTemplate.replace(/-/g, " ")}" style`)
+      : null;
+    if (!prompt && !templateHint) {
+      res.status(400).json({ error: "Prompt or template required" });
+      return;
+    }
+
+    let raw: string;
+    try {
+      raw = await complete(req, {
+        prompt: buildGeneratePrompt(prompt, templateHint),
+        system:
+          "You are a world-class senior tabletop game designer. You only output the requested JSON, never any prose, markdown, or commentary. Be concise so the JSON always closes cleanly.",
+        maxTokens: 8000,
+        kind: "structured",
+        preferFast: true,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      res.status(502).json({ error: `AI generation failed: ${msg}` });
+      return;
+    }
+
+    const parsed = tryParseJsonObject<GeneratedGame>(raw);
+    if (!parsed) {
+      req.log.warn({ rawPreview: raw.slice(0, 500) }, "workspace generate: AI output unparseable");
+      res.status(502).json({
+        error: "The AI returned an unreadable response. This is usually transient — please try again, or simplify your prompt.",
+      });
+      return;
+    }
+
+    const viabilityError = checkGeneratedViability(parsed);
+    if (viabilityError) {
+      req.log.warn(
+        { rawPreview: raw.slice(0, 500) },
+        "workspace generate: AI output too sparse",
+      );
+      res.status(502).json({ error: viabilityError });
+      return;
+    }
+
+    const name = deriveProjectName(prompt, rawTemplate, parsed);
+
+    let project: typeof projects.$inferSelect | undefined;
+    try {
+      project = await db.transaction(async (tx) => {
+        let attempt = 0;
+        let inserted: typeof projects.$inferSelect | undefined;
+        while (attempt < 5 && !inserted) {
+          attempt += 1;
+          const slug = await generateProjectSlug(req.workspace!.id, name);
+          try {
+            const rows = await tx
+              .insert(projects)
+              .values({
+                workspaceId: req.workspace!.id,
+                ownerUserId: req.appUserId ?? undefined,
+                slug,
+                name,
+                description: parsed.description ?? null,
+                gameType: parsed.gameType ?? null,
+                genre: parsed.genre ?? null,
+                playerCount: parsed.playerCount ?? null,
+                targetDuration: parsed.targetDuration ?? null,
+                complexityScore:
+                  typeof parsed.complexityScore === "number"
+                    ? Math.max(1, Math.min(10, Math.round(parsed.complexityScore)))
+                    : null,
+                blueprint: parsed.blueprint ?? null,
+              })
+              .returning();
+            inserted = rows[0];
+          } catch (err) {
+            if (!isUniqueViolation(err)) throw err;
+          }
+        }
+        if (!inserted) throw new Error("Could not allocate project slug");
+        await insertGeneratedComponents(tx, inserted.id, parsed);
+        return inserted;
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      res.status(500).json({ error: `Could not save generated project: ${msg}` });
+      return;
+    }
+
+    res.status(201).json({
+      project,
+      workspaceSlug: req.workspace!.slug,
+    });
+  },
+);
+
+export default router;
