@@ -13,7 +13,13 @@
     "enter-to-steer-in-relatime": 3,
     "todo-list": 3,
     "ide-upsell-external-terminal": 3,
-    "install-github-app": 3
+    "install-github-app": 3,
+    "install-slack-app": 4,
+    "drag-and-drop-images": 4,
+    "double-esc-code-restore": 4,
+    "continue": 4,
+    "shift-tab": 4,
+    "image-paste": 4
   },
   "cachedGrowthBookFeatures": {
     "tengu_flint_harbor_share": false,

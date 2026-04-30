@@ -1,0 +1,3060 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: GameForge API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: me
+    description: Current user operations
+  - name: admin
+    description: Admin operations
+  - name: projects
+    description: Board game project operations
+  - name: research
+    description: Research item operations
+  - name: entities
+    description: Game entity operations
+  - name: properties
+    description: Entity property operations
+  - name: rules
+    description: Game rule operations
+  - name: players
+    description: Player archetype operations
+  - name: notes
+    description: Design note operations
+  - name: tasks
+    description: Task board operations
+  - name: chat
+    description: AI chat operations
+  - name: dashboard
+    description: Dashboard summary operations
+  - name: assets
+    description: Asset and card operations
+  - name: simulator
+    description: Game simulation operations
+  - name: playtest
+    description: Playtest session operations
+  - name: feedback
+    description: Public playtest feedback operations
+  - name: storyboard
+    description: Storyboard variant operations
+  - name: balance
+    description: Balance analysis operations
+  - name: changelog
+    description: Project changelog operations
+  - name: export
+    description: Export deliverable operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /me:
+    get:
+      operationId: getMe
+      tags: [me]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+
+  /me/ai-settings:
+    get:
+      operationId: getAiSettings
+      tags: [me]
+      responses:
+        "200":
+          description: AI provider settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiProviderSettings"
+    put:
+      operationId: updateAiSettings
+      tags: [me]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAiSettingsBody"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiProviderSettings"
+
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/users/{userId}:
+    patch:
+      operationId: updateAdminUser
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAdminUserBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+    delete:
+      operationId: deleteAdminUser
+      tags: [admin]
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "204":
+          description: Deleted
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      responses:
+        "200":
+          description: List of recent activity events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
+
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      responses:
+        "200":
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectBody"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectBody"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/stats:
+    get:
+      operationId: getProjectStats
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStats"
+
+  /projects/{projectId}/snapshots:
+    get:
+      operationId: listSnapshots
+      tags: [projects]
+      summary: List saved versions of a project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: List of snapshots (newest first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectSnapshot"
+    post:
+      operationId: createSnapshot
+      tags: [projects]
+      summary: Save the current project state as a new version
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSnapshotBody"
+      responses:
+        "201":
+          description: Created snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectSnapshot"
+
+  /projects/{projectId}/snapshots/{snapshotId}:
+    delete:
+      operationId: deleteSnapshot
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/snapshots/{snapshotId}/restore:
+    post:
+      operationId: restoreSnapshot
+      tags: [projects]
+      summary: Restore the project to a saved version (auto-saves current state first)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreSnapshotResponse"
+
+  /projects/{projectId}/snapshots/{snapshotId}/fork:
+    post:
+      operationId: forkSnapshot
+      tags: [projects]
+      summary: Create a new project from a saved version
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForkSnapshotBody"
+      responses:
+        "201":
+          description: New project created from snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}/duplicate:
+    post:
+      operationId: duplicateProject
+      tags: [projects]
+      summary: Duplicate the current project state into a brand-new project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DuplicateProjectBody"
+      responses:
+        "201":
+          description: New project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}/complexity:
+    post:
+      operationId: computeComplexity
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Complexity score
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplexityScore"
+
+  /projects/{projectId}/blueprint:
+    post:
+      operationId: generateBlueprint
+      tags: [projects]
+      summary: Stream a full AI Game Architect blueprint via SSE
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateBlueprintBody"
+      responses:
+        "200":
+          description: SSE stream of blueprint chunks
+          content:
+            text/event-stream: {}
+
+  /projects/{projectId}/ingest/text:
+    post:
+      operationId: ingestText
+      tags: [projects]
+      summary: Ingest pasted document text and produce an AI summary
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestTextBody"
+      responses:
+        "200":
+          description: Created research item with summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchItem"
+
+  /projects/{projectId}/ingest/url:
+    post:
+      operationId: ingestUrl
+      tags: [projects]
+      summary: Fetch a URL and produce an AI summary
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestUrlBody"
+      responses:
+        "200":
+          description: Created research item with summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchItem"
+
+  /projects/{projectId}/research:
+    get:
+      operationId: listResearch
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Research list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResearchItem"
+    post:
+      operationId: createResearch
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResearchBody"
+      responses:
+        "201":
+          description: Created research
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchItem"
+
+  /projects/{projectId}/research/{researchId}:
+    patch:
+      operationId: updateResearch
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ResearchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateResearchBody"
+      responses:
+        "200":
+          description: Updated research
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchItem"
+    delete:
+      operationId: deleteResearch
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ResearchId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/research/{researchId}/enhance:
+    post:
+      operationId: aiEnhanceResearch
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ResearchId"
+      responses:
+        "200":
+          description: Enhanced research item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchItem"
+
+  /projects/{projectId}/research/ai-generate:
+    post:
+      operationId: aiGenerateResearch
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiGenerateBody"
+      responses:
+        "200":
+          description: Generated research items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResearchItem"
+
+  /projects/{projectId}/entities:
+    get:
+      operationId: listEntities
+      tags: [entities]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Entity list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Entity"
+    post:
+      operationId: createEntity
+      tags: [entities]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEntityBody"
+      responses:
+        "201":
+          description: Created entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entity"
+
+  /projects/{projectId}/entities/{entityId}:
+    patch:
+      operationId: updateEntity
+      tags: [entities]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEntityBody"
+      responses:
+        "200":
+          description: Updated entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entity"
+    delete:
+      operationId: deleteEntity
+      tags: [entities]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/entities/ai-generate:
+    post:
+      operationId: aiGenerateEntities
+      tags: [entities]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiGenerateBody"
+      responses:
+        "200":
+          description: Generated entities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Entity"
+
+  /projects/{projectId}/entities/{entityId}/enhance:
+    post:
+      operationId: aiEnhanceEntity
+      tags: [entities]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+      responses:
+        "200":
+          description: Structured AI enhancement preview (not yet applied)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityEnhanceSuggestion"
+
+  /projects/{projectId}/entity-properties:
+    get:
+      operationId: listProjectEntityProperties
+      tags: [properties]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Flat list of all entity properties for the project
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EntityProperty"
+
+  /projects/{projectId}/entities/{entityId}/properties:
+    get:
+      operationId: listEntityProperties
+      tags: [properties]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+      responses:
+        "200":
+          description: Property list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EntityProperty"
+    post:
+      operationId: createEntityProperty
+      tags: [properties]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEntityPropertyBody"
+      responses:
+        "201":
+          description: Created property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityProperty"
+
+  /projects/{projectId}/entities/{entityId}/properties/{propertyId}:
+    patch:
+      operationId: updateEntityProperty
+      tags: [properties]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+        - $ref: "#/components/parameters/PropertyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEntityPropertyBody"
+      responses:
+        "200":
+          description: Updated property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityProperty"
+    delete:
+      operationId: deleteEntityProperty
+      tags: [properties]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+        - $ref: "#/components/parameters/PropertyId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/rules:
+    get:
+      operationId: listRules
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Rule list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rule"
+    post:
+      operationId: createRule
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRuleBody"
+      responses:
+        "201":
+          description: Created rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rule"
+
+  /projects/{projectId}/rules/{ruleId}:
+    patch:
+      operationId: updateRule
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/RuleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRuleBody"
+      responses:
+        "200":
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rule"
+    delete:
+      operationId: deleteRule
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/rules/ai-generate:
+    post:
+      operationId: aiGenerateRules
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiGenerateBody"
+      responses:
+        "200":
+          description: Generated rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rule"
+
+  /projects/{projectId}/rules/{ruleId}/enhance:
+    post:
+      operationId: aiEnhanceRule
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "200":
+          description: Structured AI enhancement preview (not yet applied)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleEnhanceSuggestion"
+
+  /projects/{projectId}/rules/conflict-check:
+    post:
+      operationId: conflictCheckRules
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Conflict report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictReport"
+
+  /projects/{projectId}/players:
+    get:
+      operationId: listPlayers
+      tags: [players]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Player list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Player"
+    post:
+      operationId: createPlayer
+      tags: [players]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlayerBody"
+      responses:
+        "201":
+          description: Created player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /projects/{projectId}/players/{playerId}:
+    patch:
+      operationId: updatePlayer
+      tags: [players]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/PlayerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlayerBody"
+      responses:
+        "200":
+          description: Updated player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+    delete:
+      operationId: deletePlayer
+      tags: [players]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/PlayerId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/players/ai-generate:
+    post:
+      operationId: aiGeneratePlayers
+      tags: [players]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiGenerateBody"
+      responses:
+        "200":
+          description: Generated players
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Player"
+
+  /projects/{projectId}/players/{playerId}/enhance:
+    post:
+      operationId: aiEnhancePlayer
+      tags: [players]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/PlayerId"
+      responses:
+        "200":
+          description: Enhanced player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /projects/{projectId}/notes:
+    get:
+      operationId: listNotes
+      tags: [notes]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Note list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Note"
+    post:
+      operationId: createNote
+      tags: [notes]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNoteBody"
+      responses:
+        "201":
+          description: Created note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+
+  /projects/{projectId}/notes/{noteId}/enhance:
+    post:
+      operationId: aiEnhanceNote
+      tags: [notes]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/NoteId"
+      responses:
+        "200":
+          description: Enhanced note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+
+  /projects/{projectId}/notes/{noteId}:
+    patch:
+      operationId: updateNote
+      tags: [notes]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/NoteId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNoteBody"
+      responses:
+        "200":
+          description: Updated note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+    delete:
+      operationId: deleteNote
+      tags: [notes]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/NoteId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/tasks:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+    post:
+      operationId: createTask
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskBody"
+      responses:
+        "201":
+          description: Created task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /projects/{projectId}/tasks/{taskId}:
+    patch:
+      operationId: updateTask
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskBody"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/chat:
+    get:
+      operationId: listChatMessages
+      tags: [chat]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/Tab"
+      responses:
+        "200":
+          description: Chat history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+    delete:
+      operationId: clearChatMessages
+      tags: [chat]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/Tab"
+      responses:
+        "204":
+          description: Cleared
+
+  /projects/{projectId}/chat/send:
+    post:
+      operationId: sendChatMessage
+      tags: [chat]
+      summary: Send a chat message and stream the AI response (SSE)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendChatMessageBody"
+      responses:
+        "200":
+          description: SSE stream of assistant response chunks
+          content:
+            text/event-stream: {}
+
+  /projects/{projectId}/assets:
+    get:
+      operationId: listAssets
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Asset list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Asset"
+    post:
+      operationId: createAsset
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetBody"
+      responses:
+        "201":
+          description: Created asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /projects/{projectId}/assets/{assetId}:
+    patch:
+      operationId: updateAsset
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetBody"
+      responses:
+        "200":
+          description: Updated asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    delete:
+      operationId: deleteAsset
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/assets/{assetId}/enhance:
+    post:
+      operationId: aiEnhanceAsset
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: Structured AI enhancement preview (not yet applied)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetEnhanceSuggestion"
+
+  /projects/{projectId}/ai/text-edit:
+    post:
+      operationId: aiTextEdit
+      tags: [ai]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiTextEditBody"
+      responses:
+        "200":
+          description: Rewritten text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiTextEditResponse"
+
+  /projects/{projectId}/assets/{assetId}/describe:
+    post:
+      operationId: aiDescribeAsset
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: Updated asset with AI description and flavor text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /projects/{projectId}/assets/{assetId}/generate-image:
+    post:
+      operationId: generateAssetImage
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateImageBody"
+      responses:
+        "200":
+          description: Updated asset with image data URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /projects/{projectId}/simulator/run:
+    post:
+      operationId: runSimulator
+      tags: [simulator]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulatorRunBody"
+      responses:
+        "200":
+          description: Simulation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatorResult"
+
+  /projects/{projectId}/simulator/playthrough:
+    post:
+      operationId: simulatorPlaythrough
+      tags: [simulator]
+      summary: Stream an AI playthrough narrative via SSE
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlaythroughBody"
+      responses:
+        "200":
+          description: SSE stream of narrative chunks
+          content:
+            text/event-stream: {}
+
+  /projects/{projectId}/playtest-sessions:
+    get:
+      operationId: listPlaytestSessions
+      tags: [playtest]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Playtest sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlaytestSession"
+    post:
+      operationId: createPlaytestSession
+      tags: [playtest]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlaytestSessionBody"
+      responses:
+        "201":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaytestSession"
+
+  /projects/{projectId}/playtest-sessions/{sessionId}:
+    patch:
+      operationId: updatePlaytestSession
+      tags: [playtest]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlaytestSessionBody"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaytestSession"
+    delete:
+      operationId: deletePlaytestSession
+      tags: [playtest]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/playtest-feedback:
+    get:
+      operationId: listPlaytestFeedback
+      tags: [playtest]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Feedback list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlaytestFeedback"
+
+  /projects/{projectId}/playtest-feedback/share:
+    get:
+      operationId: getPlaytestShareLink
+      tags: [playtest]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Share token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShareLink"
+
+  /public/feedback/{shareToken}:
+    get:
+      operationId: getPublicFeedbackProject
+      tags: [feedback]
+      parameters:
+        - $ref: "#/components/parameters/ShareToken"
+      responses:
+        "200":
+          description: Public project info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicFeedbackProject"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: submitPublicFeedback
+      tags: [feedback]
+      parameters:
+        - $ref: "#/components/parameters/ShareToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitFeedbackBody"
+      responses:
+        "201":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaytestFeedback"
+
+  /projects/{projectId}/storyboard:
+    get:
+      operationId: listStoryboardNodes
+      tags: [storyboard]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Storyboard nodes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StoryboardNode"
+    post:
+      operationId: createStoryboardNode
+      tags: [storyboard]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStoryboardNodeBody"
+      responses:
+        "201":
+          description: Created node
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoryboardNode"
+
+  /projects/{projectId}/storyboard/{nodeId}/enhance:
+    post:
+      operationId: aiEnhanceStoryboardNode
+      tags: [storyboard]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/NodeId"
+      responses:
+        "200":
+          description: Enhanced storyboard node
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoryboardNode"
+
+  /projects/{projectId}/storyboard/{nodeId}:
+    patch:
+      operationId: updateStoryboardNode
+      tags: [storyboard]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/NodeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStoryboardNodeBody"
+      responses:
+        "200":
+          description: Updated node
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoryboardNode"
+    delete:
+      operationId: deleteStoryboardNode
+      tags: [storyboard]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/NodeId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/balance:
+    get:
+      operationId: getBalanceReport
+      tags: [balance]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Balance report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceReport"
+
+  /projects/{projectId}/changelog:
+    get:
+      operationId: listChangelog
+      tags: [changelog]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Changelog list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChangelogEntry"
+
+  /projects/{projectId}/export/{kind}:
+    post:
+      operationId: generateExport
+      tags: [export]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - tts-json
+              - rulebook-md
+              - kickstarter
+              - sell-sheet
+              - press-kit
+      responses:
+        "200":
+          description: Generated export content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportResult"
+
+components:
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: integer
+    EntityId:
+      name: entityId
+      in: path
+      required: true
+      schema:
+        type: integer
+    PropertyId:
+      name: propertyId
+      in: path
+      required: true
+      schema:
+        type: integer
+    RuleId:
+      name: ruleId
+      in: path
+      required: true
+      schema:
+        type: integer
+    PlayerId:
+      name: playerId
+      in: path
+      required: true
+      schema:
+        type: integer
+    NoteId:
+      name: noteId
+      in: path
+      required: true
+      schema:
+        type: integer
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: integer
+    ResearchId:
+      name: researchId
+      in: path
+      required: true
+      schema:
+        type: integer
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      schema:
+        type: integer
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: integer
+    NodeId:
+      name: nodeId
+      in: path
+      required: true
+      schema:
+        type: integer
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: integer
+    ShareToken:
+      name: shareToken
+      in: path
+      required: true
+      schema:
+        type: string
+    Tab:
+      name: tab
+      in: query
+      required: false
+      schema:
+        type: string
+
+  responses:
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    Me:
+      type: object
+      properties:
+        id:
+          type: integer
+        clerkUserId:
+          type: string
+        email:
+          type: [string, "null"]
+        firstName:
+          type: [string, "null"]
+        lastName:
+          type: [string, "null"]
+        imageUrl:
+          type: [string, "null"]
+        role:
+          type: string
+      required: [id, clerkUserId, role]
+
+    AiProviderSettings:
+      type: object
+      properties:
+        provider:
+          type: string
+        model:
+          type: [string, "null"]
+        hasApiKey:
+          type: boolean
+      required: [provider, hasApiKey]
+
+    UpdateAiSettingsBody:
+      type: object
+      properties:
+        provider:
+          type: string
+        model:
+          type: string
+        apiKey:
+          type: string
+
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        clerkUserId:
+          type: string
+        email:
+          type: [string, "null"]
+        firstName:
+          type: [string, "null"]
+        lastName:
+          type: [string, "null"]
+        imageUrl:
+          type: [string, "null"]
+        role:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        projectCount:
+          type: integer
+      required: [id, clerkUserId, role, createdAt, projectCount]
+
+    UpdateAdminUserBody:
+      type: object
+      properties:
+        role:
+          type: string
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: integer
+        ownerUserId:
+          type: [integer, "null"]
+        name:
+          type: string
+        description:
+          type: [string, "null"]
+        gameType:
+          type: [string, "null"]
+        genre:
+          type: [string, "null"]
+        playerCount:
+          type: [string, "null"]
+        targetDuration:
+          type: [string, "null"]
+        complexityScore:
+          type: [integer, "null"]
+        blueprint:
+          type: [string, "null"]
+        narrative:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, createdAt, updatedAt]
+
+    CreateProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        gameType:
+          type: string
+        genre:
+          type: string
+        playerCount:
+          type: string
+        targetDuration:
+          type: string
+      required: [name]
+
+    UpdateProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        gameType:
+          type: string
+        genre:
+          type: string
+        playerCount:
+          type: string
+        targetDuration:
+          type: string
+        complexityScore:
+          type: integer
+        blueprint:
+          type: string
+        narrative:
+          type: string
+
+    ProjectStats:
+      type: object
+      properties:
+        entityCount:
+          type: integer
+        ruleCount:
+          type: integer
+        playerCount:
+          type: integer
+        noteCount:
+          type: integer
+        taskCount:
+          type: integer
+        chatMessageCount:
+          type: integer
+        researchCount:
+          type: integer
+        assetCount:
+          type: integer
+        playtestCount:
+          type: integer
+      required:
+        - entityCount
+        - ruleCount
+        - playerCount
+        - noteCount
+        - taskCount
+        - chatMessageCount
+        - researchCount
+        - assetCount
+        - playtestCount
+
+    ProjectSnapshot:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isAutoSnapshot:
+          type: boolean
+        createdByName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - projectId
+        - name
+        - isAutoSnapshot
+        - createdAt
+
+    CreateSnapshotBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+      required:
+        - name
+
+    DuplicateProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+
+    ForkSnapshotBody:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+
+    RestoreSnapshotResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+
+    ComplexityScore:
+      type: object
+      properties:
+        score:
+          type: integer
+        breakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              factor:
+                type: string
+              value:
+                type: integer
+            required: [factor, value]
+      required: [score, breakdown]
+
+    GenerateBlueprintBody:
+      type: object
+      properties:
+        prompt:
+          type: string
+      required: [prompt]
+
+    IngestTextBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+      required: [title, content]
+
+    IngestUrlBody:
+      type: object
+      properties:
+        url:
+          type: string
+      required: [url]
+
+    DashboardSummary:
+      type: object
+      properties:
+        projectCount:
+          type: integer
+        entityCount:
+          type: integer
+        ruleCount:
+          type: integer
+        chatMessageCount:
+          type: integer
+        gameTypeBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              gameType:
+                type: string
+              count:
+                type: integer
+            required: [gameType, count]
+        genreBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              genre:
+                type: string
+              count:
+                type: integer
+            required: [genre, count]
+      required:
+        - projectCount
+        - entityCount
+        - ruleCount
+        - chatMessageCount
+        - gameTypeBreakdown
+        - genreBreakdown
+
+    ActivityEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: integer
+        projectName:
+          type: string
+        kind:
+          type: string
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, projectId, projectName, kind, title, createdAt]
+
+    ResearchItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        title:
+          type: string
+        content:
+          type: [string, "null"]
+        source:
+          type: [string, "null"]
+        tags:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, title, createdAt, updatedAt]
+
+    CreateResearchBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        source:
+          type: string
+        tags:
+          type: string
+      required: [title]
+
+    UpdateResearchBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        source:
+          type: string
+        tags:
+          type: string
+
+    Entity:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+        subtype:
+          type: [string, "null"]
+        parentEntityId:
+          type: [integer, "null"]
+        description:
+          type: [string, "null"]
+        stats:
+          type: [string, "null"]
+        color:
+          type: [string, "null"]
+        relatedTo:
+          type: [string, "null"]
+        lore:
+          type: [string, "null"]
+        designNotes:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, name, type, createdAt, updatedAt]
+
+    CreateEntityBody:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        subtype:
+          type: string
+        parentEntityId:
+          type: integer
+        description:
+          type: string
+        stats:
+          type: string
+        color:
+          type: string
+        relatedTo:
+          type: string
+        lore:
+          type: string
+        designNotes:
+          type: string
+      required: [name, type]
+
+    UpdateEntityBody:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        subtype:
+          type: string
+        parentEntityId:
+          type: integer
+        description:
+          type: string
+        stats:
+          type: string
+        color:
+          type: string
+        relatedTo:
+          type: string
+        lore:
+          type: string
+        designNotes:
+          type: string
+
+    EntityProperty:
+      type: object
+      properties:
+        id:
+          type: integer
+        entityId:
+          type: integer
+        name:
+          type: string
+        dataType:
+          type: string
+        unit:
+          type: [string, "null"]
+        value:
+          type: [number, "null"]
+        textValue:
+          type: [string, "null"]
+        minValue:
+          type: [number, "null"]
+        maxValue:
+          type: [number, "null"]
+        defaultValue:
+          type: [number, "null"]
+      required: [id, entityId, name, dataType]
+
+    CreateEntityPropertyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        dataType:
+          type: string
+        unit:
+          type: string
+        value:
+          type: number
+        textValue:
+          type: string
+        minValue:
+          type: number
+        maxValue:
+          type: number
+        defaultValue:
+          type: number
+      required: [name]
+
+    UpdateEntityPropertyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        dataType:
+          type: string
+        unit:
+          type: string
+        value:
+          type: number
+        textValue:
+          type: string
+        minValue:
+          type: number
+        maxValue:
+          type: number
+        defaultValue:
+          type: number
+
+    Rule:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: [string, "null"]
+        priority:
+          type: integer
+        designNotes:
+          type: [string, "null"]
+        edgeCases:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, title, content, priority, createdAt, updatedAt]
+
+    CreateRuleBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        priority:
+          type: integer
+        designNotes:
+          type: string
+        edgeCases:
+          type: string
+      required: [title, content]
+
+    UpdateRuleBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        priority:
+          type: integer
+        designNotes:
+          type: string
+        edgeCases:
+          type: string
+
+    ConflictReport:
+      type: object
+      properties:
+        conflicts:
+          type: array
+          items:
+            type: object
+            properties:
+              ruleIds:
+                type: array
+                items:
+                  type: integer
+              severity:
+                type: string
+              description:
+                type: string
+              suggestion:
+                type: string
+            required: [ruleIds, severity, description]
+        summary:
+          type: string
+      required: [conflicts, summary]
+
+    EntityEnhanceSuggestion:
+      type: object
+      properties:
+        description:
+          type: string
+        lore:
+          type: string
+        designNotes:
+          type: string
+        suggestedProperties:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              dataType:
+                type: string
+              defaultValue:
+                type: string
+              reason:
+                type: string
+            required: [name, dataType, reason]
+      required: [description, suggestedProperties]
+
+    RuleEnhanceSuggestion:
+      type: object
+      properties:
+        rewrittenContent:
+          type: string
+        improvedTitle:
+          type: string
+        designNotes:
+          type: string
+        edgeCases:
+          type: string
+        relatedRuleSuggestions:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              category:
+                type: string
+            required: [title, content, category]
+      required: [rewrittenContent, improvedTitle, relatedRuleSuggestions]
+
+    AssetEnhanceSuggestion:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        flavorText:
+          type: string
+
+    AiTextEditBody:
+      type: object
+      properties:
+        text:
+          type: string
+        action:
+          type: string
+          enum: [shorter, longer, rephrase, vivid, punchy, formal]
+        contextLabel:
+          type: string
+          description: "Optional human label for what this text is (e.g. 'project description', 'rule content')."
+      required: [text, action]
+
+    AiTextEditResponse:
+      type: object
+      properties:
+        rewritten:
+          type: string
+      required: [rewritten]
+
+    Player:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        name:
+          type: string
+        playerType:
+          type: string
+        role:
+          type: [string, "null"]
+        archetype:
+          type: [string, "null"]
+        description:
+          type: [string, "null"]
+        strategy:
+          type: [string, "null"]
+        startingResources:
+          type: [string, "null"]
+        victoryCondition:
+          type: [string, "null"]
+        specialAbility:
+          type: [string, "null"]
+        playstyle:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, name, createdAt, updatedAt]
+
+    CreatePlayerBody:
+      type: object
+      properties:
+        name:
+          type: string
+        playerType:
+          type: string
+        role:
+          type: string
+        archetype:
+          type: string
+        description:
+          type: string
+        strategy:
+          type: string
+        startingResources:
+          type: string
+        victoryCondition:
+          type: string
+        specialAbility:
+          type: string
+        playstyle:
+          type: string
+      required: [name]
+
+    UpdatePlayerBody:
+      type: object
+      properties:
+        name:
+          type: string
+        playerType:
+          type: string
+        role:
+          type: string
+        archetype:
+          type: string
+        description:
+          type: string
+        strategy:
+          type: string
+        startingResources:
+          type: string
+        victoryCondition:
+          type: string
+        specialAbility:
+          type: string
+        playstyle:
+          type: string
+
+    Note:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        title:
+          type: [string, "null"]
+        topic:
+          type: [string, "null"]
+        content:
+          type: [string, "null"]
+        color:
+          type: [string, "null"]
+        pinned:
+          type: boolean
+        lookAtLater:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, pinned, lookAtLater, createdAt, updatedAt]
+
+    CreateNoteBody:
+      type: object
+      properties:
+        title:
+          type: string
+        topic:
+          type: string
+        content:
+          type: string
+        color:
+          type: string
+        pinned:
+          type: boolean
+        lookAtLater:
+          type: boolean
+
+    UpdateNoteBody:
+      type: object
+      properties:
+        title:
+          type: string
+        topic:
+          type: string
+        content:
+          type: string
+        color:
+          type: string
+        pinned:
+          type: boolean
+        lookAtLater:
+          type: boolean
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: [string, "null"]
+        status:
+          type: string
+        priority:
+          type: string
+        category:
+          type: [string, "null"]
+        assignee:
+          type: [string, "null"]
+        dueDate:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, title, status, priority, createdAt, updatedAt]
+
+    CreateTaskBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        category:
+          type: string
+        assignee:
+          type: string
+        dueDate:
+          type: string
+          format: date-time
+      required: [title]
+
+    UpdateTaskBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        category:
+          type: string
+        assignee:
+          type: string
+        dueDate:
+          type: string
+          format: date-time
+
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        tab:
+          type: string
+        role:
+          type: string
+        content:
+          type: string
+        gameType:
+          type: [string, "null"]
+        genre:
+          type: [string, "null"]
+        model:
+          type: [string, "null"]
+        provider:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, projectId, tab, role, content, createdAt]
+
+    SendChatMessageBody:
+      type: object
+      properties:
+        content:
+          type: string
+        tab:
+          type: string
+        gameType:
+          type: string
+        genre:
+          type: string
+        model:
+          type: string
+      required: [content]
+
+    AiGenerateBody:
+      type: object
+      properties:
+        prompt:
+          type: string
+        count:
+          type: integer
+      required: [prompt]
+
+    Asset:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        entityId:
+          type: [integer, "null"]
+        name:
+          type: string
+        kind:
+          type: string
+        description:
+          type: [string, "null"]
+        flavorText:
+          type: [string, "null"]
+        imageDataUrl:
+          type: [string, "null"]
+        imagePrompt:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, name, kind, createdAt, updatedAt]
+
+    CreateAssetBody:
+      type: object
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+        entityId:
+          type: integer
+        description:
+          type: string
+        flavorText:
+          type: string
+        imagePrompt:
+          type: string
+      required: [name]
+
+    UpdateAssetBody:
+      type: object
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+        entityId:
+          type: integer
+        description:
+          type: string
+        flavorText:
+          type: string
+        imagePrompt:
+          type: string
+
+    GenerateImageBody:
+      type: object
+      properties:
+        prompt:
+          type: string
+        size:
+          type: string
+      required: [prompt]
+
+    SimulatorRunBody:
+      type: object
+      properties:
+        iterations:
+          type: integer
+        turns:
+          type: integer
+        startingResources:
+          type: number
+        incomePerTurn:
+          type: number
+        upkeepPerTurn:
+          type: number
+        randomness:
+          type: number
+      required: [iterations, turns]
+
+    SimulatorResult:
+      type: object
+      properties:
+        healthScore:
+          type: integer
+        verdict:
+          type: string
+        meanFinal:
+          type: number
+        bankruptRate:
+          type: number
+        turns:
+          type: array
+          items:
+            type: object
+            properties:
+              turn:
+                type: integer
+              p10:
+                type: number
+              p50:
+                type: number
+              p90:
+                type: number
+            required: [turn, p10, p50, p90]
+      required: [healthScore, verdict, meanFinal, bankruptRate, turns]
+
+    PlaythroughBody:
+      type: object
+      properties:
+        focus:
+          type: string
+
+    PlaytestSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        date:
+          type: string
+          format: date-time
+        playerCount:
+          type: [integer, "null"]
+        durationMinutes:
+          type: [integer, "null"]
+        rating:
+          type: [integer, "null"]
+        notes:
+          type: [string, "null"]
+        issues:
+          type: [string, "null"]
+        positives:
+          type: [string, "null"]
+        suggestions:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, date, createdAt, updatedAt]
+
+    CreatePlaytestSessionBody:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date-time
+        playerCount:
+          type: integer
+        durationMinutes:
+          type: integer
+        rating:
+          type: integer
+        notes:
+          type: string
+        issues:
+          type: string
+        positives:
+          type: string
+        suggestions:
+          type: string
+
+    UpdatePlaytestSessionBody:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date-time
+        playerCount:
+          type: integer
+        durationMinutes:
+          type: integer
+        rating:
+          type: integer
+        notes:
+          type: string
+        issues:
+          type: string
+        positives:
+          type: string
+        suggestions:
+          type: string
+
+    PlaytestFeedback:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        respondentName:
+          type: [string, "null"]
+        funScore:
+          type: [integer, "null"]
+        balanceScore:
+          type: [integer, "null"]
+        clarityScore:
+          type: [integer, "null"]
+        whatWorked:
+          type: [string, "null"]
+        whatDidNot:
+          type: [string, "null"]
+        suggestions:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, projectId, createdAt]
+
+    SubmitFeedbackBody:
+      type: object
+      properties:
+        respondentName:
+          type: string
+        funScore:
+          type: integer
+        balanceScore:
+          type: integer
+        clarityScore:
+          type: integer
+        whatWorked:
+          type: string
+        whatDidNot:
+          type: string
+        suggestions:
+          type: string
+
+    ShareLink:
+      type: object
+      properties:
+        token:
+          type: string
+        url:
+          type: string
+      required: [token, url]
+
+    PublicFeedbackProject:
+      type: object
+      properties:
+        projectName:
+          type: string
+        gameType:
+          type: [string, "null"]
+        genre:
+          type: [string, "null"]
+        description:
+          type: [string, "null"]
+      required: [projectName]
+
+    StoryboardNode:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        parentId:
+          type: [integer, "null"]
+        title:
+          type: string
+        content:
+          type: [string, "null"]
+        nodeType:
+          type: string
+        status:
+          type: string
+        color:
+          type: [string, "null"]
+        positionX:
+          type: number
+        positionY:
+          type: number
+        linkedRuleId:
+          type: [integer, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, title, nodeType, status, positionX, positionY, createdAt, updatedAt]
+
+    CreateStoryboardNodeBody:
+      type: object
+      properties:
+        parentId:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        nodeType:
+          type: string
+        status:
+          type: string
+        color:
+          type: string
+        positionX:
+          type: number
+        positionY:
+          type: number
+        linkedRuleId:
+          type: integer
+      required: [title]
+
+    UpdateStoryboardNodeBody:
+      type: object
+      properties:
+        parentId:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        nodeType:
+          type: string
+        status:
+          type: string
+        color:
+          type: string
+        positionX:
+          type: number
+        positionY:
+          type: number
+        linkedRuleId:
+          type: integer
+
+    BalanceReport:
+      type: object
+      properties:
+        balanceScore:
+          type: integer
+        verdict:
+          type: string
+        statSeries:
+          type: array
+          items:
+            type: object
+            properties:
+              statName:
+                type: string
+              entries:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    entityId:
+                      type: integer
+                    entityName:
+                      type: string
+                    value:
+                      type: number
+                  required: [entityId, entityName, value]
+            required: [statName, entries]
+        conflictCount:
+          type: integer
+      required: [balanceScore, verdict, statSeries, conflictCount]
+
+    ChangelogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        actor:
+          type: [string, "null"]
+        action:
+          type: string
+        entityKind:
+          type: [string, "null"]
+        entityRef:
+          type: [string, "null"]
+        summary:
+          type: string
+        details:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, projectId, action, summary, createdAt]
+
+    ExportResult:
+      type: object
+      properties:
+        kind:
+          type: string
+        contentType:
+          type: string
+        content:
+          type: string
+        filename:
+          type: string
+      required: [kind, contentType, content, filename]
