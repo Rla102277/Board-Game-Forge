@@ -81,15 +81,6 @@ export interface Project {
   blueprint?: string | null;
   /** @nullable */
   narrative?: string | null;
-  /** @nullable */
-  winCondition?: string | null;
-  /** @nullable */
-  turnPhases?: string | null;
-  /** @nullable */
-  eliminationRule?: string | null;
-  /** @nullable */
-  referenceGames?: string | null;
-  designPhase: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -113,11 +104,6 @@ export interface UpdateProjectBody {
   complexityScore?: number;
   blueprint?: string;
   narrative?: string;
-  winCondition?: string;
-  turnPhases?: string;
-  eliminationRule?: string;
-  referenceGames?: string;
-  designPhase?: string;
 }
 
 export interface ProjectStats {
@@ -265,7 +251,6 @@ export interface Entity {
   lore?: string | null;
   /** @nullable */
   designNotes?: string | null;
-  status: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -294,7 +279,6 @@ export interface UpdateEntityBody {
   relatedTo?: string;
   lore?: string;
   designNotes?: string;
-  status?: string;
 }
 
 export interface EntityProperty {
@@ -610,10 +594,6 @@ export interface Asset {
   imageDataUrl?: string | null;
   /** @nullable */
   imagePrompt?: string | null;
-  quantity: number;
-  status: string;
-  /** @nullable */
-  componentDetails?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -625,9 +605,6 @@ export interface CreateAssetBody {
   description?: string;
   flavorText?: string;
   imagePrompt?: string;
-  quantity?: number;
-  status?: string;
-  componentDetails?: string;
 }
 
 export interface UpdateAssetBody {
@@ -637,9 +614,6 @@ export interface UpdateAssetBody {
   description?: string;
   flavorText?: string;
   imagePrompt?: string;
-  quantity?: number;
-  status?: string;
-  componentDetails?: string;
 }
 
 export interface GenerateImageBody {

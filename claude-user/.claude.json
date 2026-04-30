@@ -1,9 +1,9 @@
 {
-  "numStartups": 6,
+  "numStartups": 7,
   "installMethod": "global",
   "tipsHistory": {
-    "new-user-warmup": 1,
-    "plan-mode-for-complex-tasks": 1,
+    "new-user-warmup": 6,
+    "plan-mode-for-complex-tasks": 7,
     "terminal-setup": 1,
     "color-when-multi-clauding": 2,
     "memory-command": 3,
@@ -490,9 +490,9 @@
         "workspace.tsx"
       ],
       "exampleFilesGeneratedAt": 1777391945446,
-      "lastHintSessionId": "f13d55f2-8a10-431d-9ecd-f367012e2d1e",
-      "lastSessionFirstPrompt": "compare and contrast hosting this app on replit or firebase",
-      "lastSessionModified": 1777511959379
+      "lastHintSessionId": "4911a920-e1ab-4262-b079-f9cd86d84851",
+      "lastSessionFirstPrompt": "where did we leave off",
+      "lastSessionModified": 1777515304760
     }
   },
   "githubRepoPaths": {
@@ -535,7 +535,7 @@
         "amount_minor_units": null,
         "currency": null
       },
-      "timestamp": 1777509507263
+      "timestamp": 1777515298299
     }
   },
   "cachedExtraUsageDisabledReason": "org_level_disabled",

@@ -21,4 +21,3 @@ export * from "./projectSnapshots";
 export * from "./comments";
 export * from "./activityFeed";
 export * from "./projectVersions";
-export * from "./entityRules";

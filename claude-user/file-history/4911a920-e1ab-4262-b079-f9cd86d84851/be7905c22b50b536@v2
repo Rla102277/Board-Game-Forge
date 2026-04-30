@@ -7911,7 +7911,7 @@ export function useListEntityRules<
   projectId: number,
   entityId: number,
   options?: {
-    query?: UseQueryOptions<EntityRule[], ErrorType<unknown>, TData>;
+    query?: UseQueryOptions<EntityRule[], TError, TData>;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -7973,42 +7973,6 @@ export const unlinkEntityRule = async (
     `/api/projects/${projectId}/entities/${entityId}/rules/${ruleId}`,
     { ...options, method: "DELETE" },
   );
-
-export type RuleLinkedEntity = { id: number; name: string; type: string; subtype?: string | null; color?: string | null };
-
-export const getListRuleEntitiesUrl = (projectId: number, ruleId: number) =>
-  `/api/projects/${projectId}/rules/${ruleId}/entities`;
-
-export const listRuleEntities = async (
-  projectId: number,
-  ruleId: number,
-  options?: RequestInit,
-): Promise<RuleLinkedEntity[]> =>
-  customFetch<RuleLinkedEntity[]>(getListRuleEntitiesUrl(projectId, ruleId), { ...options });
-
-export const getListRuleEntitiesQueryKey = (projectId: number, ruleId: number) =>
-  ["listRuleEntities", projectId, ruleId] as const;
-
-export const getListRuleEntitiesQueryOptions = <TData = RuleLinkedEntity[]>(
-  projectId: number,
-  ruleId: number,
-  options?: { query?: UseQueryOptions<RuleLinkedEntity[], ErrorType<unknown>, TData>; request?: SecondParameter<typeof customFetch> },
-): UseQueryOptions<RuleLinkedEntity[], ErrorType<unknown>, TData> => ({
-  queryKey: getListRuleEntitiesQueryKey(projectId, ruleId),
-  queryFn: () => listRuleEntities(projectId, ruleId, options?.request as RequestInit),
-  enabled: ruleId > 0,
-  ...options?.query,
-});
-
-export function useListRuleEntities<TData = RuleLinkedEntity[], TError = ErrorType<unknown>>(
-  projectId: number,
-  ruleId: number,
-  options?: { query?: UseQueryOptions<RuleLinkedEntity[], ErrorType<unknown>, TData>; request?: SecondParameter<typeof customFetch> },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListRuleEntitiesQueryOptions(projectId, ruleId, options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  return { ...query, queryKey: queryOptions.queryKey };
-}
 
 export const useUnlinkEntityRule = <
   TError = ErrorType<unknown>,

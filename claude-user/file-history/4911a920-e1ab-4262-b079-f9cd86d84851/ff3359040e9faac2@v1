@@ -18,11 +18,6 @@ export const projects = pgTable(
     complexityScore: integer("complexity_score"),
     blueprint: text("blueprint"),
     narrative: text("narrative"),
-    winCondition: text("win_condition"),
-    turnPhases: text("turn_phases"),
-    eliminationRule: text("elimination_rule"),
-    referenceGames: text("reference_games"),
-    designPhase: text("design_phase").default("concept").notNull(),
     forkedFromProjectId: integer("forked_from_project_id"),
     forkedFromSnapshotId: integer("forked_from_snapshot_id"),
     createdAt: timestamp("created_at", { withTimezone: true })

@@ -155,11 +155,6 @@ export const GetProjectResponse = zod.object({
   complexityScore: zod.number().nullish(),
   blueprint: zod.string().nullish(),
   narrative: zod.string().nullish(),
-  winCondition: zod.string().nullish(),
-  turnPhases: zod.string().nullish(),
-  eliminationRule: zod.string().nullish(),
-  referenceGames: zod.string().nullish(),
-  designPhase: zod.string().default("concept"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -178,11 +173,6 @@ export const UpdateProjectBody = zod.object({
   complexityScore: zod.number().optional(),
   blueprint: zod.string().optional(),
   narrative: zod.string().optional(),
-  winCondition: zod.string().optional(),
-  turnPhases: zod.string().optional(),
-  eliminationRule: zod.string().optional(),
-  referenceGames: zod.string().optional(),
-  designPhase: zod.string().optional(),
 });
 
 export const UpdateProjectResponse = zod.object({
@@ -197,11 +187,6 @@ export const UpdateProjectResponse = zod.object({
   complexityScore: zod.number().nullish(),
   blueprint: zod.string().nullish(),
   narrative: zod.string().nullish(),
-  winCondition: zod.string().nullish(),
-  turnPhases: zod.string().nullish(),
-  eliminationRule: zod.string().nullish(),
-  referenceGames: zod.string().nullish(),
-  designPhase: zod.string().default("concept"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1311,20 +1296,6 @@ export const UnlinkEntityRuleParams = zod.object({
   entityId: zod.coerce.number(),
   ruleId: zod.coerce.number(),
 });
-
-export const ListRuleEntitiesParams = zod.object({
-  projectId: zod.coerce.number(),
-  ruleId: zod.coerce.number(),
-});
-export const ListRuleEntitiesResponse = zod.array(
-  zod.object({
-    id: zod.number(),
-    name: zod.string(),
-    type: zod.string(),
-    subtype: zod.string().nullish(),
-    color: zod.string().nullish(),
-  }),
-);
 
 export const RunSimulatorParams = zod.object({
   projectId: zod.coerce.number(),

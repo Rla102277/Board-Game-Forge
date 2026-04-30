@@ -81,15 +81,6 @@ export interface Project {
   blueprint?: string | null;
   /** @nullable */
   narrative?: string | null;
-  /** @nullable */
-  winCondition?: string | null;
-  /** @nullable */
-  turnPhases?: string | null;
-  /** @nullable */
-  eliminationRule?: string | null;
-  /** @nullable */
-  referenceGames?: string | null;
-  designPhase: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -113,11 +104,6 @@ export interface UpdateProjectBody {
   complexityScore?: number;
   blueprint?: string;
   narrative?: string;
-  winCondition?: string;
-  turnPhases?: string;
-  eliminationRule?: string;
-  referenceGames?: string;
-  designPhase?: string;
 }
 
 export interface ProjectStats {

@@ -1,5 +1,5 @@
 {
-  "numStartups": 5,
+  "numStartups": 6,
   "installMethod": "global",
   "tipsHistory": {
     "new-user-warmup": 1,
@@ -20,7 +20,11 @@
     "continue": 4,
     "shift-tab": 4,
     "image-paste": 4,
-    "web-app": 5
+    "web-app": 5,
+    "remote-control": 5,
+    "voice-mode": 5,
+    "custom-agents": 6,
+    "feedback-command": 6
   },
   "cachedGrowthBookFeatures": {
     "tengu_cobalt_wren": false,
@@ -486,9 +490,9 @@
         "workspace.tsx"
       ],
       "exampleFilesGeneratedAt": 1777391945446,
-      "lastHintSessionId": "507f7552-03e0-4799-967d-dba9657ff9ef",
-      "lastSessionFirstPrompt": "where did we leave off on teh last chat",
-      "lastSessionModified": 1777509592642
+      "lastHintSessionId": "f13d55f2-8a10-431d-9ecd-f367012e2d1e",
+      "lastSessionFirstPrompt": "compare and contrast hosting this app on replit or firebase",
+      "lastSessionModified": 1777511959379
     }
   },
   "githubRepoPaths": {
