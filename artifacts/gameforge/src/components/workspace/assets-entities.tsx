@@ -5,7 +5,7 @@ import {
   useListEntities, useCreateEntity, useUpdateEntity, useDeleteEntity,
   useAiGenerateEntities, useAiEnhanceEntity,
   useListEntityProperties, useCreateEntityProperty, useUpdateEntityProperty, useDeleteEntityProperty,
-  useListRules,
+  useListRules, useListProjectEntityProperties,
   useListEntityRules, useLinkEntityRule, useUnlinkEntityRule, getListEntityRulesQueryKey,
   getListEntitiesQueryKey, getListEntityPropertiesQueryKey,
   type Asset, type AssetEnhanceSuggestion, type Entity, type EntityProperty,
@@ -15,7 +15,10 @@ import {
   Plus, Trash2, ImageIcon, Edit2, Sparkles, Download, Loader2, Wand2, Save, BookOpen,
   Layers, Square, Circle, Dice5, User, Map as MapIcon, Package, Tag, Check, X, RefreshCw,
   ChevronDown, ChevronRight, Settings, Pencil, Copy, FileText, Activity, Eye, TableIcon,
+  GitBranch,
 } from "lucide-react";
+import { buildLinks, CoverageGaps, EntityGraph, ComponentBrowser, PropertyDictionary, RuleEntityLinks } from "./component-graph";
+import { ComponentLibraryView } from "./component-library";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -198,7 +201,7 @@ export function AssetsEntities({
   const { data: project } = useGetProject(projectId);
   const updateProject = useUpdateProject();
 
-  const [activeView, setActiveView] = useState<"assets" | "entities" | "bom">("assets");
+  const [activeView, setActiveView] = useState<"workshop" | "graph" | "library" | "assets" | "manifest">("workshop");
   const [narrative, setNarrative] = useState("");
   const [narrativeDirty, setNarrativeDirty] = useState(false);
   const [savingNarrative, setSavingNarrative] = useState(false);
@@ -224,19 +227,39 @@ export function AssetsEntities({
 
   const openGamma = (title: string, prompt: string) => setGammaDialog({ title, prompt });
 
+  const { data: allEntities } = useListEntities(projectId);
+  const { data: allRules } = useListRules(projectId);
+  const { data: allProperties } = useListProjectEntityProperties(projectId);
+  const links = useMemo(() => buildLinks(allEntities ?? [], allRules ?? []), [allEntities, allRules]);
+  const propsByEntity = useMemo(() => {
+    const m = new Map<number, EntityProperty[]>();
+    for (const p of allProperties ?? []) {
+      const arr = m.get(p.entityId) ?? [];
+      arr.push(p);
+      m.set(p.entityId, arr);
+    }
+    return m;
+  }, [allProperties]);
+
   const sendToChat = (prompt: string) => {
     onChatPrompt?.(prompt);
     toast({ title: "Sent to AI Chat", description: "Open the chat panel to review and send." });
+  };
+
+  const jumpToView = (tab: string) => {
+    if (["workshop", "graph", "library", "assets", "manifest"].includes(tab)) {
+      setActiveView(tab as "workshop" | "graph" | "library" | "assets" | "manifest");
+    }
   };
 
   return (
     <div className="space-y-5 max-w-6xl">
       <div>
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Layers className="h-6 w-6 text-primary" /> Assets & Entities
+          <Layers className="h-6 w-6 text-primary" /> Workshop
         </h2>
         <p className="text-xs text-muted-foreground mt-1">
-          Manage artwork, mockups, and game components — generate PDFs for any deck or entity with Gamma
+          Build and analyze your game components — workshop, graph analysis, type library, digital assets, and component manifest
         </p>
       </div>
 
@@ -264,11 +287,13 @@ export function AssetsEntities({
       </Card>
 
       {/* View switcher */}
-      <div className="flex gap-1 p-1 bg-muted/30 rounded-lg w-fit border border-border">
+      <div className="flex gap-1 p-1 bg-muted/30 rounded-lg border border-border w-fit flex-wrap">
         {([
-          { id: "assets",   label: "Assets",           icon: <ImageIcon className="h-3.5 w-3.5" /> },
-          { id: "entities", label: "Components",        icon: <Layers className="h-3.5 w-3.5" /> },
-          { id: "bom",      label: "Bill of Materials", icon: <Package className="h-3.5 w-3.5" /> },
+          { id: "workshop",  label: "Workshop",  icon: <Layers className="h-3.5 w-3.5" /> },
+          { id: "graph",     label: "Graph",     icon: <GitBranch className="h-3.5 w-3.5" /> },
+          { id: "library",   label: "Library",   icon: <BookOpen className="h-3.5 w-3.5" /> },
+          { id: "assets",    label: "Assets",    icon: <ImageIcon className="h-3.5 w-3.5" /> },
+          { id: "manifest",  label: "Manifest",  icon: <Package className="h-3.5 w-3.5" /> },
         ] as const).map((v) => (
           <button
             key={v.id}
@@ -285,19 +310,52 @@ export function AssetsEntities({
       </div>
 
       {/* Content */}
-      {activeView === "assets" ? (
+      {activeView === "workshop" ? (
+        <EntitiesView
+          projectId={projectId}
+          narrative={narrative}
+          projectName={project?.name ?? "Untitled"}
+          onGamma={openGamma}
+        />
+      ) : activeView === "graph" ? (
+        <div className="space-y-6 pb-8">
+          <CoverageGaps
+            entities={allEntities ?? []}
+            rules={allRules ?? []}
+            links={links}
+            onJump={jumpToView}
+          />
+          <EntityGraph
+            entities={allEntities ?? []}
+            links={links}
+            onJump={jumpToView}
+          />
+          <ComponentBrowser
+            entities={allEntities ?? []}
+            links={links}
+            propsByEntity={propsByEntity}
+            onJump={jumpToView}
+          />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <PropertyDictionary
+              entities={allEntities ?? []}
+              properties={allProperties ?? []}
+            />
+            <RuleEntityLinks
+              rules={allRules ?? []}
+              entities={allEntities ?? []}
+              links={links}
+            />
+          </div>
+        </div>
+      ) : activeView === "library" ? (
+        <ComponentLibraryView />
+      ) : activeView === "assets" ? (
         <AssetsView
           projectId={projectId}
           narrative={narrative}
           projectName={project?.name ?? "Untitled"}
           projectDescription={project?.description ?? ""}
-          onGamma={openGamma}
-        />
-      ) : activeView === "entities" ? (
-        <EntitiesView
-          projectId={projectId}
-          narrative={narrative}
-          projectName={project?.name ?? "Untitled"}
           onGamma={openGamma}
         />
       ) : (

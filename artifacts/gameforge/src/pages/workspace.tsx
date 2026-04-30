@@ -5,7 +5,7 @@ import { useUser, useClerk } from "@clerk/react";
 import {
   Layout, Users, FileText, CheckSquare, ChevronLeft, Gamepad2, Activity, MoreVertical, Trash2,
   BookOpen, Network, Dice5, ImageIcon, MapPin, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
-  MessageSquare, History, Share2, Clock, BarChart3, EyeOff, Grid3X3, TrendingUp,
+  MessageSquare, History, Share2, Clock, BarChart3, EyeOff, Grid3X3, TrendingUp, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -43,30 +43,75 @@ const CommentsPanel = lazy(() => import("@/components/collaboration/comments-pan
 const VersionHistory = lazy(() => import("@/components/collaboration/version-history").then(m => ({ default: m.VersionHistory })));
 const ShareDialog = lazy(() => import("@/components/collaboration/share-dialog").then(m => ({ default: m.ShareDialog })));
 
-const SECTIONS = [
-  { id: "overview", label: "Overview", icon: Layout, statKey: null, shortcut: "1" },
-  { id: "research", label: "Research", icon: BookOpen, statKey: "researchCount", shortcut: "2" },
-  { id: "ontology", label: "Ontology", icon: Network, statKey: "entityCount", shortcut: "3" },
-  { id: "assets-entities", label: "Assets & Entities", icon: ImageIcon, statKey: "assetCount", shortcut: "4" },
-  { id: "players", label: "Players", icon: Users, statKey: "playerCount", shortcut: "5" },
-  { id: "rules", label: "Rules Sandbox", icon: Activity, statKey: "ruleCount", shortcut: "6" },
-  { id: "rulebook", label: "Rulebook", icon: BookOpen, statKey: null, shortcut: null },
-  { id: "layout", label: "Layout", icon: Grid3X3, statKey: null, shortcut: null },
-  { id: "turn-structure", label: "Turn Structure", icon: Clock, statKey: null, shortcut: null },
-  { id: "scaling", label: "Scaling", icon: BarChart3, statKey: null, shortcut: null },
-  { id: "simulator", label: "Simulator", icon: Dice5, statKey: null, shortcut: "7" },
-  { id: "playtesting", label: "Playtesting", icon: Users, statKey: "playtestCount", shortcut: "8" },
-  { id: "blind-playtest", label: "Blind Test", icon: EyeOff, statKey: null, shortcut: null },
-  { id: "notes", label: "Notes", icon: FileText, statKey: "noteCount", shortcut: null },
-  { id: "tasks", label: "Tasks", icon: CheckSquare, statKey: "taskCount", shortcut: null },
-  { id: "scoring-curve", label: "Scoring Curve", icon: TrendingUp, statKey: null, shortcut: null },
-  { id: "design-pipeline", label: "Design Pipeline", icon: MapPin, statKey: null, shortcut: null },
-  { id: "balance", label: "Balance", icon: Scale, statKey: null, shortcut: null },
-  { id: "export", label: "Export", icon: Download, statKey: null, shortcut: null },
-  { id: "comments", label: "Comments", icon: MessageSquare, statKey: null, shortcut: null },
-  { id: "activity", label: "Activity", icon: History, statKey: null, shortcut: null },
-  { id: "versions", label: "Versions", icon: History, statKey: null, shortcut: null },
+const NAV_GROUPS = [
+  {
+    label: "Foundation",
+    defaultOpen: true,
+    items: [
+      { id: "overview",       label: "Overview",        icon: Layout,       statKey: null,             shortcut: "1" },
+      { id: "research",       label: "Research",         icon: BookOpen,     statKey: "researchCount",  shortcut: "2" },
+      { id: "players",        label: "Players",          icon: Users,        statKey: "playerCount",    shortcut: "3" },
+    ],
+  },
+  {
+    label: "Workshop",
+    defaultOpen: true,
+    items: [
+      { id: "assets-entities", label: "Components",     icon: ImageIcon,    statKey: "assetCount",     shortcut: "4" },
+    ],
+  },
+  {
+    label: "Rules & Flow",
+    defaultOpen: true,
+    items: [
+      { id: "rules",          label: "Rules",            icon: Activity,     statKey: "ruleCount",      shortcut: "5" },
+      { id: "rulebook",       label: "Rulebook",         icon: BookOpen,     statKey: null,             shortcut: null },
+      { id: "turn-structure", label: "Turn Structure",   icon: Clock,        statKey: null,             shortcut: null },
+      { id: "layout",         label: "Layout",           icon: Grid3X3,      statKey: null,             shortcut: null },
+    ],
+  },
+  {
+    label: "Simulation",
+    defaultOpen: false,
+    items: [
+      { id: "simulator",      label: "Simulator",        icon: Dice5,        statKey: null,             shortcut: "6" },
+      { id: "scaling",        label: "Scaling",          icon: BarChart3,    statKey: null,             shortcut: null },
+      { id: "scoring-curve",  label: "Scoring Curve",    icon: TrendingUp,   statKey: null,             shortcut: null },
+      { id: "balance",        label: "Balance",          icon: Scale,        statKey: null,             shortcut: null },
+    ],
+  },
+  {
+    label: "Playtesting",
+    defaultOpen: false,
+    items: [
+      { id: "playtesting",    label: "Playtesting",      icon: Users,        statKey: "playtestCount",  shortcut: "7" },
+      { id: "blind-playtest", label: "Blind Test",       icon: EyeOff,       statKey: null,             shortcut: null },
+    ],
+  },
+  {
+    label: "Publish",
+    defaultOpen: false,
+    items: [
+      { id: "export",         label: "Exports",          icon: Download,     statKey: null,             shortcut: "8" },
+      { id: "design-pipeline",label: "Design Pipeline",  icon: MapPin,       statKey: null,             shortcut: null },
+      { id: "notes",          label: "Notes",            icon: FileText,     statKey: "noteCount",      shortcut: null },
+      { id: "tasks",          label: "Tasks",            icon: CheckSquare,  statKey: "taskCount",      shortcut: null },
+    ],
+  },
+  {
+    label: "Team",
+    defaultOpen: false,
+    items: [
+      { id: "comments",       label: "Comments",         icon: MessageSquare,statKey: null,             shortcut: null },
+      { id: "activity",       label: "Activity",         icon: History,      statKey: null,             shortcut: null },
+      { id: "versions",       label: "Versions",         icon: History,      statKey: null,             shortcut: null },
+    ],
+  },
 ] as const;
+
+const ALL_SECTION_LABELS: Record<string, string> = Object.fromEntries(
+  NAV_GROUPS.flatMap(g => g.items.map(i => [i.id, i.label]))
+);
 
 export default function Workspace({ projectId: projectIdProp }: { projectId?: number } = {}) {
   const queryClient = useQueryClient();
@@ -85,6 +130,10 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
   const [chatPrompt, setChatPrompt] = useState<string | undefined>();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(NAV_GROUPS.map(g => [g.label, g.defaultOpen]))
+  );
+  const toggleGroup = (label: string) => setOpenGroups(g => ({ ...g, [label]: !g[label] }));
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -100,12 +149,12 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
     },
     nav1: () => setActiveSection("overview"),
     nav2: () => setActiveSection("research"),
-    nav3: () => setActiveSection("ontology"),
+    nav3: () => setActiveSection("players"),
     nav4: () => setActiveSection("assets-entities"),
-    nav5: () => setActiveSection("players"),
-    nav6: () => setActiveSection("rules"),
-    nav7: () => setActiveSection("simulator"),
-    nav8: () => setActiveSection("playtesting"),
+    nav5: () => setActiveSection("rules"),
+    nav6: () => setActiveSection("simulator"),
+    nav7: () => setActiveSection("playtesting"),
+    nav8: () => setActiveSection("export"),
     nav9: () => setActiveSection("playtesting"),
     quickCreateEntity: () => setActiveSection("assets-entities"),
     quickCreateRule: () => setActiveSection("rules"),
@@ -375,37 +424,48 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {SECTIONS.map((section) => {
-            const Icon = section.icon;
-            const statValue = section.statKey && stats ? (stats as any)[section.statKey] : null;
-            return (
-              <Tooltip key={section.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setActiveSection(section.id)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                      activeSection === section.id
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="flex-1 text-left">{section.label}</span>
-                    {statValue !== null && statValue !== undefined && (
-                      <span className="text-xs opacity-60">{statValue}</span>
-                    )}
-                    {section.shortcut && (
-                      <span className="text-xs opacity-40 ml-auto">{section.shortcut}</span>
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>{section.label} {section.shortcut && `(Press ${section.shortcut})`}</p>
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <button
+                onClick={() => toggleGroup(group.label)}
+                className="w-full flex items-center justify-between px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+              >
+                {group.label}
+                <ChevronRight className={`h-3 w-3 transition-transform ${openGroups[group.label] ? "rotate-90" : ""}`} />
+              </button>
+              {openGroups[group.label] && (
+                <div className="space-y-0.5 mb-1">
+                  {group.items.map((section) => {
+                    const Icon = section.icon;
+                    const statValue = section.statKey && stats ? (stats as any)[section.statKey] : null;
+                    return (
+                      <Tooltip key={section.id}>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => setActiveSection(section.id)}
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                              activeSection === section.id
+                                ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            }`}
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 text-left">{section.label}</span>
+                            {statValue != null && <span className="text-xs opacity-60">{statValue}</span>}
+                            {section.shortcut && <span className="text-xs opacity-40">{section.shortcut}</span>}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>{section.label}{section.shortcut ? ` (Press ${section.shortcut})` : ""}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
         </nav>
 
         <div className="p-3 border-t border-border text-xs text-muted-foreground">
@@ -424,7 +484,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
         <div className="h-12 border-b border-border flex items-center px-6 bg-card text-muted-foreground gap-2 shrink-0 text-sm">
           <span className="font-medium text-foreground">{project.name}</span>
           <span>/</span>
-          <span className="text-primary">{SECTIONS.find(s => s.id === activeSection)?.label}</span>
+          <span className="text-primary">{ALL_SECTION_LABELS[activeSection] ?? activeSection}</span>
         </div>
         <div className="flex-1 p-6 overflow-y-auto">
           {renderSection()}
