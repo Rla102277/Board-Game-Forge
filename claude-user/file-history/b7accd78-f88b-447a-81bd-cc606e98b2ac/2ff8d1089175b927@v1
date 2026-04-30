@@ -13,13 +13,11 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 const FORMATS = [
-  { kind: "tts-json",      icon: FileJson,   title: "Tabletop Simulator JSON", desc: "Drop this into Tabletop Simulator to import your prototype." },
-  { kind: "rulebook-md",   icon: FileText,   title: "Rulebook (Markdown)",     desc: "AI-formatted rulebook ready to publish or share with playtesters." },
-  { kind: "player-aid",    icon: Layout,     title: "Player Aid Card",         desc: "Compact 2-sided quick-reference: turn order, key rules, scoring summary." },
-  { kind: "component-bom", icon: Package,    title: "Component BOM (CSV)",     desc: "Full bill of materials — component names, types, quantities, and material tiers." },
-  { kind: "kickstarter",   icon: Layout,     title: "Kickstarter copy",        desc: "Pitch-ready campaign description." },
-  { kind: "sell-sheet",    icon: Package,    title: "Sell sheet",              desc: "Single-page sales overview for retailers and publishers." },
-  { kind: "press-kit",     icon: Mail,       title: "Press kit",               desc: "Talking points and media assets for outreach." },
+  { kind: "tts-json", icon: FileJson, title: "Tabletop Simulator JSON", desc: "Drop this into Tabletop Simulator to import your prototype." },
+  { kind: "rulebook-md", icon: FileText, title: "Rulebook (Markdown)", desc: "AI-formatted rulebook ready to publish." },
+  { kind: "kickstarter", icon: Layout, title: "Kickstarter copy", desc: "Pitch-ready campaign description." },
+  { kind: "sell-sheet", icon: Package, title: "Sell sheet", desc: "Single-page sales overview for retailers and publishers." },
+  { kind: "press-kit", icon: Mail, title: "Press kit", desc: "Talking points and media assets for outreach." },
 ] as const;
 
 const GAMMA_FORMATS = [

@@ -10,6 +10,46 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
+interface Benchmark { id: string; game: string; publisher: string; year: string; price: string; players: string; weight: number; rating: number; pros: string[]; cons: string[]; notes: string; }
+interface BenchState { benchmarks: Benchmark[]; }
+const BENCH_STORAGE = (pid: number) => `gameforge.bench.${pid}`;
+const BENCH_DEFAULT: Benchmark[] = [];
+function loadBench(pid: number): BenchState { try { const r = localStorage.getItem(BENCH_STORAGE(pid)); if (r) return JSON.parse(r); } catch {} return { benchmarks: BENCH_DEFAULT }; }
+function saveBench(pid: number, s: BenchState) { try { localStorage.setItem(BENCH_STORAGE(pid), JSON.stringify(s)); } catch {} }
+
+function BenchmarkCard({ projectId }: { projectId: number }) {
+  const [state, setState] = useState<BenchState>(() => loadBench(projectId));
+  const persist = (n: BenchState) => { setState(n); saveBench(projectId, n); };
+  const add = () => { const b: Benchmark = { id: crypto.randomUUID(), game: "", publisher: "", year: "", price: "", players: "", weight: 2.5, rating: 7.0, pros: [], cons: [], notes: "" }; persist({ ...state, benchmarks: [...state.benchmarks, b] }); };
+  const upd = (id: string, u: Partial<Benchmark>) => persist({ ...state, benchmarks: state.benchmarks.map(b => b.id === id ? { ...b, ...u } : b) });
+  const del = (id: string) => persist({ ...state, benchmarks: state.benchmarks.filter(b => b.id !== id) });
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex items-center justify-between"><CardTitle className="text-base flex items-center gap-2"><Search className="h-4 w-4 text-primary"/> Reference Game Benchmarking</CardTitle><Button size="sm" onClick={add} className="gap-1"><Plus className="h-3 w-3"/> Add</Button></CardHeader>
+      <CardContent className="space-y-3">
+        {state.benchmarks.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">Add competitive games to benchmark against.</div>}
+        {state.benchmarks.map(b => (
+          <div key={b.id} className="border border-border rounded-lg p-3 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Input className="h-8 text-sm flex-1 min-w-[140px]" value={b.game} onChange={e=>upd(b.id,{game:e.target.value})} placeholder="Game name"/>
+              <Input className="h-8 text-sm w-32" value={b.publisher} onChange={e=>upd(b.id,{publisher:e.target.value})} placeholder="Publisher"/>
+              <Input className="h-8 text-sm w-20" value={b.year} onChange={e=>upd(b.id,{year:e.target.value})} placeholder="Year"/>
+              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={()=>del(b.id)}><Trash2 className="h-3.5 w-3.5"/></Button>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Input className="h-8 text-sm w-24" value={b.players} onChange={e=>upd(b.id,{players:e.target.value})} placeholder="Players"/>
+              <Input className="h-8 text-sm w-24" value={b.price} onChange={e=>upd(b.id,{price:e.target.value})} placeholder="Price"/>
+              <div className="flex items-center gap-2"><span className="text-xs text-muted-foreground">Weight</span><Input type="number" step={0.1} className="h-8 text-sm w-20" value={b.weight} onChange={e=>upd(b.id,{weight:parseFloat(e.target.value)||0})}/></div>
+              <div className="flex items-center gap-2"><span className="text-xs text-muted-foreground">Rating</span><Input type="number" step={0.1} className="h-8 text-sm w-20" value={b.rating} onChange={e=>upd(b.id,{rating:parseFloat(e.target.value)||0})}/></div>
+            </div>
+            <Textarea rows={2} className="text-sm" value={b.notes} onChange={e=>upd(b.id,{notes:e.target.value})} placeholder="Notes, USPs, differentiation..."/>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function Research({ projectId }: { projectId: number }) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -176,6 +216,8 @@ export function Research({ projectId }: { projectId: number }) {
           </CardContent>
         </Card>
       )}
+
+      <BenchmarkCard projectId={projectId} />
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

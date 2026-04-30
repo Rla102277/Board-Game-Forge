@@ -5,7 +5,7 @@ import { useUser, useClerk } from "@clerk/react";
 import {
   Layout, Users, FileText, CheckSquare, ChevronLeft, Gamepad2, Activity, MoreVertical, Trash2,
   BookOpen, Network, Dice5, ImageIcon, MapPin, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
-  MessageSquare, History, Share2, Clock, BarChart3, EyeOff,
+  MessageSquare, History, Share2, Clock, BarChart3, EyeOff, Grid3X3, TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -28,12 +28,15 @@ const Playtesting = lazy(() => import("@/components/workspace/playtesting").then
 const Notes = lazy(() => import("@/components/workspace/notes").then(m => ({ default: m.Notes })));
 const Tasks = lazy(() => import("@/components/workspace/tasks").then(m => ({ default: m.Tasks })));
 const Balance = lazy(() => import("@/components/workspace/balance").then(m => ({ default: m.Balance })));
-const Storyboard = lazy(() => import("@/components/workspace/storyboard").then(m => ({ default: m.Storyboard })));
+const DesignPipeline = lazy(() => import("@/components/workspace/design-pipeline").then(m => ({ default: m.DesignPipeline })));
 const Exports = lazy(() => import("@/components/workspace/exports").then(m => ({ default: m.Exports })));
 const ChatPanel = lazy(() => import("@/components/workspace/chat-panel").then(m => ({ default: m.ChatPanel })));
 const TurnStructure = lazy(() => import("@/components/workspace/turn-structure").then(m => ({ default: m.TurnStructureVisualizer })));
 const ScalingMatrix = lazy(() => import("@/components/workspace/scaling-matrix").then(m => ({ default: m.ScalingMatrixVisualizer })));
 const BlindPlaytest = lazy(() => import("@/components/workspace/blind-playtest").then(m => ({ default: m.BlindPlaytestFramework })));
+const RulebookEditor = lazy(() => import("@/components/workspace/rulebook-editor").then(m => ({ default: m.RulebookEditor })));
+const LayoutEditor = lazy(() => import("@/components/workspace/layout-editor").then(m => ({ default: m.LayoutEditor })));
+const ScoringCurve = lazy(() => import("@/components/workspace/scoring-curve").then(m => ({ default: m.ScoringCurve })));
 const CollaborationPresence = lazy(() => import("@/components/collaboration/cursor-indicators").then(m => ({ default: m.CollaborationPresence })));
 const ActivityFeed = lazy(() => import("@/components/collaboration/activity-feed").then(m => ({ default: m.ActivityFeed })));
 const CommentsPanel = lazy(() => import("@/components/collaboration/comments-panel").then(m => ({ default: m.CommentsPanel })));
@@ -47,6 +50,8 @@ const SECTIONS = [
   { id: "assets-entities", label: "Assets & Entities", icon: ImageIcon, statKey: "assetCount", shortcut: "4" },
   { id: "players", label: "Players", icon: Users, statKey: "playerCount", shortcut: "5" },
   { id: "rules", label: "Rules Sandbox", icon: Activity, statKey: "ruleCount", shortcut: "6" },
+  { id: "rulebook", label: "Rulebook", icon: BookOpen, statKey: null, shortcut: null },
+  { id: "layout", label: "Layout", icon: Grid3X3, statKey: null, shortcut: null },
   { id: "turn-structure", label: "Turn Structure", icon: Clock, statKey: null, shortcut: null },
   { id: "scaling", label: "Scaling", icon: BarChart3, statKey: null, shortcut: null },
   { id: "simulator", label: "Simulator", icon: Dice5, statKey: null, shortcut: "7" },
@@ -54,7 +59,8 @@ const SECTIONS = [
   { id: "blind-playtest", label: "Blind Test", icon: EyeOff, statKey: null, shortcut: null },
   { id: "notes", label: "Notes", icon: FileText, statKey: "noteCount", shortcut: null },
   { id: "tasks", label: "Tasks", icon: CheckSquare, statKey: "taskCount", shortcut: null },
-  { id: "storyboard", label: "Storyboard", icon: MapPin, statKey: null, shortcut: null },
+  { id: "scoring-curve", label: "Scoring Curve", icon: TrendingUp, statKey: null, shortcut: null },
+  { id: "design-pipeline", label: "Design Pipeline", icon: MapPin, statKey: null, shortcut: null },
   { id: "balance", label: "Balance", icon: Scale, statKey: null, shortcut: null },
   { id: "export", label: "Export", icon: Download, statKey: null, shortcut: null },
   { id: "comments", label: "Comments", icon: MessageSquare, statKey: null, shortcut: null },
@@ -175,6 +181,20 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           </Suspense>
         </ErrorBoundary>
       );
+      case "rulebook": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <RulebookEditor projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "layout": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <LayoutEditor projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
       case "turn-structure": return (
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
@@ -224,10 +244,17 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           </Suspense>
         </ErrorBoundary>
       );
-      case "storyboard": return (
+      case "design-pipeline": return (
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
-            <Storyboard projectId={projectId} />
+            <DesignPipeline projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "scoring-curve": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <ScoringCurve projectId={projectId} />
           </Suspense>
         </ErrorBoundary>
       );

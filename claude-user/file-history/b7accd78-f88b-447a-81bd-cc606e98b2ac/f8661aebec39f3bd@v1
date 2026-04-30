@@ -14,7 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Trash2, ImageIcon, Edit2, Sparkles, Download, Loader2, Wand2, Save, BookOpen,
   Layers, Square, Circle, Dice5, User, Map as MapIcon, Package, Tag, Check, X, RefreshCw,
-  ChevronDown, ChevronRight, Settings, Pencil, Copy, FileText, Activity, Eye, TableIcon,
+  ChevronDown, ChevronRight, Settings, Pencil, Copy, FileText, Activity, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,16 +29,61 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import {
-  PHYSICAL_TYPES, WORLD_TYPES, ALL_COMPONENT_TYPES, COMPONENT_META, COMPONENT_SUBTYPES,
-  STATUS_OPTIONS, getMeta, getStatusMeta, type ComponentType,
-} from "@/lib/game-component-types";
-import { EntitySheetView } from "./entity-sheet-view";
-import { CardStudio } from "./card-studio";
-import { DieFaceDesigner } from "./die-face-designer";
-import { VariantManager } from "./variant-manager";
-import { ComponentBOM } from "./component-bom";
 
+// ── Component type constants ──────────────────────────────────────────────────
+
+const PHYSICAL_TYPES = ["Card", "Deck", "Token", "Die", "Tile", "Meeple", "Board"] as const;
+const WORLD_TYPES    = ["Location", "Faction", "Event", "Resource", "Ability"] as const;
+const ALL_COMPONENT_TYPES = [...PHYSICAL_TYPES, ...WORLD_TYPES] as const;
+type ComponentType = typeof ALL_COMPONENT_TYPES[number];
+
+const COMPONENT_META: Record<ComponentType, { icon: string; color: string; bg: string; badge: string; desc: string }> = {
+  Card:     { icon: "🃏", color: "text-violet-400",  bg: "bg-violet-500/5",  badge: "bg-violet-500/20 text-violet-400 border-violet-500/30",  desc: "Action, item, spell, event, treasure cards" },
+  Deck:     { icon: "📦", color: "text-indigo-400",  bg: "bg-indigo-500/5",  badge: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",  desc: "Collection of cards (container)" },
+  Token:    { icon: "🪙", color: "text-amber-400",   bg: "bg-amber-500/5",   badge: "bg-amber-500/20 text-amber-400 border-amber-500/30",     desc: "Resource, currency, health, status markers" },
+  Die:      { icon: "🎲", color: "text-red-400",     bg: "bg-red-500/5",     badge: "bg-red-500/20 text-red-400 border-red-500/30",           desc: "Custom die type or face set" },
+  Tile:     { icon: "🗺️", color: "text-emerald-400", bg: "bg-emerald-500/5", badge: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", desc: "Map, dungeon, terrain tiles" },
+  Meeple:   { icon: "🧩", color: "text-blue-400",    bg: "bg-blue-500/5",    badge: "bg-blue-500/20 text-blue-400 border-blue-500/30",        desc: "Pawn, figure, standee, miniature" },
+  Board:    { icon: "📋", color: "text-slate-400",   bg: "bg-slate-500/5",   badge: "bg-slate-500/20 text-slate-400 border-slate-500/30",     desc: "Game board, player mat, reference sheet" },
+  Location: { icon: "📍", color: "text-cyan-400",    bg: "bg-cyan-500/5",    badge: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",        desc: "City, dungeon, region, landmark" },
+  Faction:  { icon: "⚔️", color: "text-purple-400",  bg: "bg-purple-500/5",  badge: "bg-purple-500/20 text-purple-400 border-purple-500/30",  desc: "Guild, tribe, nation, team" },
+  Event:    { icon: "⚡", color: "text-orange-400",  bg: "bg-orange-500/5",  badge: "bg-orange-500/20 text-orange-400 border-orange-500/30",  desc: "Random event, scenario, story beat" },
+  Resource: { icon: "💎", color: "text-teal-400",    bg: "bg-teal-500/5",    badge: "bg-teal-500/20 text-teal-400 border-teal-500/30",        desc: "Material, food, energy, mana" },
+  Ability:  { icon: "✨", color: "text-pink-400",    bg: "bg-pink-500/5",    badge: "bg-pink-500/20 text-pink-400 border-pink-500/30",        desc: "Passive, active, triggered, ultimate" },
+};
+
+const STATUS_OPTIONS = [
+  { value: "draft",     label: "Draft",      color: "bg-slate-500/20 text-slate-400 border-slate-500/30" },
+  { value: "needs-art", label: "Needs Art",  color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
+  { value: "ready",     label: "Ready",      color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+  { value: "approved",  label: "Approved",   color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+] as const;
+
+function getStatusMeta(status: string) {
+  return STATUS_OPTIONS.find((s) => s.value === status) ?? STATUS_OPTIONS[0];
+}
+
+const COMPONENT_SUBTYPES: Record<ComponentType, string[]> = {
+  Card:     ["Action", "Item", "Spell", "Event", "Quest", "Encounter", "Treasure", "Attack", "Defense"],
+  Deck:     ["Item Deck", "Event Deck", "Encounter Deck", "Spell Deck", "Quest Deck", "Custom"],
+  Token:    ["Resource", "Currency", "Health", "Status", "Marker", "Victory Point", "Damage"],
+  Die:      ["Action Die", "Combat Die", "Event Die", "Skill Die", "Custom"],
+  Tile:     ["Map Tile", "Dungeon Tile", "Terrain", "Room", "Hex", "Starting Tile"],
+  Meeple:   ["Pawn", "Figure", "Standee", "Miniature", "Marker", "Ship", "Vehicle"],
+  Board:    ["Main Board", "Player Board", "Map", "Reference Sheet", "Expansion Board"],
+  Location: ["City", "Dungeon", "Region", "Shop", "Quest Site", "Landmark", "Lair"],
+  Faction:  ["Guild", "Tribe", "Nation", "Team", "House", "Order", "Corporation"],
+  Event:    ["Random Event", "Scenario", "Story Beat", "Encounter", "World Event", "Trigger"],
+  Resource: ["Currency", "Material", "Food", "Energy", "Mana", "Influence", "Faith"],
+  Ability:  ["Passive", "Active", "Triggered", "Ultimate", "Reaction", "Aura"],
+};
+
+function getMeta(type: string) {
+  return COMPONENT_META[type as ComponentType] ?? {
+    icon: "🔷", color: "text-gray-400", bg: "bg-gray-500/5",
+    badge: "bg-gray-500/20 text-gray-400 border-gray-500/30", desc: "",
+  };
+}
 
 type ComponentKind = { id: string; label: string; kind: string; icon: React.ComponentType<{ className?: string }>; promptHint: string };
 const COMPONENT_KINDS: ComponentKind[] = [
@@ -198,7 +243,7 @@ export function AssetsEntities({
   const { data: project } = useGetProject(projectId);
   const updateProject = useUpdateProject();
 
-  const [activeView, setActiveView] = useState<"assets" | "entities" | "bom">("assets");
+  const [activeView, setActiveView] = useState<"assets" | "entities">("assets");
   const [narrative, setNarrative] = useState("");
   const [narrativeDirty, setNarrativeDirty] = useState(false);
   const [savingNarrative, setSavingNarrative] = useState(false);
@@ -265,21 +310,18 @@ export function AssetsEntities({
 
       {/* View switcher */}
       <div className="flex gap-1 p-1 bg-muted/30 rounded-lg w-fit border border-border">
-        {([
-          { id: "assets",   label: "Assets",           icon: <ImageIcon className="h-3.5 w-3.5" /> },
-          { id: "entities", label: "Components",        icon: <Layers className="h-3.5 w-3.5" /> },
-          { id: "bom",      label: "Bill of Materials", icon: <Package className="h-3.5 w-3.5" /> },
-        ] as const).map((v) => (
+        {(["assets", "entities"] as const).map((v) => (
           <button
-            key={v.id}
-            onClick={() => setActiveView(v.id)}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-              activeView === v.id
+            key={v}
+            onClick={() => setActiveView(v)}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              activeView === v
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {v.icon} {v.label}
+            {v === "assets" ? <ImageIcon className="h-3.5 w-3.5" /> : <Layers className="h-3.5 w-3.5" />}
+            {v === "assets" ? "Assets" : "Components & Entities"}
           </button>
         ))}
       </div>
@@ -293,17 +335,12 @@ export function AssetsEntities({
           projectDescription={project?.description ?? ""}
           onGamma={openGamma}
         />
-      ) : activeView === "entities" ? (
+      ) : (
         <EntitiesView
           projectId={projectId}
           narrative={narrative}
           projectName={project?.name ?? "Untitled"}
           onGamma={openGamma}
-        />
-      ) : (
-        <ComponentBOM
-          projectId={projectId}
-          projectName={project?.name ?? "Untitled"}
         />
       )}
 
@@ -1149,7 +1186,6 @@ function EntitiesView({
   const aiGenerate = useAiGenerateEntities();
   const { toast } = useToast();
 
-  const [entityView, setEntityView] = useState<"cards" | "sheet">("cards");
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiCount, setAiCount] = useState(5);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1236,26 +1272,9 @@ function EntitiesView({
   return (
     <div className="space-y-4 pb-8">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <p className="text-xs text-muted-foreground">
-            {entities?.length ?? 0} components
-          </p>
-          {/* Cards / Sheet toggle */}
-          <div className="flex gap-0.5 p-0.5 bg-muted/30 rounded border border-border">
-            <button
-              onClick={() => setEntityView("cards")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${entityView === "cards" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <Layers className="w-3 h-3" /> Cards
-            </button>
-            <button
-              onClick={() => setEntityView("sheet")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${entityView === "sheet" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <TableIcon className="w-3 h-3" /> Sheet
-            </button>
-          </div>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          {entities?.length ?? 0} components · use <span className="text-primary font-medium">Gamma</span> on any entity to generate a reference doc or PDF
+        </p>
         <div className="flex gap-1.5">
           <Button onClick={() => { setShowAIPanel(!showAIPanel); setShowAddForm(false); }} variant="outline" size="sm" className="h-8 border-primary/30 text-primary hover:bg-primary/10">
             <Sparkles className="w-3.5 h-3.5 mr-1" /> AI Generate
@@ -1372,18 +1391,8 @@ function EntitiesView({
         </Card>
       )}
 
-      {/* Sheet view */}
-      {entityView === "sheet" && entities && (
-        <EntitySheetView
-          projectId={projectId}
-          entities={entities}
-          projectName={projectName}
-          onRefresh={refresh}
-        />
-      )}
-
-      {/* Card list view */}
-      {entityView === "cards" && (isLoading ? (
+      {/* Entity list */}
+      {isLoading ? (
         <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
       ) : !entities || entities.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-xl bg-card/50">
@@ -1462,7 +1471,7 @@ function EntitiesView({
             />
           ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -1790,18 +1799,30 @@ function EntityCard({
             </div>
           )}
           {isDeck && (
-            <CardStudio
-              projectId={projectId}
-              deck={entity}
-              cards={childEntities ?? []}
-              onRefresh={onUpdated}
-            />
-          )}
-          {entity.type === "Die" && (
-            <DieFaceDesigner projectId={projectId} entityId={entity.id} />
-          )}
-          {(entity.type === "Tile" || entity.type === "Token") && (
-            <VariantManager projectId={projectId} entityId={entity.id} entityName={entity.name} />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <span>🃏</span> Cards in this deck ({childEntities?.length ?? 0})
+                </p>
+                <Button size="sm" variant="outline" className="h-6 text-[11px] gap-1 px-2 text-primary border-primary/30 hover:bg-primary/10" onClick={onGamma}>
+                  <FileText className="w-3 h-3" /> Generate PDF
+                </Button>
+              </div>
+              {!childEntities || childEntities.length === 0 ? (
+                <p className="text-xs text-muted-foreground/60">No cards yet.</p>
+              ) : (
+                <div className="rounded-md border border-border divide-y divide-border/50">
+                  {childEntities.map((child) => (
+                    <div key={child.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                      <span>{getMeta(child.type).icon}</span>
+                      <span className="font-medium text-white truncate">{child.name}</span>
+                      {child.subtype && <Badge variant="outline" className={`text-[10px] shrink-0 ${getMeta(child.type).badge}`}>{child.subtype}</Badge>}
+                      {child.description && <span className="text-xs text-muted-foreground truncate hidden sm:block">{child.description}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           <LinkedRulesPanel projectId={projectId} entityId={entity.id} />
           <EntityProperties projectId={projectId} entityId={entity.id} />
