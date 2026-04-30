@@ -1,0 +1,527 @@
+import { useEffect, useRef, useState } from "react";
+import { useGetProject, useUpdateProject, useGetProjectStats, getGetProjectStatsQueryKey, useCreateEntity, getListEntitiesQueryKey } from "@workspace/api-client-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { useDebounce } from "@/hooks/use-debounce";
+import { AiEditTextarea } from "@/components/workspace/ai-edit-textarea";
+import { ProjectVersions } from "@/components/workspace/project-versions";
+import { ComplexityScore } from "@/components/workspace/complexity-score";
+import {
+  LayoutDashboard, Activity, Users, FileText, CheckSquare, MessageSquare,
+  Zap, Sparkles, Settings, MessageCircle, ChevronRight, Flag, BookOpen,
+  Trophy, Swords, Plus, X, Target, Layers, Loader2,
+} from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { GAME_TEMPLATES, type GameTemplate } from "@/lib/game-templates";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MONOPOLY_ENTITIES } from "@/lib/game-component-types";
+
+interface OverviewProps {
+  projectId: number;
+  onPromptSend: (prompt: string) => void;
+}
+
+const QUICK_QUESTIONS = [
+  "What are the biggest design risks in this game?",
+  "How can I improve player interaction?",
+  "What rules might conflict with each other?",
+  "Suggest a unique mechanic based on my entities",
+  "How does the complexity compare to similar games?",
+];
+
+const QUICK_PROMPTS = [
+  "Brainstorm core mechanics for this genre.",
+  "Suggest 5 unique player roles.",
+  "Draft a quick summary of the rulebook.",
+  "What are some interesting twists for the endgame?",
+];
+
+const DESIGN_PHASES = [
+  { value: "concept",   label: "Concept",   desc: "Idea stage — exploring what the game could be",        color: "bg-slate-500/20 text-slate-300 border-slate-500/40" },
+  { value: "prototype", label: "Prototype", desc: "First playable — rough rules and components",           color: "bg-blue-500/20 text-blue-300 border-blue-500/40" },
+  { value: "alpha",     label: "Alpha",     desc: "Core loop works — iterating on rules and balance",      color: "bg-violet-500/20 text-violet-300 border-violet-500/40" },
+  { value: "beta",      label: "Beta",      desc: "Feature complete — polishing and blind playtesting",    color: "bg-amber-500/20 text-amber-300 border-amber-500/40" },
+  { value: "rc",        label: "Release Candidate", desc: "Print-ready — final checks before manufacturing", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" },
+] as const;
+
+const PHASE_INDEX: Record<string, number> = { concept: 0, prototype: 1, alpha: 2, beta: 3, rc: 4 };
+
+type RefGame = { name: string; borrowing: string; avoiding: string };
+
+function parseRefGames(raw: string | null | undefined): RefGame[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
+function parseTurnPhases(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return raw.split(",").map((s) => s.trim()).filter(Boolean); }
+}
+
+export function Overview({ projectId, onPromptSend }: OverviewProps) {
+  const queryClient = useQueryClient();
+  const { data: project, isLoading: projectLoading } = useGetProject(projectId);
+  const { data: stats, isLoading: statsLoading } = useGetProjectStats(projectId);
+  const updateProject = useUpdateProject();
+
+  const [formData, setFormData] = useState({
+    name: "", description: "", gameType: "", genre: "", playerCount: "", targetDuration: "",
+    winCondition: "", eliminationRule: "", designPhase: "concept",
+  });
+  const [turnPhaseInput, setTurnPhaseInput] = useState("");
+  const [turnPhases, setTurnPhases] = useState<string[]>([]);
+  const [refGames, setRefGames] = useState<RefGame[]>([]);
+  const [refGameDraft, setRefGameDraft] = useState<RefGame>({ name: "", borrowing: "", avoiding: "" });
+  const [showRefForm, setShowRefForm] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<GameTemplate | null>(null);
+  const [loadingMonopoly, setLoadingMonopoly] = useState(false);
+  const createEntity = useCreateEntity();
+
+  const debouncedName = useDebounce(formData.name, 1000);
+  const debouncedDesc = useDebounce(formData.description, 1000);
+  const debouncedType = useDebounce(formData.gameType, 1000);
+  const debouncedGenre = useDebounce(formData.genre, 1000);
+  const debouncedPlayers = useDebounce(formData.playerCount, 1000);
+  const debouncedDuration = useDebounce(formData.targetDuration, 1000);
+  const debouncedWin = useDebounce(formData.winCondition, 1200);
+  const debouncedElim = useDebounce(formData.eliminationRule, 1200);
+
+  const initRef = useRef(false);
+  const lastSavedRef = useRef({ ...formData, turnPhases: "[]", refGames: "[]" });
+
+  useEffect(() => {
+    if (project && !initRef.current) {
+      const phases = parseTurnPhases(project.turnPhases);
+      const refs = parseRefGames(project.referenceGames);
+      const d = {
+        name: project.name || "",
+        description: project.description || "",
+        gameType: project.gameType || "",
+        genre: project.genre || "",
+        playerCount: project.playerCount || "",
+        targetDuration: project.targetDuration || "",
+        winCondition: project.winCondition || "",
+        eliminationRule: project.eliminationRule || "",
+        designPhase: project.designPhase || "concept",
+      };
+      setFormData(d);
+      setTurnPhases(phases);
+      setRefGames(refs);
+      lastSavedRef.current = { ...d, turnPhases: JSON.stringify(phases), refGames: JSON.stringify(refs) };
+      initRef.current = true;
+    }
+  }, [project]);
+
+  const save = (patch: Parameters<typeof updateProject.mutate>[0]["data"]) => {
+    updateProject.mutate({ projectId, data: patch });
+  };
+
+  const handleLoadMonopoly = async () => {
+    if (!confirm("This will add 27 Monopoly component entities to this project as a worked example. Continue?")) return;
+    setLoadingMonopoly(true);
+    try {
+      for (const e of MONOPOLY_ENTITIES) {
+        await createEntity.mutateAsync({ projectId, data: { name: e.name, type: e.type, subtype: e.subtype, description: e.description } });
+      }
+      queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey(projectId) });
+    } catch {/* continue on partial failure */}
+    finally { setLoadingMonopoly(false); }
+  };
+
+  useEffect(() => {
+    if (!initRef.current) return;
+    const data = {
+      name: debouncedName, description: debouncedDesc, gameType: debouncedType,
+      genre: debouncedGenre, playerCount: debouncedPlayers, targetDuration: debouncedDuration,
+      winCondition: debouncedWin, eliminationRule: debouncedElim,
+    };
+    const changed = Object.keys(data).some((k) => data[k as keyof typeof data] !== (lastSavedRef.current as Record<string, string>)[k]);
+    if (changed && data.name) {
+      save(data);
+      Object.assign(lastSavedRef.current, data);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedName, debouncedDesc, debouncedType, debouncedGenre, debouncedPlayers, debouncedDuration, debouncedWin, debouncedElim]);
+
+  const saveTurnPhases = (phases: string[]) => {
+    setTurnPhases(phases);
+    save({ turnPhases: JSON.stringify(phases) });
+  };
+
+  const saveRefGames = (refs: RefGame[]) => {
+    setRefGames(refs);
+    save({ referenceGames: JSON.stringify(refs) });
+  };
+
+  const saveDesignPhase = (phase: string) => {
+    setFormData((f) => ({ ...f, designPhase: phase }));
+    save({ designPhase: phase });
+  };
+
+  const handleApplyTemplate = (template: GameTemplate) => {
+    setFormData((f) => ({ ...f, gameType: template.gameType, genre: template.genre, playerCount: template.playerCount, targetDuration: template.targetDuration, description: f.description || template.description }));
+    setSelectedTemplate(template);
+  };
+
+  if (projectLoading) {
+    return <div className="space-y-4"><Skeleton className="h-32 w-full" /><Skeleton className="h-64 w-full" /></div>;
+  }
+
+  const currentPhaseIdx = PHASE_INDEX[formData.designPhase] ?? 0;
+  const currentPhase = DESIGN_PHASES[currentPhaseIdx];
+
+  const STATS = [
+    { label: "Entities", count: stats?.entityCount, icon: LayoutDashboard, color: "text-blue-400", bg: "bg-blue-500/10" },
+    { label: "Rules", count: stats?.ruleCount, icon: Activity, color: "text-violet-400", bg: "bg-violet-500/10" },
+    { label: "Players", count: stats?.playerCount, icon: Users, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+    { label: "Notes", count: stats?.noteCount, icon: FileText, color: "text-amber-400", bg: "bg-amber-500/10" },
+    { label: "Tasks", count: stats?.taskCount, icon: CheckSquare, color: "text-rose-400", bg: "bg-rose-500/10" },
+    { label: "Messages", count: stats?.chatMessageCount, icon: MessageSquare, color: "text-sky-400", bg: "bg-sky-500/10" },
+  ];
+
+  return (
+    <div className="space-y-8 pb-8">
+
+      {/* ── Design Phase tracker ─────────────────────────────────────── */}
+      <Card className="border-border">
+        <CardHeader className="border-b border-border py-4 px-5 flex-row items-center gap-2">
+          <Flag className="w-4 h-4 text-primary" />
+          <div className="flex-1">
+            <CardTitle className="text-base font-semibold">Design Phase</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Track where you are in the design process — the AI adapts its suggestions to your phase.</p>
+          </div>
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${currentPhase?.color}`}>
+            {currentPhase?.label}
+          </span>
+        </CardHeader>
+        <CardContent className="px-5 py-4 space-y-3">
+          <div className="flex gap-1.5 flex-wrap">
+            {DESIGN_PHASES.map((p, i) => (
+              <button
+                key={p.value}
+                onClick={() => saveDesignPhase(p.value)}
+                className={`flex-1 min-w-[80px] text-center px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                  formData.designPhase === p.value
+                    ? `${p.color} ring-1 ring-current`
+                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                }`}
+              >
+                <span className="block font-semibold">{p.label}</span>
+              </button>
+            ))}
+          </div>
+          {/* Phase progress bar */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-500"
+                style={{ width: `${((currentPhaseIdx + 1) / DESIGN_PHASES.length) * 100}%` }}
+              />
+            </div>
+            <span className="text-[10px] text-muted-foreground">{currentPhase?.desc}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Game Templates ───────────────────────────────────────────── */}
+      <Card className="bg-card border-border border-purple-500/20">
+        <CardHeader className="border-b border-border py-4 px-5 flex-row items-center gap-2">
+          <Sparkles className="w-4 h-4 text-purple-400" />
+          <div className="flex-1">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              Game Design Templates
+              <span className="text-[10px] font-medium bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded">AI-POWERED</span>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Start with a proven game framework and customize it for your vision.</p>
+          </div>
+        </CardHeader>
+        <CardContent className="px-5 py-4">
+          <div className="space-y-3">
+            <Select onValueChange={(value) => { const t = GAME_TEMPLATES.find((t) => t.id === value); if (t) handleApplyTemplate(t); }}>
+              <SelectTrigger className="flex-1"><SelectValue placeholder="Select a template to apply..." /></SelectTrigger>
+              <SelectContent>
+                {GAME_TEMPLATES.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    <div className="flex items-center gap-2"><span className="font-medium">{t.name}</span><span className="text-xs text-muted-foreground">({t.playerCount})</span></div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedTemplate && (
+              <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div><h4 className="text-sm font-medium text-purple-300">{selectedTemplate.name}</h4><p className="text-xs text-muted-foreground">{selectedTemplate.description}</p></div>
+                  <Button size="sm" variant="outline" className="h-7 text-xs border-purple-500/30 hover:bg-purple-500/10" onClick={() => onPromptSend(`Based on the ${selectedTemplate.name} template, suggest entities, rules, and players for my game "${formData.name}".`)}>
+                    <Zap className="h-3 w-3 mr-1" /> AI Generate
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── AI Design Advisor ────────────────────────────────────────── */}
+      <Card className="bg-card border-border border-blue-500/20">
+        <CardHeader className="border-b border-border py-4 px-5 flex-row items-center gap-2">
+          <MessageCircle className="w-4 h-4 text-blue-400" />
+          <div className="flex-1">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              AI Design Advisor
+              <span className="text-[10px] font-medium bg-blue-500/15 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded">QUICK START</span>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Tap a question to send it to the chat panel.</p>
+          </div>
+        </CardHeader>
+        <CardContent className="px-5 py-4">
+          <div className="flex flex-wrap gap-1.5">
+            {QUICK_QUESTIONS.map((q, i) => (
+              <button key={i} onClick={() => onPromptSend(q)} className="text-xs bg-blue-500/10 border border-blue-500/20 text-blue-300 hover:text-white hover:bg-blue-500/20 rounded-lg px-2.5 py-1.5 transition-colors text-left">{q}</button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Stats grid ───────────────────────────────────────────────── */}
+      <section>
+        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Project at a glance</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {STATS.map((stat, i) => (
+            <Card key={i} className="bg-card border-border">
+              <CardContent className="p-4">
+                <div className={`h-8 w-8 rounded-md ${stat.bg} flex items-center justify-center mb-2`}>
+                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
+                {statsLoading ? <Skeleton className="h-7 w-12" /> : <div className="text-2xl font-bold leading-none">{stat.count || 0}</div>}
+                <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+
+          {/* ── Project metadata ───────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg"><Settings className="h-4 w-4 text-primary" /> Project metadata</CardTitle>
+              <CardDescription>Changes save automatically — these fields seed every AI prompt.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Project name</Label>
+                <Input id="name" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <AiEditTextarea projectId={projectId} value={formData.description} onChange={(next) => setFormData((p) => ({ ...p, description: next }))} placeholder="A one-paragraph elevator pitch for your game…" rows={4} className="min-h-[100px]" contextLabel="project description" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gameType">Game type</Label>
+                  <Input id="gameType" placeholder="e.g. Strategy, Party, Worker placement" value={formData.gameType} onChange={(e) => setFormData((p) => ({ ...p, gameType: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="genre">Genre</Label>
+                  <Input id="genre" placeholder="e.g. Fantasy, Sci-fi, Historical" value={formData.genre} onChange={(e) => setFormData((p) => ({ ...p, genre: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="playerCount">Player count</Label>
+                  <Input id="playerCount" placeholder="e.g. 2-5" value={formData.playerCount} onChange={(e) => setFormData((p) => ({ ...p, playerCount: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="targetDuration">Target duration</Label>
+                  <Input id="targetDuration" placeholder="e.g. 45–90 min" value={formData.targetDuration} onChange={(e) => setFormData((p) => ({ ...p, targetDuration: e.target.value }))} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Core game loop ──────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg"><Target className="h-4 w-4 text-primary" /> Core game loop</CardTitle>
+              <CardDescription>The AI uses these to anchor rule suggestions, conflict checks, and balance analysis.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Win condition */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5 text-amber-400" /> Win condition</Label>
+                <Textarea
+                  placeholder="e.g. First player to collect 10 Victory Points wins. On a tie, the player with the most Gold wins."
+                  rows={2}
+                  value={formData.winCondition}
+                  onChange={(e) => setFormData((p) => ({ ...p, winCondition: e.target.value }))}
+                  className="resize-none"
+                />
+              </div>
+
+              {/* Elimination rule */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5"><Swords className="w-3.5 h-3.5 text-red-400" /> Elimination / losing condition</Label>
+                <Input
+                  placeholder="e.g. Players eliminated when Health reaches 0. Last player standing wins."
+                  value={formData.eliminationRule}
+                  onChange={(e) => setFormData((p) => ({ ...p, eliminationRule: e.target.value }))}
+                />
+              </div>
+
+              {/* Turn phases */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-blue-400" /> Turn phases</Label>
+                {turnPhases.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {turnPhases.map((phase, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 text-xs bg-primary/10 border border-primary/25 text-primary rounded px-2 py-0.5">
+                        <span className="text-[10px] text-muted-foreground font-mono mr-0.5">{i + 1}.</span>
+                        {phase}
+                        <button onClick={() => saveTurnPhases(turnPhases.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive ml-0.5">
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g. Draw Phase, Action Phase, Cleanup…"
+                    value={turnPhaseInput}
+                    onChange={(e) => setTurnPhaseInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && turnPhaseInput.trim()) {
+                        saveTurnPhases([...turnPhases, turnPhaseInput.trim()]);
+                        setTurnPhaseInput("");
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button" size="sm" variant="outline"
+                    onClick={() => { if (turnPhaseInput.trim()) { saveTurnPhases([...turnPhases, turnPhaseInput.trim()]); setTurnPhaseInput(""); } }}
+                    disabled={!turnPhaseInput.trim()}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Add
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Press Enter or click Add. Drag to reorder coming soon.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Reference game shelf ────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg"><BookOpen className="h-4 w-4 text-primary" /> Reference games</CardTitle>
+              <CardDescription>Games you're drawing from — the AI uses this to calibrate suggestions and avoid overlap.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {refGames.length > 0 && (
+                <div className="rounded-md border border-border divide-y divide-border/50">
+                  {refGames.map((rg, i) => (
+                    <div key={i} className="px-4 py-3 flex items-start gap-3 group">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white">{rg.name}</p>
+                        {rg.borrowing && <p className="text-xs text-muted-foreground mt-0.5"><span className="text-emerald-400 font-medium">Borrowing:</span> {rg.borrowing}</p>}
+                        {rg.avoiding && <p className="text-xs text-muted-foreground mt-0.5"><span className="text-red-400 font-medium">Avoiding:</span> {rg.avoiding}</p>}
+                      </div>
+                      <button onClick={() => saveRefGames(refGames.filter((_, j) => j !== i))} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity p-1">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {showRefForm ? (
+                <div className="border border-border rounded-lg p-4 space-y-3 bg-muted/5">
+                  <Input placeholder="Game name (e.g. Dominion)" value={refGameDraft.name} onChange={(e) => setRefGameDraft((d) => ({ ...d, name: e.target.value }))} />
+                  <Input placeholder="What are you borrowing? (e.g. deck-building loop)" value={refGameDraft.borrowing} onChange={(e) => setRefGameDraft((d) => ({ ...d, borrowing: e.target.value }))} />
+                  <Input placeholder="What are you avoiding? (e.g. eliminating players early)" value={refGameDraft.avoiding} onChange={(e) => setRefGameDraft((d) => ({ ...d, avoiding: e.target.value }))} />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => {
+                      if (!refGameDraft.name.trim()) return;
+                      saveRefGames([...refGames, refGameDraft]);
+                      setRefGameDraft({ name: "", borrowing: "", avoiding: "" });
+                      setShowRefForm(false);
+                    }} disabled={!refGameDraft.name.trim()}>
+                      Add game
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setShowRefForm(false)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowRefForm(true)}>
+                  <Plus className="w-3.5 h-3.5" /> Add reference game
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          <ProjectVersions projectId={projectId} />
+        </div>
+
+        {/* ── Right column ─────────────────────────────────────────── */}
+        <div className="space-y-6">
+          {/* Complexity score */}
+          {stats && (
+            <ComplexityScore
+              ruleCount={(stats as any).ruleCount ?? 0}
+              entityCount={(stats as any).entityCount ?? 0}
+              playerCount={formData.playerCount}
+              playtestCount={(stats as any).playtestCount ?? 0}
+            />
+          )}
+
+          {/* Monopoly demo loader */}
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-amber-300 text-sm">
+                🎩 Monopoly Demo Template
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Load a pre-built Monopoly component set as a reference. Every GameForge feature maps to a real Monopoly piece — perfect for learning the tool.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-amber-500/40 text-amber-300 hover:bg-amber-500/10 gap-1.5"
+                onClick={handleLoadMonopoly}
+                disabled={loadingMonopoly}
+              >
+                {loadingMonopoly ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading 27 components…</>
+                ) : (
+                  <><BookOpen className="h-3.5 w-3.5" /> Load Monopoly Components</>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* AI Quick Actions */}
+          <Card className="bg-primary/5 border-primary/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-primary text-base"><Zap className="h-4 w-4" /> AI Quick Actions</CardTitle>
+              <CardDescription>One-click brainstorming prompts.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              {QUICK_PROMPTS.map((prompt, i) => (
+                <Button key={i} variant="outline" className="justify-start text-left h-auto py-3 px-4 whitespace-normal border-primary/20 hover:border-primary/50 hover:bg-primary/10" onClick={() => onPromptSend(prompt)}>
+                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0 mr-2" />
+                  <span className="text-sm">{prompt}</span>
+                </Button>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

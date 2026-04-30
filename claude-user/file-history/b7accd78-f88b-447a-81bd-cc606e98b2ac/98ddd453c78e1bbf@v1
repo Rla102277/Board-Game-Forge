@@ -1637,7 +1637,6 @@ export const GenerateExportParams = zod.object({
     "kickstarter",
     "sell-sheet",
     "press-kit",
-    "gamma-doc",
   ]),
 });
 

@@ -7745,14 +7745,14 @@ export function useListChangelog<
 
 export const getGenerateExportUrl = (
   projectId: number,
-  kind: "tts-json" | "rulebook-md" | "kickstarter" | "sell-sheet" | "press-kit" | "gamma-doc",
+  kind: "tts-json" | "rulebook-md" | "kickstarter" | "sell-sheet" | "press-kit",
 ) => {
   return `/api/projects/${projectId}/export/${kind}`;
 };
 
 export const generateExport = async (
   projectId: number,
-  kind: "tts-json" | "rulebook-md" | "kickstarter" | "sell-sheet" | "press-kit" | "gamma-doc",
+  kind: "tts-json" | "rulebook-md" | "kickstarter" | "sell-sheet" | "press-kit",
   options?: RequestInit,
 ): Promise<ExportResult> => {
   return customFetch<ExportResult>(getGenerateExportUrl(projectId, kind), {

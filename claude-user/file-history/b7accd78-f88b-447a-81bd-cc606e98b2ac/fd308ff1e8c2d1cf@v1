@@ -1,0 +1,2265 @@
+import type { QueryKey, UseMutationOptions, UseMutationResult, UseQueryOptions, UseQueryResult } from "@tanstack/react-query";
+import type { ActivityEvent, AdminUser, AiGenerateBody, AiProviderSettings, AiTextEditBody, AiTextEditResponse, Asset, AssetEnhanceSuggestion, BalanceReport, ChangelogEntry, ChatMessage, ClearChatMessagesParams, ComplexityScore, ConflictReport, CreateAssetBody, CreateEntityBody, CreateEntityPropertyBody, CreateNoteBody, CreatePlayerBody, CreatePlaytestSessionBody, CreateProjectBody, CreateResearchBody, CreateRuleBody, CreateSnapshotBody, CreateStoryboardNodeBody, CreateTaskBody, DashboardSummary, DuplicateProjectBody, Entity, EntityEnhanceSuggestion, EntityProperty, ExportResult, ForbiddenResponse, ForkSnapshotBody, GenerateBlueprintBody, GenerateImageBody, HealthStatus, IngestTextBody, IngestUrlBody, ListChatMessagesParams, Me, NotFoundResponse, Note, Player, PlaytestFeedback, PlaytestSession, PlaythroughBody, Project, ProjectSnapshot, ProjectStats, PublicFeedbackProject, ResearchItem, RestoreSnapshotResponse, Rule, RuleEnhanceSuggestion, SendChatMessageBody, ShareLink, SimulatorResult, SimulatorRunBody, StoryboardNode, SubmitFeedbackBody, Task, UpdateAdminUserBody, UpdateAiSettingsBody, UpdateAssetBody, UpdateEntityBody, UpdateEntityPropertyBody, UpdateNoteBody, UpdatePlayerBody, UpdatePlaytestSessionBody, UpdateProjectBody, UpdateResearchBody, UpdateRuleBody, UpdateStoryboardNodeBody, UpdateTaskBody } from "./api.schemas";
+import { customFetch } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
+type AwaitedInput<T> = PromiseLike<T> | T;
+type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+/**
+ * @summary Health check
+ */
+export declare const getHealthCheckUrl: () => string;
+export declare const healthCheck: (options?: RequestInit) => Promise<HealthStatus>;
+export declare const getHealthCheckQueryKey: () => readonly ["/api/healthz"];
+export declare const getHealthCheckQueryOptions: <TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type HealthCheckQueryResult = NonNullable<Awaited<ReturnType<typeof healthCheck>>>;
+export type HealthCheckQueryError = ErrorType<unknown>;
+/**
+ * @summary Health check
+ */
+export declare function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+/**
+ * @summary Get current user profile
+ */
+export declare const getGetMeUrl: () => string;
+export declare const getMe: (options?: RequestInit) => Promise<Me>;
+export declare const getGetMeQueryKey: () => readonly ["/api/me"];
+export declare const getGetMeQueryOptions: <TData = Awaited<ReturnType<typeof getMe>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetMeQueryResult = NonNullable<Awaited<ReturnType<typeof getMe>>>;
+export type GetMeQueryError = ErrorType<unknown>;
+/**
+ * @summary Get current user profile
+ */
+export declare function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getGetAiSettingsUrl: () => string;
+export declare const getAiSettings: (options?: RequestInit) => Promise<AiProviderSettings>;
+export declare const getGetAiSettingsQueryKey: () => readonly ["/api/me/ai-settings"];
+export declare const getGetAiSettingsQueryOptions: <TData = Awaited<ReturnType<typeof getAiSettings>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getAiSettings>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getAiSettings>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetAiSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getAiSettings>>>;
+export type GetAiSettingsQueryError = ErrorType<unknown>;
+export declare function useGetAiSettings<TData = Awaited<ReturnType<typeof getAiSettings>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getAiSettings>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getUpdateAiSettingsUrl: () => string;
+export declare const updateAiSettings: (updateAiSettingsBody: UpdateAiSettingsBody, options?: RequestInit) => Promise<AiProviderSettings>;
+export declare const getUpdateAiSettingsMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateAiSettings>>, TError, {
+        data: BodyType<UpdateAiSettingsBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateAiSettings>>, TError, {
+    data: BodyType<UpdateAiSettingsBody>;
+}, TContext>;
+export type UpdateAiSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateAiSettings>>>;
+export type UpdateAiSettingsMutationBody = BodyType<UpdateAiSettingsBody>;
+export type UpdateAiSettingsMutationError = ErrorType<unknown>;
+export declare const useUpdateAiSettings: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateAiSettings>>, TError, {
+        data: BodyType<UpdateAiSettingsBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateAiSettings>>, TError, {
+    data: BodyType<UpdateAiSettingsBody>;
+}, TContext>;
+export declare const getListAdminUsersUrl: () => string;
+export declare const listAdminUsers: (options?: RequestInit) => Promise<AdminUser[]>;
+export declare const getListAdminUsersQueryKey: () => readonly ["/api/admin/users"];
+export declare const getListAdminUsersQueryOptions: <TData = Awaited<ReturnType<typeof listAdminUsers>>, TError = ErrorType<ForbiddenResponse>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listAdminUsers>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listAdminUsers>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListAdminUsersQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminUsers>>>;
+export type ListAdminUsersQueryError = ErrorType<ForbiddenResponse>;
+export declare function useListAdminUsers<TData = Awaited<ReturnType<typeof listAdminUsers>>, TError = ErrorType<ForbiddenResponse>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listAdminUsers>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getUpdateAdminUserUrl: (userId: number) => string;
+export declare const updateAdminUser: (userId: number, updateAdminUserBody: UpdateAdminUserBody, options?: RequestInit) => Promise<AdminUser>;
+export declare const getUpdateAdminUserMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateAdminUser>>, TError, {
+        userId: number;
+        data: BodyType<UpdateAdminUserBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateAdminUser>>, TError, {
+    userId: number;
+    data: BodyType<UpdateAdminUserBody>;
+}, TContext>;
+export type UpdateAdminUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminUser>>>;
+export type UpdateAdminUserMutationBody = BodyType<UpdateAdminUserBody>;
+export type UpdateAdminUserMutationError = ErrorType<unknown>;
+export declare const useUpdateAdminUser: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateAdminUser>>, TError, {
+        userId: number;
+        data: BodyType<UpdateAdminUserBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateAdminUser>>, TError, {
+    userId: number;
+    data: BodyType<UpdateAdminUserBody>;
+}, TContext>;
+export declare const getDeleteAdminUserUrl: (userId: number) => string;
+export declare const deleteAdminUser: (userId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteAdminUserMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteAdminUser>>, TError, {
+        userId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteAdminUser>>, TError, {
+    userId: number;
+}, TContext>;
+export type DeleteAdminUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAdminUser>>>;
+export type DeleteAdminUserMutationError = ErrorType<unknown>;
+export declare const useDeleteAdminUser: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteAdminUser>>, TError, {
+        userId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteAdminUser>>, TError, {
+    userId: number;
+}, TContext>;
+export declare const getGetDashboardSummaryUrl: () => string;
+export declare const getDashboardSummary: (options?: RequestInit) => Promise<DashboardSummary>;
+export declare const getGetDashboardSummaryQueryKey: () => readonly ["/api/dashboard/summary"];
+export declare const getGetDashboardSummaryQueryOptions: <TData = Awaited<ReturnType<typeof getDashboardSummary>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getDashboardSummary>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getDashboardSummary>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetDashboardSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getDashboardSummary>>>;
+export type GetDashboardSummaryQueryError = ErrorType<unknown>;
+export declare function useGetDashboardSummary<TData = Awaited<ReturnType<typeof getDashboardSummary>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getDashboardSummary>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getGetRecentActivityUrl: () => string;
+export declare const getRecentActivity: (options?: RequestInit) => Promise<ActivityEvent[]>;
+export declare const getGetRecentActivityQueryKey: () => readonly ["/api/dashboard/recent-activity"];
+export declare const getGetRecentActivityQueryOptions: <TData = Awaited<ReturnType<typeof getRecentActivity>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getRecentActivity>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getRecentActivity>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetRecentActivityQueryResult = NonNullable<Awaited<ReturnType<typeof getRecentActivity>>>;
+export type GetRecentActivityQueryError = ErrorType<unknown>;
+export declare function useGetRecentActivity<TData = Awaited<ReturnType<typeof getRecentActivity>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getRecentActivity>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getListProjectsUrl: () => string;
+export declare const listProjects: (options?: RequestInit) => Promise<Project[]>;
+export declare const getListProjectsQueryKey: () => readonly ["/api/projects"];
+export declare const getListProjectsQueryOptions: <TData = Awaited<ReturnType<typeof listProjects>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listProjects>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listProjects>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListProjectsQueryResult = NonNullable<Awaited<ReturnType<typeof listProjects>>>;
+export type ListProjectsQueryError = ErrorType<unknown>;
+export declare function useListProjects<TData = Awaited<ReturnType<typeof listProjects>>, TError = ErrorType<unknown>>(options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listProjects>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreateProjectUrl: () => string;
+export declare const createProject: (createProjectBody: CreateProjectBody, options?: RequestInit) => Promise<Project>;
+export declare const getCreateProjectMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createProject>>, TError, {
+        data: BodyType<CreateProjectBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createProject>>, TError, {
+    data: BodyType<CreateProjectBody>;
+}, TContext>;
+export type CreateProjectMutationResult = NonNullable<Awaited<ReturnType<typeof createProject>>>;
+export type CreateProjectMutationBody = BodyType<CreateProjectBody>;
+export type CreateProjectMutationError = ErrorType<unknown>;
+export declare const useCreateProject: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createProject>>, TError, {
+        data: BodyType<CreateProjectBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createProject>>, TError, {
+    data: BodyType<CreateProjectBody>;
+}, TContext>;
+export declare const getGetProjectUrl: (projectId: number) => string;
+export declare const getProject: (projectId: number, options?: RequestInit) => Promise<Project>;
+export declare const getGetProjectQueryKey: (projectId: number) => readonly [`/api/projects/${number}`];
+export declare const getGetProjectQueryOptions: <TData = Awaited<ReturnType<typeof getProject>>, TError = ErrorType<NotFoundResponse>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getProject>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getProject>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetProjectQueryResult = NonNullable<Awaited<ReturnType<typeof getProject>>>;
+export type GetProjectQueryError = ErrorType<NotFoundResponse>;
+export declare function useGetProject<TData = Awaited<ReturnType<typeof getProject>>, TError = ErrorType<NotFoundResponse>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getProject>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getUpdateProjectUrl: (projectId: number) => string;
+export declare const updateProject: (projectId: number, updateProjectBody: UpdateProjectBody, options?: RequestInit) => Promise<Project>;
+export declare const getUpdateProjectMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateProject>>, TError, {
+        projectId: number;
+        data: BodyType<UpdateProjectBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateProject>>, TError, {
+    projectId: number;
+    data: BodyType<UpdateProjectBody>;
+}, TContext>;
+export type UpdateProjectMutationResult = NonNullable<Awaited<ReturnType<typeof updateProject>>>;
+export type UpdateProjectMutationBody = BodyType<UpdateProjectBody>;
+export type UpdateProjectMutationError = ErrorType<unknown>;
+export declare const useUpdateProject: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateProject>>, TError, {
+        projectId: number;
+        data: BodyType<UpdateProjectBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateProject>>, TError, {
+    projectId: number;
+    data: BodyType<UpdateProjectBody>;
+}, TContext>;
+export declare const getDeleteProjectUrl: (projectId: number) => string;
+export declare const deleteProject: (projectId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteProjectMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteProject>>, TError, {
+        projectId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteProject>>, TError, {
+    projectId: number;
+}, TContext>;
+export type DeleteProjectMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProject>>>;
+export type DeleteProjectMutationError = ErrorType<unknown>;
+export declare const useDeleteProject: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteProject>>, TError, {
+        projectId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteProject>>, TError, {
+    projectId: number;
+}, TContext>;
+export declare const getGetProjectStatsUrl: (projectId: number) => string;
+export declare const getProjectStats: (projectId: number, options?: RequestInit) => Promise<ProjectStats>;
+export declare const getGetProjectStatsQueryKey: (projectId: number) => readonly [`/api/projects/${number}/stats`];
+export declare const getGetProjectStatsQueryOptions: <TData = Awaited<ReturnType<typeof getProjectStats>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getProjectStats>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getProjectStats>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetProjectStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getProjectStats>>>;
+export type GetProjectStatsQueryError = ErrorType<unknown>;
+export declare function useGetProjectStats<TData = Awaited<ReturnType<typeof getProjectStats>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getProjectStats>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+/**
+ * @summary List saved versions of a project
+ */
+export declare const getListSnapshotsUrl: (projectId: number) => string;
+export declare const listSnapshots: (projectId: number, options?: RequestInit) => Promise<ProjectSnapshot[]>;
+export declare const getListSnapshotsQueryKey: (projectId: number) => readonly [`/api/projects/${number}/snapshots`];
+export declare const getListSnapshotsQueryOptions: <TData = Awaited<ReturnType<typeof listSnapshots>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listSnapshots>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listSnapshots>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListSnapshotsQueryResult = NonNullable<Awaited<ReturnType<typeof listSnapshots>>>;
+export type ListSnapshotsQueryError = ErrorType<unknown>;
+/**
+ * @summary List saved versions of a project
+ */
+export declare function useListSnapshots<TData = Awaited<ReturnType<typeof listSnapshots>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listSnapshots>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+/**
+ * @summary Save the current project state as a new version
+ */
+export declare const getCreateSnapshotUrl: (projectId: number) => string;
+export declare const createSnapshot: (projectId: number, createSnapshotBody: CreateSnapshotBody, options?: RequestInit) => Promise<ProjectSnapshot>;
+export declare const getCreateSnapshotMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createSnapshot>>, TError, {
+        projectId: number;
+        data: BodyType<CreateSnapshotBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createSnapshot>>, TError, {
+    projectId: number;
+    data: BodyType<CreateSnapshotBody>;
+}, TContext>;
+export type CreateSnapshotMutationResult = NonNullable<Awaited<ReturnType<typeof createSnapshot>>>;
+export type CreateSnapshotMutationBody = BodyType<CreateSnapshotBody>;
+export type CreateSnapshotMutationError = ErrorType<unknown>;
+/**
+ * @summary Save the current project state as a new version
+ */
+export declare const useCreateSnapshot: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createSnapshot>>, TError, {
+        projectId: number;
+        data: BodyType<CreateSnapshotBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createSnapshot>>, TError, {
+    projectId: number;
+    data: BodyType<CreateSnapshotBody>;
+}, TContext>;
+export declare const getDeleteSnapshotUrl: (projectId: number, snapshotId: number) => string;
+export declare const deleteSnapshot: (projectId: number, snapshotId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteSnapshotMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteSnapshot>>, TError, {
+        projectId: number;
+        snapshotId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteSnapshot>>, TError, {
+    projectId: number;
+    snapshotId: number;
+}, TContext>;
+export type DeleteSnapshotMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSnapshot>>>;
+export type DeleteSnapshotMutationError = ErrorType<unknown>;
+export declare const useDeleteSnapshot: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteSnapshot>>, TError, {
+        projectId: number;
+        snapshotId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteSnapshot>>, TError, {
+    projectId: number;
+    snapshotId: number;
+}, TContext>;
+/**
+ * @summary Restore the project to a saved version (auto-saves current state first)
+ */
+export declare const getRestoreSnapshotUrl: (projectId: number, snapshotId: number) => string;
+export declare const restoreSnapshot: (projectId: number, snapshotId: number, options?: RequestInit) => Promise<RestoreSnapshotResponse>;
+export declare const getRestoreSnapshotMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof restoreSnapshot>>, TError, {
+        projectId: number;
+        snapshotId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof restoreSnapshot>>, TError, {
+    projectId: number;
+    snapshotId: number;
+}, TContext>;
+export type RestoreSnapshotMutationResult = NonNullable<Awaited<ReturnType<typeof restoreSnapshot>>>;
+export type RestoreSnapshotMutationError = ErrorType<unknown>;
+/**
+ * @summary Restore the project to a saved version (auto-saves current state first)
+ */
+export declare const useRestoreSnapshot: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof restoreSnapshot>>, TError, {
+        projectId: number;
+        snapshotId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof restoreSnapshot>>, TError, {
+    projectId: number;
+    snapshotId: number;
+}, TContext>;
+/**
+ * @summary Create a new project from a saved version
+ */
+export declare const getForkSnapshotUrl: (projectId: number, snapshotId: number) => string;
+export declare const forkSnapshot: (projectId: number, snapshotId: number, forkSnapshotBody: ForkSnapshotBody, options?: RequestInit) => Promise<Project>;
+export declare const getForkSnapshotMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof forkSnapshot>>, TError, {
+        projectId: number;
+        snapshotId: number;
+        data: BodyType<ForkSnapshotBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof forkSnapshot>>, TError, {
+    projectId: number;
+    snapshotId: number;
+    data: BodyType<ForkSnapshotBody>;
+}, TContext>;
+export type ForkSnapshotMutationResult = NonNullable<Awaited<ReturnType<typeof forkSnapshot>>>;
+export type ForkSnapshotMutationBody = BodyType<ForkSnapshotBody>;
+export type ForkSnapshotMutationError = ErrorType<unknown>;
+/**
+ * @summary Create a new project from a saved version
+ */
+export declare const useForkSnapshot: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof forkSnapshot>>, TError, {
+        projectId: number;
+        snapshotId: number;
+        data: BodyType<ForkSnapshotBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof forkSnapshot>>, TError, {
+    projectId: number;
+    snapshotId: number;
+    data: BodyType<ForkSnapshotBody>;
+}, TContext>;
+/**
+ * @summary Duplicate the current project state into a brand-new project
+ */
+export declare const getDuplicateProjectUrl: (projectId: number) => string;
+export declare const duplicateProject: (projectId: number, duplicateProjectBody: DuplicateProjectBody, options?: RequestInit) => Promise<Project>;
+export declare const getDuplicateProjectMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof duplicateProject>>, TError, {
+        projectId: number;
+        data: BodyType<DuplicateProjectBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof duplicateProject>>, TError, {
+    projectId: number;
+    data: BodyType<DuplicateProjectBody>;
+}, TContext>;
+export type DuplicateProjectMutationResult = NonNullable<Awaited<ReturnType<typeof duplicateProject>>>;
+export type DuplicateProjectMutationBody = BodyType<DuplicateProjectBody>;
+export type DuplicateProjectMutationError = ErrorType<unknown>;
+/**
+ * @summary Duplicate the current project state into a brand-new project
+ */
+export declare const useDuplicateProject: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof duplicateProject>>, TError, {
+        projectId: number;
+        data: BodyType<DuplicateProjectBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof duplicateProject>>, TError, {
+    projectId: number;
+    data: BodyType<DuplicateProjectBody>;
+}, TContext>;
+export declare const getComputeComplexityUrl: (projectId: number) => string;
+export declare const computeComplexity: (projectId: number, options?: RequestInit) => Promise<ComplexityScore>;
+export declare const getComputeComplexityMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof computeComplexity>>, TError, {
+        projectId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof computeComplexity>>, TError, {
+    projectId: number;
+}, TContext>;
+export type ComputeComplexityMutationResult = NonNullable<Awaited<ReturnType<typeof computeComplexity>>>;
+export type ComputeComplexityMutationError = ErrorType<unknown>;
+export declare const useComputeComplexity: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof computeComplexity>>, TError, {
+        projectId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof computeComplexity>>, TError, {
+    projectId: number;
+}, TContext>;
+/**
+ * @summary Stream a full AI Game Architect blueprint via SSE
+ */
+export declare const getGenerateBlueprintUrl: (projectId: number) => string;
+export declare const generateBlueprint: (projectId: number, generateBlueprintBody: GenerateBlueprintBody, options?: RequestInit) => Promise<unknown>;
+export declare const getGenerateBlueprintMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof generateBlueprint>>, TError, {
+        projectId: number;
+        data: BodyType<GenerateBlueprintBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof generateBlueprint>>, TError, {
+    projectId: number;
+    data: BodyType<GenerateBlueprintBody>;
+}, TContext>;
+export type GenerateBlueprintMutationResult = NonNullable<Awaited<ReturnType<typeof generateBlueprint>>>;
+export type GenerateBlueprintMutationBody = BodyType<GenerateBlueprintBody>;
+export type GenerateBlueprintMutationError = ErrorType<unknown>;
+/**
+ * @summary Stream a full AI Game Architect blueprint via SSE
+ */
+export declare const useGenerateBlueprint: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof generateBlueprint>>, TError, {
+        projectId: number;
+        data: BodyType<GenerateBlueprintBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof generateBlueprint>>, TError, {
+    projectId: number;
+    data: BodyType<GenerateBlueprintBody>;
+}, TContext>;
+/**
+ * @summary Ingest pasted document text and produce an AI summary
+ */
+export declare const getIngestTextUrl: (projectId: number) => string;
+export declare const ingestText: (projectId: number, ingestTextBody: IngestTextBody, options?: RequestInit) => Promise<ResearchItem>;
+export declare const getIngestTextMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof ingestText>>, TError, {
+        projectId: number;
+        data: BodyType<IngestTextBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof ingestText>>, TError, {
+    projectId: number;
+    data: BodyType<IngestTextBody>;
+}, TContext>;
+export type IngestTextMutationResult = NonNullable<Awaited<ReturnType<typeof ingestText>>>;
+export type IngestTextMutationBody = BodyType<IngestTextBody>;
+export type IngestTextMutationError = ErrorType<unknown>;
+/**
+ * @summary Ingest pasted document text and produce an AI summary
+ */
+export declare const useIngestText: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof ingestText>>, TError, {
+        projectId: number;
+        data: BodyType<IngestTextBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof ingestText>>, TError, {
+    projectId: number;
+    data: BodyType<IngestTextBody>;
+}, TContext>;
+/**
+ * @summary Fetch a URL and produce an AI summary
+ */
+export declare const getIngestUrlUrl: (projectId: number) => string;
+export declare const ingestUrl: (projectId: number, ingestUrlBody: IngestUrlBody, options?: RequestInit) => Promise<ResearchItem>;
+export declare const getIngestUrlMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof ingestUrl>>, TError, {
+        projectId: number;
+        data: BodyType<IngestUrlBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof ingestUrl>>, TError, {
+    projectId: number;
+    data: BodyType<IngestUrlBody>;
+}, TContext>;
+export type IngestUrlMutationResult = NonNullable<Awaited<ReturnType<typeof ingestUrl>>>;
+export type IngestUrlMutationBody = BodyType<IngestUrlBody>;
+export type IngestUrlMutationError = ErrorType<unknown>;
+/**
+ * @summary Fetch a URL and produce an AI summary
+ */
+export declare const useIngestUrl: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof ingestUrl>>, TError, {
+        projectId: number;
+        data: BodyType<IngestUrlBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof ingestUrl>>, TError, {
+    projectId: number;
+    data: BodyType<IngestUrlBody>;
+}, TContext>;
+export declare const getListResearchUrl: (projectId: number) => string;
+export declare const listResearch: (projectId: number, options?: RequestInit) => Promise<ResearchItem[]>;
+export declare const getListResearchQueryKey: (projectId: number) => readonly [`/api/projects/${number}/research`];
+export declare const getListResearchQueryOptions: <TData = Awaited<ReturnType<typeof listResearch>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listResearch>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listResearch>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListResearchQueryResult = NonNullable<Awaited<ReturnType<typeof listResearch>>>;
+export type ListResearchQueryError = ErrorType<unknown>;
+export declare function useListResearch<TData = Awaited<ReturnType<typeof listResearch>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listResearch>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreateResearchUrl: (projectId: number) => string;
+export declare const createResearch: (projectId: number, createResearchBody: CreateResearchBody, options?: RequestInit) => Promise<ResearchItem>;
+export declare const getCreateResearchMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createResearch>>, TError, {
+        projectId: number;
+        data: BodyType<CreateResearchBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createResearch>>, TError, {
+    projectId: number;
+    data: BodyType<CreateResearchBody>;
+}, TContext>;
+export type CreateResearchMutationResult = NonNullable<Awaited<ReturnType<typeof createResearch>>>;
+export type CreateResearchMutationBody = BodyType<CreateResearchBody>;
+export type CreateResearchMutationError = ErrorType<unknown>;
+export declare const useCreateResearch: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createResearch>>, TError, {
+        projectId: number;
+        data: BodyType<CreateResearchBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createResearch>>, TError, {
+    projectId: number;
+    data: BodyType<CreateResearchBody>;
+}, TContext>;
+export declare const getUpdateResearchUrl: (projectId: number, researchId: number) => string;
+export declare const updateResearch: (projectId: number, researchId: number, updateResearchBody: UpdateResearchBody, options?: RequestInit) => Promise<ResearchItem>;
+export declare const getUpdateResearchMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateResearch>>, TError, {
+        projectId: number;
+        researchId: number;
+        data: BodyType<UpdateResearchBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateResearch>>, TError, {
+    projectId: number;
+    researchId: number;
+    data: BodyType<UpdateResearchBody>;
+}, TContext>;
+export type UpdateResearchMutationResult = NonNullable<Awaited<ReturnType<typeof updateResearch>>>;
+export type UpdateResearchMutationBody = BodyType<UpdateResearchBody>;
+export type UpdateResearchMutationError = ErrorType<unknown>;
+export declare const useUpdateResearch: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateResearch>>, TError, {
+        projectId: number;
+        researchId: number;
+        data: BodyType<UpdateResearchBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateResearch>>, TError, {
+    projectId: number;
+    researchId: number;
+    data: BodyType<UpdateResearchBody>;
+}, TContext>;
+export declare const getDeleteResearchUrl: (projectId: number, researchId: number) => string;
+export declare const deleteResearch: (projectId: number, researchId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteResearchMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteResearch>>, TError, {
+        projectId: number;
+        researchId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteResearch>>, TError, {
+    projectId: number;
+    researchId: number;
+}, TContext>;
+export type DeleteResearchMutationResult = NonNullable<Awaited<ReturnType<typeof deleteResearch>>>;
+export type DeleteResearchMutationError = ErrorType<unknown>;
+export declare const useDeleteResearch: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteResearch>>, TError, {
+        projectId: number;
+        researchId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteResearch>>, TError, {
+    projectId: number;
+    researchId: number;
+}, TContext>;
+export declare const getAiEnhanceResearchUrl: (projectId: number, researchId: number) => string;
+export declare const aiEnhanceResearch: (projectId: number, researchId: number, options?: RequestInit) => Promise<ResearchItem>;
+export declare const getAiEnhanceResearchMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceResearch>>, TError, {
+        projectId: number;
+        researchId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceResearch>>, TError, {
+    projectId: number;
+    researchId: number;
+}, TContext>;
+export type AiEnhanceResearchMutationResult = NonNullable<Awaited<ReturnType<typeof aiEnhanceResearch>>>;
+export type AiEnhanceResearchMutationError = ErrorType<unknown>;
+export declare const useAiEnhanceResearch: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceResearch>>, TError, {
+        projectId: number;
+        researchId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiEnhanceResearch>>, TError, {
+    projectId: number;
+    researchId: number;
+}, TContext>;
+export declare const getAiGenerateResearchUrl: (projectId: number) => string;
+export declare const aiGenerateResearch: (projectId: number, aiGenerateBody: AiGenerateBody, options?: RequestInit) => Promise<ResearchItem[]>;
+export declare const getAiGenerateResearchMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiGenerateResearch>>, TError, {
+        projectId: number;
+        data: BodyType<AiGenerateBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiGenerateResearch>>, TError, {
+    projectId: number;
+    data: BodyType<AiGenerateBody>;
+}, TContext>;
+export type AiGenerateResearchMutationResult = NonNullable<Awaited<ReturnType<typeof aiGenerateResearch>>>;
+export type AiGenerateResearchMutationBody = BodyType<AiGenerateBody>;
+export type AiGenerateResearchMutationError = ErrorType<unknown>;
+export declare const useAiGenerateResearch: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiGenerateResearch>>, TError, {
+        projectId: number;
+        data: BodyType<AiGenerateBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiGenerateResearch>>, TError, {
+    projectId: number;
+    data: BodyType<AiGenerateBody>;
+}, TContext>;
+export declare const getListEntitiesUrl: (projectId: number) => string;
+export declare const listEntities: (projectId: number, options?: RequestInit) => Promise<Entity[]>;
+export declare const getListEntitiesQueryKey: (projectId: number) => readonly [`/api/projects/${number}/entities`];
+export declare const getListEntitiesQueryOptions: <TData = Awaited<ReturnType<typeof listEntities>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listEntities>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listEntities>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListEntitiesQueryResult = NonNullable<Awaited<ReturnType<typeof listEntities>>>;
+export type ListEntitiesQueryError = ErrorType<unknown>;
+export declare function useListEntities<TData = Awaited<ReturnType<typeof listEntities>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listEntities>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreateEntityUrl: (projectId: number) => string;
+export declare const createEntity: (projectId: number, createEntityBody: CreateEntityBody, options?: RequestInit) => Promise<Entity>;
+export declare const getCreateEntityMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createEntity>>, TError, {
+        projectId: number;
+        data: BodyType<CreateEntityBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createEntity>>, TError, {
+    projectId: number;
+    data: BodyType<CreateEntityBody>;
+}, TContext>;
+export type CreateEntityMutationResult = NonNullable<Awaited<ReturnType<typeof createEntity>>>;
+export type CreateEntityMutationBody = BodyType<CreateEntityBody>;
+export type CreateEntityMutationError = ErrorType<unknown>;
+export declare const useCreateEntity: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createEntity>>, TError, {
+        projectId: number;
+        data: BodyType<CreateEntityBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createEntity>>, TError, {
+    projectId: number;
+    data: BodyType<CreateEntityBody>;
+}, TContext>;
+export declare const getUpdateEntityUrl: (projectId: number, entityId: number) => string;
+export declare const updateEntity: (projectId: number, entityId: number, updateEntityBody: UpdateEntityBody, options?: RequestInit) => Promise<Entity>;
+export declare const getUpdateEntityMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateEntity>>, TError, {
+        projectId: number;
+        entityId: number;
+        data: BodyType<UpdateEntityBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateEntity>>, TError, {
+    projectId: number;
+    entityId: number;
+    data: BodyType<UpdateEntityBody>;
+}, TContext>;
+export type UpdateEntityMutationResult = NonNullable<Awaited<ReturnType<typeof updateEntity>>>;
+export type UpdateEntityMutationBody = BodyType<UpdateEntityBody>;
+export type UpdateEntityMutationError = ErrorType<unknown>;
+export declare const useUpdateEntity: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateEntity>>, TError, {
+        projectId: number;
+        entityId: number;
+        data: BodyType<UpdateEntityBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateEntity>>, TError, {
+    projectId: number;
+    entityId: number;
+    data: BodyType<UpdateEntityBody>;
+}, TContext>;
+export declare const getDeleteEntityUrl: (projectId: number, entityId: number) => string;
+export declare const deleteEntity: (projectId: number, entityId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteEntityMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteEntity>>, TError, {
+        projectId: number;
+        entityId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteEntity>>, TError, {
+    projectId: number;
+    entityId: number;
+}, TContext>;
+export type DeleteEntityMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEntity>>>;
+export type DeleteEntityMutationError = ErrorType<unknown>;
+export declare const useDeleteEntity: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteEntity>>, TError, {
+        projectId: number;
+        entityId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteEntity>>, TError, {
+    projectId: number;
+    entityId: number;
+}, TContext>;
+export declare const getAiGenerateEntitiesUrl: (projectId: number) => string;
+export declare const aiGenerateEntities: (projectId: number, aiGenerateBody: AiGenerateBody, options?: RequestInit) => Promise<Entity[]>;
+export declare const getAiGenerateEntitiesMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiGenerateEntities>>, TError, {
+        projectId: number;
+        data: BodyType<AiGenerateBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiGenerateEntities>>, TError, {
+    projectId: number;
+    data: BodyType<AiGenerateBody>;
+}, TContext>;
+export type AiGenerateEntitiesMutationResult = NonNullable<Awaited<ReturnType<typeof aiGenerateEntities>>>;
+export type AiGenerateEntitiesMutationBody = BodyType<AiGenerateBody>;
+export type AiGenerateEntitiesMutationError = ErrorType<unknown>;
+export declare const useAiGenerateEntities: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiGenerateEntities>>, TError, {
+        projectId: number;
+        data: BodyType<AiGenerateBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiGenerateEntities>>, TError, {
+    projectId: number;
+    data: BodyType<AiGenerateBody>;
+}, TContext>;
+export declare const getAiEnhanceEntityUrl: (projectId: number, entityId: number) => string;
+export declare const aiEnhanceEntity: (projectId: number, entityId: number, options?: RequestInit) => Promise<EntityEnhanceSuggestion>;
+export declare const getAiEnhanceEntityMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceEntity>>, TError, {
+        projectId: number;
+        entityId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceEntity>>, TError, {
+    projectId: number;
+    entityId: number;
+}, TContext>;
+export type AiEnhanceEntityMutationResult = NonNullable<Awaited<ReturnType<typeof aiEnhanceEntity>>>;
+export type AiEnhanceEntityMutationError = ErrorType<unknown>;
+export declare const useAiEnhanceEntity: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceEntity>>, TError, {
+        projectId: number;
+        entityId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiEnhanceEntity>>, TError, {
+    projectId: number;
+    entityId: number;
+}, TContext>;
+export declare const getListProjectEntityPropertiesUrl: (projectId: number) => string;
+export declare const listProjectEntityProperties: (projectId: number, options?: RequestInit) => Promise<EntityProperty[]>;
+export declare const getListProjectEntityPropertiesQueryKey: (projectId: number) => readonly [`/api/projects/${number}/entity-properties`];
+export declare const getListProjectEntityPropertiesQueryOptions: <TData = Awaited<ReturnType<typeof listProjectEntityProperties>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listProjectEntityProperties>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listProjectEntityProperties>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListProjectEntityPropertiesQueryResult = NonNullable<Awaited<ReturnType<typeof listProjectEntityProperties>>>;
+export type ListProjectEntityPropertiesQueryError = ErrorType<unknown>;
+export declare function useListProjectEntityProperties<TData = Awaited<ReturnType<typeof listProjectEntityProperties>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listProjectEntityProperties>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getListEntityPropertiesUrl: (projectId: number, entityId: number) => string;
+export declare const listEntityProperties: (projectId: number, entityId: number, options?: RequestInit) => Promise<EntityProperty[]>;
+export declare const getListEntityPropertiesQueryKey: (projectId: number, entityId: number) => readonly [`/api/projects/${number}/entities/${number}/properties`];
+export declare const getListEntityPropertiesQueryOptions: <TData = Awaited<ReturnType<typeof listEntityProperties>>, TError = ErrorType<unknown>>(projectId: number, entityId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listEntityProperties>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listEntityProperties>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListEntityPropertiesQueryResult = NonNullable<Awaited<ReturnType<typeof listEntityProperties>>>;
+export type ListEntityPropertiesQueryError = ErrorType<unknown>;
+export declare function useListEntityProperties<TData = Awaited<ReturnType<typeof listEntityProperties>>, TError = ErrorType<unknown>>(projectId: number, entityId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listEntityProperties>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreateEntityPropertyUrl: (projectId: number, entityId: number) => string;
+export declare const createEntityProperty: (projectId: number, entityId: number, createEntityPropertyBody: CreateEntityPropertyBody, options?: RequestInit) => Promise<EntityProperty>;
+export declare const getCreateEntityPropertyMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createEntityProperty>>, TError, {
+        projectId: number;
+        entityId: number;
+        data: BodyType<CreateEntityPropertyBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createEntityProperty>>, TError, {
+    projectId: number;
+    entityId: number;
+    data: BodyType<CreateEntityPropertyBody>;
+}, TContext>;
+export type CreateEntityPropertyMutationResult = NonNullable<Awaited<ReturnType<typeof createEntityProperty>>>;
+export type CreateEntityPropertyMutationBody = BodyType<CreateEntityPropertyBody>;
+export type CreateEntityPropertyMutationError = ErrorType<unknown>;
+export declare const useCreateEntityProperty: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createEntityProperty>>, TError, {
+        projectId: number;
+        entityId: number;
+        data: BodyType<CreateEntityPropertyBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createEntityProperty>>, TError, {
+    projectId: number;
+    entityId: number;
+    data: BodyType<CreateEntityPropertyBody>;
+}, TContext>;
+export declare const getUpdateEntityPropertyUrl: (projectId: number, entityId: number, propertyId: number) => string;
+export declare const updateEntityProperty: (projectId: number, entityId: number, propertyId: number, updateEntityPropertyBody: UpdateEntityPropertyBody, options?: RequestInit) => Promise<EntityProperty>;
+export declare const getUpdateEntityPropertyMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateEntityProperty>>, TError, {
+        projectId: number;
+        entityId: number;
+        propertyId: number;
+        data: BodyType<UpdateEntityPropertyBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateEntityProperty>>, TError, {
+    projectId: number;
+    entityId: number;
+    propertyId: number;
+    data: BodyType<UpdateEntityPropertyBody>;
+}, TContext>;
+export type UpdateEntityPropertyMutationResult = NonNullable<Awaited<ReturnType<typeof updateEntityProperty>>>;
+export type UpdateEntityPropertyMutationBody = BodyType<UpdateEntityPropertyBody>;
+export type UpdateEntityPropertyMutationError = ErrorType<unknown>;
+export declare const useUpdateEntityProperty: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateEntityProperty>>, TError, {
+        projectId: number;
+        entityId: number;
+        propertyId: number;
+        data: BodyType<UpdateEntityPropertyBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateEntityProperty>>, TError, {
+    projectId: number;
+    entityId: number;
+    propertyId: number;
+    data: BodyType<UpdateEntityPropertyBody>;
+}, TContext>;
+export declare const getDeleteEntityPropertyUrl: (projectId: number, entityId: number, propertyId: number) => string;
+export declare const deleteEntityProperty: (projectId: number, entityId: number, propertyId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteEntityPropertyMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteEntityProperty>>, TError, {
+        projectId: number;
+        entityId: number;
+        propertyId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteEntityProperty>>, TError, {
+    projectId: number;
+    entityId: number;
+    propertyId: number;
+}, TContext>;
+export type DeleteEntityPropertyMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEntityProperty>>>;
+export type DeleteEntityPropertyMutationError = ErrorType<unknown>;
+export declare const useDeleteEntityProperty: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteEntityProperty>>, TError, {
+        projectId: number;
+        entityId: number;
+        propertyId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteEntityProperty>>, TError, {
+    projectId: number;
+    entityId: number;
+    propertyId: number;
+}, TContext>;
+export declare const getListRulesUrl: (projectId: number) => string;
+export declare const listRules: (projectId: number, options?: RequestInit) => Promise<Rule[]>;
+export declare const getListRulesQueryKey: (projectId: number) => readonly [`/api/projects/${number}/rules`];
+export declare const getListRulesQueryOptions: <TData = Awaited<ReturnType<typeof listRules>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listRules>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listRules>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListRulesQueryResult = NonNullable<Awaited<ReturnType<typeof listRules>>>;
+export type ListRulesQueryError = ErrorType<unknown>;
+export declare function useListRules<TData = Awaited<ReturnType<typeof listRules>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listRules>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreateRuleUrl: (projectId: number) => string;
+export declare const createRule: (projectId: number, createRuleBody: CreateRuleBody, options?: RequestInit) => Promise<Rule>;
+export declare const getCreateRuleMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createRule>>, TError, {
+        projectId: number;
+        data: BodyType<CreateRuleBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createRule>>, TError, {
+    projectId: number;
+    data: BodyType<CreateRuleBody>;
+}, TContext>;
+export type CreateRuleMutationResult = NonNullable<Awaited<ReturnType<typeof createRule>>>;
+export type CreateRuleMutationBody = BodyType<CreateRuleBody>;
+export type CreateRuleMutationError = ErrorType<unknown>;
+export declare const useCreateRule: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createRule>>, TError, {
+        projectId: number;
+        data: BodyType<CreateRuleBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createRule>>, TError, {
+    projectId: number;
+    data: BodyType<CreateRuleBody>;
+}, TContext>;
+export declare const getUpdateRuleUrl: (projectId: number, ruleId: number) => string;
+export declare const updateRule: (projectId: number, ruleId: number, updateRuleBody: UpdateRuleBody, options?: RequestInit) => Promise<Rule>;
+export declare const getUpdateRuleMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateRule>>, TError, {
+        projectId: number;
+        ruleId: number;
+        data: BodyType<UpdateRuleBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateRule>>, TError, {
+    projectId: number;
+    ruleId: number;
+    data: BodyType<UpdateRuleBody>;
+}, TContext>;
+export type UpdateRuleMutationResult = NonNullable<Awaited<ReturnType<typeof updateRule>>>;
+export type UpdateRuleMutationBody = BodyType<UpdateRuleBody>;
+export type UpdateRuleMutationError = ErrorType<unknown>;
+export declare const useUpdateRule: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateRule>>, TError, {
+        projectId: number;
+        ruleId: number;
+        data: BodyType<UpdateRuleBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateRule>>, TError, {
+    projectId: number;
+    ruleId: number;
+    data: BodyType<UpdateRuleBody>;
+}, TContext>;
+export declare const getDeleteRuleUrl: (projectId: number, ruleId: number) => string;
+export declare const deleteRule: (projectId: number, ruleId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteRuleMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteRule>>, TError, {
+        projectId: number;
+        ruleId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteRule>>, TError, {
+    projectId: number;
+    ruleId: number;
+}, TContext>;
+export type DeleteRuleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRule>>>;
+export type DeleteRuleMutationError = ErrorType<unknown>;
+export declare const useDeleteRule: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteRule>>, TError, {
+        projectId: number;
+        ruleId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteRule>>, TError, {
+    projectId: number;
+    ruleId: number;
+}, TContext>;
+export declare const getAiGenerateRulesUrl: (projectId: number) => string;
+export declare const aiGenerateRules: (projectId: number, aiGenerateBody: AiGenerateBody, options?: RequestInit) => Promise<Rule[]>;
+export declare const getAiGenerateRulesMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiGenerateRules>>, TError, {
+        projectId: number;
+        data: BodyType<AiGenerateBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiGenerateRules>>, TError, {
+    projectId: number;
+    data: BodyType<AiGenerateBody>;
+}, TContext>;
+export type AiGenerateRulesMutationResult = NonNullable<Awaited<ReturnType<typeof aiGenerateRules>>>;
+export type AiGenerateRulesMutationBody = BodyType<AiGenerateBody>;
+export type AiGenerateRulesMutationError = ErrorType<unknown>;
+export declare const useAiGenerateRules: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiGenerateRules>>, TError, {
+        projectId: number;
+        data: BodyType<AiGenerateBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiGenerateRules>>, TError, {
+    projectId: number;
+    data: BodyType<AiGenerateBody>;
+}, TContext>;
+export declare const getAiEnhanceRuleUrl: (projectId: number, ruleId: number) => string;
+export declare const aiEnhanceRule: (projectId: number, ruleId: number, options?: RequestInit) => Promise<RuleEnhanceSuggestion>;
+export declare const getAiEnhanceRuleMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceRule>>, TError, {
+        projectId: number;
+        ruleId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceRule>>, TError, {
+    projectId: number;
+    ruleId: number;
+}, TContext>;
+export type AiEnhanceRuleMutationResult = NonNullable<Awaited<ReturnType<typeof aiEnhanceRule>>>;
+export type AiEnhanceRuleMutationError = ErrorType<unknown>;
+export declare const useAiEnhanceRule: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceRule>>, TError, {
+        projectId: number;
+        ruleId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiEnhanceRule>>, TError, {
+    projectId: number;
+    ruleId: number;
+}, TContext>;
+export declare const getConflictCheckRulesUrl: (projectId: number) => string;
+export declare const conflictCheckRules: (projectId: number, options?: RequestInit) => Promise<ConflictReport>;
+export declare const getConflictCheckRulesMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof conflictCheckRules>>, TError, {
+        projectId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof conflictCheckRules>>, TError, {
+    projectId: number;
+}, TContext>;
+export type ConflictCheckRulesMutationResult = NonNullable<Awaited<ReturnType<typeof conflictCheckRules>>>;
+export type ConflictCheckRulesMutationError = ErrorType<unknown>;
+export declare const useConflictCheckRules: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof conflictCheckRules>>, TError, {
+        projectId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof conflictCheckRules>>, TError, {
+    projectId: number;
+}, TContext>;
+export declare const getListPlayersUrl: (projectId: number) => string;
+export declare const listPlayers: (projectId: number, options?: RequestInit) => Promise<Player[]>;
+export declare const getListPlayersQueryKey: (projectId: number) => readonly [`/api/projects/${number}/players`];
+export declare const getListPlayersQueryOptions: <TData = Awaited<ReturnType<typeof listPlayers>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listPlayers>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listPlayers>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListPlayersQueryResult = NonNullable<Awaited<ReturnType<typeof listPlayers>>>;
+export type ListPlayersQueryError = ErrorType<unknown>;
+export declare function useListPlayers<TData = Awaited<ReturnType<typeof listPlayers>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listPlayers>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreatePlayerUrl: (projectId: number) => string;
+export declare const createPlayer: (projectId: number, createPlayerBody: CreatePlayerBody, options?: RequestInit) => Promise<Player>;
+export declare const getCreatePlayerMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createPlayer>>, TError, {
+        projectId: number;
+        data: BodyType<CreatePlayerBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createPlayer>>, TError, {
+    projectId: number;
+    data: BodyType<CreatePlayerBody>;
+}, TContext>;
+export type CreatePlayerMutationResult = NonNullable<Awaited<ReturnType<typeof createPlayer>>>;
+export type CreatePlayerMutationBody = BodyType<CreatePlayerBody>;
+export type CreatePlayerMutationError = ErrorType<unknown>;
+export declare const useCreatePlayer: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createPlayer>>, TError, {
+        projectId: number;
+        data: BodyType<CreatePlayerBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createPlayer>>, TError, {
+    projectId: number;
+    data: BodyType<CreatePlayerBody>;
+}, TContext>;
+export declare const getUpdatePlayerUrl: (projectId: number, playerId: number) => string;
+export declare const updatePlayer: (projectId: number, playerId: number, updatePlayerBody: UpdatePlayerBody, options?: RequestInit) => Promise<Player>;
+export declare const getUpdatePlayerMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updatePlayer>>, TError, {
+        projectId: number;
+        playerId: number;
+        data: BodyType<UpdatePlayerBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updatePlayer>>, TError, {
+    projectId: number;
+    playerId: number;
+    data: BodyType<UpdatePlayerBody>;
+}, TContext>;
+export type UpdatePlayerMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlayer>>>;
+export type UpdatePlayerMutationBody = BodyType<UpdatePlayerBody>;
+export type UpdatePlayerMutationError = ErrorType<unknown>;
+export declare const useUpdatePlayer: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updatePlayer>>, TError, {
+        projectId: number;
+        playerId: number;
+        data: BodyType<UpdatePlayerBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updatePlayer>>, TError, {
+    projectId: number;
+    playerId: number;
+    data: BodyType<UpdatePlayerBody>;
+}, TContext>;
+export declare const getDeletePlayerUrl: (projectId: number, playerId: number) => string;
+export declare const deletePlayer: (projectId: number, playerId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeletePlayerMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deletePlayer>>, TError, {
+        projectId: number;
+        playerId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deletePlayer>>, TError, {
+    projectId: number;
+    playerId: number;
+}, TContext>;
+export type DeletePlayerMutationResult = NonNullable<Awaited<ReturnType<typeof deletePlayer>>>;
+export type DeletePlayerMutationError = ErrorType<unknown>;
+export declare const useDeletePlayer: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deletePlayer>>, TError, {
+        projectId: number;
+        playerId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deletePlayer>>, TError, {
+    projectId: number;
+    playerId: number;
+}, TContext>;
+export declare const getAiGeneratePlayersUrl: (projectId: number) => string;
+export declare const aiGeneratePlayers: (projectId: number, aiGenerateBody: AiGenerateBody, options?: RequestInit) => Promise<Player[]>;
+export declare const getAiGeneratePlayersMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiGeneratePlayers>>, TError, {
+        projectId: number;
+        data: BodyType<AiGenerateBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiGeneratePlayers>>, TError, {
+    projectId: number;
+    data: BodyType<AiGenerateBody>;
+}, TContext>;
+export type AiGeneratePlayersMutationResult = NonNullable<Awaited<ReturnType<typeof aiGeneratePlayers>>>;
+export type AiGeneratePlayersMutationBody = BodyType<AiGenerateBody>;
+export type AiGeneratePlayersMutationError = ErrorType<unknown>;
+export declare const useAiGeneratePlayers: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiGeneratePlayers>>, TError, {
+        projectId: number;
+        data: BodyType<AiGenerateBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiGeneratePlayers>>, TError, {
+    projectId: number;
+    data: BodyType<AiGenerateBody>;
+}, TContext>;
+export declare const getAiEnhancePlayerUrl: (projectId: number, playerId: number) => string;
+export declare const aiEnhancePlayer: (projectId: number, playerId: number, options?: RequestInit) => Promise<Player>;
+export declare const getAiEnhancePlayerMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhancePlayer>>, TError, {
+        projectId: number;
+        playerId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiEnhancePlayer>>, TError, {
+    projectId: number;
+    playerId: number;
+}, TContext>;
+export type AiEnhancePlayerMutationResult = NonNullable<Awaited<ReturnType<typeof aiEnhancePlayer>>>;
+export type AiEnhancePlayerMutationError = ErrorType<unknown>;
+export declare const useAiEnhancePlayer: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhancePlayer>>, TError, {
+        projectId: number;
+        playerId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiEnhancePlayer>>, TError, {
+    projectId: number;
+    playerId: number;
+}, TContext>;
+export declare const getListNotesUrl: (projectId: number) => string;
+export declare const listNotes: (projectId: number, options?: RequestInit) => Promise<Note[]>;
+export declare const getListNotesQueryKey: (projectId: number) => readonly [`/api/projects/${number}/notes`];
+export declare const getListNotesQueryOptions: <TData = Awaited<ReturnType<typeof listNotes>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listNotes>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listNotes>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListNotesQueryResult = NonNullable<Awaited<ReturnType<typeof listNotes>>>;
+export type ListNotesQueryError = ErrorType<unknown>;
+export declare function useListNotes<TData = Awaited<ReturnType<typeof listNotes>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listNotes>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreateNoteUrl: (projectId: number) => string;
+export declare const createNote: (projectId: number, createNoteBody: CreateNoteBody, options?: RequestInit) => Promise<Note>;
+export declare const getCreateNoteMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createNote>>, TError, {
+        projectId: number;
+        data: BodyType<CreateNoteBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createNote>>, TError, {
+    projectId: number;
+    data: BodyType<CreateNoteBody>;
+}, TContext>;
+export type CreateNoteMutationResult = NonNullable<Awaited<ReturnType<typeof createNote>>>;
+export type CreateNoteMutationBody = BodyType<CreateNoteBody>;
+export type CreateNoteMutationError = ErrorType<unknown>;
+export declare const useCreateNote: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createNote>>, TError, {
+        projectId: number;
+        data: BodyType<CreateNoteBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createNote>>, TError, {
+    projectId: number;
+    data: BodyType<CreateNoteBody>;
+}, TContext>;
+export declare const getAiEnhanceNoteUrl: (projectId: number, noteId: number) => string;
+export declare const aiEnhanceNote: (projectId: number, noteId: number, options?: RequestInit) => Promise<Note>;
+export declare const getAiEnhanceNoteMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceNote>>, TError, {
+        projectId: number;
+        noteId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceNote>>, TError, {
+    projectId: number;
+    noteId: number;
+}, TContext>;
+export type AiEnhanceNoteMutationResult = NonNullable<Awaited<ReturnType<typeof aiEnhanceNote>>>;
+export type AiEnhanceNoteMutationError = ErrorType<unknown>;
+export declare const useAiEnhanceNote: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceNote>>, TError, {
+        projectId: number;
+        noteId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiEnhanceNote>>, TError, {
+    projectId: number;
+    noteId: number;
+}, TContext>;
+export declare const getUpdateNoteUrl: (projectId: number, noteId: number) => string;
+export declare const updateNote: (projectId: number, noteId: number, updateNoteBody: UpdateNoteBody, options?: RequestInit) => Promise<Note>;
+export declare const getUpdateNoteMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateNote>>, TError, {
+        projectId: number;
+        noteId: number;
+        data: BodyType<UpdateNoteBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateNote>>, TError, {
+    projectId: number;
+    noteId: number;
+    data: BodyType<UpdateNoteBody>;
+}, TContext>;
+export type UpdateNoteMutationResult = NonNullable<Awaited<ReturnType<typeof updateNote>>>;
+export type UpdateNoteMutationBody = BodyType<UpdateNoteBody>;
+export type UpdateNoteMutationError = ErrorType<unknown>;
+export declare const useUpdateNote: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateNote>>, TError, {
+        projectId: number;
+        noteId: number;
+        data: BodyType<UpdateNoteBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateNote>>, TError, {
+    projectId: number;
+    noteId: number;
+    data: BodyType<UpdateNoteBody>;
+}, TContext>;
+export declare const getDeleteNoteUrl: (projectId: number, noteId: number) => string;
+export declare const deleteNote: (projectId: number, noteId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteNoteMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteNote>>, TError, {
+        projectId: number;
+        noteId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteNote>>, TError, {
+    projectId: number;
+    noteId: number;
+}, TContext>;
+export type DeleteNoteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteNote>>>;
+export type DeleteNoteMutationError = ErrorType<unknown>;
+export declare const useDeleteNote: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteNote>>, TError, {
+        projectId: number;
+        noteId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteNote>>, TError, {
+    projectId: number;
+    noteId: number;
+}, TContext>;
+export declare const getListTasksUrl: (projectId: number) => string;
+export declare const listTasks: (projectId: number, options?: RequestInit) => Promise<Task[]>;
+export declare const getListTasksQueryKey: (projectId: number) => readonly [`/api/projects/${number}/tasks`];
+export declare const getListTasksQueryOptions: <TData = Awaited<ReturnType<typeof listTasks>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listTasks>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listTasks>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListTasksQueryResult = NonNullable<Awaited<ReturnType<typeof listTasks>>>;
+export type ListTasksQueryError = ErrorType<unknown>;
+export declare function useListTasks<TData = Awaited<ReturnType<typeof listTasks>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listTasks>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreateTaskUrl: (projectId: number) => string;
+export declare const createTask: (projectId: number, createTaskBody: CreateTaskBody, options?: RequestInit) => Promise<Task>;
+export declare const getCreateTaskMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createTask>>, TError, {
+        projectId: number;
+        data: BodyType<CreateTaskBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createTask>>, TError, {
+    projectId: number;
+    data: BodyType<CreateTaskBody>;
+}, TContext>;
+export type CreateTaskMutationResult = NonNullable<Awaited<ReturnType<typeof createTask>>>;
+export type CreateTaskMutationBody = BodyType<CreateTaskBody>;
+export type CreateTaskMutationError = ErrorType<unknown>;
+export declare const useCreateTask: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createTask>>, TError, {
+        projectId: number;
+        data: BodyType<CreateTaskBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createTask>>, TError, {
+    projectId: number;
+    data: BodyType<CreateTaskBody>;
+}, TContext>;
+export declare const getUpdateTaskUrl: (projectId: number, taskId: number) => string;
+export declare const updateTask: (projectId: number, taskId: number, updateTaskBody: UpdateTaskBody, options?: RequestInit) => Promise<Task>;
+export declare const getUpdateTaskMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateTask>>, TError, {
+        projectId: number;
+        taskId: number;
+        data: BodyType<UpdateTaskBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateTask>>, TError, {
+    projectId: number;
+    taskId: number;
+    data: BodyType<UpdateTaskBody>;
+}, TContext>;
+export type UpdateTaskMutationResult = NonNullable<Awaited<ReturnType<typeof updateTask>>>;
+export type UpdateTaskMutationBody = BodyType<UpdateTaskBody>;
+export type UpdateTaskMutationError = ErrorType<unknown>;
+export declare const useUpdateTask: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateTask>>, TError, {
+        projectId: number;
+        taskId: number;
+        data: BodyType<UpdateTaskBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateTask>>, TError, {
+    projectId: number;
+    taskId: number;
+    data: BodyType<UpdateTaskBody>;
+}, TContext>;
+export declare const getDeleteTaskUrl: (projectId: number, taskId: number) => string;
+export declare const deleteTask: (projectId: number, taskId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteTaskMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteTask>>, TError, {
+        projectId: number;
+        taskId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteTask>>, TError, {
+    projectId: number;
+    taskId: number;
+}, TContext>;
+export type DeleteTaskMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTask>>>;
+export type DeleteTaskMutationError = ErrorType<unknown>;
+export declare const useDeleteTask: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteTask>>, TError, {
+        projectId: number;
+        taskId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteTask>>, TError, {
+    projectId: number;
+    taskId: number;
+}, TContext>;
+export declare const getListChatMessagesUrl: (projectId: number, params?: ListChatMessagesParams) => string;
+export declare const listChatMessages: (projectId: number, params?: ListChatMessagesParams, options?: RequestInit) => Promise<ChatMessage[]>;
+export declare const getListChatMessagesQueryKey: (projectId: number, params?: ListChatMessagesParams) => readonly [`/api/projects/${number}/chat`, ...ListChatMessagesParams[]];
+export declare const getListChatMessagesQueryOptions: <TData = Awaited<ReturnType<typeof listChatMessages>>, TError = ErrorType<unknown>>(projectId: number, params?: ListChatMessagesParams, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listChatMessages>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listChatMessages>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListChatMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listChatMessages>>>;
+export type ListChatMessagesQueryError = ErrorType<unknown>;
+export declare function useListChatMessages<TData = Awaited<ReturnType<typeof listChatMessages>>, TError = ErrorType<unknown>>(projectId: number, params?: ListChatMessagesParams, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listChatMessages>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getClearChatMessagesUrl: (projectId: number, params?: ClearChatMessagesParams) => string;
+export declare const clearChatMessages: (projectId: number, params?: ClearChatMessagesParams, options?: RequestInit) => Promise<void>;
+export declare const getClearChatMessagesMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof clearChatMessages>>, TError, {
+        projectId: number;
+        params?: ClearChatMessagesParams;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof clearChatMessages>>, TError, {
+    projectId: number;
+    params?: ClearChatMessagesParams;
+}, TContext>;
+export type ClearChatMessagesMutationResult = NonNullable<Awaited<ReturnType<typeof clearChatMessages>>>;
+export type ClearChatMessagesMutationError = ErrorType<unknown>;
+export declare const useClearChatMessages: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof clearChatMessages>>, TError, {
+        projectId: number;
+        params?: ClearChatMessagesParams;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof clearChatMessages>>, TError, {
+    projectId: number;
+    params?: ClearChatMessagesParams;
+}, TContext>;
+/**
+ * @summary Send a chat message and stream the AI response (SSE)
+ */
+export declare const getSendChatMessageUrl: (projectId: number) => string;
+export declare const sendChatMessage: (projectId: number, sendChatMessageBody: SendChatMessageBody, options?: RequestInit) => Promise<unknown>;
+export declare const getSendChatMessageMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof sendChatMessage>>, TError, {
+        projectId: number;
+        data: BodyType<SendChatMessageBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof sendChatMessage>>, TError, {
+    projectId: number;
+    data: BodyType<SendChatMessageBody>;
+}, TContext>;
+export type SendChatMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendChatMessage>>>;
+export type SendChatMessageMutationBody = BodyType<SendChatMessageBody>;
+export type SendChatMessageMutationError = ErrorType<unknown>;
+/**
+ * @summary Send a chat message and stream the AI response (SSE)
+ */
+export declare const useSendChatMessage: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof sendChatMessage>>, TError, {
+        projectId: number;
+        data: BodyType<SendChatMessageBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof sendChatMessage>>, TError, {
+    projectId: number;
+    data: BodyType<SendChatMessageBody>;
+}, TContext>;
+export declare const getListAssetsUrl: (projectId: number) => string;
+export declare const listAssets: (projectId: number, options?: RequestInit) => Promise<Asset[]>;
+export declare const getListAssetsQueryKey: (projectId: number) => readonly [`/api/projects/${number}/assets`];
+export declare const getListAssetsQueryOptions: <TData = Awaited<ReturnType<typeof listAssets>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listAssets>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listAssets>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListAssetsQueryResult = NonNullable<Awaited<ReturnType<typeof listAssets>>>;
+export type ListAssetsQueryError = ErrorType<unknown>;
+export declare function useListAssets<TData = Awaited<ReturnType<typeof listAssets>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listAssets>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreateAssetUrl: (projectId: number) => string;
+export declare const createAsset: (projectId: number, createAssetBody: CreateAssetBody, options?: RequestInit) => Promise<Asset>;
+export declare const getCreateAssetMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError, {
+        projectId: number;
+        data: BodyType<CreateAssetBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError, {
+    projectId: number;
+    data: BodyType<CreateAssetBody>;
+}, TContext>;
+export type CreateAssetMutationResult = NonNullable<Awaited<ReturnType<typeof createAsset>>>;
+export type CreateAssetMutationBody = BodyType<CreateAssetBody>;
+export type CreateAssetMutationError = ErrorType<unknown>;
+export declare const useCreateAsset: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError, {
+        projectId: number;
+        data: BodyType<CreateAssetBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createAsset>>, TError, {
+    projectId: number;
+    data: BodyType<CreateAssetBody>;
+}, TContext>;
+export declare const getUpdateAssetUrl: (projectId: number, assetId: number) => string;
+export declare const updateAsset: (projectId: number, assetId: number, updateAssetBody: UpdateAssetBody, options?: RequestInit) => Promise<Asset>;
+export declare const getUpdateAssetMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError, {
+        projectId: number;
+        assetId: number;
+        data: BodyType<UpdateAssetBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError, {
+    projectId: number;
+    assetId: number;
+    data: BodyType<UpdateAssetBody>;
+}, TContext>;
+export type UpdateAssetMutationResult = NonNullable<Awaited<ReturnType<typeof updateAsset>>>;
+export type UpdateAssetMutationBody = BodyType<UpdateAssetBody>;
+export type UpdateAssetMutationError = ErrorType<unknown>;
+export declare const useUpdateAsset: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError, {
+        projectId: number;
+        assetId: number;
+        data: BodyType<UpdateAssetBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateAsset>>, TError, {
+    projectId: number;
+    assetId: number;
+    data: BodyType<UpdateAssetBody>;
+}, TContext>;
+export declare const getDeleteAssetUrl: (projectId: number, assetId: number) => string;
+export declare const deleteAsset: (projectId: number, assetId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteAssetMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError, {
+        projectId: number;
+        assetId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError, {
+    projectId: number;
+    assetId: number;
+}, TContext>;
+export type DeleteAssetMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAsset>>>;
+export type DeleteAssetMutationError = ErrorType<unknown>;
+export declare const useDeleteAsset: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError, {
+        projectId: number;
+        assetId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteAsset>>, TError, {
+    projectId: number;
+    assetId: number;
+}, TContext>;
+export declare const getAiEnhanceAssetUrl: (projectId: number, assetId: number) => string;
+export declare const aiEnhanceAsset: (projectId: number, assetId: number, options?: RequestInit) => Promise<AssetEnhanceSuggestion>;
+export declare const getAiEnhanceAssetMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceAsset>>, TError, {
+        projectId: number;
+        assetId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceAsset>>, TError, {
+    projectId: number;
+    assetId: number;
+}, TContext>;
+export type AiEnhanceAssetMutationResult = NonNullable<Awaited<ReturnType<typeof aiEnhanceAsset>>>;
+export type AiEnhanceAssetMutationError = ErrorType<unknown>;
+export declare const useAiEnhanceAsset: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceAsset>>, TError, {
+        projectId: number;
+        assetId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiEnhanceAsset>>, TError, {
+    projectId: number;
+    assetId: number;
+}, TContext>;
+export declare const getAiTextEditUrl: (projectId: number) => string;
+export declare const aiTextEdit: (projectId: number, aiTextEditBody: AiTextEditBody, options?: RequestInit) => Promise<AiTextEditResponse>;
+export declare const getAiTextEditMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiTextEdit>>, TError, {
+        projectId: number;
+        data: BodyType<AiTextEditBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiTextEdit>>, TError, {
+    projectId: number;
+    data: BodyType<AiTextEditBody>;
+}, TContext>;
+export type AiTextEditMutationResult = NonNullable<Awaited<ReturnType<typeof aiTextEdit>>>;
+export type AiTextEditMutationBody = BodyType<AiTextEditBody>;
+export type AiTextEditMutationError = ErrorType<unknown>;
+export declare const useAiTextEdit: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiTextEdit>>, TError, {
+        projectId: number;
+        data: BodyType<AiTextEditBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiTextEdit>>, TError, {
+    projectId: number;
+    data: BodyType<AiTextEditBody>;
+}, TContext>;
+export declare const getAiDescribeAssetUrl: (projectId: number, assetId: number) => string;
+export declare const aiDescribeAsset: (projectId: number, assetId: number, options?: RequestInit) => Promise<Asset>;
+export declare const getAiDescribeAssetMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiDescribeAsset>>, TError, {
+        projectId: number;
+        assetId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiDescribeAsset>>, TError, {
+    projectId: number;
+    assetId: number;
+}, TContext>;
+export type AiDescribeAssetMutationResult = NonNullable<Awaited<ReturnType<typeof aiDescribeAsset>>>;
+export type AiDescribeAssetMutationError = ErrorType<unknown>;
+export declare const useAiDescribeAsset: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiDescribeAsset>>, TError, {
+        projectId: number;
+        assetId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiDescribeAsset>>, TError, {
+    projectId: number;
+    assetId: number;
+}, TContext>;
+export declare const getGenerateAssetImageUrl: (projectId: number, assetId: number) => string;
+export declare const generateAssetImage: (projectId: number, assetId: number, generateImageBody: GenerateImageBody, options?: RequestInit) => Promise<Asset>;
+export declare const getGenerateAssetImageMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof generateAssetImage>>, TError, {
+        projectId: number;
+        assetId: number;
+        data: BodyType<GenerateImageBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof generateAssetImage>>, TError, {
+    projectId: number;
+    assetId: number;
+    data: BodyType<GenerateImageBody>;
+}, TContext>;
+export type GenerateAssetImageMutationResult = NonNullable<Awaited<ReturnType<typeof generateAssetImage>>>;
+export type GenerateAssetImageMutationBody = BodyType<GenerateImageBody>;
+export type GenerateAssetImageMutationError = ErrorType<unknown>;
+export declare const useGenerateAssetImage: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof generateAssetImage>>, TError, {
+        projectId: number;
+        assetId: number;
+        data: BodyType<GenerateImageBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof generateAssetImage>>, TError, {
+    projectId: number;
+    assetId: number;
+    data: BodyType<GenerateImageBody>;
+}, TContext>;
+export declare const getRunSimulatorUrl: (projectId: number) => string;
+export declare const runSimulator: (projectId: number, simulatorRunBody: SimulatorRunBody, options?: RequestInit) => Promise<SimulatorResult>;
+export declare const getRunSimulatorMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof runSimulator>>, TError, {
+        projectId: number;
+        data: BodyType<SimulatorRunBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof runSimulator>>, TError, {
+    projectId: number;
+    data: BodyType<SimulatorRunBody>;
+}, TContext>;
+export type RunSimulatorMutationResult = NonNullable<Awaited<ReturnType<typeof runSimulator>>>;
+export type RunSimulatorMutationBody = BodyType<SimulatorRunBody>;
+export type RunSimulatorMutationError = ErrorType<unknown>;
+export declare const useRunSimulator: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof runSimulator>>, TError, {
+        projectId: number;
+        data: BodyType<SimulatorRunBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof runSimulator>>, TError, {
+    projectId: number;
+    data: BodyType<SimulatorRunBody>;
+}, TContext>;
+/**
+ * @summary Stream an AI playthrough narrative via SSE
+ */
+export declare const getSimulatorPlaythroughUrl: (projectId: number) => string;
+export declare const simulatorPlaythrough: (projectId: number, playthroughBody: PlaythroughBody, options?: RequestInit) => Promise<unknown>;
+export declare const getSimulatorPlaythroughMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof simulatorPlaythrough>>, TError, {
+        projectId: number;
+        data: BodyType<PlaythroughBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof simulatorPlaythrough>>, TError, {
+    projectId: number;
+    data: BodyType<PlaythroughBody>;
+}, TContext>;
+export type SimulatorPlaythroughMutationResult = NonNullable<Awaited<ReturnType<typeof simulatorPlaythrough>>>;
+export type SimulatorPlaythroughMutationBody = BodyType<PlaythroughBody>;
+export type SimulatorPlaythroughMutationError = ErrorType<unknown>;
+/**
+ * @summary Stream an AI playthrough narrative via SSE
+ */
+export declare const useSimulatorPlaythrough: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof simulatorPlaythrough>>, TError, {
+        projectId: number;
+        data: BodyType<PlaythroughBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof simulatorPlaythrough>>, TError, {
+    projectId: number;
+    data: BodyType<PlaythroughBody>;
+}, TContext>;
+export declare const getListPlaytestSessionsUrl: (projectId: number) => string;
+export declare const listPlaytestSessions: (projectId: number, options?: RequestInit) => Promise<PlaytestSession[]>;
+export declare const getListPlaytestSessionsQueryKey: (projectId: number) => readonly [`/api/projects/${number}/playtest-sessions`];
+export declare const getListPlaytestSessionsQueryOptions: <TData = Awaited<ReturnType<typeof listPlaytestSessions>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listPlaytestSessions>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listPlaytestSessions>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListPlaytestSessionsQueryResult = NonNullable<Awaited<ReturnType<typeof listPlaytestSessions>>>;
+export type ListPlaytestSessionsQueryError = ErrorType<unknown>;
+export declare function useListPlaytestSessions<TData = Awaited<ReturnType<typeof listPlaytestSessions>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listPlaytestSessions>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreatePlaytestSessionUrl: (projectId: number) => string;
+export declare const createPlaytestSession: (projectId: number, createPlaytestSessionBody: CreatePlaytestSessionBody, options?: RequestInit) => Promise<PlaytestSession>;
+export declare const getCreatePlaytestSessionMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createPlaytestSession>>, TError, {
+        projectId: number;
+        data: BodyType<CreatePlaytestSessionBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createPlaytestSession>>, TError, {
+    projectId: number;
+    data: BodyType<CreatePlaytestSessionBody>;
+}, TContext>;
+export type CreatePlaytestSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createPlaytestSession>>>;
+export type CreatePlaytestSessionMutationBody = BodyType<CreatePlaytestSessionBody>;
+export type CreatePlaytestSessionMutationError = ErrorType<unknown>;
+export declare const useCreatePlaytestSession: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createPlaytestSession>>, TError, {
+        projectId: number;
+        data: BodyType<CreatePlaytestSessionBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createPlaytestSession>>, TError, {
+    projectId: number;
+    data: BodyType<CreatePlaytestSessionBody>;
+}, TContext>;
+export declare const getUpdatePlaytestSessionUrl: (projectId: number, sessionId: number) => string;
+export declare const updatePlaytestSession: (projectId: number, sessionId: number, updatePlaytestSessionBody: UpdatePlaytestSessionBody, options?: RequestInit) => Promise<PlaytestSession>;
+export declare const getUpdatePlaytestSessionMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updatePlaytestSession>>, TError, {
+        projectId: number;
+        sessionId: number;
+        data: BodyType<UpdatePlaytestSessionBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updatePlaytestSession>>, TError, {
+    projectId: number;
+    sessionId: number;
+    data: BodyType<UpdatePlaytestSessionBody>;
+}, TContext>;
+export type UpdatePlaytestSessionMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlaytestSession>>>;
+export type UpdatePlaytestSessionMutationBody = BodyType<UpdatePlaytestSessionBody>;
+export type UpdatePlaytestSessionMutationError = ErrorType<unknown>;
+export declare const useUpdatePlaytestSession: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updatePlaytestSession>>, TError, {
+        projectId: number;
+        sessionId: number;
+        data: BodyType<UpdatePlaytestSessionBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updatePlaytestSession>>, TError, {
+    projectId: number;
+    sessionId: number;
+    data: BodyType<UpdatePlaytestSessionBody>;
+}, TContext>;
+export declare const getDeletePlaytestSessionUrl: (projectId: number, sessionId: number) => string;
+export declare const deletePlaytestSession: (projectId: number, sessionId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeletePlaytestSessionMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deletePlaytestSession>>, TError, {
+        projectId: number;
+        sessionId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deletePlaytestSession>>, TError, {
+    projectId: number;
+    sessionId: number;
+}, TContext>;
+export type DeletePlaytestSessionMutationResult = NonNullable<Awaited<ReturnType<typeof deletePlaytestSession>>>;
+export type DeletePlaytestSessionMutationError = ErrorType<unknown>;
+export declare const useDeletePlaytestSession: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deletePlaytestSession>>, TError, {
+        projectId: number;
+        sessionId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deletePlaytestSession>>, TError, {
+    projectId: number;
+    sessionId: number;
+}, TContext>;
+export declare const getListPlaytestFeedbackUrl: (projectId: number) => string;
+export declare const listPlaytestFeedback: (projectId: number, options?: RequestInit) => Promise<PlaytestFeedback[]>;
+export declare const getListPlaytestFeedbackQueryKey: (projectId: number) => readonly [`/api/projects/${number}/playtest-feedback`];
+export declare const getListPlaytestFeedbackQueryOptions: <TData = Awaited<ReturnType<typeof listPlaytestFeedback>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listPlaytestFeedback>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listPlaytestFeedback>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListPlaytestFeedbackQueryResult = NonNullable<Awaited<ReturnType<typeof listPlaytestFeedback>>>;
+export type ListPlaytestFeedbackQueryError = ErrorType<unknown>;
+export declare function useListPlaytestFeedback<TData = Awaited<ReturnType<typeof listPlaytestFeedback>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listPlaytestFeedback>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getGetPlaytestShareLinkUrl: (projectId: number) => string;
+export declare const getPlaytestShareLink: (projectId: number, options?: RequestInit) => Promise<ShareLink>;
+export declare const getGetPlaytestShareLinkQueryKey: (projectId: number) => readonly [`/api/projects/${number}/playtest-feedback/share`];
+export declare const getGetPlaytestShareLinkQueryOptions: <TData = Awaited<ReturnType<typeof getPlaytestShareLink>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getPlaytestShareLink>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getPlaytestShareLink>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetPlaytestShareLinkQueryResult = NonNullable<Awaited<ReturnType<typeof getPlaytestShareLink>>>;
+export type GetPlaytestShareLinkQueryError = ErrorType<unknown>;
+export declare function useGetPlaytestShareLink<TData = Awaited<ReturnType<typeof getPlaytestShareLink>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getPlaytestShareLink>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getGetPublicFeedbackProjectUrl: (shareToken: string) => string;
+export declare const getPublicFeedbackProject: (shareToken: string, options?: RequestInit) => Promise<PublicFeedbackProject>;
+export declare const getGetPublicFeedbackProjectQueryKey: (shareToken: string) => readonly [`/api/public/feedback/${string}`];
+export declare const getGetPublicFeedbackProjectQueryOptions: <TData = Awaited<ReturnType<typeof getPublicFeedbackProject>>, TError = ErrorType<NotFoundResponse>>(shareToken: string, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getPublicFeedbackProject>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getPublicFeedbackProject>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetPublicFeedbackProjectQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicFeedbackProject>>>;
+export type GetPublicFeedbackProjectQueryError = ErrorType<NotFoundResponse>;
+export declare function useGetPublicFeedbackProject<TData = Awaited<ReturnType<typeof getPublicFeedbackProject>>, TError = ErrorType<NotFoundResponse>>(shareToken: string, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getPublicFeedbackProject>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getSubmitPublicFeedbackUrl: (shareToken: string) => string;
+export declare const submitPublicFeedback: (shareToken: string, submitFeedbackBody: SubmitFeedbackBody, options?: RequestInit) => Promise<PlaytestFeedback>;
+export declare const getSubmitPublicFeedbackMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof submitPublicFeedback>>, TError, {
+        shareToken: string;
+        data: BodyType<SubmitFeedbackBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof submitPublicFeedback>>, TError, {
+    shareToken: string;
+    data: BodyType<SubmitFeedbackBody>;
+}, TContext>;
+export type SubmitPublicFeedbackMutationResult = NonNullable<Awaited<ReturnType<typeof submitPublicFeedback>>>;
+export type SubmitPublicFeedbackMutationBody = BodyType<SubmitFeedbackBody>;
+export type SubmitPublicFeedbackMutationError = ErrorType<unknown>;
+export declare const useSubmitPublicFeedback: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof submitPublicFeedback>>, TError, {
+        shareToken: string;
+        data: BodyType<SubmitFeedbackBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof submitPublicFeedback>>, TError, {
+    shareToken: string;
+    data: BodyType<SubmitFeedbackBody>;
+}, TContext>;
+export declare const getListStoryboardNodesUrl: (projectId: number) => string;
+export declare const listStoryboardNodes: (projectId: number, options?: RequestInit) => Promise<StoryboardNode[]>;
+export declare const getListStoryboardNodesQueryKey: (projectId: number) => readonly [`/api/projects/${number}/storyboard`];
+export declare const getListStoryboardNodesQueryOptions: <TData = Awaited<ReturnType<typeof listStoryboardNodes>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listStoryboardNodes>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listStoryboardNodes>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListStoryboardNodesQueryResult = NonNullable<Awaited<ReturnType<typeof listStoryboardNodes>>>;
+export type ListStoryboardNodesQueryError = ErrorType<unknown>;
+export declare function useListStoryboardNodes<TData = Awaited<ReturnType<typeof listStoryboardNodes>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listStoryboardNodes>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getCreateStoryboardNodeUrl: (projectId: number) => string;
+export declare const createStoryboardNode: (projectId: number, createStoryboardNodeBody: CreateStoryboardNodeBody, options?: RequestInit) => Promise<StoryboardNode>;
+export declare const getCreateStoryboardNodeMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createStoryboardNode>>, TError, {
+        projectId: number;
+        data: BodyType<CreateStoryboardNodeBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createStoryboardNode>>, TError, {
+    projectId: number;
+    data: BodyType<CreateStoryboardNodeBody>;
+}, TContext>;
+export type CreateStoryboardNodeMutationResult = NonNullable<Awaited<ReturnType<typeof createStoryboardNode>>>;
+export type CreateStoryboardNodeMutationBody = BodyType<CreateStoryboardNodeBody>;
+export type CreateStoryboardNodeMutationError = ErrorType<unknown>;
+export declare const useCreateStoryboardNode: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createStoryboardNode>>, TError, {
+        projectId: number;
+        data: BodyType<CreateStoryboardNodeBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createStoryboardNode>>, TError, {
+    projectId: number;
+    data: BodyType<CreateStoryboardNodeBody>;
+}, TContext>;
+export declare const getAiEnhanceStoryboardNodeUrl: (projectId: number, nodeId: number) => string;
+export declare const aiEnhanceStoryboardNode: (projectId: number, nodeId: number, options?: RequestInit) => Promise<StoryboardNode>;
+export declare const getAiEnhanceStoryboardNodeMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>, TError, {
+        projectId: number;
+        nodeId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>, TError, {
+    projectId: number;
+    nodeId: number;
+}, TContext>;
+export type AiEnhanceStoryboardNodeMutationResult = NonNullable<Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>>;
+export type AiEnhanceStoryboardNodeMutationError = ErrorType<unknown>;
+export declare const useAiEnhanceStoryboardNode: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>, TError, {
+        projectId: number;
+        nodeId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof aiEnhanceStoryboardNode>>, TError, {
+    projectId: number;
+    nodeId: number;
+}, TContext>;
+export declare const getUpdateStoryboardNodeUrl: (projectId: number, nodeId: number) => string;
+export declare const updateStoryboardNode: (projectId: number, nodeId: number, updateStoryboardNodeBody: UpdateStoryboardNodeBody, options?: RequestInit) => Promise<StoryboardNode>;
+export declare const getUpdateStoryboardNodeMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateStoryboardNode>>, TError, {
+        projectId: number;
+        nodeId: number;
+        data: BodyType<UpdateStoryboardNodeBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateStoryboardNode>>, TError, {
+    projectId: number;
+    nodeId: number;
+    data: BodyType<UpdateStoryboardNodeBody>;
+}, TContext>;
+export type UpdateStoryboardNodeMutationResult = NonNullable<Awaited<ReturnType<typeof updateStoryboardNode>>>;
+export type UpdateStoryboardNodeMutationBody = BodyType<UpdateStoryboardNodeBody>;
+export type UpdateStoryboardNodeMutationError = ErrorType<unknown>;
+export declare const useUpdateStoryboardNode: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateStoryboardNode>>, TError, {
+        projectId: number;
+        nodeId: number;
+        data: BodyType<UpdateStoryboardNodeBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateStoryboardNode>>, TError, {
+    projectId: number;
+    nodeId: number;
+    data: BodyType<UpdateStoryboardNodeBody>;
+}, TContext>;
+export declare const getDeleteStoryboardNodeUrl: (projectId: number, nodeId: number) => string;
+export declare const deleteStoryboardNode: (projectId: number, nodeId: number, options?: RequestInit) => Promise<void>;
+export declare const getDeleteStoryboardNodeMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteStoryboardNode>>, TError, {
+        projectId: number;
+        nodeId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteStoryboardNode>>, TError, {
+    projectId: number;
+    nodeId: number;
+}, TContext>;
+export type DeleteStoryboardNodeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteStoryboardNode>>>;
+export type DeleteStoryboardNodeMutationError = ErrorType<unknown>;
+export declare const useDeleteStoryboardNode: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteStoryboardNode>>, TError, {
+        projectId: number;
+        nodeId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteStoryboardNode>>, TError, {
+    projectId: number;
+    nodeId: number;
+}, TContext>;
+export declare const getGetBalanceReportUrl: (projectId: number) => string;
+export declare const getBalanceReport: (projectId: number, options?: RequestInit) => Promise<BalanceReport>;
+export declare const getGetBalanceReportQueryKey: (projectId: number) => readonly [`/api/projects/${number}/balance`];
+export declare const getGetBalanceReportQueryOptions: <TData = Awaited<ReturnType<typeof getBalanceReport>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getBalanceReport>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof getBalanceReport>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type GetBalanceReportQueryResult = NonNullable<Awaited<ReturnType<typeof getBalanceReport>>>;
+export type GetBalanceReportQueryError = ErrorType<unknown>;
+export declare function useGetBalanceReport<TData = Awaited<ReturnType<typeof getBalanceReport>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getBalanceReport>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getListChangelogUrl: (projectId: number) => string;
+export declare const listChangelog: (projectId: number, options?: RequestInit) => Promise<ChangelogEntry[]>;
+export declare const getListChangelogQueryKey: (projectId: number) => readonly [`/api/projects/${number}/changelog`];
+export declare const getListChangelogQueryOptions: <TData = Awaited<ReturnType<typeof listChangelog>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listChangelog>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listChangelog>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export type ListChangelogQueryResult = NonNullable<Awaited<ReturnType<typeof listChangelog>>>;
+export type ListChangelogQueryError = ErrorType<unknown>;
+export declare function useListChangelog<TData = Awaited<ReturnType<typeof listChangelog>>, TError = ErrorType<unknown>>(projectId: number, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listChangelog>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const getGenerateExportUrl: (projectId: number, kind: "tts-json" | "rulebook-md" | "kickstarter" | "sell-sheet" | "press-kit") => string;
+export declare const generateExport: (projectId: number, kind: "tts-json" | "rulebook-md" | "kickstarter" | "sell-sheet" | "press-kit", options?: RequestInit) => Promise<ExportResult>;
+export declare const getGenerateExportMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof generateExport>>, TError, {
+        projectId: number;
+        kind: "tts-json" | "rulebook-md" | "kickstarter" | "sell-sheet" | "press-kit";
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof generateExport>>, TError, {
+    projectId: number;
+    kind: "tts-json" | "rulebook-md" | "kickstarter" | "sell-sheet" | "press-kit";
+}, TContext>;
+export type GenerateExportMutationResult = NonNullable<Awaited<ReturnType<typeof generateExport>>>;
+export type GenerateExportMutationError = ErrorType<unknown>;
+export declare const useGenerateExport: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof generateExport>>, TError, {
+        projectId: number;
+        kind: "tts-json" | "rulebook-md" | "kickstarter" | "sell-sheet" | "press-kit";
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof generateExport>>, TError, {
+    projectId: number;
+    kind: "tts-json" | "rulebook-md" | "kickstarter" | "sell-sheet" | "press-kit";
+}, TContext>;
+export type EntityRule = {
+    id: number;
+    entityId: number;
+    ruleId: number;
+    createdAt: Date;
+};
+export declare const getListEntityRulesUrl: (projectId: number, entityId: number) => string;
+export declare const listEntityRules: (projectId: number, entityId: number, options?: RequestInit) => Promise<EntityRule[]>;
+export declare const getListEntityRulesQueryKey: (projectId: number, entityId: number) => readonly ["listEntityRules", number, number];
+export declare const getListEntityRulesQueryOptions: <TData = EntityRule[]>(projectId: number, entityId: number, options?: {
+    query?: UseQueryOptions<EntityRule[], ErrorType<unknown>, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<EntityRule[], ErrorType<unknown>, TData>;
+export declare function useListEntityRules<TData = EntityRule[], TError = ErrorType<unknown>>(projectId: number, entityId: number, options?: {
+    query?: UseQueryOptions<EntityRule[], ErrorType<unknown>, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const linkEntityRule: (projectId: number, entityId: number, ruleId: number, options?: RequestInit) => Promise<EntityRule>;
+export declare const useLinkEntityRule: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<EntityRule, TError, {
+        projectId: number;
+        entityId: number;
+        ruleId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<EntityRule, TError, {
+    projectId: number;
+    entityId: number;
+    ruleId: number;
+}, TContext>;
+export declare const unlinkEntityRule: (projectId: number, entityId: number, ruleId: number, options?: RequestInit) => Promise<void>;
+export type RuleLinkedEntity = {
+    id: number;
+    name: string;
+    type: string;
+    subtype?: string | null;
+    color?: string | null;
+};
+export declare const getListRuleEntitiesUrl: (projectId: number, ruleId: number) => string;
+export declare const listRuleEntities: (projectId: number, ruleId: number, options?: RequestInit) => Promise<RuleLinkedEntity[]>;
+export declare const getListRuleEntitiesQueryKey: (projectId: number, ruleId: number) => readonly ["listRuleEntities", number, number];
+export declare const getListRuleEntitiesQueryOptions: <TData = RuleLinkedEntity[]>(projectId: number, ruleId: number, options?: {
+    query?: UseQueryOptions<RuleLinkedEntity[], ErrorType<unknown>, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<RuleLinkedEntity[], ErrorType<unknown>, TData>;
+export declare function useListRuleEntities<TData = RuleLinkedEntity[], TError = ErrorType<unknown>>(projectId: number, ruleId: number, options?: {
+    query?: UseQueryOptions<RuleLinkedEntity[], ErrorType<unknown>, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+export declare const useUnlinkEntityRule: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<void, TError, {
+        projectId: number;
+        entityId: number;
+        ruleId: number;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<void, TError, {
+    projectId: number;
+    entityId: number;
+    ruleId: number;
+}, TContext>;
+export {};
+//# sourceMappingURL=api.d.ts.map
