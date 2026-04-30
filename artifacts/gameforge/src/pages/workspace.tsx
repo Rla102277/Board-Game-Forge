@@ -5,7 +5,7 @@ import { useUser, useClerk } from "@clerk/react";
 import {
   Layout, Users, FileText, CheckSquare, ChevronLeft, Gamepad2, Activity, MoreVertical, Trash2,
   BookOpen, Network, Dice5, ImageIcon, MapPin, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
-  MessageSquare, History, Share2,
+  MessageSquare, History, Share2, Clock, BarChart3, EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -31,6 +31,9 @@ const Balance = lazy(() => import("@/components/workspace/balance").then(m => ({
 const Storyboard = lazy(() => import("@/components/workspace/storyboard").then(m => ({ default: m.Storyboard })));
 const Exports = lazy(() => import("@/components/workspace/exports").then(m => ({ default: m.Exports })));
 const ChatPanel = lazy(() => import("@/components/workspace/chat-panel").then(m => ({ default: m.ChatPanel })));
+const TurnStructure = lazy(() => import("@/components/workspace/turn-structure").then(m => ({ default: m.TurnStructureVisualizer })));
+const ScalingMatrix = lazy(() => import("@/components/workspace/scaling-matrix").then(m => ({ default: m.ScalingMatrixVisualizer })));
+const BlindPlaytest = lazy(() => import("@/components/workspace/blind-playtest").then(m => ({ default: m.BlindPlaytestFramework })));
 const CollaborationPresence = lazy(() => import("@/components/collaboration/cursor-indicators").then(m => ({ default: m.CollaborationPresence })));
 const ActivityFeed = lazy(() => import("@/components/collaboration/activity-feed").then(m => ({ default: m.ActivityFeed })));
 const CommentsPanel = lazy(() => import("@/components/collaboration/comments-panel").then(m => ({ default: m.CommentsPanel })));
@@ -44,8 +47,11 @@ const SECTIONS = [
   { id: "assets-entities", label: "Assets & Entities", icon: ImageIcon, statKey: "assetCount", shortcut: "4" },
   { id: "players", label: "Players", icon: Users, statKey: "playerCount", shortcut: "5" },
   { id: "rules", label: "Rules Sandbox", icon: Activity, statKey: "ruleCount", shortcut: "6" },
+  { id: "turn-structure", label: "Turn Structure", icon: Clock, statKey: null, shortcut: null },
+  { id: "scaling", label: "Scaling", icon: BarChart3, statKey: null, shortcut: null },
   { id: "simulator", label: "Simulator", icon: Dice5, statKey: null, shortcut: "7" },
   { id: "playtesting", label: "Playtesting", icon: Users, statKey: "playtestCount", shortcut: "8" },
+  { id: "blind-playtest", label: "Blind Test", icon: EyeOff, statKey: null, shortcut: null },
   { id: "notes", label: "Notes", icon: FileText, statKey: "noteCount", shortcut: null },
   { id: "tasks", label: "Tasks", icon: CheckSquare, statKey: "taskCount", shortcut: null },
   { id: "storyboard", label: "Storyboard", icon: MapPin, statKey: null, shortcut: null },
@@ -169,6 +175,20 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           </Suspense>
         </ErrorBoundary>
       );
+      case "turn-structure": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <TurnStructure projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "scaling": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <ScalingMatrix projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
       case "simulator": return (
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
@@ -180,6 +200,13 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
             <Playtesting projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "blind-playtest": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <BlindPlaytest projectId={projectId} />
           </Suspense>
         </ErrorBoundary>
       );
