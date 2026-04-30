@@ -1,14 +1,14 @@
 import { useState, useMemo, useRef } from "react";
 import {
-  useUpdateEntity, useCreateEntity, useDeleteEntity,
-  type Entity,
+  useUpdateEntity, useCreateEntity, useDeleteEntity, useAiGenerateEntities,
+  getListEntitiesQueryKey, type Entity,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Download, Upload, Loader2 } from "lucide-react";
+import { Plus, Trash2, Download, Upload, Loader2, ChevronDown, ChevronRight, Sparkles, Wand2, X } from "lucide-react";
 import {
   ALL_COMPONENT_TYPES, COMPONENT_SUBTYPES, STATUS_OPTIONS, getMeta,
 } from "@/lib/game-component-types";
@@ -44,11 +44,20 @@ interface EntitySheetViewProps {
   onRefresh: () => void;
 }
 
+type DeckGenState = {
+  deckId: number;
+  prompt: string;
+  count: number;
+  generating: boolean;
+} | null;
+
 export function EntitySheetView({ projectId, entities, projectName, onRefresh }: EntitySheetViewProps) {
+  const qc = useQueryClient();
   const { toast } = useToast();
   const updateEntity = useUpdateEntity();
   const createEntity = useCreateEntity();
   const deleteEntity = useDeleteEntity();
+  const aiGenerate = useAiGenerateEntities();
 
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -60,10 +69,26 @@ export function EntitySheetView({ projectId, entities, projectName, onRefresh }:
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [expandedDecks, setExpandedDecks] = useState<Set<number>>(new Set());
+  const [deckGen, setDeckGen] = useState<DeckGenState>(null);
+
   const topLevel = useMemo(() => {
     const childIds = new Set(entities.filter(e => e.parentEntityId).map(e => e.id));
     return entities.filter(e => !childIds.has(e.id));
   }, [entities]);
+
+  const childrenByParent = useMemo(() => {
+    const map: Record<number, Entity[]> = {};
+    for (const e of entities ?? []) {
+      if (e.parentEntityId) {
+        if (!map[e.parentEntityId]) map[e.parentEntityId] = [];
+        map[e.parentEntityId].push(e);
+      }
+    }
+    return map;
+  }, [entities]);
+
+  const decks = useMemo(() => new Set((entities ?? []).filter(e => e.type === "Deck").map(e => e.id)), [entities]);
 
   const typeCounts = useMemo(() => {
     const out: Record<string, number> = {};
@@ -167,6 +192,42 @@ export function EntitySheetView({ projectId, entities, projectName, onRefresh }:
   const toggleSort = (field: "name" | "type") => {
     if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortField(field); setSortDir("asc"); }
+  };
+
+  const toggleDeck = (deckId: number) => {
+    setExpandedDecks(prev => {
+      const s = new Set(prev);
+      s.has(deckId) ? s.delete(deckId) : s.add(deckId);
+      return s;
+    });
+  };
+
+  const handleDeckAIGenerate = async (deckId: number) => {
+    const g = deckGen;
+    if (!g || g.deckId !== deckId || !g.prompt.trim()) return;
+    const deck = entities.find(e => e.id === deckId);
+    if (!deck) return;
+    setDeckGen({ ...g, generating: true });
+    const beforeIds = new Set((childrenByParent[deckId] ?? []).map(c => c.id));
+    try {
+      const fullPrompt = `Generate ${g.count} cards for the deck "${deck.name}" (${deck.subtype ?? "custom deck"}). ${g.prompt.trim()}. Each should be type "Card" with a clear name, subtype, rules-text description, and optional flavor text.`;
+      await aiGenerate.mutateAsync({ projectId, data: { prompt: fullPrompt, count: g.count } });
+      qc.invalidateQueries({ queryKey: getListEntitiesQueryKey(projectId) });
+      await new Promise(r => setTimeout(r, 600));
+      const cached = qc.getQueryData<Entity[]>(getListEntitiesQueryKey(projectId)) ?? [];
+      const newCards = cached.filter(e => e.type === "Card" && !e.parentEntityId && !beforeIds.has(e.id));
+      if (newCards.length > 0) {
+        await Promise.all(newCards.map(c =>
+          updateEntity.mutateAsync({ projectId, entityId: c.id, data: { parentEntityId: deckId } })
+        ));
+      }
+      setDeckGen(null);
+      onRefresh();
+      toast({ title: `${newCards.length || g.count} cards generated and added to deck` });
+    } catch (err) {
+      toast({ title: "AI generation failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      setDeckGen(prev => prev ? { ...prev, generating: false } : null);
+    }
   };
 
   const typeOptions = ALL_COMPONENT_TYPES.map(t => ({ value: t, label: `${getMeta(t).icon} ${t}` }));
@@ -279,45 +340,170 @@ export function EntitySheetView({ projectId, entities, projectName, onRefresh }:
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
-              {filtered.map(entity => (
-                <tr key={entity.id} className="hover:bg-muted/10 transition-colors group">
-                  <td className="px-1 py-0.5">
-                    <CellText entityId={entity.id} field="name" value={entity.name} />
-                  </td>
-                  <td className="px-1 py-0.5">
-                    <SelectCell
-                      entityId={entity.id} field="type" value={entity.type}
-                      options={typeOptions}
-                    />
-                  </td>
-                  <td className="px-1 py-0.5">
-                    <SelectCell
-                      entityId={entity.id} field="subtype" value={entity.subtype ?? ""}
-                      options={[{ value: "", label: "—" }, ...(COMPONENT_SUBTYPES[entity.type] ?? []).map(s => ({ value: s, label: s }))]}
-                    />
-                  </td>
-                  <td className="px-1 py-0.5">
-                    <CellText entityId={entity.id} field="description" value={entity.description ?? ""} />
-                  </td>
-                  <td className="px-1 py-0.5">
-                    <CellText entityId={entity.id} field="lore" value={entity.lore ?? ""} />
-                  </td>
-                  <td className="px-1 py-0.5">
-                    <SelectCell
-                      entityId={entity.id} field="status" value={entity.status ?? "draft"}
-                      options={STATUS_OPTIONS.map(s => ({ value: s.value, label: s.label }))}
-                    />
-                  </td>
-                  <td className="px-1 py-0.5">
-                    <button
-                      onClick={() => handleDelete(entity.id, entity.name)}
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1.5 rounded"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map(entity => {
+                const isDeck = decks.has(entity.id);
+                const isExpanded = expandedDecks.has(entity.id);
+                const deckCards = childrenByParent[entity.id] ?? [];
+                return (
+                  <>
+                    <tr key={entity.id} className="hover:bg-muted/10 transition-colors group">
+                      <td className="px-1 py-0.5">
+                        <div className="flex items-center gap-1">
+                          {isDeck && (
+                            <button
+                              onClick={() => toggleDeck(entity.id)}
+                              className="text-muted-foreground hover:text-foreground p-0.5 rounded"
+                              title={isExpanded ? "Collapse deck" : "Expand deck"}
+                            >
+                              {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
+                          <CellText entityId={entity.id} field="name" value={entity.name} />
+                        </div>
+                      </td>
+                      <td className="px-1 py-0.5">
+                        <SelectCell
+                          entityId={entity.id} field="type" value={entity.type}
+                          options={typeOptions}
+                        />
+                      </td>
+                      <td className="px-1 py-0.5">
+                        <SelectCell
+                          entityId={entity.id} field="subtype" value={entity.subtype ?? ""}
+                          options={[{ value: "", label: "—" }, ...(COMPONENT_SUBTYPES[entity.type] ?? []).map(s => ({ value: s, label: s }))]}
+                        />
+                      </td>
+                      <td className="px-1 py-0.5">
+                        <CellText entityId={entity.id} field="description" value={entity.description ?? ""} />
+                      </td>
+                      <td className="px-1 py-0.5">
+                        <CellText entityId={entity.id} field="lore" value={entity.lore ?? ""} />
+                      </td>
+                      <td className="px-1 py-0.5">
+                        <SelectCell
+                          entityId={entity.id} field="status" value={entity.status ?? "draft"}
+                          options={STATUS_OPTIONS.map(s => ({ value: s.value, label: s.label }))}
+                        />
+                      </td>
+                      <td className="px-1 py-0.5">
+                        <div className="flex items-center gap-1">
+                          {isDeck && (
+                            <button
+                              onClick={() => setDeckGen(prev => prev?.deckId === entity.id ? null : { deckId: entity.id, prompt: "", count: 5, generating: false })}
+                              className={`text-xs flex items-center gap-0.5 px-1.5 py-0.5 rounded transition-colors ${deckGen?.deckId === entity.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-primary hover:bg-primary/5 opacity-0 group-hover:opacity-100"}`}
+                              title="Generate cards with AI"
+                            >
+                              <Wand2 className="w-3 h-3" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDelete(entity.id, entity.name)}
+                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1.5 rounded"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Inline AI generate panel for this deck */}
+                    {isDeck && deckGen?.deckId === entity.id && (
+                      <tr>
+                        <td colSpan={7} className="bg-primary/5 border-b border-border/40">
+                          <div className="px-4 py-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-medium text-primary flex items-center gap-1">
+                                <Sparkles className="w-3 h-3" /> Batch Generate Cards for "{entity.name}"
+                              </p>
+                              <button onClick={() => setDeckGen(null)} className="text-muted-foreground hover:text-white p-1"><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                            <div className="flex gap-2">
+                              <Input
+                                value={deckGen.prompt}
+                                onChange={e => setDeckGen({ ...deckGen, prompt: e.target.value })}
+                                placeholder={`e.g. "mix of attack, spell, and item cards for ${entity.name}"…`}
+                                className="h-8 text-xs bg-input flex-1"
+                                onKeyDown={e => { if (e.key === "Enter") handleDeckAIGenerate(entity.id); }}
+                              />
+                              <Select value={deckGen.count.toString()} onValueChange={v => setDeckGen({ ...deckGen, count: parseInt(v) })}>
+                                <SelectTrigger className="h-8 w-16 text-xs bg-input shrink-0"><SelectValue /></SelectTrigger>
+                                <SelectContent>{[3, 5, 8, 12, 20].map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent>
+                              </Select>
+                            </div>
+                            <Button size="sm" onClick={() => handleDeckAIGenerate(entity.id)} disabled={!deckGen.prompt.trim() || deckGen.generating} className="w-full h-7 text-xs gap-1.5">
+                              {deckGen.generating ? <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</> : <><Sparkles className="w-3 h-3" /> Generate {deckGen.count} cards</>}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+
+                    {/* Expanded deck cards table */}
+                    {isDeck && isExpanded && (
+                      <tr>
+                        <td colSpan={7} className="bg-muted/5 border-b border-border/40">
+                          <div className="px-4 py-3">
+                            {deckCards.length === 0 ? (
+                              <p className="text-xs text-muted-foreground italic">No cards in this deck yet — add manually or use AI Generate.</p>
+                            ) : (
+                              <div className="overflow-x-auto rounded border border-border/50">
+                                <table className="w-full text-xs min-w-[600px]">
+                                  <thead>
+                                    <tr className="bg-muted/10 border-b border-border/40">
+                                      <th className="text-left px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[180px]">Name</th>
+                                      <th className="text-left px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[110px]">Subtype</th>
+                                      <th className="text-left px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Effect / Rules Text</th>
+                                      <th className="text-left px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[160px]">Flavor Text</th>
+                                      <th className="w-8" />
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-border/30">
+                                    {deckCards.map(card => (
+                                      <tr key={card.id} className="hover:bg-muted/10 transition-colors group">
+                                        <td className="px-1 py-0.5"><CellText entityId={card.id} field="name" value={card.name} /></td>
+                                        <td className="px-1 py-0.5">
+                                          <Select
+                                            value={card.subtype ?? ""}
+                                            onValueChange={async v => {
+                                              try {
+                                                await updateEntity.mutateAsync({ projectId, entityId: card.id, data: { subtype: v || undefined } });
+                                                onRefresh();
+                                              } catch { toast({ title: "Update failed", variant: "destructive" }); }
+                                            }}
+                                          >
+                                            <SelectTrigger className="h-7 text-xs bg-transparent border-transparent hover:border-primary/20 hover:bg-primary/5 w-full">
+                                              <SelectValue placeholder="—" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="">—</SelectItem>
+                                              {(COMPONENT_SUBTYPES["Card"] ?? []).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                            </SelectContent>
+                                          </Select>
+                                        </td>
+                                        <td className="px-1 py-0.5"><CellText entityId={card.id} field="description" value={card.description ?? ""} /></td>
+                                        <td className="px-1 py-0.5"><CellText entityId={card.id} field="lore" value={card.lore ?? ""} /></td>
+                                        <td className="px-1 py-0.5">
+                                          <button
+                                            onClick={() => handleDelete(card.id, card.name)}
+                                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1.5 rounded"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                            <p className="text-[10px] text-muted-foreground mt-2">{deckCards.length} card{deckCards.length !== 1 ? "s" : ""} in deck</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
 
               {/* Add row */}
               <tr className="border-t border-dashed border-border bg-muted/5">
