@@ -23,8 +23,7 @@
     "web-app": 5,
     "remote-control": 5,
     "voice-mode": 5,
-    "custom-agents": 6,
-    "feedback-command": 6
+    "custom-agents": 6
   },
   "cachedGrowthBookFeatures": {
     "tengu_cobalt_wren": false,

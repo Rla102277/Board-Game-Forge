@@ -20,10 +20,11 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 const Overview = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.Overview })));
 const Research = lazy(() => import("@/components/workspace/research").then(m => ({ default: m.Research })));
 const Ontology = lazy(() => import("@/components/workspace/ontology").then(m => ({ default: m.Ontology })));
-const AssetsEntities = lazy(() => import("@/components/workspace/assets-entities").then(m => ({ default: m.AssetsEntities })));
+const Entities = lazy(() => import("@/components/workspace/entities").then(m => ({ default: m.Entities })));
 const Players = lazy(() => import("@/components/workspace/players").then(m => ({ default: m.Players })));
 const Rules = lazy(() => import("@/components/workspace/rules").then(m => ({ default: m.Rules })));
 const Simulator = lazy(() => import("@/components/workspace/simulator").then(m => ({ default: m.Simulator })));
+const Assets = lazy(() => import("@/components/workspace/assets").then(m => ({ default: m.Assets })));
 const Playtesting = lazy(() => import("@/components/workspace/playtesting").then(m => ({ default: m.Playtesting })));
 const Notes = lazy(() => import("@/components/workspace/notes").then(m => ({ default: m.Notes })));
 const Tasks = lazy(() => import("@/components/workspace/tasks").then(m => ({ default: m.Tasks })));
@@ -41,11 +42,12 @@ const SECTIONS = [
   { id: "overview", label: "Overview", icon: Layout, statKey: null, shortcut: "1" },
   { id: "research", label: "Research", icon: BookOpen, statKey: "researchCount", shortcut: "2" },
   { id: "ontology", label: "Ontology", icon: Network, statKey: "entityCount", shortcut: "3" },
-  { id: "assets-entities", label: "Assets & Entities", icon: ImageIcon, statKey: "assetCount", shortcut: "4" },
+  { id: "entities", label: "Entities", icon: Layout, statKey: "entityCount", shortcut: "4" },
   { id: "players", label: "Players", icon: Users, statKey: "playerCount", shortcut: "5" },
   { id: "rules", label: "Rules Sandbox", icon: Activity, statKey: "ruleCount", shortcut: "6" },
   { id: "simulator", label: "Simulator", icon: Dice5, statKey: null, shortcut: "7" },
-  { id: "playtesting", label: "Playtesting", icon: Users, statKey: "playtestCount", shortcut: "8" },
+  { id: "assets", label: "Assets", icon: ImageIcon, statKey: "assetCount", shortcut: "8" },
+  { id: "playtesting", label: "Playtesting", icon: Users, statKey: "playtestCount", shortcut: "9" },
   { id: "notes", label: "Notes", icon: FileText, statKey: "noteCount", shortcut: null },
   { id: "tasks", label: "Tasks", icon: CheckSquare, statKey: "taskCount", shortcut: null },
   { id: "storyboard", label: "Storyboard", icon: MapPin, statKey: null, shortcut: null },
@@ -89,13 +91,13 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
     nav1: () => setActiveSection("overview"),
     nav2: () => setActiveSection("research"),
     nav3: () => setActiveSection("ontology"),
-    nav4: () => setActiveSection("assets-entities"),
+    nav4: () => setActiveSection("entities"),
     nav5: () => setActiveSection("players"),
     nav6: () => setActiveSection("rules"),
     nav7: () => setActiveSection("simulator"),
-    nav8: () => setActiveSection("playtesting"),
+    nav8: () => setActiveSection("assets"),
     nav9: () => setActiveSection("playtesting"),
-    quickCreateEntity: () => setActiveSection("assets-entities"),
+    quickCreateEntity: () => setActiveSection("entities"),
     quickCreateRule: () => setActiveSection("rules"),
     quickCreateTask: () => setActiveSection("tasks"),
   });
@@ -148,10 +150,10 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           </Suspense>
         </ErrorBoundary>
       );
-      case "assets-entities": return (
+      case "entities": return (
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
-            <AssetsEntities projectId={projectId} onChatPrompt={setChatPrompt} />
+            <Entities projectId={projectId} />
           </Suspense>
         </ErrorBoundary>
       );
@@ -173,6 +175,13 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
             <Simulator projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "assets": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <Assets projectId={projectId} />
           </Suspense>
         </ErrorBoundary>
       );
