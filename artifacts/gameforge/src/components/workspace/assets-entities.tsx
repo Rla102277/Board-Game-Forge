@@ -17,7 +17,7 @@ import {
   ChevronDown, ChevronRight, Settings, Pencil, Copy, FileText, Activity, Eye, TableIcon,
   GitBranch, Zap, LayoutGrid, Library, Images,
 } from "lucide-react";
-import { buildLinks, CoverageGaps, EntityGraph, ComponentBrowser, PropertyDictionary, RuleEntityLinks } from "./component-graph";
+import { buildLinks, CoverageGaps, EntityGraph, EntityNodeInspector, ComponentBrowser, PropertyDictionary, RuleEntityLinks } from "./component-graph";
 import { ComponentLibraryView } from "./component-library";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -256,9 +256,12 @@ export function AssetsEntities({
 
   const openGamma = (title: string, prompt: string) => setGammaDialog({ title, prompt });
 
+  const { data: allAssets } = useListAssets(projectId);
   const { data: allEntities } = useListEntities(projectId);
   const { data: allRules } = useListRules(projectId);
   const { data: allProperties } = useListProjectEntityProperties(projectId);
+
+  const [selectedGraphEntity, setSelectedGraphEntity] = useState<Entity | null>(null);
   const links = useMemo(() => buildLinks(allEntities ?? [], allRules ?? []), [allEntities, allRules]);
   const propsByEntity = useMemo(() => {
     const m = new Map<number, EntityProperty[]>();
@@ -370,7 +373,7 @@ export function AssetsEntities({
       </Collapsible>
 
       {/* ── Advanced drawer (Graph + Library) ── */}
-      <Sheet open={advancedOpen} onOpenChange={setAdvancedOpen}>
+      <Sheet open={advancedOpen} onOpenChange={(v) => { setAdvancedOpen(v); if (!v) setSelectedGraphEntity(null); }}>
         <SheetContent
           side="right"
           className="w-full sm:max-w-3xl overflow-y-auto bg-background border-l border-border p-0"
@@ -383,7 +386,7 @@ export function AssetsEntities({
             </SheetHeader>
             <div className="flex gap-1 p-1 bg-muted/30 rounded-md border border-border">
               <button
-                onClick={() => setAdvancedTab("graph")}
+                onClick={() => { setAdvancedTab("graph"); setSelectedGraphEntity(null); }}
                 className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
                   advancedTab === "graph" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -391,7 +394,7 @@ export function AssetsEntities({
                 <GitBranch className="h-3 w-3" /> Graph
               </button>
               <button
-                onClick={() => setAdvancedTab("library")}
+                onClick={() => { setAdvancedTab("library"); setSelectedGraphEntity(null); }}
                 className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
                   advancedTab === "library" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -413,8 +416,19 @@ export function AssetsEntities({
                 <EntityGraph
                   entities={allEntities ?? []}
                   links={links}
+                  assets={allAssets ?? []}
+                  onEntityClick={(entity) => setSelectedGraphEntity(entity)}
                   onJump={() => setAdvancedOpen(false)}
                 />
+                {selectedGraphEntity && (
+                  <EntityNodeInspector
+                    entity={selectedGraphEntity}
+                    assets={allAssets ?? []}
+                    links={links}
+                    propCount={propsByEntity.get(selectedGraphEntity.id)?.length ?? 0}
+                    onClose={() => setSelectedGraphEntity(null)}
+                  />
+                )}
                 <ComponentBrowser
                   entities={allEntities ?? []}
                   links={links}

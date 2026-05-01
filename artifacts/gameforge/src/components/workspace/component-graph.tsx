@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { type Entity, type Rule, type EntityProperty } from "@workspace/api-client-react";
-import { AlertTriangle, Sparkles, Box, Activity, GitBranch, Search, ArrowRight, Link as LinkIcon, Layers, Table as TableIcon } from "lucide-react";
+import { type Entity, type Rule, type EntityProperty, type Asset } from "@workspace/api-client-react";
+import { AlertTriangle, Sparkles, Box, Activity, GitBranch, Search, ArrowRight, Link as LinkIcon, Layers, Table as TableIcon, ImageIcon, X, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -254,11 +254,78 @@ function buildGraph(
 
 const GRAPH_NODE_CAP = 80;
 
+const ASSET_KIND_HEX: Record<string, string> = {
+  card:     "#3b82f6",
+  board:    "#22c55e",
+  token:    "#f97316",
+  tile:     "#eab308",
+  dice:     "#ef4444",
+  rulebook: "#a855f7",
+  other:    "#6b7280",
+};
+
+function assetKindHex(kind: string): string {
+  return ASSET_KIND_HEX[kind] ?? ASSET_KIND_HEX.other;
+}
+
+type AssetNode = {
+  id: number;
+  name: string;
+  kind: string;
+  entityId: number;
+  x: number;
+  y: number;
+  size: number;
+};
+
+function buildAssetNodes(
+  assets: Asset[],
+  nodeById: Map<number, GraphNode>,
+  cx: number,
+  cy: number,
+): AssetNode[] {
+  const entityAssets = new Map<number, Asset[]>();
+  for (const a of assets) {
+    if (!a.entityId || !nodeById.has(a.entityId)) continue;
+    const arr = entityAssets.get(a.entityId) ?? [];
+    arr.push(a);
+    entityAssets.set(a.entityId, arr);
+  }
+
+  const result: AssetNode[] = [];
+  for (const [entityId, eAssets] of entityAssets) {
+    const en = nodeById.get(entityId)!;
+    const angle = Math.atan2(en.y - cy, en.x - cx);
+    const baseR = Math.sqrt((en.x - cx) ** 2 + (en.y - cy) ** 2);
+    const outerR = baseR + 44;
+    const spread = Math.PI / 10;
+
+    for (let i = 0; i < eAssets.length; i++) {
+      const a = eAssets[i];
+      const offset = (i - (eAssets.length - 1) / 2) * spread;
+      const aAngle = angle + offset;
+      result.push({
+        id: a.id,
+        name: a.name,
+        kind: a.kind,
+        entityId,
+        x: cx + Math.cos(aAngle) * outerR,
+        y: cy + Math.sin(aAngle) * outerR,
+        size: 5,
+      });
+    }
+  }
+  return result;
+}
+
 export function EntityGraph({
-  entities, links, onJump,
+  entities, links, assets, onEntityClick, onAssetClick, onJump,
 }: {
   entities: Entity[];
   links: LinkMaps;
+  assets?: Asset[];
+  onEntityClick?: (entity: Entity) => void;
+  onAssetClick?: (asset: Asset) => void;
   onJump: (tab: string) => void;
 }) {
   const [hoverId, setHoverId] = useState<number | null>(null);
@@ -280,6 +347,13 @@ export function EntityGraph({
   const { nodes, edges } = useMemo(
     () => buildGraph(visibleEntities, links, width, height),
     [visibleEntities, links, width, height],
+  );
+
+  const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+
+  const assetNodes = useMemo(
+    () => buildAssetNodes(assets ?? [], nodeById, width / 2, height / 2),
+    [assets, nodeById, width, height],
   );
 
   if (entities.length === 0) {
@@ -307,11 +381,34 @@ export function EntityGraph({
   };
 
   const hoverAdj = hoverId == null ? new Set<number>() : adjacent(hoverId);
-  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const entityById = new Map(entities.map((e) => [e.id, e]));
+  const assetById = useMemo(() => new Map((assets ?? []).map((a) => [a.id, a])), [assets]);
   const explicitEdges = edges.filter((e) => e.kind === "explicit");
   const inferredEdges = edges.filter((e) => e.kind === "inferred");
 
+  const linkedAssetCount = assetNodes.length;
   const legendTypes = ALL_COMPONENT_TYPES.filter((t) => entities.some((e) => e.type === t));
+  const usedAssetKinds = [...new Set((assets ?? []).filter((a) => a.entityId).map((a) => a.kind))];
+
+  const handleNodeClick = (entity: Entity) => {
+    if (onEntityClick) {
+      onEntityClick(entity);
+    } else {
+      onJump("assets-entities");
+    }
+  };
+
+  const handleAssetClick = (an: AssetNode) => {
+    const asset = assetById.get(an.id);
+    if (asset && onAssetClick) {
+      onAssetClick(asset);
+    } else if (asset && onEntityClick) {
+      const entity = entityById.get(an.entityId);
+      if (entity) onEntityClick(entity);
+    } else {
+      onJump("assets-entities");
+    }
+  };
 
   return (
     <Card>
@@ -319,7 +416,7 @@ export function EntityGraph({
         <CardTitle className="flex items-center gap-2 text-base">
           <GitBranch className="h-4 w-4" /> Component graph
           <Badge variant="outline" className="text-[10px] ml-1">
-            {nodes.length} nodes · {edges.length} edges
+            {nodes.length} entities · {linkedAssetCount} assets · {edges.length} links
           </Badge>
         </CardTitle>
         <CardDescription className="flex flex-wrap gap-x-4 gap-y-1 items-center">
@@ -331,8 +428,13 @@ export function EntityGraph({
             <span className="inline-block w-6 h-px border-t border-dashed border-foreground/50" />
             Inferred (rule co-occurrence ≥ 2)
           </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block w-4 h-px border-t border-dashed" style={{ borderColor: "#3b82f6" }} />
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "#3b82f6", opacity: 0.7 }} />
+            Asset link
+          </span>
           <span className="inline-flex items-center gap-1.5 text-muted-foreground/70">
-            Hover to highlight, click to open in Components.
+            Click any node to inspect it.
           </span>
         </CardDescription>
       </CardHeader>
@@ -377,17 +479,55 @@ export function EntityGraph({
                   </line>
                 );
               })}
+              {assetNodes.map((an) => {
+                const en = nodeById.get(an.entityId);
+                if (!en) return null;
+                const muted = hoverId != null && hoverId !== an.entityId;
+                return (
+                  <line key={`asset-edge-${an.id}`}
+                    x1={en.x} y1={en.y} x2={an.x} y2={an.y}
+                    stroke={assetKindHex(an.kind)}
+                    strokeOpacity={muted ? 0.08 : 0.45}
+                    strokeWidth={1}
+                    strokeDasharray="3 2">
+                    <title>{an.name} → {en.name} (asset link)</title>
+                  </line>
+                );
+              })}
+            </g>
+            <g>
+              {assetNodes.map((an) => {
+                const muted = hoverId != null && hoverId !== an.entityId;
+                const s = an.size;
+                const clickable = !!(onAssetClick || onEntityClick);
+                return (
+                  <g key={`asset-node-${an.id}`} transform={`translate(${an.x},${an.y})`}
+                    onClick={() => handleAssetClick(an)}
+                    style={{ cursor: clickable ? "pointer" : "default" }}
+                    data-testid={`graph-asset-node-${an.id}`}>
+                    <rect x={-s} y={-s} width={s * 2} height={s * 2}
+                      rx={1.5}
+                      fill={assetKindHex(an.kind)}
+                      fillOpacity={muted ? 0.1 : 0.7}
+                      stroke={assetKindHex(an.kind)}
+                      strokeOpacity={muted ? 0.1 : 0.9}
+                      strokeWidth={0.8} />
+                    <title>{an.name} ({an.kind} asset) — click to inspect linked component</title>
+                  </g>
+                );
+              })}
             </g>
             <g>
               {nodes.map((n) => {
                 const isHover = hoverId === n.id;
                 const isAdj = hoverAdj.has(n.id);
                 const dim = hoverId != null && !isHover && !isAdj;
+                const entity = entityById.get(n.id);
                 return (
                   <g key={n.id} transform={`translate(${n.x},${n.y})`}
                     onMouseEnter={() => setHoverId(n.id)}
                     onMouseLeave={() => setHoverId((x) => (x === n.id ? null : x))}
-                    onClick={() => onJump("assets-entities")}
+                    onClick={() => entity && handleNodeClick(entity)}
                     style={{ cursor: "pointer" }}
                     data-testid={`graph-node-${n.id}`}>
                     <circle r={n.r + (isHover ? 3 : 0)} fill={typeHex(n.type)}
@@ -400,7 +540,7 @@ export function EntityGraph({
                         {n.name}
                       </text>
                     )}
-                    <title>{n.name} ({n.type})</title>
+                    <title>{n.name} ({n.type}) — click to inspect</title>
                   </g>
                 );
               })}
@@ -418,9 +558,121 @@ export function EntityGraph({
               </div>
             );
           })}
+          {usedAssetKinds.map((k) => (
+            <div key={`asset-${k}`} className="flex items-center gap-1.5 text-xs">
+              <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: assetKindHex(k) }} />
+              <span className="text-muted-foreground">{k} <span className="text-muted-foreground/50">(asset)</span></span>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Entity node inspector — inline panel shown when a node is clicked
+// ════════════════════════════════════════════════════════════════════════════
+export function EntityNodeInspector({
+  entity, assets, links, propCount, onClose,
+}: {
+  entity: Entity;
+  assets: Asset[];
+  links: LinkMaps;
+  propCount: number;
+  onClose: () => void;
+}) {
+  const linkedAssets = useMemo(
+    () => assets.filter((a) => a.entityId === entity.id),
+    [assets, entity.id],
+  );
+  const ruleCount = links.entityToRules.get(entity.id)?.size ?? 0;
+
+  return (
+    <div
+      className="rounded-lg border border-border bg-card p-4 space-y-3"
+      data-testid={`entity-inspector-${entity.id}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base font-semibold text-white truncate">{entity.name}</h3>
+            <Badge variant="outline" className={`text-[10px] shrink-0 ${typeBadge(entity.type)}`}>
+              {entity.type}
+            </Badge>
+            {entity.subtype && (
+              <Badge variant="outline" className="text-[10px] shrink-0 bg-secondary/30">
+                {entity.subtype}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+            <span>{ruleCount} rule{ruleCount !== 1 ? "s" : ""}</span>
+            <span>{propCount} propert{propCount !== 1 ? "ies" : "y"}</span>
+            <span>{linkedAssets.length} asset{linkedAssets.length !== 1 ? "s" : ""}</span>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="shrink-0 text-muted-foreground hover:text-white transition-colors"
+          data-testid="entity-inspector-close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {entity.description && (
+        <p className="text-xs text-muted-foreground leading-relaxed">{entity.description}</p>
+      )}
+      {entity.lore && (
+        <p className="text-xs text-purple-300/80 italic leading-relaxed">"{entity.lore}"</p>
+      )}
+      {entity.designNotes && (
+        <p className="text-xs text-blue-300/80 leading-relaxed border-l-2 border-blue-500/30 pl-2">{entity.designNotes}</p>
+      )}
+
+      {linkedAssets.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+            <ImageIcon className="h-3 w-3" /> Linked assets
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {linkedAssets.map((a) => (
+              <div
+                key={a.id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded border border-border/60 bg-background/40"
+                data-testid={`inspector-asset-${a.id}`}
+              >
+                {a.imageDataUrl ? (
+                  <img
+                    src={a.imageDataUrl}
+                    alt={a.name}
+                    className="w-8 h-8 rounded object-cover shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="w-8 h-8 rounded shrink-0 flex items-center justify-center"
+                    style={{ backgroundColor: assetKindHex(a.kind) + "33" }}
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" style={{ color: assetKindHex(a.kind) }} />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-white truncate max-w-[120px]">{a.name}</p>
+                  <p className="text-[10px] text-muted-foreground capitalize">{a.kind}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {linkedAssets.length === 0 && (
+        <p className="text-xs text-muted-foreground/60 italic flex items-center gap-1.5">
+          <ImageIcon className="h-3 w-3" /> No assets linked to this component yet.
+        </p>
+      )}
+    </div>
   );
 }
 
