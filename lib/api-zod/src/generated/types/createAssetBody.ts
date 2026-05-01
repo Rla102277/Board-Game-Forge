@@ -13,4 +13,7 @@ export interface CreateAssetBody {
   description?: string;
   flavorText?: string;
   imagePrompt?: string;
+  quantity?: number;
+  status?: string;
+  componentDetails?: string;
 }

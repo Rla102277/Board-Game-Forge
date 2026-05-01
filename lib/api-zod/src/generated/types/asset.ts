@@ -21,6 +21,10 @@ export interface Asset {
   imageDataUrl?: string | null;
   /** @nullable */
   imagePrompt?: string | null;
+  quantity: number;
+  status: string;
+  /** @nullable */
+  componentDetails?: string | null;
   /** @nullable */
   displayOrder?: number | null;
   createdAt: Date;

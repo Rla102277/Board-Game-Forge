@@ -11,6 +11,14 @@ const MIGRATIONS = [
   `ALTER TABLE players ADD COLUMN IF NOT EXISTS display_order integer DEFAULT 0`,
   `ALTER TABLE players ADD COLUMN IF NOT EXISTS behavior_profile jsonb`,
   `ALTER TABLE players ADD COLUMN IF NOT EXISTS relationships jsonb`,
+  // 0009 – graph layout persistence per project
+  `CREATE TABLE IF NOT EXISTS graph_layouts (
+    id serial PRIMARY KEY,
+    project_id integer NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    positions jsonb NOT NULL DEFAULT '{}',
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS graph_layouts_project_id_unique ON graph_layouts (project_id)`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {

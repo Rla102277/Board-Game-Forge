@@ -425,6 +425,7 @@ export function AssetsEntities({
                   onJump={() => setAdvancedOpen(false)}
                 />
                 <EntityGraph
+                  projectId={projectId}
                   entities={allEntities ?? []}
                   links={links}
                   assets={allAssets ?? []}

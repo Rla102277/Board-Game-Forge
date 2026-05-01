@@ -5,6 +5,11 @@
  * GameForge API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateProjectBodyDecisionLogItem } from "./updateProjectBodyDecisionLogItem";
+import type { UpdateProjectBodyDesignProblemsItem } from "./updateProjectBodyDesignProblemsItem";
+import type { UpdateProjectBodyMechanicFingerprint } from "./updateProjectBodyMechanicFingerprint";
+import type { UpdateProjectBodyNextPlaytest } from "./updateProjectBodyNextPlaytest";
+import type { UpdateProjectBodyOverviewMeta } from "./updateProjectBodyOverviewMeta";
 
 export interface UpdateProjectBody {
   name?: string;
@@ -16,4 +21,14 @@ export interface UpdateProjectBody {
   complexityScore?: number;
   blueprint?: string;
   narrative?: string;
+  winCondition?: string;
+  turnPhases?: string;
+  eliminationRule?: string;
+  referenceGames?: string;
+  designPhase?: string;
+  overviewMeta?: UpdateProjectBodyOverviewMeta;
+  designProblems?: UpdateProjectBodyDesignProblemsItem[] | null;
+  nextPlaytest?: UpdateProjectBodyNextPlaytest;
+  decisionLog?: UpdateProjectBodyDecisionLogItem[] | null;
+  mechanicFingerprint?: UpdateProjectBodyMechanicFingerprint;
 }

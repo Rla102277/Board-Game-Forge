@@ -5,11 +5,14 @@
  * GameForge API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PlayerBehaviorProfile } from "./playerBehaviorProfile";
+import type { PlayerRelationshipsItem } from "./playerRelationshipsItem";
 
 export interface Player {
   id: number;
   projectId: number;
   name: string;
+  playerType?: string;
   /** @nullable */
   role?: string | null;
   /** @nullable */
@@ -26,6 +29,18 @@ export interface Player {
   specialAbility?: string | null;
   /** @nullable */
   playstyle?: string | null;
+  /** @nullable */
+  faction?: string | null;
+  /** @nullable */
+  motivation?: string | null;
+  /** @nullable */
+  flaw?: string | null;
+  /** @nullable */
+  arc?: string | null;
+  /** @nullable */
+  displayOrder?: number | null;
+  behaviorProfile?: PlayerBehaviorProfile;
+  relationships?: PlayerRelationshipsItem[] | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -14,6 +14,8 @@ export interface Entity {
   /** @nullable */
   subtype?: string | null;
   /** @nullable */
+  parentEntityId?: number | null;
+  /** @nullable */
   description?: string | null;
   /** @nullable */
   stats?: string | null;
@@ -25,6 +27,7 @@ export interface Entity {
   lore?: string | null;
   /** @nullable */
   designNotes?: string | null;
+  status: string;
   createdAt: Date;
   updatedAt: Date;
 }

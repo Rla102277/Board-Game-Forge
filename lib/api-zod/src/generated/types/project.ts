@@ -5,6 +5,11 @@
  * GameForge API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ProjectDecisionLogItem } from "./projectDecisionLogItem";
+import type { ProjectDesignProblemsItem } from "./projectDesignProblemsItem";
+import type { ProjectMechanicFingerprint } from "./projectMechanicFingerprint";
+import type { ProjectNextPlaytest } from "./projectNextPlaytest";
+import type { ProjectOverviewMeta } from "./projectOverviewMeta";
 
 export interface Project {
   id: number;
@@ -27,6 +32,20 @@ export interface Project {
   blueprint?: string | null;
   /** @nullable */
   narrative?: string | null;
+  /** @nullable */
+  winCondition?: string | null;
+  /** @nullable */
+  turnPhases?: string | null;
+  /** @nullable */
+  eliminationRule?: string | null;
+  /** @nullable */
+  referenceGames?: string | null;
+  designPhase: string;
+  overviewMeta?: ProjectOverviewMeta;
+  designProblems?: ProjectDesignProblemsItem[] | null;
+  nextPlaytest?: ProjectNextPlaytest;
+  decisionLog?: ProjectDecisionLogItem[] | null;
+  mechanicFingerprint?: ProjectMechanicFingerprint;
   createdAt: Date;
   updatedAt: Date;
 }

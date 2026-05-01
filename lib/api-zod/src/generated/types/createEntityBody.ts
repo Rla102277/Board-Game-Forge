@@ -10,6 +10,7 @@ export interface CreateEntityBody {
   name: string;
   type: string;
   subtype?: string;
+  parentEntityId?: number;
   description?: string;
   stats?: string;
   color?: string;

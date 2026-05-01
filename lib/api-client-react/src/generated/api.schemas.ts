@@ -60,6 +60,16 @@ export interface UpdateAdminUserBody {
   role?: string;
 }
 
+export type ProjectOverviewMeta = { [key: string]: unknown } | null;
+
+export type ProjectDesignProblemsItem = { [key: string]: unknown };
+
+export type ProjectNextPlaytest = { [key: string]: unknown } | null;
+
+export type ProjectDecisionLogItem = { [key: string]: unknown };
+
+export type ProjectMechanicFingerprint = { [key: string]: unknown } | null;
+
 export interface Project {
   id: number;
   /** @nullable */
@@ -90,16 +100,11 @@ export interface Project {
   /** @nullable */
   referenceGames?: string | null;
   designPhase: string;
-  /** @nullable */
-  overviewMeta?: Record<string, unknown> | null;
-  /** @nullable */
-  designProblems?: Record<string, unknown>[] | null;
-  /** @nullable */
-  nextPlaytest?: Record<string, unknown> | null;
-  /** @nullable */
-  decisionLog?: Record<string, unknown>[] | null;
-  /** @nullable */
-  mechanicFingerprint?: Record<string, unknown> | null;
+  overviewMeta?: ProjectOverviewMeta;
+  designProblems?: ProjectDesignProblemsItem[] | null;
+  nextPlaytest?: ProjectNextPlaytest;
+  decisionLog?: ProjectDecisionLogItem[] | null;
+  mechanicFingerprint?: ProjectMechanicFingerprint;
   createdAt: string;
   updatedAt: string;
 }
@@ -112,6 +117,18 @@ export interface CreateProjectBody {
   playerCount?: string;
   targetDuration?: string;
 }
+
+export type UpdateProjectBodyOverviewMeta = { [key: string]: unknown } | null;
+
+export type UpdateProjectBodyDesignProblemsItem = { [key: string]: unknown };
+
+export type UpdateProjectBodyNextPlaytest = { [key: string]: unknown } | null;
+
+export type UpdateProjectBodyDecisionLogItem = { [key: string]: unknown };
+
+export type UpdateProjectBodyMechanicFingerprint = {
+  [key: string]: unknown;
+} | null;
 
 export interface UpdateProjectBody {
   name?: string;
@@ -128,11 +145,11 @@ export interface UpdateProjectBody {
   eliminationRule?: string;
   referenceGames?: string;
   designPhase?: string;
-  overviewMeta?: Record<string, unknown> | null;
-  designProblems?: Record<string, unknown>[] | null;
-  nextPlaytest?: Record<string, unknown> | null;
-  decisionLog?: Record<string, unknown>[] | null;
-  mechanicFingerprint?: Record<string, unknown> | null;
+  overviewMeta?: UpdateProjectBodyOverviewMeta;
+  designProblems?: UpdateProjectBodyDesignProblemsItem[] | null;
+  nextPlaytest?: UpdateProjectBodyNextPlaytest;
+  decisionLog?: UpdateProjectBodyDecisionLogItem[] | null;
+  mechanicFingerprint?: UpdateProjectBodyMechanicFingerprint;
 }
 
 export interface ProjectStats {
@@ -302,6 +319,7 @@ export interface UpdateEntityBody {
   name?: string;
   type?: string;
   subtype?: string;
+  /** @nullable */
   parentEntityId?: number | null;
   description?: string;
   stats?: string;
@@ -456,11 +474,15 @@ export interface AiTextEditResponse {
   rewritten: string;
 }
 
+export type PlayerBehaviorProfile = { [key: string]: unknown } | null;
+
+export type PlayerRelationshipsItem = { [key: string]: unknown };
+
 export interface Player {
   id: number;
   projectId: number;
   name: string;
-  playerType: string;
+  playerType?: string;
   /** @nullable */
   role?: string | null;
   /** @nullable */
@@ -487,13 +509,15 @@ export interface Player {
   arc?: string | null;
   /** @nullable */
   displayOrder?: number | null;
-  /** @nullable */
-  behaviorProfile?: Record<string, unknown> | null;
-  /** @nullable */
-  relationships?: Record<string, unknown>[] | null;
+  behaviorProfile?: PlayerBehaviorProfile;
+  relationships?: PlayerRelationshipsItem[] | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export type CreatePlayerBodyBehaviorProfile = { [key: string]: unknown };
+
+export type CreatePlayerBodyRelationshipsItem = { [key: string]: unknown };
 
 export interface CreatePlayerBody {
   name: string;
@@ -511,9 +535,13 @@ export interface CreatePlayerBody {
   flaw?: string;
   arc?: string;
   displayOrder?: number;
-  behaviorProfile?: Record<string, unknown>;
-  relationships?: Record<string, unknown>[];
+  behaviorProfile?: CreatePlayerBodyBehaviorProfile;
+  relationships?: CreatePlayerBodyRelationshipsItem[];
 }
+
+export type UpdatePlayerBodyBehaviorProfile = { [key: string]: unknown };
+
+export type UpdatePlayerBodyRelationshipsItem = { [key: string]: unknown };
 
 export interface UpdatePlayerBody {
   name?: string;
@@ -531,8 +559,8 @@ export interface UpdatePlayerBody {
   flaw?: string;
   arc?: string;
   displayOrder?: number;
-  behaviorProfile?: Record<string, unknown>;
-  relationships?: Record<string, unknown>[];
+  behaviorProfile?: UpdatePlayerBodyBehaviorProfile;
+  relationships?: UpdatePlayerBodyRelationshipsItem[];
 }
 
 export interface Note {
@@ -893,6 +921,41 @@ export interface ExportResult {
   contentType: string;
   content: string;
   filename: string;
+}
+
+export interface EntityRule {
+  id: number;
+  entityId: number;
+  ruleId: number;
+  createdAt: string;
+}
+
+export interface RuleLinkedEntity {
+  id: number;
+  name: string;
+  type: string;
+  /** @nullable */
+  subtype?: string | null;
+  /** @nullable */
+  color?: string | null;
+}
+
+export interface NodePosition {
+  x: number;
+  y: number;
+}
+
+export type GraphLayoutPositions = { [key: string]: NodePosition };
+
+export interface GraphLayout {
+  projectId: number;
+  positions: GraphLayoutPositions;
+}
+
+export type UpdateGraphLayoutBodyPositions = { [key: string]: NodePosition };
+
+export interface UpdateGraphLayoutBody {
+  positions: UpdateGraphLayoutBodyPositions;
 }
 
 /**

@@ -10,10 +10,13 @@ export interface UpdateEntityBody {
   name?: string;
   type?: string;
   subtype?: string;
+  /** @nullable */
+  parentEntityId?: number | null;
   description?: string;
   stats?: string;
   color?: string;
   relatedTo?: string;
   lore?: string;
   designNotes?: string;
+  status?: string;
 }

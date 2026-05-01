@@ -29,6 +29,7 @@ import snapshotsRouter from "./snapshots";
 import collaborationRouter from "./collaboration";
 import sharesRouter from "./shares";
 import notificationsRouter from "./notifications";
+import graphLayoutRouter from "./graphLayout";
 import {
   requireAuth,
   requireProjectAccess,
@@ -82,6 +83,7 @@ router.use(aiTextRouter);
 router.use(snapshotsRouter);
 router.use(collaborationRouter);
 router.use(sharesRouter);
+router.use(graphLayoutRouter);
 
 // User-scoped (not project-scoped) authenticated routes
 router.use("/notifications", requireAuth);

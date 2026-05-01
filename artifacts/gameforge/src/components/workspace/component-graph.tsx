@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
-import { type Entity, type Rule, type EntityProperty, type Asset } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { type Entity, type Rule, type EntityProperty, type Asset, useGetGraphLayout, useUpdateGraphLayout, getGetGraphLayoutQueryKey } from "@workspace/api-client-react";
 import { AlertTriangle, Sparkles, Box, Activity, GitBranch, Search, ArrowRight, Link as LinkIcon, Layers, Table as TableIcon, ImageIcon, X, ChevronRight, RotateCcw, Filter, SlidersHorizontal } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -318,13 +319,13 @@ function buildAssetNodes(
   return result;
 }
 
-function storageKey(entityIds: number[]): string {
-  return `gameforge-graph-positions-${[...entityIds].sort((a, b) => a - b).join(",")}`;
+function localStorageKey(projectId: number): string {
+  return `gameforge-graph-positions-project-${projectId}`;
 }
 
-function loadPositions(entityIds: number[]): Map<number, { x: number; y: number }> {
+function loadLocalPositions(projectId: number): Map<number, { x: number; y: number }> {
   try {
-    const raw = localStorage.getItem(storageKey(entityIds));
+    const raw = localStorage.getItem(localStorageKey(projectId));
     if (!raw) return new Map();
     const obj = JSON.parse(raw) as Record<string, { x: number; y: number }>;
     return new Map(Object.entries(obj).map(([k, v]) => [Number(k), v]));
@@ -333,19 +334,30 @@ function loadPositions(entityIds: number[]): Map<number, { x: number; y: number 
   }
 }
 
-function savePositions(entityIds: number[], positions: Map<number, { x: number; y: number }>) {
+function saveLocalPositions(projectId: number, positions: Map<number, { x: number; y: number }>) {
   try {
     const obj: Record<string, { x: number; y: number }> = {};
     for (const [id, pos] of positions) obj[String(id)] = pos;
-    localStorage.setItem(storageKey(entityIds), JSON.stringify(obj));
+    localStorage.setItem(localStorageKey(projectId), JSON.stringify(obj));
   } catch {
     // ignore storage errors
   }
 }
 
+function positionsToRecord(positions: Map<number, { x: number; y: number }>): Record<string, { x: number; y: number }> {
+  const obj: Record<string, { x: number; y: number }> = {};
+  for (const [id, pos] of positions) obj[String(id)] = pos;
+  return obj;
+}
+
+function recordToPositions(obj: Record<string, { x: number; y: number }>): Map<number, { x: number; y: number }> {
+  return new Map(Object.entries(obj).map(([k, v]) => [Number(k), v]));
+}
+
 export function EntityGraph({
-  entities, links, assets, onEntityClick, onAssetClick, onJump,
+  projectId, entities, links, assets, onEntityClick, onAssetClick, onJump,
 }: {
+  projectId: number;
   entities: Entity[];
   links: LinkMaps;
   assets?: Asset[];
@@ -438,17 +450,41 @@ export function EntityGraph({
     [finalEntities, links, width, height, showNeighborsOnly, focusedNodeId, preFilterNodes, preFilterEdges],
   );
 
-  // visibleIds: keyed on the type-filtered set so positions persist across neighbor-focus changes.
-  const visibleIds = useMemo(() => typeFilteredEntities.map((e) => e.id), [typeFilteredEntities]);
+  // ── Server-side persistence ──────────────────────────────────────────────────
+  const qc = useQueryClient();
+  const { data: serverLayout } = useGetGraphLayout(projectId);
+  const updateGraphLayout = useUpdateGraphLayout();
 
   // ── Drag state ──────────────────────────────────────────────────────────────
+  // Seed from localStorage immediately (fast local cache), then reconcile with server once it loads.
   const [nodePositions, setNodePositions] = useState<Map<number, { x: number; y: number }>>(
-    () => loadPositions(visibleIds),
+    () => loadLocalPositions(projectId),
   );
+  // Track the fingerprint (JSON) of the last server layout we applied so we:
+  // a) apply every distinct server response (including empty to clear stale local data), and
+  // b) skip re-applying the same data after our own mutation updated the cache.
+  const appliedServerFingerprintRef = useRef<string | null>(null);
 
+  // Whenever server layout changes, apply it if it's new data we haven't seen yet.
+  // Server state is always authoritative — including empty (clears stale localStorage positions).
   useEffect(() => {
-    setNodePositions(loadPositions(visibleIds));
-  }, [visibleIds.join(",")]);
+    if (!serverLayout) return;
+    const fingerprint = JSON.stringify(serverLayout.positions);
+    if (fingerprint === appliedServerFingerprintRef.current) return;
+    appliedServerFingerprintRef.current = fingerprint;
+    const serverPositions = recordToPositions(
+      serverLayout.positions as Record<string, { x: number; y: number }>,
+    );
+    setNodePositions(serverPositions);
+    // Sync local cache to match server (clears stale data when server returns empty)
+    saveLocalPositions(projectId, serverPositions);
+  }, [serverLayout, projectId]);
+
+  // Reset fingerprint when switching projects so the new project's server layout is always applied
+  useEffect(() => {
+    appliedServerFingerprintRef.current = null;
+    setNodePositions(loadLocalPositions(projectId));
+  }, [projectId]);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<{
@@ -503,10 +539,24 @@ export function EntityGraph({
     if (!dragRef.current) return;
     dragRef.current = null;
     setNodePositions((prev) => {
-      savePositions(visibleIds, prev);
+      // Save to localStorage immediately (fast)
+      saveLocalPositions(projectId, prev);
+      const posRecord = positionsToRecord(prev);
+      // Save to server (durable, cross-device); update query cache on success so
+      // the fingerprint stays in sync and stale background refetches don't overwrite local state.
+      updateGraphLayout.mutate(
+        { projectId, data: { positions: posRecord } },
+        {
+          onSuccess: (data) => {
+            const newFingerprint = JSON.stringify(data.positions);
+            appliedServerFingerprintRef.current = newFingerprint;
+            qc.setQueryData(getGetGraphLayoutQueryKey(projectId), data);
+          },
+        },
+      );
       return prev;
     });
-  }, [visibleIds]);
+  }, [projectId, updateGraphLayout, qc]);
 
   const handleSvgPointerUp = endDrag;
   const handleSvgPointerCancel = endDrag;
@@ -514,8 +564,18 @@ export function EntityGraph({
   const resetLayout = useCallback(() => {
     const empty = new Map<number, { x: number; y: number }>();
     setNodePositions(empty);
-    try { localStorage.removeItem(storageKey(visibleIds)); } catch { /* ignore */ }
-  }, [visibleIds]);
+    try { localStorage.removeItem(localStorageKey(projectId)); } catch { /* ignore */ }
+    updateGraphLayout.mutate(
+      { projectId, data: { positions: {} } },
+      {
+        onSuccess: (data) => {
+          const newFingerprint = JSON.stringify(data.positions);
+          appliedServerFingerprintRef.current = newFingerprint;
+          qc.setQueryData(getGetGraphLayoutQueryKey(projectId), data);
+        },
+      },
+    );
+  }, [projectId, updateGraphLayout, qc]);
 
   const nodes: GraphNode[] = useMemo(
     () =>

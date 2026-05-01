@@ -50,6 +50,10 @@ tags:
     description: Project changelog operations
   - name: export
     description: Export deliverable operations
+  - name: entity-rules
+    description: Entity-rule link operations
+  - name: graph-layout
+    description: Component graph layout persistence operations
 paths:
   /healthz:
     get:
@@ -246,6 +250,40 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /projects/{projectId}/graph-layout:
+    get:
+      operationId: getGraphLayout
+      tags: [graph-layout]
+      summary: Get the persisted component graph layout for a project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Graph layout positions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphLayout"
+    put:
+      operationId: updateGraphLayout
+      tags: [graph-layout]
+      summary: Save the component graph layout positions for a project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGraphLayoutBody"
+      responses:
+        "200":
+          description: Saved graph layout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphLayout"
 
   /projects/{projectId}/stats:
     get:
@@ -656,6 +694,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/EntityEnhanceSuggestion"
 
+  /projects/{projectId}/entities/{entityId}/rules:
+    get:
+      operationId: listEntityRules
+      tags: [entity-rules]
+      summary: List rules linked to a specific entity
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+      responses:
+        "200":
+          description: List of entity-rule links
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EntityRule"
+
+  /projects/{projectId}/entities/{entityId}/rules/{ruleId}:
+    post:
+      operationId: linkEntityRule
+      tags: [entity-rules]
+      summary: Link a rule to an entity
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "201":
+          description: Created link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityRule"
+    delete:
+      operationId: unlinkEntityRule
+      tags: [entity-rules]
+      summary: Remove a rule link from an entity
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "204":
+          description: Deleted
+
   /projects/{projectId}/entity-properties:
     get:
       operationId: listProjectEntityProperties
@@ -840,6 +924,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RuleEnhanceSuggestion"
+
+  /projects/{projectId}/rules/{ruleId}/entities:
+    get:
+      operationId: listRuleEntities
+      tags: [entity-rules]
+      summary: List entities linked to a specific rule
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "200":
+          description: List of linked entities (lightweight view)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RuleLinkedEntity"
 
   /projects/{projectId}/rules/conflict-check:
     post:
@@ -1792,13 +1894,47 @@ components:
           type: [string, "null"]
         narrative:
           type: [string, "null"]
+        winCondition:
+          type: [string, "null"]
+        turnPhases:
+          type: [string, "null"]
+        eliminationRule:
+          type: [string, "null"]
+        referenceGames:
+          type: [string, "null"]
+        designPhase:
+          type: string
+        overviewMeta:
+          type: object
+          nullable: true
+          additionalProperties: true
+        designProblems:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+        nextPlaytest:
+          type: object
+          nullable: true
+          additionalProperties: true
+        decisionLog:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+        mechanicFingerprint:
+          type: object
+          nullable: true
+          additionalProperties: true
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-      required: [id, name, createdAt, updatedAt]
+      required: [id, name, designPhase, createdAt, updatedAt]
 
     CreateProjectBody:
       type: object
@@ -1838,6 +1974,40 @@ components:
           type: string
         narrative:
           type: string
+        winCondition:
+          type: string
+        turnPhases:
+          type: string
+        eliminationRule:
+          type: string
+        referenceGames:
+          type: string
+        designPhase:
+          type: string
+        overviewMeta:
+          type: object
+          nullable: true
+          additionalProperties: true
+        designProblems:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+        nextPlaytest:
+          type: object
+          nullable: true
+          additionalProperties: true
+        decisionLog:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+        mechanicFingerprint:
+          type: object
+          nullable: true
+          additionalProperties: true
 
     ProjectStats:
       type: object
@@ -2105,13 +2275,15 @@ components:
           type: [string, "null"]
         designNotes:
           type: [string, "null"]
+        status:
+          type: string
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-      required: [id, projectId, name, type, createdAt, updatedAt]
+      required: [id, projectId, name, type, status, createdAt, updatedAt]
 
     CreateEntityBody:
       type: object
@@ -2148,7 +2320,7 @@ components:
         subtype:
           type: string
         parentEntityId:
-          type: integer
+          type: [integer, "null"]
         description:
           type: string
         stats:
@@ -2160,6 +2332,8 @@ components:
         lore:
           type: string
         designNotes:
+          type: string
+        status:
           type: string
 
     EntityProperty:
@@ -2730,13 +2904,21 @@ components:
           type: [string, "null"]
         imagePrompt:
           type: [string, "null"]
+        quantity:
+          type: integer
+        status:
+          type: string
+        componentDetails:
+          type: [string, "null"]
+        displayOrder:
+          type: [integer, "null"]
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-      required: [id, projectId, name, kind, createdAt, updatedAt]
+      required: [id, projectId, name, kind, quantity, status, createdAt, updatedAt]
 
     CreateAssetBody:
       type: object
@@ -2752,6 +2934,12 @@ components:
         flavorText:
           type: string
         imagePrompt:
+          type: string
+        quantity:
+          type: integer
+        status:
+          type: string
+        componentDetails:
           type: string
       required: [name]
 
@@ -2770,6 +2958,14 @@ components:
           type: string
         imagePrompt:
           type: string
+        quantity:
+          type: integer
+        status:
+          type: string
+        componentDetails:
+          type: string
+        displayOrder:
+          type: integer
 
     GenerateImageBody:
       type: object
@@ -3115,3 +3311,61 @@ components:
         filename:
           type: string
       required: [kind, contentType, content, filename]
+
+    EntityRule:
+      type: object
+      properties:
+        id:
+          type: integer
+        entityId:
+          type: integer
+        ruleId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, entityId, ruleId, createdAt]
+
+    RuleLinkedEntity:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+        subtype:
+          type: [string, "null"]
+        color:
+          type: [string, "null"]
+      required: [id, name, type]
+
+    NodePosition:
+      type: object
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+      required: [x, y]
+
+    GraphLayout:
+      type: object
+      properties:
+        projectId:
+          type: integer
+        positions:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/NodePosition"
+      required: [projectId, positions]
+
+    UpdateGraphLayoutBody:
+      type: object
+      properties:
+        positions:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/NodePosition"
+      required: [positions]
