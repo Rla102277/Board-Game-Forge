@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, eq, asc, inArray } from "drizzle-orm";
-import { db, rules, entityRules, entities } from "@workspace/db";
+import { db, rules, entityRules, entities, projects } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import { complete, tryParseJsonArray, tryParseJsonObject } from "../lib/aiRouter";
 
@@ -95,9 +95,13 @@ router.post("/projects/:projectId/rules/ai-generate", async (req, res): Promise<
     return;
   }
   const count = parsed.data.count ?? 5;
+  const [project] = await db.select().from(projects).where(eq(projects.id, params.data.projectId));
+  const narrativeLine = project?.narrative?.trim()
+    ? `\nGame narrative: ${project.narrative.trim()}\n`
+    : "";
   try {
     const text = await complete(req, {
-      prompt: `You are codifying the rulebook for a tabletop board game.
+      prompt: `You are codifying the rulebook for a tabletop board game.${narrativeLine}
 Generate exactly ${count} concise game rules based on this brief: "${parsed.data.prompt}"
 
 Return ONLY a JSON array (no prose, no code fences). Emit each rule's keys in EXACTLY this order so the most important fields are produced first:
@@ -147,8 +151,8 @@ type EnhanceRuleAiResponse = {
 
 type RuleRow = typeof rules.$inferSelect;
 
-function buildEnhanceRulePrompt(rule: RuleRow, existingTitles: string): string {
-  return `You are a senior board-game rules editor. Improve this rule and provide designer notes.
+function buildEnhanceRulePrompt(rule: RuleRow, existingTitles: string, narrativeLine: string): string {
+  return `You are a senior board-game rules editor.${narrativeLine} Improve this rule and provide designer notes.
 
 Return ONLY a JSON object — no prose, no code fences. List the keys in EXACTLY this order so the most important fields are emitted first:
 {
@@ -218,9 +222,13 @@ router.post(
         .filter((o) => o.id !== rule.id)
         .map((o) => `- ${o.title}`)
         .join("\n") || "(none)";
+    const [project] = await db.select().from(projects).where(eq(projects.id, params.data.projectId));
+    const narrativeLine = project?.narrative?.trim()
+      ? `\nGame narrative: ${project.narrative.trim()}\n`
+      : "";
     try {
       const text = await complete(req, {
-        prompt: buildEnhanceRulePrompt(rule, existingTitles),
+        prompt: buildEnhanceRulePrompt(rule, existingTitles, narrativeLine),
         maxTokens: 3000,
       });
       const result = parseEnhanceRuleResult(text, rule);

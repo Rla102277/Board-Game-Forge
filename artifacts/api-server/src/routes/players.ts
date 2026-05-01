@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, asc, eq } from "drizzle-orm";
-import { db, players } from "@workspace/db";
+import { db, players, projects } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import {
   complete,
@@ -102,9 +102,13 @@ router.post(
       return;
     }
     const count = parsed.data.count ?? 4;
+    const [project] = await db.select().from(projects).where(eq(projects.id, params.data.projectId));
+    const narrativeLine = project?.narrative?.trim()
+      ? `\nGame narrative: ${project.narrative.trim()}\n`
+      : "";
     try {
       const text = await complete(req, {
-        prompt: `Design ${count} distinct player archetypes for a tabletop game with this brief: "${parsed.data.prompt}".
+        prompt: `Design ${count} distinct player archetypes for a tabletop game with this brief: "${parsed.data.prompt}".${narrativeLine}
 
 Return ONLY a JSON array (no prose, no code fences):
 [{"name":"...","role":"...","archetype":"...","description":"...","strategy":"...","startingResources":"...","victoryCondition":"...","specialAbility":"...","playstyle":"..."}]
@@ -181,6 +185,10 @@ router.post(
       res.status(404).json({ error: "Player not found" });
       return;
     }
+    const [project] = await db.select().from(projects).where(eq(projects.id, params.data.projectId));
+    const narrativeLine = project?.narrative?.trim()
+      ? `\nGame narrative: ${project.narrative.trim()}\n`
+      : "";
     try {
       const editable = {
         name: p.name,
@@ -198,7 +206,7 @@ router.post(
         startingResources: p.startingResources,
       };
       const text = await complete(req, {
-        prompt: `Enhance this character profile for a board game. Keep existing fields but rewrite empty or weak fields with vivid detail.
+        prompt: `Enhance this character profile for a board game. Keep existing fields but rewrite empty or weak fields with vivid detail.${narrativeLine}
 
 Existing character data:
 ${JSON.stringify(editable, null, 2)}
