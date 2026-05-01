@@ -527,6 +527,10 @@ function AssetsView({
   const [localOrder, setLocalOrder] = useState<number[]>([]);
   const dragOverIdRef = useRef<number | null>(null);
   const isSavingOrder = useRef(false);
+  // Keyboard reorder focus tracking
+  const [focusedId, setFocusedId] = useState<number | null>(null);
+  const localOrderRef = useRef<number[]>(localOrder);
+  useEffect(() => { localOrderRef.current = localOrder; }, [localOrder]);
 
   // Per-kind order tracking for grouped mode
   const [draggedKind, setDraggedKind] = useState<string | null>(null);
@@ -678,6 +682,40 @@ function AssetsView({
     setDraggedKind(null);
     setDropTargetId(null);
     dragOverIdRef.current = null;
+  };
+
+  const moveAsset = async (id: number, delta: -1 | 1) => {
+    const currentOrder = localOrderRef.current;
+    const idx = currentOrder.indexOf(id);
+    if (idx === -1) return;
+    const newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= currentOrder.length) return;
+    const finalOrder = [...currentOrder];
+    finalOrder.splice(idx, 1);
+    finalOrder.splice(newIdx, 0, id);
+    setLocalOrder(finalOrder);
+    try {
+      await Promise.all(
+        finalOrder.map((aid, index) =>
+          updateAsset.mutateAsync({ projectId, assetId: aid, data: { displayOrder: index } })
+        )
+      );
+      refresh();
+    } catch {
+      toast({ title: "Failed to save order", variant: "destructive" });
+      refresh();
+    }
+  };
+
+  const handleCardKeyDown = (e: React.KeyboardEvent, id: number) => {
+    if (!e.shiftKey) return;
+    if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      moveAsset(id, -1);
+    } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      moveAsset(id, 1);
+    }
   };
 
   const refresh = () => qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
@@ -1129,17 +1167,26 @@ function AssetsView({
                     <div
                       key={a.id}
                       draggable
+                      tabIndex={0}
+                      role="group"
+                      aria-label={`${a.name} — use Shift+Arrow keys to reorder`}
                       onDragStart={(e) => handleGroupedDragStart(a.id, sec.kind, e)}
                       onDragOver={(e) => handleGroupedDragOver(e, a.id, sec.kind)}
                       onDrop={handleGroupedDrop}
                       onDragEnd={handleGroupedDragEnd}
+                      onFocus={() => setFocusedId(a.id)}
+                      onBlur={() => setFocusedId((prev) => (prev === a.id ? null : prev))}
+                      onKeyDown={(e) => handleCardKeyDown(e, a.id)}
                       className={[
-                        "transition-all duration-150 rounded-xl",
+                        "relative transition-all duration-150 rounded-xl outline-none",
                         draggedId === a.id
                           ? "opacity-35 cursor-grabbing"
                           : "cursor-grab",
                         dropTargetId === a.id && draggedId !== null && draggedId !== a.id
                           ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]"
+                          : "",
+                        focusedId === a.id
+                          ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                           : "",
                       ].join(" ")}
                     >
@@ -1163,6 +1210,13 @@ function AssetsView({
                         applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
                         onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
                       />
+                      {focusedId === a.id && (
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none z-10">
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[10px] font-medium shadow-sm whitespace-nowrap">
+                            Shift+← → to reorder
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1177,17 +1231,26 @@ function AssetsView({
             <div
               key={a.id}
               draggable
+              tabIndex={0}
+              role="group"
+              aria-label={`${a.name} — use Shift+Arrow keys to reorder`}
               onDragStart={(e) => handleDragStart(a.id, e)}
               onDragOver={(e) => handleDragOver(e, a.id)}
               onDrop={handleDrop}
               onDragEnd={handleDragEnd}
+              onFocus={() => setFocusedId(a.id)}
+              onBlur={() => setFocusedId((prev) => (prev === a.id ? null : prev))}
+              onKeyDown={(e) => handleCardKeyDown(e, a.id)}
               className={[
-                "transition-all duration-150 rounded-xl",
+                "relative transition-all duration-150 rounded-xl outline-none",
                 draggedId === a.id
                   ? "opacity-35 cursor-grabbing"
                   : "cursor-grab",
                 dropTargetId === a.id && draggedId !== null && draggedId !== a.id
                   ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]"
+                  : "",
+                focusedId === a.id
+                  ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                   : "",
               ].join(" ")}
             >
@@ -1211,6 +1274,13 @@ function AssetsView({
                 applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
                 onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
               />
+              {focusedId === a.id && (
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none z-10">
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[10px] font-medium shadow-sm whitespace-nowrap">
+                    Shift+← → to reorder
+                  </span>
+                </div>
+              )}
             </div>
           ))}
         </div>
