@@ -512,6 +512,7 @@ function AssetsView({
 
   // Drag-and-drop order tracking
   const [draggedId, setDraggedId] = useState<number | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<number | null>(null);
   const [localOrder, setLocalOrder] = useState<number[]>([]);
   const dragOverIdRef = useRef<number | null>(null);
   const isSavingOrder = useRef(false);
@@ -543,6 +544,7 @@ function AssetsView({
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     if (draggedId === null || draggedId === targetId) return;
+    setDropTargetId(targetId);
     if (dragOverIdRef.current === targetId) return;
     dragOverIdRef.current = targetId;
     setLocalOrder((prev) => {
@@ -562,6 +564,7 @@ function AssetsView({
     isSavingOrder.current = true;
     const finalOrder = [...localOrder];
     setDraggedId(null);
+    setDropTargetId(null);
     dragOverIdRef.current = null;
     try {
       await Promise.all(
@@ -580,6 +583,7 @@ function AssetsView({
 
   const handleDragEnd = () => {
     setDraggedId(null);
+    setDropTargetId(null);
     dragOverIdRef.current = null;
   };
 
@@ -1031,8 +1035,15 @@ function AssetsView({
                       onDragOver={(e) => handleDragOver(e, a.id)}
                       onDrop={handleDrop}
                       onDragEnd={handleDragEnd}
-                      className="transition-opacity"
-                      style={{ opacity: draggedId === a.id ? 0.35 : 1, cursor: "grab" }}
+                      className={[
+                        "transition-all duration-150 rounded-xl",
+                        draggedId === a.id
+                          ? "opacity-35 cursor-grabbing"
+                          : "cursor-grab",
+                        dropTargetId === a.id && draggedId !== null && draggedId !== a.id
+                          ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]"
+                          : "",
+                      ].join(" ")}
                     >
                       <AssetCard
                         asset={a}
@@ -1072,8 +1083,15 @@ function AssetsView({
               onDragOver={(e) => handleDragOver(e, a.id)}
               onDrop={handleDrop}
               onDragEnd={handleDragEnd}
-              className="transition-opacity"
-              style={{ opacity: draggedId === a.id ? 0.35 : 1, cursor: "grab" }}
+              className={[
+                "transition-all duration-150 rounded-xl",
+                draggedId === a.id
+                  ? "opacity-35 cursor-grabbing"
+                  : "cursor-grab",
+                dropTargetId === a.id && draggedId !== null && draggedId !== a.id
+                  ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]"
+                  : "",
+              ].join(" ")}
             >
               <AssetCard
                 asset={a}
