@@ -43,6 +43,7 @@ import { CardStudio } from "./card-studio";
 import { DieFaceDesigner } from "./die-face-designer";
 import { VariantManager } from "./variant-manager";
 import { ComponentBOM } from "./component-bom";
+import { Entities } from "@/components/workspace/entities";
 
 
 type ComponentKind = { id: string; label: string; kind: string; icon: React.ComponentType<{ className?: string }>; promptHint: string };
@@ -349,12 +350,7 @@ export function AssetsEntities({
         </div>
         <CollapsibleContent>
           <div className="mt-3">
-            <EntitiesView
-              projectId={projectId}
-              narrative={narrative}
-              projectName={project?.name ?? "Untitled"}
-              onGamma={openGamma}
-            />
+            <Entities projectId={projectId} />
           </div>
         </CollapsibleContent>
       </Collapsible>
