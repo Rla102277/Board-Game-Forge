@@ -981,3 +981,47 @@ export type ListChatMessagesParams = {
 export type ClearChatMessagesParams = {
   tab?: TabParameter;
 };
+
+export interface PlaytestReportActionItem {
+  text: string;
+  /** @nullable */
+  linkedTaskId?: number | null;
+  /** @nullable */
+  done?: boolean | null;
+}
+
+export interface PlaytestReport {
+  id: number;
+  projectId: number;
+  date: string;
+  /** @nullable */
+  attendees?: string[] | null;
+  /** @nullable */
+  rating?: number | null;
+  /** @nullable */
+  whatWorked?: string | null;
+  /** @nullable */
+  whatBroke?: string | null;
+  /** @nullable */
+  actionItems?: PlaytestReportActionItem[] | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePlaytestReportBody {
+  date?: string;
+  attendees?: string[];
+  rating?: number;
+  whatWorked?: string;
+  whatBroke?: string;
+  actionItems?: PlaytestReportActionItem[];
+}
+
+export interface UpdatePlaytestReportBody {
+  date?: string;
+  attendees?: string[] | null;
+  rating?: number | null;
+  whatWorked?: string | null;
+  whatBroke?: string | null;
+  actionItems?: PlaytestReportActionItem[] | null;
+}

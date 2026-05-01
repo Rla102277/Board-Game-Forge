@@ -5,7 +5,7 @@ import { useUser, useClerk } from "@clerk/react";
 import {
   Layout, Users, FileText, CheckSquare, ChevronLeft, Gamepad2, Activity, MoreVertical, Trash2,
   BookOpen, Network, Dice5, ImageIcon, MapPin, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
-  MessageSquare, History, Share2, Clock, BarChart3, EyeOff, Grid3X3, TrendingUp, ChevronRight, Pencil,
+  MessageSquare, History, Share2, Clock, BarChart3, EyeOff, Grid3X3, TrendingUp, ChevronRight, Pencil, ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -38,6 +38,7 @@ const ChatPanel = lazy(() => import("@/components/workspace/chat-panel").then(m 
 const TurnStructure = lazy(() => import("@/components/workspace/turn-structure").then(m => ({ default: m.TurnStructureVisualizer })));
 const ScalingMatrix = lazy(() => import("@/components/workspace/scaling-matrix").then(m => ({ default: m.ScalingMatrixVisualizer })));
 const BlindPlaytest = lazy(() => import("@/components/workspace/blind-playtest").then(m => ({ default: m.BlindPlaytestFramework })));
+const PlaytestReports = lazy(() => import("@/components/workspace/playtest-reports").then(m => ({ default: m.PlaytestReports })));
 const RulebookEditor = lazy(() => import("@/components/workspace/rulebook-editor").then(m => ({ default: m.RulebookEditor })));
 const LayoutEditor = lazy(() => import("@/components/workspace/layout-editor").then(m => ({ default: m.LayoutEditor })));
 const ScoringCurve = lazy(() => import("@/components/workspace/scoring-curve").then(m => ({ default: m.ScoringCurve })));
@@ -65,6 +66,7 @@ const NAV_GROUPS = [
     items: [
       { id: "tasks",          label: "Tasks",            icon: CheckSquare,  statKey: "taskCount",      shortcut: "t" },
       { id: "notes",          label: "Notes",            icon: FileText,     statKey: "noteCount",      shortcut: null },
+      { id: "playtest-reports", label: "Playtest Reports", icon: ClipboardList, statKey: null,           shortcut: null },
     ],
   },
   {
@@ -305,6 +307,13 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
             <BlindPlaytest projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "playtest-reports": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <PlaytestReports projectId={projectId} />
           </Suspense>
         </ErrorBoundary>
       );

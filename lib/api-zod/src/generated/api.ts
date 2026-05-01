@@ -1820,3 +1820,57 @@ export const ReorderPlayersResponseItem = zod.object({
   updatedAt: zod.coerce.date(),
 });
 export const ReorderPlayersResponse = zod.array(ReorderPlayersResponseItem);
+
+export const PlaytestReportActionItem = zod.object({
+  text: zod.string(),
+  linkedTaskId: zod.number().nullish(),
+  done: zod.boolean().nullish(),
+});
+
+export const PlaytestReportItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  date: zod.coerce.date(),
+  attendees: zod.array(zod.string()).nullish(),
+  rating: zod.number().nullish(),
+  whatWorked: zod.string().nullish(),
+  whatBroke: zod.string().nullish(),
+  actionItems: zod.array(PlaytestReportActionItem).nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const ListPlaytestReportsParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+export const ListPlaytestReportsResponse = zod.array(PlaytestReportItem);
+
+export const CreatePlaytestReportParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+export const CreatePlaytestReportBody = zod.object({
+  date: zod.string().optional(),
+  attendees: zod.array(zod.string()).optional(),
+  rating: zod.number().min(1).max(5).optional(),
+  whatWorked: zod.string().optional(),
+  whatBroke: zod.string().optional(),
+  actionItems: zod.array(PlaytestReportActionItem).optional(),
+});
+
+export const UpdatePlaytestReportParams = zod.object({
+  projectId: zod.coerce.number(),
+  reportId: zod.coerce.number(),
+});
+export const UpdatePlaytestReportBody = zod.object({
+  date: zod.string().optional(),
+  attendees: zod.array(zod.string()).nullable().optional(),
+  rating: zod.number().min(1).max(5).nullable().optional(),
+  whatWorked: zod.string().nullable().optional(),
+  whatBroke: zod.string().nullable().optional(),
+  actionItems: zod.array(PlaytestReportActionItem).nullable().optional(),
+});
+
+export const DeletePlaytestReportParams = zod.object({
+  projectId: zod.coerce.number(),
+  reportId: zod.coerce.number(),
+});
