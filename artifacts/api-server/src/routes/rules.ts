@@ -267,13 +267,17 @@ router.post(
       );
       return;
     }
+    const [project] = await db.select().from(projects).where(eq(projects.id, params.data.projectId));
+    const narrativeLine = project?.narrative?.trim()
+      ? `\nGame narrative: ${project.narrative.trim()}\n`
+      : "";
     const list = rs
       .map((r) => `[#${r.id}] ${r.title}: ${r.content}`)
       .join("\n\n");
     try {
       const text = await complete(req, {
         preferFast: true,
-        prompt: `You are a rules editor. Scan these rules for conflicts, contradictions, ambiguities, or overlaps. Return ONLY a JSON object:
+        prompt: `You are a rules editor.${narrativeLine} Scan these rules for conflicts, contradictions, ambiguities, or overlaps — including thematic contradictions with the game narrative. Return ONLY a JSON object:
 
 {"summary":"<1-2 sentence overall verdict>","conflicts":[{"ruleIds":[<numbers>],"severity":"low|medium|high","description":"...","suggestion":"..."}]}
 
