@@ -749,10 +749,6 @@ export interface UpdateAssetBody {
   description?: string;
   flavorText?: string;
   imagePrompt?: string;
-  quantity?: number;
-  status?: string;
-  componentDetails?: string;
-  displayOrder?: number;
 }
 
 export interface GenerateImageBody {

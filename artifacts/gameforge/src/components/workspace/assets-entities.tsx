@@ -6,7 +6,6 @@ import {
   useAiGenerateEntities, useAiEnhanceEntity,
   useListEntityProperties, useCreateEntityProperty, useUpdateEntityProperty, useDeleteEntityProperty,
   useListRules, useListProjectEntityProperties,
-  useListEntityRules, useLinkEntityRule, useUnlinkEntityRule, getListEntityRulesQueryKey,
   getListEntitiesQueryKey, getListEntityPropertiesQueryKey,
   type Asset, type AssetEnhanceSuggestion, type Entity, type EntityProperty,
 } from "@workspace/api-client-react";
@@ -45,6 +44,20 @@ import { VariantManager } from "./variant-manager";
 import { ComponentBOM } from "./component-bom";
 import { Entities } from "@/components/workspace/entities";
 
+// Stubs for entity-rule linking hooks (API endpoints not yet implemented in the backend).
+// LinkedRulesPanel uses these; they return empty data gracefully until the backend is ready.
+function useListEntityRules(_projectId: number, _entityId: number) {
+  return { data: [] as Array<{ ruleId: number }>, isLoading: false };
+}
+function useLinkEntityRule() {
+  return { mutateAsync: async (_args: { projectId: number; entityId: number; ruleId: number }) => {} };
+}
+function useUnlinkEntityRule() {
+  return { mutateAsync: async (_args: { projectId: number; entityId: number; ruleId: number }) => {} };
+}
+function getListEntityRulesQueryKey(_projectId: number, _entityId: number) {
+  return ["entity-rules", _projectId, _entityId] as const;
+}
 
 type ComponentKind = { id: string; label: string; kind: string; icon: React.ComponentType<{ className?: string }>; promptHint: string };
 const COMPONENT_KINDS: ComponentKind[] = [
@@ -272,6 +285,7 @@ export function AssetsEntities({
   const { data: allEntities } = useListEntities(projectId);
   const { data: allRules } = useListRules(projectId);
   const { data: allProperties } = useListProjectEntityProperties(projectId);
+  const updateAsset = useUpdateAsset();
 
   const [selectedGraphEntity, setSelectedGraphEntity] = useState<Entity | null>(null);
   const links = useMemo(() => buildLinks(allEntities ?? [], allRules ?? []), [allEntities, allRules]);
@@ -284,6 +298,27 @@ export function AssetsEntities({
     }
     return m;
   }, [allProperties]);
+
+  const handleLinkAsset = async (assetId: number) => {
+    if (!selectedGraphEntity) return;
+    try {
+      await updateAsset.mutateAsync({ projectId, assetId, data: { entityId: selectedGraphEntity.id } });
+      qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
+      toast({ title: "Asset linked", description: "The asset is now connected to this component in the graph." });
+    } catch (err) {
+      toast({ title: "Link failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    }
+  };
+
+  const handleUnlinkAsset = async (assetId: number) => {
+    try {
+      await updateAsset.mutateAsync({ projectId, assetId, data: { entityId: null } });
+      qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
+      toast({ title: "Asset unlinked", description: "The link between this asset and component has been removed." });
+    } catch (err) {
+      toast({ title: "Unlink failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    }
+  };
 
   const sendToChat = (prompt: string) => {
     onChatPrompt?.(prompt);
@@ -435,6 +470,8 @@ export function AssetsEntities({
                     links={links}
                     propCount={propsByEntity.get(selectedGraphEntity.id)?.length ?? 0}
                     onClose={() => setSelectedGraphEntity(null)}
+                    onLinkAsset={handleLinkAsset}
+                    onUnlinkAsset={handleUnlinkAsset}
                   />
                 )}
                 <ComponentBrowser

@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { type Entity, type Rule, type EntityProperty, type Asset, useGetGraphLayout, useUpdateGraphLayout, getGetGraphLayoutQueryKey } from "@workspace/api-client-react";
-import { AlertTriangle, Sparkles, Box, Activity, GitBranch, Search, ArrowRight, Link as LinkIcon, Layers, Table as TableIcon, ImageIcon, X, ChevronRight, RotateCcw, Filter, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, Sparkles, Box, Activity, GitBranch, Search, ArrowRight, Link as LinkIcon, Unlink, Layers, Table as TableIcon, ImageIcon, X, ChevronRight, Plus, RotateCcw, Filter, SlidersHorizontal } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -1016,19 +1016,74 @@ export function EntityGraph({
 // Entity node inspector — inline panel shown when a node is clicked
 // ════════════════════════════════════════════════════════════════════════════
 export function EntityNodeInspector({
-  entity, assets, links, propCount, onClose,
+  entity, assets, links, propCount, onClose, onLinkAsset, onUnlinkAsset,
 }: {
   entity: Entity;
   assets: Asset[];
   links: LinkMaps;
   propCount: number;
   onClose: () => void;
+  onLinkAsset?: (assetId: number) => void;
+  onUnlinkAsset?: (assetId: number) => void;
 }) {
   const linkedAssets = useMemo(
     () => assets.filter((a) => a.entityId === entity.id),
     [assets, entity.id],
   );
+  // Assets not yet linked to THIS entity (includes unlinked and linked-elsewhere)
+  const linkableAssets = useMemo(
+    () => assets.filter((a) => a.entityId !== entity.id),
+    [assets, entity.id],
+  );
   const ruleCount = links.entityToRules.get(entity.id)?.size ?? 0;
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerFilter, setPickerFilter] = useState("");
+  const [unlinkingId, setUnlinkingId] = useState<number | null>(null);
+  const [linkingId, setLinkingId] = useState<number | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+        setPickerFilter("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [pickerOpen]);
+
+  const filteredUnlinked = useMemo(() => {
+    const f = pickerFilter.trim().toLowerCase();
+    if (!f) return linkableAssets;
+    return linkableAssets.filter(
+      (a) => a.name.toLowerCase().includes(f) || a.kind.toLowerCase().includes(f),
+    );
+  }, [linkableAssets, pickerFilter]);
+
+  const handleLink = async (assetId: number) => {
+    if (!onLinkAsset) return;
+    setLinkingId(assetId);
+    try {
+      await onLinkAsset(assetId);
+    } finally {
+      setLinkingId(null);
+      setPickerOpen(false);
+      setPickerFilter("");
+    }
+  };
+
+  const handleUnlink = async (assetId: number) => {
+    if (!onUnlinkAsset) return;
+    setUnlinkingId(assetId);
+    try {
+      await onUnlinkAsset(assetId);
+    } finally {
+      setUnlinkingId(null);
+    }
+  };
 
   return (
     <div
@@ -1073,16 +1128,92 @@ export function EntityNodeInspector({
         <p className="text-xs text-blue-300/80 leading-relaxed border-l-2 border-blue-500/30 pl-2">{entity.designNotes}</p>
       )}
 
-      {linkedAssets.length > 0 && (
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+      {/* Linked assets section */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
             <ImageIcon className="h-3 w-3" /> Linked assets
           </p>
+          {onLinkAsset && (
+            <div className="relative" ref={pickerRef}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-[10px] gap-1"
+                onClick={() => { setPickerOpen((v) => !v); setPickerFilter(""); }}
+                data-testid="link-asset-button"
+              >
+                <Plus className="h-3 w-3" /> Link asset
+              </Button>
+
+              {pickerOpen && (
+                <div
+                  className="absolute right-0 top-8 z-50 w-64 rounded-lg border border-border bg-card shadow-xl p-2 space-y-1.5"
+                  data-testid="link-asset-picker"
+                >
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 pb-0.5">
+                    Link an asset to this component
+                  </p>
+                  <div className="relative">
+                    <Search className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      autoFocus
+                      value={pickerFilter}
+                      onChange={(e) => setPickerFilter(e.target.value)}
+                      placeholder="Filter assets…"
+                      className="w-full bg-input border border-border rounded text-xs pl-6 pr-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+                      data-testid="link-asset-filter"
+                    />
+                  </div>
+                  {filteredUnlinked.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground/60 italic px-1 py-1">
+                      {pickerFilter ? "No assets match." : "No other assets available. Create an asset first."}
+                    </p>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto space-y-0.5">
+                      {filteredUnlinked.map((a) => (
+                        <button
+                          key={a.id}
+                          onClick={() => handleLink(a.id)}
+                          disabled={linkingId === a.id}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent transition-colors text-left group"
+                          data-testid={`pick-asset-${a.id}`}
+                        >
+                          {a.imageDataUrl ? (
+                            <img src={a.imageDataUrl} alt={a.name} className="w-6 h-6 rounded object-cover shrink-0" />
+                          ) : (
+                            <div
+                              className="w-6 h-6 rounded shrink-0 flex items-center justify-center"
+                              style={{ backgroundColor: assetKindHex(a.kind) + "33" }}
+                            >
+                              <ImageIcon className="h-3 w-3" style={{ color: assetKindHex(a.kind) }} />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium text-white truncate">{a.name}</p>
+                            <p className="text-[10px] text-muted-foreground capitalize">{a.kind}</p>
+                          </div>
+                          {linkingId === a.id ? (
+                            <span className="text-[10px] text-muted-foreground shrink-0">linking…</span>
+                          ) : (
+                            <LinkIcon className="h-3 w-3 text-muted-foreground/40 group-hover:text-primary shrink-0 transition-colors" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {linkedAssets.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {linkedAssets.map((a) => (
               <div
                 key={a.id}
-                className="flex items-center gap-2 px-2 py-1.5 rounded border border-border/60 bg-background/40"
+                className="flex items-center gap-2 px-2 py-1.5 rounded border border-border/60 bg-background/40 group"
                 data-testid={`inspector-asset-${a.id}`}
               >
                 {a.imageDataUrl ? (
@@ -1103,17 +1234,35 @@ export function EntityNodeInspector({
                   <p className="text-xs font-medium text-white truncate max-w-[120px]">{a.name}</p>
                   <p className="text-[10px] text-muted-foreground capitalize">{a.kind}</p>
                 </div>
+                {onUnlinkAsset && (
+                  <button
+                    onClick={() => handleUnlink(a.id)}
+                    disabled={unlinkingId === a.id}
+                    className="ml-1 shrink-0 text-muted-foreground/40 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                    title="Remove link"
+                    data-testid={`unlink-asset-${a.id}`}
+                  >
+                    {unlinkingId === a.id ? (
+                      <span className="text-[9px]">…</span>
+                    ) : (
+                      <Unlink className="h-3 w-3" />
+                    )}
+                  </button>
+                )}
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {linkedAssets.length === 0 && (
-        <p className="text-xs text-muted-foreground/60 italic flex items-center gap-1.5">
-          <ImageIcon className="h-3 w-3" /> No assets linked to this component yet.
-        </p>
-      )}
+        ) : (
+          <p className="text-xs text-muted-foreground/60 italic flex items-center gap-1.5">
+            <ImageIcon className="h-3 w-3" /> No assets linked to this component yet.
+            {onLinkAsset && linkableAssets.length > 0 && (
+              <span className="not-italic text-primary/70 cursor-pointer hover:text-primary" onClick={() => setPickerOpen(true)}>
+                Link one now.
+              </span>
+            )}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

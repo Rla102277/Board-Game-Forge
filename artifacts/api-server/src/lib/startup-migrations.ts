@@ -42,7 +42,12 @@ const MIGRATIONS = [
       ALTER TABLE playtest_reports ADD CONSTRAINT playtest_reports_rating_check CHECK (rating BETWEEN 1 AND 5);
     END IF;
   END $$`,
-];
+  // 0011 – assets extended fields
+  `ALTER TABLE assets ADD COLUMN IF NOT EXISTS quantity integer NOT NULL DEFAULT 1`,
+  `ALTER TABLE assets ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'draft'`,
+  `ALTER TABLE assets ADD COLUMN IF NOT EXISTS component_details text`,
+  `ALTER TABLE assets ADD COLUMN IF NOT EXISTS display_order integer`,
+],
 
 export async function runStartupMigrations(): Promise<void> {
   for (const stmt of MIGRATIONS) {

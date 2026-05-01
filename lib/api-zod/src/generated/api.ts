@@ -581,7 +581,7 @@ export const UpdateEntityBody = zod.object({
   name: zod.string().optional(),
   type: zod.string().optional(),
   subtype: zod.string().optional(),
-  parentEntityId: zod.number().nullish(),
+  parentEntityId: zod.number().optional(),
   description: zod.string().optional(),
   stats: zod.string().optional(),
   status: zod.string().optional(),
@@ -1371,10 +1371,6 @@ export const UpdateAssetBody = zod.object({
   description: zod.string().optional(),
   flavorText: zod.string().optional(),
   imagePrompt: zod.string().optional(),
-  quantity: zod.number().optional(),
-  status: zod.string().optional(),
-  componentDetails: zod.string().optional(),
-  displayOrder: zod.number().optional(),
 });
 
 export const UpdateAssetResponse = zod.object({
