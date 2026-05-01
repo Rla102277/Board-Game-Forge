@@ -59,6 +59,17 @@ const COMPONENT_KINDS: ComponentKind[] = [
 
 const ASSET_KINDS = ["card", "token", "board", "tile", "dice", "rulebook", "other"];
 
+// displayOrder offsets per kind so per-section order persists without collisions
+const KIND_ORDER_OFFSET: Record<string, number> = {
+  card:     0,
+  token:    10000,
+  tile:     20000,
+  board:    30000,
+  dice:     40000,
+  rulebook: 50000,
+  other:    60000,
+};
+
 type AIEnhanceEntity = {
   description: string;
   lore?: string;
@@ -517,10 +528,26 @@ function AssetsView({
   const dragOverIdRef = useRef<number | null>(null);
   const isSavingOrder = useRef(false);
 
+  // Per-kind order tracking for grouped mode
+  const [draggedKind, setDraggedKind] = useState<string | null>(null);
+  const [localGroupOrder, setLocalGroupOrder] = useState<Map<string, number[]>>(new Map());
+
   // Sync localOrder from server whenever assets change (but not during active drag)
   useEffect(() => {
     if (!assets || draggedId !== null) return;
     setLocalOrder(assets.map((a) => a.id));
+  }, [assets, draggedId]);
+
+  // Sync localGroupOrder from server whenever assets change (but not during active drag)
+  useEffect(() => {
+    if (!assets || draggedId !== null) return;
+    const map = new Map<string, number[]>();
+    for (const a of assets) {
+      const k = a.kind ?? "other";
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(a.id);
+    }
+    setLocalGroupOrder(map);
   }, [assets, draggedId]);
 
   // Derive sorted asset list from localOrder
@@ -586,6 +613,69 @@ function AssetsView({
   const handleDragEnd = () => {
     document.body.style.cursor = "";
     setDraggedId(null);
+    setDropTargetId(null);
+    dragOverIdRef.current = null;
+  };
+
+  // ── Grouped-mode drag handlers (within-section only) ──────────────────────
+  const handleGroupedDragStart = (id: number, kind: string, e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = "move";
+    setDraggedId(id);
+    setDraggedKind(kind);
+    dragOverIdRef.current = null;
+  };
+
+  const handleGroupedDragOver = (e: React.DragEvent, targetId: number, targetKind: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (draggedId === null || draggedKind === null || draggedId === targetId) return;
+    if (draggedKind !== targetKind) return;
+    setDropTargetId(targetId);
+    if (dragOverIdRef.current === targetId) return;
+    dragOverIdRef.current = targetId;
+    setLocalGroupOrder((prev) => {
+      const ids = prev.get(draggedKind) ?? [];
+      const from = ids.indexOf(draggedId);
+      const to = ids.indexOf(targetId);
+      if (from === -1 || to === -1) return prev;
+      const next = [...ids];
+      next.splice(from, 1);
+      next.splice(to, 0, draggedId);
+      const newMap = new Map(prev);
+      newMap.set(draggedKind, next);
+      return newMap;
+    });
+  };
+
+  const handleGroupedDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedId === null || draggedKind === null || isSavingOrder.current) return;
+    isSavingOrder.current = true;
+    const kind = draggedKind;
+    const finalKindOrder = localGroupOrder.get(kind) ?? [];
+    const kindOffset = KIND_ORDER_OFFSET[kind] ?? 60000;
+    setDraggedId(null);
+    setDraggedKind(null);
+    setDropTargetId(null);
+    dragOverIdRef.current = null;
+    try {
+      await Promise.all(
+        finalKindOrder.map((id, index) =>
+          updateAsset.mutateAsync({ projectId, assetId: id, data: { displayOrder: kindOffset + index } })
+        )
+      );
+      refresh();
+    } catch {
+      toast({ title: "Failed to save order", variant: "destructive" });
+      refresh();
+    } finally {
+      isSavingOrder.current = false;
+    }
+  };
+
+  const handleGroupedDragEnd = () => {
+    setDraggedId(null);
+    setDraggedKind(null);
     setDropTargetId(null);
     dragOverIdRef.current = null;
   };
@@ -721,6 +811,7 @@ function AssetsView({
     { kind: "rulebook", label: "Rulebooks" },
     { kind: "other",    label: "Other" },
   ];
+
 
   // Group assets by kind when groupByType is on
   const groupedAssets = useMemo(() => {
@@ -1012,10 +1103,14 @@ function AssetsView({
           </div>
         </div>
       ) : groupedAssets ? (
-        /* Grouped by type — fixed section order */
+        /* Grouped by type — each section has its own independent drag-and-drop ordering */
         <div className="space-y-6">
           {GALLERY_SECTIONS.filter((sec) => groupedAssets.has(sec.kind)).map((sec) => {
-            const kindAssets = orderedAssets.filter((a) => (a.kind ?? "other") === sec.kind);
+            const assetById = new Map((assets ?? []).map((a) => [a.id, a]));
+            const kindIds = localGroupOrder.get(sec.kind) ?? [];
+            const kindAssets = kindIds
+              .map((id) => assetById.get(id))
+              .filter((a): a is Asset => a !== undefined && (a.kind ?? "other") === sec.kind);
             if (!kindAssets.length) return null;
             return (
               <div key={sec.kind}>
@@ -1034,10 +1129,10 @@ function AssetsView({
                     <div
                       key={a.id}
                       draggable
-                      onDragStart={(e) => handleDragStart(a.id, e)}
-                      onDragOver={(e) => handleDragOver(e, a.id)}
-                      onDrop={handleDrop}
-                      onDragEnd={handleDragEnd}
+                      onDragStart={(e) => handleGroupedDragStart(a.id, sec.kind, e)}
+                      onDragOver={(e) => handleGroupedDragOver(e, a.id, sec.kind)}
+                      onDrop={handleGroupedDrop}
+                      onDragEnd={handleGroupedDragEnd}
                       className={[
                         "transition-all duration-150 rounded-xl",
                         draggedId === a.id
