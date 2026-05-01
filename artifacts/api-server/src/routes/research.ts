@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import { and, eq, desc } from "drizzle-orm";
-import { db, researchItems } from "@workspace/db";
+import { db, researchItems, workspaces, projects, entities, rules, players, notes } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
-import { complete, tryParseJsonArray, tryParseJsonObject } from "../lib/aiRouter";
+import { complete, completeWithKimi, tryParseJsonArray, tryParseJsonObject } from "../lib/aiRouter";
 import { logChange } from "../lib/changelog";
+import { generateProjectSlug, isUniqueViolation } from "../lib/workspaceHelpers";
 
 const router: IRouter = Router();
 
@@ -324,6 +325,263 @@ Return exactly this JSON shape:
     } catch (err) {
       req.log.error({ err }, "game-lookup failed");
       res.status(500).json({ error: "Game lookup failed" });
+    }
+  },
+);
+
+/* ── Types shared with frontend ──────────────────────────────────────── */
+
+type ReverseGameInput = {
+  id: string;
+  name: string;
+  borrowing?: string;
+  avoiding?: string;
+  gameData?: {
+    overview?: string;
+    coreLoop?: string;
+    keyMechanics?: string[];
+    designStrengths?: string[];
+    designWeaknesses?: string[];
+    designLessons?: string;
+    playerCount?: string;
+    playTime?: string;
+    complexity?: string;
+  };
+};
+
+type GeneratedGame = {
+  name?: string;
+  description?: string;
+  gameType?: string;
+  genre?: string;
+  playerCount?: string;
+  targetDuration?: string;
+  complexityScore?: number;
+  blueprint?: string;
+  entities?: Array<{ name?: string; type?: string; description?: string }>;
+  rules?: Array<{ title?: string; category?: string; content?: string }>;
+  players?: Array<{ name?: string; role?: string; description?: string }>;
+  notes?: Array<{ title?: string; content?: string }>;
+};
+
+async function insertReverseComponents(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  projectId: number,
+  parsed: GeneratedGame,
+): Promise<void> {
+  if (Array.isArray(parsed.entities) && parsed.entities.length) {
+    await tx.insert(entities).values(
+      parsed.entities.slice(0, 20).map((e) => ({
+        projectId,
+        name: String(e.name ?? "Entity").slice(0, 80),
+        type: String(e.type ?? "other").slice(0, 40),
+        description: e.description ? String(e.description) : null,
+      })),
+    );
+  }
+  if (Array.isArray(parsed.rules) && parsed.rules.length) {
+    await tx.insert(rules).values(
+      parsed.rules.slice(0, 20).map((r) => ({
+        projectId,
+        title: String(r.title ?? "Rule").slice(0, 100),
+        category: r.category ? String(r.category).slice(0, 40) : null,
+        content: String(r.content ?? ""),
+      })),
+    );
+  }
+  if (Array.isArray(parsed.players) && parsed.players.length) {
+    await tx.insert(players).values(
+      parsed.players.slice(0, 12).map((p) => ({
+        projectId,
+        name: String(p.name ?? "Role").slice(0, 80),
+        role: p.role ? String(p.role).slice(0, 80) : null,
+        description: p.description ? String(p.description) : null,
+      })),
+    );
+  }
+  if (Array.isArray(parsed.notes) && parsed.notes.length) {
+    await tx.insert(notes).values(
+      parsed.notes.slice(0, 8).map((n) => ({
+        projectId,
+        title: n.title ? String(n.title).slice(0, 100) : "Designer note",
+        content: n.content ? String(n.content) : null,
+      })),
+    );
+  }
+}
+
+function buildReversePrompt(
+  sourceGames: ReverseGameInput[],
+  direction: string,
+  mode: "new_project" | "populate_current",
+): string {
+  const gameBlocks = sourceGames.map((g) => {
+    const lines = [`Game: ${g.name}`];
+    if (g.gameData?.overview) lines.push(`Overview: ${g.gameData.overview}`);
+    if (g.gameData?.coreLoop) lines.push(`Core loop: ${g.gameData.coreLoop}`);
+    if (g.gameData?.keyMechanics?.length) lines.push(`Key mechanics: ${g.gameData.keyMechanics.join(", ")}`);
+    if (g.gameData?.designLessons) lines.push(`Design lessons: ${g.gameData.designLessons}`);
+    if (g.borrowing) lines.push(`Borrowing from it: ${g.borrowing}`);
+    if (g.avoiding) lines.push(`Doing differently: ${g.avoiding}`);
+    return lines.join("\n");
+  }).join("\n\n---\n\n");
+
+  const modeHint = mode === "populate_current"
+    ? "You are populating an existing project — focus on generating rich, detailed components that fit together."
+    : "You are creating a brand-new original game — give it a fresh name and identity.";
+
+  return [
+    "You are a world-class tabletop game designer performing a deep reverse-engineering exercise.",
+    modeHint,
+    "",
+    "Study these reference games deeply, then synthesize a completely original game that takes the best structural DNA from each while being distinctly different:",
+    "",
+    gameBlocks,
+    "",
+    direction ? `Designer's direction: ${direction}` : "",
+    "",
+    "Output ONLY a valid JSON object with this exact shape (no markdown, no commentary):",
+    `{
+  "name": "string — short and memorable (max 30 chars)",
+  "description": "string — 2-3 sentence elevator pitch that explains what makes this game unique",
+  "gameType": "Strategy|Party|Cooperative|Deck-builder|Roll-and-Write|Worker-Placement|Tile-Laying|Trick-Taking|Social-Deduction|Dexterity|Other",
+  "genre": "Fantasy|Sci-fi|Modern|Historical|Abstract|Horror|Western|Space|Medieval|Other",
+  "playerCount": "e.g. 2-5",
+  "targetDuration": "e.g. 45-75 minutes",
+  "complexityScore": 1-10,
+  "blueprint": "string — 4-6 paragraphs covering: core loop, turn structure, win condition, player interaction, balance philosophy, what makes it feel fresh",
+  "entities": [{ "name": "string", "type": "card|token|board|piece|resource|other", "description": "string (1-2 sentences)" }],
+  "rules": [{ "title": "string", "category": "Setup|Turn|Action|Scoring|Endgame|Special", "content": "string — clear, actionable, 1-3 sentences" }],
+  "players": [{ "name": "string — role/archetype name", "role": "string", "description": "string (1-2 sentences)" }],
+  "notes": [{ "title": "string", "content": "string — designer insight or open question" }]
+}`,
+    "",
+    "Aim for: 6-8 entities, 7-10 rules, 3-5 player roles, 3-4 designer notes.",
+    "Make every mechanic deliberate and every rule immediately playable.",
+  ].filter(Boolean).join("\n");
+}
+
+router.post(
+  "/projects/:projectId/reverse-engineer",
+  async (req, res): Promise<void> => {
+    const projectId = parseInt(req.params.projectId ?? "");
+    if (isNaN(projectId)) {
+      res.status(400).json({ error: "Invalid projectId" });
+      return;
+    }
+
+    const { games, direction = "", mode = "new_project", workspaceSlug } = req.body as {
+      games?: ReverseGameInput[];
+      direction?: string;
+      mode?: "new_project" | "populate_current";
+      workspaceSlug?: string;
+    };
+
+    if (!Array.isArray(games) || games.length === 0) {
+      res.status(400).json({ error: "At least one game is required" });
+      return;
+    }
+
+    if (mode === "new_project" && !workspaceSlug) {
+      res.status(400).json({ error: "workspaceSlug is required for new_project mode" });
+      return;
+    }
+
+    let raw: string;
+    try {
+      raw = await completeWithKimi(req, {
+        system: "You are a world-class senior tabletop game designer. Output only valid JSON, never prose or markdown.",
+        prompt: buildReversePrompt(games, direction, mode),
+        maxTokens: 10000,
+      });
+    } catch (err) {
+      req.log.error({ err }, "reverse-engineer kimi failed");
+      res.status(502).json({ error: "AI generation failed" });
+      return;
+    }
+
+    const parsed = tryParseJsonObject<GeneratedGame>(raw);
+    if (!parsed) {
+      res.status(502).json({ error: "AI returned unreadable JSON. Please try again." });
+      return;
+    }
+
+    try {
+      if (mode === "populate_current") {
+        await db.transaction(async (tx) => {
+          // Update the project description and blueprint if generated
+          const update: Record<string, string | number | null> = {};
+          if (parsed.description) update.description = String(parsed.description);
+          if (parsed.blueprint) update.blueprint = String(parsed.blueprint);
+          if (parsed.gameType) update.gameType = String(parsed.gameType);
+          if (parsed.genre) update.genre = String(parsed.genre);
+          if (parsed.playerCount) update.playerCount = String(parsed.playerCount);
+          if (parsed.targetDuration) update.targetDuration = String(parsed.targetDuration);
+          if (typeof parsed.complexityScore === "number") {
+            update.complexityScore = Math.max(1, Math.min(10, Math.round(parsed.complexityScore)));
+          }
+          if (Object.keys(update).length) {
+            await tx.update(projects).set(update).where(eq(projects.id, projectId));
+          }
+          await insertReverseComponents(tx, projectId, parsed);
+        });
+
+        await logChange(req, projectId, "update", `Reverse-engineered from: ${games.map((g) => g.name).join(", ")}`, {
+          entityKind: "project",
+          entityRef: String(projectId),
+        });
+
+        const [proj] = await db.select().from(projects).where(eq(projects.id, projectId));
+        res.json({ project: proj, mode: "populate_current" });
+        return;
+      }
+
+      // new_project mode
+      const [ws] = await db.select().from(workspaces).where(eq(workspaces.slug, workspaceSlug!));
+      if (!ws) {
+        res.status(404).json({ error: "Workspace not found" });
+        return;
+      }
+
+      const gameName = parsed.name?.trim() || `${games[0]!.name} Reimagined`;
+
+      let newProject: typeof projects.$inferSelect | undefined;
+      newProject = await db.transaction(async (tx) => {
+        let attempt = 0;
+        let inserted: typeof projects.$inferSelect | undefined;
+        while (attempt < 5 && !inserted) {
+          attempt += 1;
+          const slug = await generateProjectSlug(ws.id, gameName);
+          try {
+            const rows = await tx.insert(projects).values({
+              workspaceId: ws.id,
+              ownerUserId: req.appUserId ?? undefined,
+              slug,
+              name: gameName.slice(0, 100),
+              description: parsed.description ?? null,
+              gameType: parsed.gameType ?? null,
+              genre: parsed.genre ?? null,
+              playerCount: parsed.playerCount ?? null,
+              targetDuration: parsed.targetDuration ?? null,
+              complexityScore: typeof parsed.complexityScore === "number"
+                ? Math.max(1, Math.min(10, Math.round(parsed.complexityScore)))
+                : null,
+              blueprint: parsed.blueprint ?? null,
+            }).returning();
+            inserted = rows[0];
+          } catch (err) {
+            if (!isUniqueViolation(err)) throw err;
+          }
+        }
+        if (!inserted) throw new Error("Could not allocate project slug");
+        await insertReverseComponents(tx, inserted.id, parsed);
+        return inserted;
+      });
+
+      res.status(201).json({ project: newProject, workspaceSlug: ws.slug, mode: "new_project" });
+    } catch (err) {
+      req.log.error({ err }, "reverse-engineer save failed");
+      res.status(500).json({ error: "Could not save generated project" });
     }
   },
 );

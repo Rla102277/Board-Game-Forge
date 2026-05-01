@@ -12,14 +12,8 @@ import {
   Lightbulb, Compass, StickyNote, TrendingUp, MessageCircle,
   Zap, ChevronRight, Heart, CheckCircle2, ChevronDown, ChevronUp,
   Users, Clock, BarChart2, FileText, GripVertical, RefreshCw, Wand2, ArrowRight,
-  AlertTriangle, Check,
 } from "lucide-react";
 import { apiBase, workspacesApi } from "@/lib/workspaces-api";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel,
-  AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,9 +22,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { GAME_TEMPLATES, type GameTemplate } from "@/lib/game-templates";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /* ── types ───────────────────────────────────────────────────────────── */
 
@@ -75,6 +69,7 @@ function parseRefGames(raw: string | null | undefined): RefGame[] {
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
+    // Back-compat: add id to old entries that don't have one
     return parsed.map((g: RefGame) => ({ ...g, id: g.id ?? crypto.randomUUID() }));
   } catch { return []; }
 }
@@ -105,14 +100,9 @@ const QUICK_PROMPTS = [
 
 const COMPLEXITY_LABELS: Record<number, string> = { 1: "Pick up & play", 2: "Easy", 3: "Medium", 4: "Complex", 5: "Heavy" };
 
-const REVERSE_STAGES = [
-  { label: "Analyzing games…", sub: "KIMI is studying your inspirations" },
-  { label: "Synthesizing design DNA…", sub: "Finding patterns across your references" },
-  { label: "Designing your game…", sub: "Building mechanics, rules, and roles" },
-  { label: "Finalizing blueprint…", sub: "Polishing the final design" },
-];
-
 /* ── sub-components ──────────────────────────────────────────────────── */
+
+/* ── DraggableGameCard ───────────────────────────────────────────────── */
 
 function DraggableGameCard({
   game,
@@ -133,7 +123,6 @@ function DraggableGameCard({
 }) {
   const controls = useDragControls();
   const [expanded, setExpanded] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(false);
   const hasData = Boolean(game.gameData);
 
   return (
@@ -166,34 +155,12 @@ function DraggableGameCard({
             )}
           </div>
 
-          {/* Remove button with inline confirm */}
-          {confirmRemove ? (
-            <div className="flex items-center gap-1 shrink-0">
-              <span className="text-[11px] text-destructive font-medium">Remove?</span>
-              <button
-                onClick={onRemove}
-                className="h-6 w-6 flex items-center justify-center rounded bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
-                title="Confirm remove"
-              >
-                <Check className="h-3 w-3" />
-              </button>
-              <button
-                onClick={() => setConfirmRemove(false)}
-                className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
-                title="Cancel"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmRemove(true)}
-              className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground/50 hover:text-muted-foreground transition-opacity p-0.5"
-              title="Remove this game"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
+          <button
+            onClick={onRemove}
+            className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity p-0.5"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         {/* Stats pills */}
@@ -358,238 +325,6 @@ function DraggableGameCard({
   );
 }
 
-/* ── ReverseEngineerDialog ───────────────────────────────────────────── */
-
-function ReverseEngineerDialog({
-  open,
-  onClose,
-  researched,
-  projectId,
-  workspaceSlug,
-  onSuccess,
-}: {
-  open: boolean;
-  onClose: () => void;
-  researched: RefGame[];
-  projectId: number;
-  workspaceSlug?: string;
-  onSuccess: (result: { project: { name: string; slug?: string; id: number }; workspaceSlug?: string; mode: string }) => void;
-}) {
-  const { toast } = useToast();
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(researched.map((g) => g.id)));
-  const [direction, setDirection] = useState("");
-  const [mode, setMode] = useState<"new_project" | "populate_current">("new_project");
-  const [reversing, setReversing] = useState(false);
-  const [stageIdx, setStageIdx] = useState(0);
-
-  // Keep selection in sync when dialog opens
-  useEffect(() => {
-    if (open) {
-      setSelectedIds(new Set(researched.map((g) => g.id)));
-      setDirection("");
-      setMode("new_project");
-      setStageIdx(0);
-    }
-  }, [open, researched]);
-
-  // Cycle through stage labels while reversing
-  useEffect(() => {
-    if (!reversing) { setStageIdx(0); return; }
-    const interval = setInterval(() => setStageIdx((i) => Math.min(i + 1, REVERSE_STAGES.length - 1)), 3500);
-    return () => clearInterval(interval);
-  }, [reversing]);
-
-  const toggleAll = () => {
-    if (selectedIds.size === researched.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(researched.map((g) => g.id)));
-    }
-  };
-
-  const toggleGame = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); } else { next.add(id); }
-      return next;
-    });
-  };
-
-  const selectedGames = researched.filter((g) => selectedIds.has(g.id));
-
-  const run = async () => {
-    if (selectedGames.length === 0) {
-      toast({ title: "Select at least one game", variant: "destructive" });
-      return;
-    }
-    setReversing(true);
-    try {
-      const res = await fetch(`${apiBase()}/api/projects/${projectId}/reverse-engineer`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ games: selectedGames, direction, mode, workspaceSlug }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(err.error ?? "Reverse engineer failed");
-      }
-      const result = await res.json();
-      onSuccess(result);
-      onClose();
-    } catch (err) {
-      toast({ title: "Reverse engineer failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
-    } finally {
-      setReversing(false);
-    }
-  };
-
-  const stage = REVERSE_STAGES[stageIdx]!;
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && !reversing && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5 text-violet-400" />
-            Deep Reverse Engineer
-            <span className="ml-auto text-[10px] font-normal bg-violet-500/10 border border-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">Powered by KIMI</span>
-          </DialogTitle>
-        </DialogHeader>
-
-        {reversing ? (
-          /* Progress state */
-          <div className="py-10 flex flex-col items-center gap-6 text-center">
-            <div className="relative">
-              <div className="h-16 w-16 rounded-full bg-violet-500/10 flex items-center justify-center">
-                <Wand2 className="h-8 w-8 text-violet-400 animate-pulse" />
-              </div>
-              <div className="absolute inset-0 rounded-full border-2 border-violet-500/30 animate-spin border-t-violet-400" />
-            </div>
-            <div>
-              <p className="font-semibold text-base text-foreground">{stage.label}</p>
-              <p className="text-sm text-muted-foreground mt-1">{stage.sub}</p>
-            </div>
-            <div className="flex gap-1.5">
-              {REVERSE_STAGES.map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-1.5 w-8 rounded-full transition-colors ${i <= stageIdx ? "bg-violet-400" : "bg-muted"}`}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-5 py-2">
-            {/* Game selection */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">Reverse-engineer from</Label>
-                <button
-                  onClick={toggleAll}
-                  className="text-xs text-primary hover:underline"
-                >
-                  {selectedIds.size === researched.length ? "Deselect all" : "Select all"}
-                </button>
-              </div>
-              <div className="rounded-lg border border-border divide-y divide-border">
-                {researched.map((g) => (
-                  <label
-                    key={g.id}
-                    className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
-                  >
-                    <Checkbox
-                      checked={selectedIds.has(g.id)}
-                      onCheckedChange={() => toggleGame(g.id)}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{g.name}</p>
-                      {g.gameData?.keyMechanics?.length ? (
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {g.gameData.keyMechanics.slice(0, 3).join(" · ")}
-                        </p>
-                      ) : null}
-                    </div>
-                  </label>
-                ))}
-              </div>
-              {selectedGames.length === 0 && (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3" /> Select at least one game
-                </p>
-              )}
-            </div>
-
-            {/* Mode toggle */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">What do you want to build?</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setMode("new_project")}
-                  className={`rounded-lg border p-3 text-left transition-all ${
-                    mode === "new_project"
-                      ? "border-violet-500/50 bg-violet-500/10 ring-1 ring-violet-500/30"
-                      : "border-border hover:border-violet-500/30 bg-card"
-                  }`}
-                >
-                  <p className="text-sm font-semibold flex items-center gap-1.5">
-                    <Plus className="h-3.5 w-3.5 text-violet-400" /> New game
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Create a brand-new project inspired by your selections
-                  </p>
-                </button>
-                <button
-                  onClick={() => setMode("populate_current")}
-                  className={`rounded-lg border p-3 text-left transition-all ${
-                    mode === "populate_current"
-                      ? "border-violet-500/50 bg-violet-500/10 ring-1 ring-violet-500/30"
-                      : "border-border hover:border-violet-500/30 bg-card"
-                  }`}
-                >
-                  <p className="text-sm font-semibold flex items-center gap-1.5">
-                    <RefreshCw className="h-3.5 w-3.5 text-violet-400" /> Rebuild this
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Fill current project with new entities, rules, and roles
-                  </p>
-                </button>
-              </div>
-            </div>
-
-            {/* Direction */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Creative direction <span className="font-normal text-muted-foreground">(optional)</span></Label>
-              <Textarea
-                rows={3}
-                placeholder={`e.g. "Faster and more chaotic" · "Set in ancient Rome with political intrigue" · "Cooperative with traitor mechanics"`}
-                value={direction}
-                onChange={(e) => setDirection(e.target.value)}
-                className="resize-none text-sm"
-              />
-            </div>
-          </div>
-        )}
-
-        {!reversing && (
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button
-              className="gap-2 bg-violet-600 hover:bg-violet-700"
-              onClick={run}
-              disabled={selectedGames.length === 0}
-            >
-              <Wand2 className="h-4 w-4" />
-              {mode === "new_project" ? "Build new game" : "Rebuild this project"}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </DialogFooter>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 /* ── InspirationShelf ────────────────────────────────────────────────── */
 
 function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; workspaceSlug?: string }) {
@@ -602,8 +337,10 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
   const [refGames, setRefGames] = useState<RefGame[]>([]);
   const [draft, setDraft] = useState({ name: "", borrowing: "", avoiding: "" });
   const [showForm, setShowForm] = useState(false);
-  const [lookingUp, setLookingUp] = useState<string | null>(null);
-  const [showReverseDialog, setShowReverseDialog] = useState(false);
+  const [lookingUp, setLookingUp] = useState<string | null>(null); // game id
+  const [reverseTarget, setReverseTarget] = useState<RefGame | null>(null);
+  const [reverseDirection, setReverseDirection] = useState("");
+  const [reversing, setReversing] = useState(false);
   const initRef = useRef(false);
 
   useEffect(() => {
@@ -631,6 +368,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
     const game = refGames.find((g) => g.id === id);
     if (!game) return;
     setLookingUp(id);
+    // Optionally clear existing data so the card returns to un-researched state while loading
     if (clearExisting) {
       persist(refGames.map((g) => g.id === id ? { ...g, gameData: undefined, researchId: undefined } : g));
     }
@@ -643,6 +381,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
       });
       if (!res.ok) throw new Error(await res.text());
       const { research, gameData } = await res.json() as { research: { id: number }; gameData: GameData };
+      // Re-read latest refGames from current state
       setRefGames((prev) => {
         const next = prev.map((g) => g.id === id ? { ...g, researchId: research.id, gameData } : g);
         updateProject.mutate({ projectId, data: { referenceGames: JSON.stringify(next) } as any });
@@ -657,12 +396,37 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
     }
   };
 
-  const researched = refGames.filter((g) => g.gameData);
+  const reverseEngineer = async () => {
+    if (!reverseTarget || !workspaceSlug) return;
+    setReversing(true);
+    try {
+      const gd = reverseTarget.gameData;
+      const mechanicsHint = gd?.keyMechanics?.join(", ") ?? "";
+      const lessonsHint = gd?.designLessons ?? "";
+      const prompt = [
+        `Reverse-engineer and reimagine "${reverseTarget.name}" as a fresh, original board game.`,
+        mechanicsHint && `Core mechanics to adapt: ${mechanicsHint}.`,
+        lessonsHint && `Design insight: ${lessonsHint}.`,
+        reverseDirection.trim() && `New direction: ${reverseDirection.trim()}.`,
+        `Create a playable prototype with a compelling theme, clear win condition, and balanced player roles. Make it distinctly different from "${reverseTarget.name}".`,
+      ].filter(Boolean).join(" ");
+
+      const out = await workspacesApi.generate(workspaceSlug, { prompt });
+      setReverseTarget(null);
+      setReverseDirection("");
+      toast({ title: "New project created!", description: out.project.name });
+      setLocation(`/${out.workspaceSlug}/${out.project.slug ?? out.project.id}`);
+    } catch (err) {
+      toast({ title: "Reverse engineer failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setReversing(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
       {/* Section header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-base flex items-center gap-2">
             <Heart className="h-4 w-4 text-rose-400" /> Games that shaped your vision
@@ -672,24 +436,11 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
             <span className="text-violet-400 font-medium">Reverse Engineer</span> it into a new project.
           </p>
         </div>
-        <div className="flex gap-2">
-          {researched.length >= 1 && workspaceSlug && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 shrink-0 border-violet-500/30 text-violet-400 hover:bg-violet-500/10"
-              onClick={() => setShowReverseDialog(true)}
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              Reverse engineer all
-            </Button>
-          )}
-          {!showForm && (
-            <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => setShowForm(true)}>
-              <Plus className="h-3.5 w-3.5" /> Add a game
-            </Button>
-          )}
-        </div>
+        {!showForm && (
+          <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => setShowForm(true)}>
+            <Plus className="h-3.5 w-3.5" /> Add a game
+          </Button>
+        )}
       </div>
 
       {/* Add game form */}
@@ -736,7 +487,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
               onRemove={() => removeGame(rg.id)}
               onResearch={() => lookUpGame(rg.id)}
               onReResearch={() => lookUpGame(rg.id, true)}
-              onReverseEngineer={() => setShowReverseDialog(true)}
+              onReverseEngineer={() => { setReverseTarget(rg); setReverseDirection(""); }}
               researching={lookingUp === rg.id}
               canReverseEngineer={Boolean(workspaceSlug && rg.gameData)}
             />
@@ -756,30 +507,60 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
         </button>
       )}
 
-      {/* Full reverse engineer dialog */}
-      <ReverseEngineerDialog
-        open={showReverseDialog}
-        onClose={() => setShowReverseDialog(false)}
-        researched={researched}
-        projectId={projectId}
-        workspaceSlug={workspaceSlug}
-        onSuccess={(result) => {
-          if (result.mode === "new_project" && result.workspaceSlug) {
-            toast({ title: "New project created!", description: result.project.name });
-            setLocation(`/${result.workspaceSlug}/${result.project.slug ?? result.project.id}`);
-          } else {
-            qc.invalidateQueries();
-            toast({ title: "Project rebuilt!", description: "New entities, rules, and roles have been added." });
-          }
-        }}
-      />
+      {/* Reverse Engineer dialog */}
+      <Dialog open={Boolean(reverseTarget)} onOpenChange={(o) => !o && setReverseTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-violet-400" />
+              Reverse engineer "{reverseTarget?.name}"
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              AI will study <span className="text-foreground font-medium">{reverseTarget?.name}</span>'s design DNA and spin up a brand-new, original game inspired by it — not a copy.
+            </p>
+            {reverseTarget?.gameData?.keyMechanics?.length ? (
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-1.5">Mechanics it'll riff on</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {reverseTarget.gameData.keyMechanics.map((m, i) => (
+                    <span key={i} className="text-xs bg-violet-500/10 border border-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">{m}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Give it a direction (optional)</Label>
+              <Textarea
+                rows={3}
+                placeholder={`e.g. "Make it faster and more chaotic" or "Set it in ancient Rome with political intrigue"`}
+                value={reverseDirection}
+                onChange={(e) => setReverseDirection(e.target.value)}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReverseTarget(null)}>Cancel</Button>
+            <Button
+              className="gap-2 bg-violet-600 hover:bg-violet-700"
+              onClick={reverseEngineer}
+              disabled={reversing}
+            >
+              {reversing
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Building your game…</>
+                : <><Wand2 className="h-4 w-4" /> Build new game <ArrowRight className="h-4 w-4" /></>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 function GamesToKnow({ projectId }: { projectId: number }) {
   const [games, setGames] = useState<CompGame[]>(() => loadComp(projectId));
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const persist = (next: CompGame[]) => { setGames(next); saveComp(projectId, next); };
 
@@ -825,7 +606,7 @@ function GamesToKnow({ projectId }: { projectId: number }) {
 
       <div className="space-y-3">
         {games.map((g) => (
-          <div key={g.id} className="rounded-xl border border-border bg-card p-4 space-y-3 group">
+          <div key={g.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
             <div className="flex items-start gap-2">
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <Input
@@ -847,26 +628,9 @@ function GamesToKnow({ projectId }: { projectId: number }) {
                   placeholder="Play time (e.g. 60 min)"
                 />
               </div>
-              {confirmDelete === g.id ? (
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-[11px] text-destructive font-medium whitespace-nowrap">Remove?</span>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => { del(g.id); setConfirmDelete(null); }}>
-                    <Check className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={() => setConfirmDelete(null)}>
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  size="icon" variant="ghost"
-                  className="h-8 w-8 shrink-0 text-muted-foreground/40 hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => setConfirmDelete(g.id)}
-                  title="Remove this game"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => del(g.id)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -1071,7 +835,6 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
   const deleteItem = useDeleteResearch();
   const enhanceItem = useAiEnhanceResearch();
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -1131,7 +894,6 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
   const removeItem = async (id: number) => {
     try { await deleteItem.mutateAsync({ projectId, researchId: id }); refresh(); }
     catch { toast({ title: "Delete failed", variant: "destructive" }); }
-    finally { setDeleteConfirmId(null); }
   };
 
   const handleEnhance = async (researchId: number) => {
@@ -1334,14 +1096,7 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
                           {enhancingId === it.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                         </Button>
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(it.id)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                        <Button
-                          size="icon" variant="ghost"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => setDeleteConfirmId(it.id)}
-                          title="Delete note"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeItem(it.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
                     </div>
                     {it.source && (
@@ -1374,27 +1129,6 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Delete note confirmation */}
-      <AlertDialog open={deleteConfirmId !== null} onOpenChange={(o) => !o && setDeleteConfirmId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this note?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove the note. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteConfirmId !== null && removeItem(deleteConfirmId)}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

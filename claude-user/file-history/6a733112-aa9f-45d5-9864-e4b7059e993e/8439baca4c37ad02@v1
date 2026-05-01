@@ -15,31 +15,6 @@ import {
 
 export { AiProviderDisabledError } from "./workspaceAiSettings";
 
-const KIMI_MODEL = "moonshotai/kimi-k1.5";
-
-// Always uses KIMI via OpenRouter regardless of user preferences.
-// Falls back to the request-scoped provider if OpenRouter is unavailable.
-export async function completeWithKimi(
-  req: Request,
-  opts: CompleteOptions,
-): Promise<string> {
-  const max = opts.maxTokens ?? 8000;
-  const messages: Array<{ role: "system" | "user"; content: string }> = [];
-  if (opts.system) messages.push({ role: "system", content: opts.system });
-  messages.push({ role: "user", content: opts.prompt });
-  try {
-    const r = await defaultOpenRouter.chat.completions.create({
-      model: KIMI_MODEL,
-      max_completion_tokens: max,
-      messages,
-    });
-    return r.choices[0]?.message?.content ?? "";
-  } catch {
-    // Fallback to user's configured provider
-    return complete(req, opts);
-  }
-}
-
 export type AiTaskKind =
   | "narrative"
   | "structured"
