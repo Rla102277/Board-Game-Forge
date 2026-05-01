@@ -110,19 +110,47 @@ function parseTurnPhases(raw: string | null | undefined): string[] {
 }
 
 function castHeroMeta(raw: Record<string, unknown> | null | undefined): HeroMeta {
-  return (raw ?? {}) as HeroMeta;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as HeroMeta;
 }
 function castProblems(raw: Record<string, unknown>[] | null | undefined): DesignProblem[] {
-  return (raw ?? []) as unknown as DesignProblem[];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((p) => {
+      if (p === null || typeof p !== "object") return false;
+      const x = p as Record<string, unknown>;
+      return typeof x["id"] === "string" && typeof x["text"] === "string" &&
+        ["blocker", "concern", "watch"].includes(x["severity"] as string);
+    })
+    .map((p) => p as unknown as DesignProblem);
 }
 function castNextPlaytest(raw: Record<string, unknown> | null | undefined): NextPlaytest {
-  return (raw ?? {}) as NextPlaytest;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as NextPlaytest;
 }
 function castDecisionLog(raw: Record<string, unknown>[] | null | undefined): DecisionEntry[] {
-  return (raw ?? []) as unknown as DecisionEntry[];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((e) => {
+      if (e === null || typeof e !== "object") return false;
+      const x = e as Record<string, unknown>;
+      return typeof x["id"] === "string" && typeof x["text"] === "string" && typeof x["createdAt"] === "string";
+    })
+    .map((e) => e as unknown as DecisionEntry);
 }
 function castFingerprint(raw: Record<string, unknown> | null | undefined): MechanicFingerprint {
-  return { luck: 3, strategy: 3, interaction: 3, complexity: 3, replayability: 3, ...(raw ?? {}) } as MechanicFingerprint;
+  const defaults: MechanicFingerprint = { luck: 3, strategy: 3, interaction: 3, complexity: 3, replayability: 3 };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return defaults;
+  const clamp = (v: unknown, fallback: number) =>
+    typeof v === "number" && v >= 1 && v <= 5 ? v : fallback;
+  const fp = raw as Record<string, unknown>;
+  return {
+    luck:          clamp(fp["luck"],          3),
+    strategy:      clamp(fp["strategy"],      3),
+    interaction:   clamp(fp["interaction"],   3),
+    complexity:    clamp(fp["complexity"],    3),
+    replayability: clamp(fp["replayability"], 3),
+  };
 }
 
 export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewProps) {
