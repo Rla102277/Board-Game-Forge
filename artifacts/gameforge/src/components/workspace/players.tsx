@@ -175,6 +175,7 @@ export function Players({ projectId }: PlayersProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [factionFilter, setFactionFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<PlayerType | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<PlayerType>>(new Set());
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -238,13 +239,14 @@ export function Players({ projectId }: PlayersProps) {
       list = list.filter((p) => p.name.toLowerCase().includes(q) || (p.faction ?? "").toLowerCase().includes(q));
     }
     if (factionFilter) list = list.filter((p) => p.faction === factionFilter);
+    if (typeFilter) list = list.filter((p) => ((p.playerType as PlayerType) ?? "Character") === typeFilter);
     list.forEach((p) => {
       const t = (p.playerType as PlayerType) ?? "Character";
       map.get(t)?.push(p);
     });
     map.forEach((group) => group.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)));
     return map;
-  }, [players, search, factionFilter]);
+  }, [players, search, factionFilter, typeFilter]);
 
   const totalFiltered = useMemo(() => Array.from(grouped.values()).reduce((n, g) => n + g.length, 0), [grouped]);
 
@@ -368,6 +370,26 @@ export function Players({ projectId }: PlayersProps) {
           </div>
         </div>
 
+        {/* Type filter chips */}
+        {!noPlayers && (
+          <div className="px-3 py-2 border-b border-border flex flex-wrap gap-1">
+            {PLAYER_TYPES.filter((t) => (grouped.get(t) ?? []).length > 0 || typeFilter === t).map((type) => {
+              const tm = getMeta(type);
+              const active = typeFilter === type;
+              return (
+                <button
+                  key={type}
+                  onClick={() => setTypeFilter(active ? null : type)}
+                  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${active ? `${tm.badge}` : "text-muted-foreground border-border hover:text-foreground"}`}
+                >
+                  <tm.Icon className="h-2.5 w-2.5" />
+                  {type}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Faction filter chips */}
         {factions.length > 0 && (
           <div className="px-3 py-2 border-b border-border flex flex-wrap gap-1">
@@ -400,10 +422,13 @@ export function Players({ projectId }: PlayersProps) {
               const collapsed = collapsedGroups.has(type);
               return (
                 <div key={type}>
-                  {/* Group header */}
-                  <button
+                  {/* Group header — use div+role to avoid nested-button semantic issue */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setCollapsedGroups((s) => { const n = new Set(s); n.has(type) ? n.delete(type) : n.add(type); return n; }); }}
                     onClick={() => setCollapsedGroups((s) => { const n = new Set(s); n.has(type) ? n.delete(type) : n.add(type); return n; })}
-                    className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-muted/20 text-left group"
+                    className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-muted/20 text-left group cursor-pointer select-none"
                   >
                     {collapsed ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
                     <m.Icon className={`h-3 w-3 ${m.color}`} />
@@ -412,10 +437,11 @@ export function Players({ projectId }: PlayersProps) {
                     <button
                       onClick={(e) => { e.stopPropagation(); setAddingType(type); setNewName(""); }}
                       className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground ml-1"
+                      aria-label={`Add ${type}`}
                     >
                       <Plus className="h-3 w-3" />
                     </button>
-                  </button>
+                  </div>
 
                   {/* Inline quick-add */}
                   {!collapsed && addingType === type && (
@@ -459,7 +485,11 @@ export function Players({ projectId }: PlayersProps) {
                         <m.Icon className={`h-3.5 w-3.5 shrink-0 ${m.color}`} />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{p.name}</p>
-                          {p.faction && <p className="text-[10px] text-muted-foreground truncate">{p.faction}</p>}
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            <span className={m.color}>{p.playerType}</span>
+                            {p.role ? ` · ${p.role}` : ""}
+                            {p.faction ? ` · ${p.faction}` : ""}
+                          </p>
                         </div>
                         {deleteConfirmId === p.id ? (
                           <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
