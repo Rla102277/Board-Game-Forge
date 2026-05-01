@@ -171,6 +171,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   });
   const [turnPhaseInput, setTurnPhaseInput] = useState("");
   const [turnPhases, setTurnPhases] = useState<string[]>([]);
+  const [narrative, setNarrative] = useState("");
 
   /* ── Per-column jsonb state ────────────────────────────────────── */
   const [heroMeta,     setHeroMeta]     = useState<HeroMeta>({});
@@ -192,6 +193,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   const savedPlaytestRef    = useRef("");
   const savedDecisionRef    = useRef("");
   const savedFingerprintRef = useRef("");
+  const savedNarrativeRef   = useRef("");
 
   useEffect(() => {
     if (!project || initRef.current) return;
@@ -205,6 +207,8 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
     };
     setForm(f); savedFormRef.current = JSON.stringify(f);
     setTurnPhases(phases);
+    const narr = project.narrative ?? "";
+    setNarrative(narr); savedNarrativeRef.current = narr;
     const hm = castHeroMeta(project.overviewMeta);
     setHeroMeta(hm); savedHeroMetaRef.current = JSON.stringify(hm);
     const pr = castProblems(project.designProblems);
@@ -233,6 +237,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
     winCondition: useDebounce(form.winCondition, 1200),
     eliminationRule: useDebounce(form.eliminationRule, 1200),
   };
+  const dbNarrative   = useDebounce(narrative, 1000);
   const dbHeroMeta    = useDebounce(heroMeta, 1500);
   const dbProblems    = useDebounce(problems, 1500);
   const dbPlaytest    = useDebounce(nextPlaytest, 1500);
@@ -248,6 +253,12 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db.name, db.description, db.gameType, db.genre, db.playerCount, db.targetDuration, db.winCondition, db.eliminationRule]);
+
+  useEffect(() => {
+    if (!initRef.current) return;
+    if (dbNarrative !== savedNarrativeRef.current) { save({ narrative: dbNarrative }); savedNarrativeRef.current = dbNarrative; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbNarrative]);
 
   useEffect(() => {
     if (!initRef.current) return;
@@ -367,6 +378,19 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
                 value={heroMeta.elevatorPitch || ""}
                 onChange={(e) => setHeroMeta((m) => ({ ...m, elevatorPitch: e.target.value }))}
               />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Narrative seed</Label>
+              <Textarea
+                placeholder="Describe the world, theme, or story that drives your game's atmosphere and components…"
+                rows={3}
+                className="resize-none text-sm bg-background/60"
+                value={narrative}
+                onChange={(e) => setNarrative(e.target.value)}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                This seed is shared across the studio — it guides AI generation for components, rules, and players.
+              </p>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
