@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetProject, useUpdateProject, useGetProjectStats,
   useListEntities, useListRules, useListPlayers, useListNotes,
+  getGetProjectQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -157,6 +159,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   const { data: project, isLoading: projectLoading } = useGetProject(projectId);
   const { data: stats, isLoading: statsLoading } = useGetProjectStats(projectId);
   const updateProject = useUpdateProject();
+  const qc = useQueryClient();
 
   const { data: entities } = useListEntities(projectId);
   const { data: rules }    = useListRules(projectId);
@@ -256,7 +259,18 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
 
   useEffect(() => {
     if (!initRef.current) return;
-    if (dbNarrative !== savedNarrativeRef.current) { save({ narrative: dbNarrative }); savedNarrativeRef.current = dbNarrative; }
+    if (dbNarrative !== savedNarrativeRef.current) {
+      const valueToSave = dbNarrative;
+      updateProject.mutate(
+        { projectId, data: { narrative: valueToSave } },
+        {
+          onSuccess: () => {
+            savedNarrativeRef.current = valueToSave;
+            qc.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
+          },
+        },
+      );
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbNarrative]);
 
