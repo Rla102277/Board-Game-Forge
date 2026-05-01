@@ -17,4 +17,5 @@ export interface UpdateAssetBody {
   status?: string;
   componentDetails?: string;
   displayOrder?: number;
+  groupDisplayOrder?: number;
 }

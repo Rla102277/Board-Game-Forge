@@ -299,6 +299,7 @@ export interface Entity {
   lore?: string | null;
   /** @nullable */
   designNotes?: string | null;
+  status: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -329,6 +330,7 @@ export interface UpdateEntityBody {
   relatedTo?: string;
   lore?: string;
   designNotes?: string;
+  status?: string;
 }
 
 export interface EntityProperty {
@@ -469,10 +471,6 @@ export interface AiGenerateRulesResult {
   narrativeApplied: boolean;
 }
 
-export type PlayerBehaviorProfile = { [key: string]: unknown } | null;
-
-export type PlayerRelationshipsItem = { [key: string]: unknown };
-
 export interface Player {
   id: number;
   projectId: number;
@@ -504,8 +502,10 @@ export interface Player {
   arc?: string | null;
   /** @nullable */
   displayOrder?: number | null;
-  behaviorProfile?: PlayerBehaviorProfile;
-  relationships?: PlayerRelationshipsItem[] | null;
+  /** @nullable */
+  behaviorProfile?: Record<string, unknown> | null;
+  /** @nullable */
+  relationships?: Record<string, unknown>[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -551,11 +551,9 @@ export interface AiTextEditResponse {
   rewritten: string;
 }
 
-
 export type CreatePlayerBodyBehaviorProfile = { [key: string]: unknown };
 
 export type CreatePlayerBodyRelationshipsItem = { [key: string]: unknown };
-
 export interface CreatePlayerBody {
   name: string;
   playerType?: string;
@@ -572,13 +570,9 @@ export interface CreatePlayerBody {
   flaw?: string;
   arc?: string;
   displayOrder?: number;
-  behaviorProfile?: CreatePlayerBodyBehaviorProfile;
-  relationships?: CreatePlayerBodyRelationshipsItem[];
+  behaviorProfile?: Record<string, unknown>;
+  relationships?: Record<string, unknown>[];
 }
-
-export type UpdatePlayerBodyBehaviorProfile = { [key: string]: unknown };
-
-export type UpdatePlayerBodyRelationshipsItem = { [key: string]: unknown };
 
 export interface UpdatePlayerBody {
   name?: string;
@@ -596,8 +590,8 @@ export interface UpdatePlayerBody {
   flaw?: string;
   arc?: string;
   displayOrder?: number;
-  behaviorProfile?: UpdatePlayerBodyBehaviorProfile;
-  relationships?: UpdatePlayerBodyRelationshipsItem[];
+  behaviorProfile?: Record<string, unknown>;
+  relationships?: Record<string, unknown>[];
 }
 
 export interface ReorderPlayersBody {
@@ -729,6 +723,8 @@ export interface Asset {
   componentDetails?: string | null;
   /** @nullable */
   displayOrder?: number | null;
+  /** @nullable */
+  groupDisplayOrder?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -740,6 +736,9 @@ export interface CreateAssetBody {
   description?: string;
   flavorText?: string;
   imagePrompt?: string;
+  quantity?: number;
+  status?: string;
+  componentDetails?: string;
 }
 
 export interface UpdateAssetBody {
@@ -749,6 +748,11 @@ export interface UpdateAssetBody {
   description?: string;
   flavorText?: string;
   imagePrompt?: string;
+  quantity?: number;
+  status?: string;
+  componentDetails?: string;
+  displayOrder?: number;
+  groupDisplayOrder?: number;
 }
 
 export interface GenerateImageBody {

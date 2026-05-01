@@ -3067,6 +3067,8 @@ components:
           type: [string, "null"]
         displayOrder:
           type: [integer, "null"]
+        groupDisplayOrder:
+          type: [integer, "null"]
         createdAt:
           type: string
           format: date-time
@@ -3121,6 +3123,8 @@ components:
         componentDetails:
           type: string
         displayOrder:
+          type: integer
+        groupDisplayOrder:
           type: integer
 
     GenerateImageBody:

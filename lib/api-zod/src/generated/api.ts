@@ -169,7 +169,7 @@ export const GetProjectResponse = zod.object({
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
   referenceGames: zod.string().nullish(),
-  designPhase: zod.string(),
+  designPhase: zod.string().default("concept"),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -197,6 +197,7 @@ export const UpdateProjectBody = zod.object({
   eliminationRule: zod.string().optional(),
   designPhase: zod.string().optional(),
   turnPhases: zod.string().optional(),
+  referenceGames: zod.string().optional(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -220,7 +221,7 @@ export const UpdateProjectResponse = zod.object({
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
   referenceGames: zod.string().nullish(),
-  designPhase: zod.string(),
+  designPhase: zod.string().default("concept"),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -549,7 +550,11 @@ export const ListEntitiesResponseItem = zod.object({
   parentEntityId: zod.number().nullish(),
   description: zod.string().nullish(),
   stats: zod.string().nullish(),
-  status: zod.string(),
+  color: zod.string().nullish(),
+  relatedTo: zod.string().nullish(),
+  lore: zod.string().nullish(),
+  designNotes: zod.string().nullish(),
+  status: zod.string().default("draft"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -570,6 +575,7 @@ export const CreateEntityBody = zod.object({
   relatedTo: zod.string().optional(),
   lore: zod.string().optional(),
   designNotes: zod.string().optional(),
+  status: zod.string().optional(),
 });
 
 export const UpdateEntityParams = zod.object({
@@ -581,14 +587,14 @@ export const UpdateEntityBody = zod.object({
   name: zod.string().optional(),
   type: zod.string().optional(),
   subtype: zod.string().optional(),
-  parentEntityId: zod.number().optional(),
+  parentEntityId: zod.number().nullish(),
   description: zod.string().optional(),
   stats: zod.string().optional(),
-  status: zod.string().optional(),
   color: zod.string().optional(),
   relatedTo: zod.string().optional(),
   lore: zod.string().optional(),
   designNotes: zod.string().optional(),
+  status: zod.string().optional(),
 });
 
 export const UpdateEntityResponse = zod.object({
@@ -600,7 +606,11 @@ export const UpdateEntityResponse = zod.object({
   parentEntityId: zod.number().nullish(),
   description: zod.string().nullish(),
   stats: zod.string().nullish(),
-  status: zod.string(),
+  color: zod.string().nullish(),
+  relatedTo: zod.string().nullish(),
+  lore: zod.string().nullish(),
+  designNotes: zod.string().nullish(),
+  status: zod.string().default("draft"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -625,7 +635,6 @@ export const AiGenerateEntitiesResponseItem = zod.object({
   name: zod.string(),
   type: zod.string(),
   subtype: zod.string().nullish(),
-  parentEntityId: zod.number().nullish(),
   description: zod.string().nullish(),
   stats: zod.string().nullish(),
   status: zod.string(),
@@ -655,39 +664,6 @@ export const AiEnhanceEntityResponse = zod.object({
   ),
 });
 
-/**
- * @summary List rules linked to a specific entity
- */
-export const ListEntityRulesParams = zod.object({
-  projectId: zod.coerce.number(),
-  entityId: zod.coerce.number(),
-});
-
-export const ListEntityRulesResponseItem = zod.object({
-  id: zod.number(),
-  entityId: zod.number(),
-  ruleId: zod.number(),
-  createdAt: zod.coerce.date(),
-});
-export const ListEntityRulesResponse = zod.array(ListEntityRulesResponseItem);
-
-/**
- * @summary Link a rule to an entity
- */
-export const LinkEntityRuleParams = zod.object({
-  projectId: zod.coerce.number(),
-  entityId: zod.coerce.number(),
-  ruleId: zod.coerce.number(),
-});
-
-/**
- * @summary Remove a rule link from an entity
- */
-export const UnlinkEntityRuleParams = zod.object({
-  projectId: zod.coerce.number(),
-  entityId: zod.coerce.number(),
-  ruleId: zod.coerce.number(),
-});
 
 export const ListProjectEntityPropertiesParams = zod.object({
   projectId: zod.coerce.number(),
@@ -845,19 +821,6 @@ export const DeleteRuleParams = zod.object({
   ruleId: zod.coerce.number(),
 });
 
-export const ListRuleEntitiesParams = zod.object({
-  projectId: zod.coerce.number(),
-  ruleId: zod.coerce.number(),
-});
-
-export const ListRuleEntitiesResponseItem = zod.object({
-  id: zod.number(),
-  name: zod.string(),
-  type: zod.string(),
-  subtype: zod.string().nullish(),
-  color: zod.string().nullish(),
-});
-export const ListRuleEntitiesResponse = zod.array(ListRuleEntitiesResponseItem);
 
 export const AiGenerateRulesParams = zod.object({
   projectId: zod.coerce.number(),
@@ -955,8 +918,8 @@ export const ListPlayersResponseItem = zod.object({
   flaw: zod.string().nullish(),
   arc: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
-  behaviorProfile: zod.record(zod.string(), zod.unknown()).nullish(),
-  relationships: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  behaviorProfile: zod.record(zod.unknown()).nullish(),
+  relationships: zod.array(zod.record(zod.unknown())).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -982,8 +945,8 @@ export const CreatePlayerBody = zod.object({
   flaw: zod.string().optional(),
   arc: zod.string().optional(),
   displayOrder: zod.number().optional(),
-  behaviorProfile: zod.record(zod.string(), zod.unknown()).optional(),
-  relationships: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  behaviorProfile: zod.record(zod.unknown()).optional(),
+  relationships: zod.array(zod.record(zod.unknown())).optional(),
 });
 
 export const UpdatePlayerParams = zod.object({
@@ -1007,8 +970,8 @@ export const UpdatePlayerBody = zod.object({
   flaw: zod.string().optional(),
   arc: zod.string().optional(),
   displayOrder: zod.number().optional(),
-  behaviorProfile: zod.record(zod.string(), zod.unknown()).optional(),
-  relationships: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  behaviorProfile: zod.record(zod.unknown()).optional(),
+  relationships: zod.array(zod.record(zod.unknown())).optional(),
 });
 
 export const updatePlayerResponsePlayerTypeDefault = `Character`;
@@ -1031,8 +994,8 @@ export const UpdatePlayerResponse = zod.object({
   flaw: zod.string().nullish(),
   arc: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
-  behaviorProfile: zod.record(zod.string(), zod.unknown()).nullish(),
-  relationships: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  behaviorProfile: zod.record(zod.unknown()).nullish(),
+  relationships: zod.array(zod.record(zod.unknown())).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1337,10 +1300,11 @@ export const ListAssetsResponseItem = zod.object({
   flavorText: zod.string().nullish(),
   imageDataUrl: zod.string().nullish(),
   imagePrompt: zod.string().nullish(),
-  quantity: zod.number(),
-  status: zod.string(),
+  quantity: zod.number().default(1),
+  status: zod.string().default("draft"),
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
+  groupDisplayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1357,6 +1321,9 @@ export const CreateAssetBody = zod.object({
   description: zod.string().optional(),
   flavorText: zod.string().optional(),
   imagePrompt: zod.string().optional(),
+  quantity: zod.number().optional(),
+  status: zod.string().optional(),
+  componentDetails: zod.string().optional(),
 });
 
 export const UpdateAssetParams = zod.object({
@@ -1371,6 +1338,11 @@ export const UpdateAssetBody = zod.object({
   description: zod.string().optional(),
   flavorText: zod.string().optional(),
   imagePrompt: zod.string().optional(),
+  quantity: zod.number().optional(),
+  status: zod.string().optional(),
+  componentDetails: zod.string().optional(),
+  displayOrder: zod.number().optional(),
+  groupDisplayOrder: zod.number().optional(),
 });
 
 export const UpdateAssetResponse = zod.object({
@@ -1383,10 +1355,11 @@ export const UpdateAssetResponse = zod.object({
   flavorText: zod.string().nullish(),
   imageDataUrl: zod.string().nullish(),
   imagePrompt: zod.string().nullish(),
-  quantity: zod.number(),
-  status: zod.string(),
+  quantity: zod.number().default(1),
+  status: zod.string().default("draft"),
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
+  groupDisplayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1448,8 +1421,8 @@ export const AiDescribeAssetResponse = zod.object({
   flavorText: zod.string().nullish(),
   imageDataUrl: zod.string().nullish(),
   imagePrompt: zod.string().nullish(),
-  quantity: zod.number(),
-  status: zod.string(),
+  quantity: zod.number().default(1),
+  status: zod.string().default("draft"),
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
@@ -1476,8 +1449,8 @@ export const GenerateAssetImageResponse = zod.object({
   flavorText: zod.string().nullish(),
   imageDataUrl: zod.string().nullish(),
   imagePrompt: zod.string().nullish(),
-  quantity: zod.number(),
-  status: zod.string(),
+  quantity: zod.number().default(1),
+  status: zod.string().default("draft"),
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),

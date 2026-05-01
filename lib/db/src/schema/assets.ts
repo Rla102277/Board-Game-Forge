@@ -22,6 +22,7 @@ export const assets = pgTable("assets", {
   status: text("status").default("draft").notNull(),
   componentDetails: text("component_details"),
   displayOrder: integer("display_order"),
+  groupDisplayOrder: integer("group_display_order"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

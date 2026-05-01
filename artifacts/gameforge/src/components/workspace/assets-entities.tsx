@@ -73,16 +73,6 @@ const COMPONENT_KINDS: ComponentKind[] = [
 
 const ASSET_KINDS = ["card", "token", "board", "tile", "dice", "rulebook", "other"];
 
-// displayOrder offsets per kind so per-section order persists without collisions
-const KIND_ORDER_OFFSET: Record<string, number> = {
-  card:     0,
-  token:    10000,
-  tile:     20000,
-  board:    30000,
-  dice:     40000,
-  rulebook: 50000,
-  other:    60000,
-};
 
 type AIEnhanceEntity = {
   description: string;
@@ -583,6 +573,7 @@ function AssetsView({
   }, [assets, draggedId]);
 
   // Sync localGroupOrder from server whenever assets change (but not during active drag)
+  // Sort within each kind by groupDisplayOrder; fall back to displayOrder for backwards compat.
   useEffect(() => {
     if (!assets || draggedId !== null) return;
     const map = new Map<string, number[]>();
@@ -590,6 +581,18 @@ function AssetsView({
       const k = a.kind ?? "other";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(a.id);
+    }
+    // Sort each bucket by groupDisplayOrder (with displayOrder as fallback)
+    const assetById = new Map(assets.map((a) => [a.id, a]));
+    for (const [kind, ids] of map.entries()) {
+      ids.sort((idA, idB) => {
+        const a = assetById.get(idA);
+        const b = assetById.get(idB);
+        const orderA = a?.groupDisplayOrder ?? a?.displayOrder ?? Infinity;
+        const orderB = b?.groupDisplayOrder ?? b?.displayOrder ?? Infinity;
+        return orderA - orderB;
+      });
+      map.set(kind, ids);
     }
     setLocalGroupOrder(map);
   }, [assets, draggedId]);
@@ -697,7 +700,6 @@ function AssetsView({
     isSavingOrder.current = true;
     const kind = draggedKind;
     const finalKindOrder = localGroupOrder.get(kind) ?? [];
-    const kindOffset = KIND_ORDER_OFFSET[kind] ?? 60000;
     setDraggedId(null);
     setDraggedKind(null);
     setDropTargetId(null);
@@ -705,7 +707,7 @@ function AssetsView({
     try {
       await Promise.all(
         finalKindOrder.map((id, index) =>
-          updateAsset.mutateAsync({ projectId, assetId: id, data: { displayOrder: kindOffset + index } })
+          updateAsset.mutateAsync({ projectId, assetId: id, data: { groupDisplayOrder: index } })
         )
       );
       refresh();
@@ -751,22 +753,25 @@ function AssetsView({
     }
   };
 
+  // Keyboard reorder within a grouped section — writes groupDisplayOrder independently
   const moveGroupedAsset = async (id: number, kind: string, delta: -1 | 1) => {
     const kindIds = localGroupOrder.get(kind) ?? [];
     const idx = kindIds.indexOf(id);
     if (idx === -1) return;
     const newIdx = idx + delta;
     if (newIdx < 0 || newIdx >= kindIds.length) return;
-    const next = [...kindIds];
-    next.splice(idx, 1);
-    next.splice(newIdx, 0, id);
-    setLocalGroupOrder((prev) => { const m = new Map(prev); m.set(kind, next); return m; });
-    requestAnimationFrame(() => cardElemRefs.current.get(id)?.focus());
-    const kindOffset = KIND_ORDER_OFFSET[kind] ?? 60000;
+    const finalKindIds = [...kindIds];
+    finalKindIds.splice(idx, 1);
+    finalKindIds.splice(newIdx, 0, id);
+    setLocalGroupOrder((prev) => {
+      const next = new Map(prev);
+      next.set(kind, finalKindIds);
+      return next;
+    });
     try {
       await Promise.all(
-        next.map((aid, index) =>
-          updateAsset.mutateAsync({ projectId, assetId: aid, data: { displayOrder: kindOffset + index } })
+        finalKindIds.map((aid, index) =>
+          updateAsset.mutateAsync({ projectId, assetId: aid, data: { groupDisplayOrder: index } })
         )
       );
       refresh();

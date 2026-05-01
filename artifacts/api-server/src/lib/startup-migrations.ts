@@ -47,7 +47,9 @@ const MIGRATIONS = [
   `ALTER TABLE assets ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'draft'`,
   `ALTER TABLE assets ADD COLUMN IF NOT EXISTS component_details text`,
   `ALTER TABLE assets ADD COLUMN IF NOT EXISTS display_order integer`,
-],
+  // 0012 – asset group display order (independent ordering for grouped/flat views)
+  `ALTER TABLE assets ADD COLUMN IF NOT EXISTS group_display_order integer`,
+];
 
 export async function runStartupMigrations(): Promise<void> {
   for (const stmt of MIGRATIONS) {

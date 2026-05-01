@@ -27,6 +27,8 @@ export interface Asset {
   componentDetails?: string | null;
   /** @nullable */
   displayOrder?: number | null;
+  /** @nullable */
+  groupDisplayOrder?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

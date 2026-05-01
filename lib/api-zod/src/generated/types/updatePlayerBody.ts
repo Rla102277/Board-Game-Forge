@@ -5,12 +5,9 @@
  * GameForge API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { UpdatePlayerBodyBehaviorProfile } from "./updatePlayerBodyBehaviorProfile";
-import type { UpdatePlayerBodyRelationshipsItem } from "./updatePlayerBodyRelationshipsItem";
 
 export interface UpdatePlayerBody {
   name?: string;
-  playerType?: string;
   role?: string;
   archetype?: string;
   description?: string;
@@ -19,11 +16,4 @@ export interface UpdatePlayerBody {
   victoryCondition?: string;
   specialAbility?: string;
   playstyle?: string;
-  faction?: string;
-  motivation?: string;
-  flaw?: string;
-  arc?: string;
-  displayOrder?: number;
-  behaviorProfile?: UpdatePlayerBodyBehaviorProfile;
-  relationships?: UpdatePlayerBodyRelationshipsItem[];
 }
