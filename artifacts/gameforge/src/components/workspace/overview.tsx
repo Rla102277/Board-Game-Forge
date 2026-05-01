@@ -229,7 +229,10 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   }, [project]);
 
   const save = (patch: Parameters<typeof updateProject.mutate>[0]["data"]) => {
-    updateProject.mutate({ projectId, data: patch });
+    updateProject.mutate(
+      { projectId, data: patch },
+      { onSuccess: () => qc.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) }) },
+    );
   };
 
   /* Debounce base form */
