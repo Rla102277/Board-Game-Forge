@@ -538,6 +538,7 @@ function AssetsView({
     e.dataTransfer.effectAllowed = "move";
     setDraggedId(id);
     dragOverIdRef.current = null;
+    document.body.style.cursor = "grabbing";
   };
 
   const handleDragOver = (e: React.DragEvent, targetId: number) => {
@@ -560,6 +561,7 @@ function AssetsView({
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
+    document.body.style.cursor = "";
     if (draggedId === null || isSavingOrder.current) return;
     isSavingOrder.current = true;
     const finalOrder = [...localOrder];
@@ -582,6 +584,7 @@ function AssetsView({
   };
 
   const handleDragEnd = () => {
+    document.body.style.cursor = "";
     setDraggedId(null);
     setDropTargetId(null);
     dragOverIdRef.current = null;
