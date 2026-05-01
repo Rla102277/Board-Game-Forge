@@ -653,6 +653,7 @@ export function EntityGraph({
 
   const draggingId = dragRef.current?.nodeId ?? null;
   const hoverAdj = hoverId == null ? new Set<number>() : adjacent(hoverId);
+  const fewNodes = nodes.length <= 20;
   const entityById = new Map(entities.map((e) => [e.id, e]));
   const assetById = useMemo(() => new Map((assets ?? []).map((a) => [a.id, a])), [assets]);
   const explicitEdges = edges.filter((e) => e.kind === "explicit");
@@ -960,9 +961,15 @@ export function EntityGraph({
                           strokeOpacity={0.4} strokeWidth={1} strokeDasharray="3 2"
                           className="text-primary" />
                       )}
-                      {(isHover || isAdj || isDragging || isFocused) && (
+                      {(fewNodes || isHover || isAdj || isDragging || isFocused) && (
                         <text y={-(n.r + 8)} textAnchor="middle" fontSize="11"
-                          fill="currentColor" className="text-foreground font-medium pointer-events-none">
+                          fill="currentColor"
+                          fillOpacity={
+                            fewNodes && !isHover && !isAdj && !isDragging && !isFocused
+                              ? (hoverId != null ? 0.35 : 0.65)
+                              : 1
+                          }
+                          className="text-foreground font-medium pointer-events-none">
                           {n.name}
                         </text>
                       )}
