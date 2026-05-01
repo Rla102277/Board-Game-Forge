@@ -366,6 +366,7 @@ function ReverseEngineerDialog({
   researched,
   projectId,
   workspaceSlug,
+  preselectedGameId,
   onSuccess,
 }: {
   open: boolean;
@@ -373,24 +374,26 @@ function ReverseEngineerDialog({
   researched: RefGame[];
   projectId: number;
   workspaceSlug?: string;
+  preselectedGameId: string | null;
   onSuccess: (result: { project: { name: string; slug?: string; id: number }; workspaceSlug?: string; mode: string }) => void;
 }) {
   const { toast } = useToast();
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(researched.map((g) => g.id)));
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [direction, setDirection] = useState("");
-  const [mode, setMode] = useState<"new_project" | "populate_current">("new_project");
   const [reversing, setReversing] = useState(false);
   const [stageIdx, setStageIdx] = useState(0);
 
-  // Keep selection in sync when dialog opens
   useEffect(() => {
     if (open) {
-      setSelectedIds(new Set(researched.map((g) => g.id)));
+      if (preselectedGameId && researched.some((g) => g.id === preselectedGameId)) {
+        setSelectedIds(new Set([preselectedGameId]));
+      } else {
+        setSelectedIds(new Set(researched.map((g) => g.id)));
+      }
       setDirection("");
-      setMode("new_project");
       setStageIdx(0);
     }
-  }, [open, researched]);
+  }, [open, researched, preselectedGameId]);
 
   // Cycle through stage labels while reversing
   useEffect(() => {
@@ -428,17 +431,17 @@ function ReverseEngineerDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ games: selectedGames, direction, mode, workspaceSlug }),
+        body: JSON.stringify({ games: selectedGames, direction, mode: "new_project", workspaceSlug }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(err.error ?? "Reverse engineer failed");
+        throw new Error(err.error ?? "Clone failed");
       }
       const result = await res.json();
       onSuccess(result);
       onClose();
     } catch (err) {
-      toast({ title: "Reverse engineer failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      toast({ title: "Clone failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
       setReversing(false);
     }
@@ -452,7 +455,7 @@ function ReverseEngineerDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5 text-violet-400" />
-            Deep Reverse Engineer
+            Clone as New Project
             <span className="ml-auto text-[10px] font-normal bg-violet-500/10 border border-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">Powered by KIMI</span>
           </DialogTitle>
         </DialogHeader>
@@ -484,7 +487,7 @@ function ReverseEngineerDialog({
             {/* Game selection */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">Reverse-engineer from</Label>
+                <Label className="text-sm font-semibold">Clone from</Label>
                 <button
                   onClick={toggleAll}
                   className="text-xs text-primary hover:underline"
@@ -520,41 +523,12 @@ function ReverseEngineerDialog({
               )}
             </div>
 
-            {/* Mode toggle */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">What do you want to build?</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setMode("new_project")}
-                  className={`rounded-lg border p-3 text-left transition-all ${
-                    mode === "new_project"
-                      ? "border-violet-500/50 bg-violet-500/10 ring-1 ring-violet-500/30"
-                      : "border-border hover:border-violet-500/30 bg-card"
-                  }`}
-                >
-                  <p className="text-sm font-semibold flex items-center gap-1.5">
-                    <Plus className="h-3.5 w-3.5 text-violet-400" /> New game
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Create a brand-new project inspired by your selections
-                  </p>
-                </button>
-                <button
-                  onClick={() => setMode("populate_current")}
-                  className={`rounded-lg border p-3 text-left transition-all ${
-                    mode === "populate_current"
-                      ? "border-violet-500/50 bg-violet-500/10 ring-1 ring-violet-500/30"
-                      : "border-border hover:border-violet-500/30 bg-card"
-                  }`}
-                >
-                  <p className="text-sm font-semibold flex items-center gap-1.5">
-                    <RefreshCw className="h-3.5 w-3.5 text-violet-400" /> Rebuild this
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Fill current project with new entities, rules, and roles
-                  </p>
-                </button>
-              </div>
+            {/* Info notice */}
+            <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-violet-200">
+              <p className="font-semibold mb-1">Creates a brand-new project</p>
+              <p className="text-violet-200/70">
+                This will create a new project that replicates the researched game(s) with all artifacts — entities, rules, players, and components.
+              </p>
             </div>
 
             {/* Direction */}
@@ -580,7 +554,7 @@ function ReverseEngineerDialog({
               disabled={selectedGames.length === 0}
             >
               <Wand2 className="h-4 w-4" />
-              {mode === "new_project" ? "Build new game" : "Rebuild this project"}
+              Clone as new project
               <ArrowRight className="h-4 w-4" />
             </Button>
           </DialogFooter>
@@ -764,13 +738,14 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
         researched={researched}
         projectId={projectId}
         workspaceSlug={workspaceSlug}
+        preselectedGameId={preselectedGameId}
         onSuccess={(result) => {
-          if (result.mode === "new_project" && result.workspaceSlug) {
-            toast({ title: "New project created!", description: result.project.name });
+          if (result.workspaceSlug) {
+            toast({ title: "New project cloned!", description: result.project.name });
             setLocation(`/${result.workspaceSlug}/${result.project.slug ?? result.project.id}`);
           } else {
             qc.invalidateQueries();
-            toast({ title: "Project rebuilt!", description: "New entities, rules, and roles have been added." });
+            toast({ title: "Project cloned!", description: "A new project with all artifacts has been created." });
           }
         }}
       />
