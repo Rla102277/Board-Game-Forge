@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  useListResearch, useCreateResearch, useUpdateResearch, useDeleteResearch,
-  useAiEnhanceResearch, getListResearchQueryKey,
-  useGetProject, useUpdateProject,
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Reorder, useDragControls } from "framer-motion";
+import { useGetProject, useUpdateProject, useListResearch, getListResearchQueryKey } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
+import { useDebounce } from "@/hooks/use-debounce";
+import { Heart, Sparkles, Plus, X, Wand2, Loader2, GripVertical, Trash2 } from "lucide-react";
+import { findSimilarGames } from "@/lib/mock-research-api";
 import {
   Plus, Search, Trash2, ExternalLink, Edit2, Tag, Sparkles, Loader2, X,
   Lightbulb, Compass, StickyNote, TrendingUp, MessageCircle,

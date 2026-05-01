@@ -90,6 +90,8 @@ export interface Project {
   /** @nullable */
   referenceGames?: string | null;
   designPhase: string;
+  /** @nullable */
+  overviewMeta?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -118,6 +120,7 @@ export interface UpdateProjectBody {
   eliminationRule?: string;
   referenceGames?: string;
   designPhase?: string;
+  overviewMeta?: Record<string, unknown> | null;
 }
 
 export interface ProjectStats {

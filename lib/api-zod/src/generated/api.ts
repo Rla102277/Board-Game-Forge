@@ -160,6 +160,7 @@ export const GetProjectResponse = zod.object({
   eliminationRule: zod.string().nullish(),
   referenceGames: zod.string().nullish(),
   designPhase: zod.string().default("concept"),
+  overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -183,6 +184,7 @@ export const UpdateProjectBody = zod.object({
   eliminationRule: zod.string().optional(),
   referenceGames: zod.string().optional(),
   designPhase: zod.string().optional(),
+  overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
 });
 
 export const UpdateProjectResponse = zod.object({
@@ -202,6 +204,7 @@ export const UpdateProjectResponse = zod.object({
   eliminationRule: zod.string().nullish(),
   referenceGames: zod.string().nullish(),
   designPhase: zod.string().default("concept"),
+  overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

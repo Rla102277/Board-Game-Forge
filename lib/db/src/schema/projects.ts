@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -23,6 +23,7 @@ export const projects = pgTable(
     eliminationRule: text("elimination_rule"),
     referenceGames: text("reference_games"),
     designPhase: text("design_phase").default("concept").notNull(),
+    overviewMeta: jsonb("overview_meta"),
     forkedFromProjectId: integer("forked_from_project_id"),
     forkedFromSnapshotId: integer("forked_from_snapshot_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
