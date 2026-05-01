@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { type Entity, type Rule, type EntityProperty, type Asset } from "@workspace/api-client-react";
-import { AlertTriangle, Sparkles, Box, Activity, GitBranch, Search, ArrowRight, Link as LinkIcon, Layers, Table as TableIcon, ImageIcon, X, ChevronRight, RotateCcw } from "lucide-react";
+import { AlertTriangle, Sparkles, Box, Activity, GitBranch, Search, ArrowRight, Link as LinkIcon, Layers, Table as TableIcon, ImageIcon, X, ChevronRight, RotateCcw, Filter, SlidersHorizontal } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -355,11 +355,41 @@ export function EntityGraph({
 }) {
   const [hoverId, setHoverId] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
+
+  // ── Filters ──────────────────────────────────────────────────────────────
+  const presentTypes = useMemo(
+    () => ALL_COMPONENT_TYPES.filter((t) => entities.some((e) => e.type === t)),
+    [entities],
+  );
+  const [activeTypes, setActiveTypes] = useState<Set<string>>(() => new Set(ALL_COMPONENT_TYPES));
+  const [focusedNodeId, setFocusedNodeId] = useState<number | null>(null);
+  const [showNeighborsOnly, setShowNeighborsOnly] = useState(false);
+  const [minWeight, setMinWeight] = useState(2);
+
+  const allActive = presentTypes.every((t) => activeTypes.has(t));
+
+  function toggleType(type: string) {
+    setActiveTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        if (next.size === 1) return new Set(ALL_COMPONENT_TYPES);
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  }
+
+  function resetTypes() {
+    setActiveTypes(new Set(ALL_COMPONENT_TYPES));
+  }
+
   const width = 720;
   const height = 480;
 
   const overCap = entities.length > GRAPH_NODE_CAP;
-  const visibleEntities = useMemo(() => {
+  const cappedEntities = useMemo(() => {
     if (!overCap || showAll) return entities;
     const sorted = [...entities].sort(
       (a, b) =>
@@ -369,12 +399,47 @@ export function EntityGraph({
     return sorted.slice(0, GRAPH_NODE_CAP);
   }, [entities, links, overCap, showAll]);
 
-  const visibleIds = useMemo(() => visibleEntities.map((e) => e.id), [visibleEntities]);
-
-  const baseGraph = useMemo(
-    () => buildGraph(visibleEntities, links, width, height),
-    [visibleEntities, links, width, height],
+  // Apply type filter
+  const typeFilteredEntities = useMemo(
+    () => allActive ? cappedEntities : cappedEntities.filter((e) => activeTypes.has(e.type)),
+    [cappedEntities, activeTypes, allActive],
   );
+
+  // Build graph from type-filtered set (needed to find adjacency for neighbor filter)
+  const { nodes: preFilterNodes, edges: preFilterEdges } = useMemo(
+    () => buildGraph(typeFilteredEntities, links, width, height),
+    [typeFilteredEntities, links, width, height],
+  );
+
+  // Rendered pre-filter edges (minWeight applied to inferred) — computed early so
+  // neighbor logic uses the same edge set as the renderer, preventing phantom neighbors
+  // from hidden weak edges.
+  const renderedPreFilterEdges = useMemo(
+    () => preFilterEdges.filter((e) => e.kind === "explicit" || e.weight >= minWeight),
+    [preFilterEdges, minWeight],
+  );
+
+  // Apply neighbor filter — only if a node is focused and neighbor mode is on.
+  const finalEntities = useMemo(() => {
+    if (!showNeighborsOnly || !focusedNodeId) return typeFilteredEntities;
+    const neighborSet = new Set<number>([focusedNodeId]);
+    for (const e of renderedPreFilterEdges) {
+      if (e.a === focusedNodeId) neighborSet.add(e.b);
+      if (e.b === focusedNodeId) neighborSet.add(e.a);
+    }
+    return typeFilteredEntities.filter((e) => neighborSet.has(e.id));
+  }, [typeFilteredEntities, renderedPreFilterEdges, showNeighborsOnly, focusedNodeId]);
+
+  // Build the final base graph (before position overrides).
+  const baseGraph = useMemo(
+    () => (showNeighborsOnly && focusedNodeId)
+      ? buildGraph(finalEntities, links, width, height)
+      : { nodes: preFilterNodes, edges: preFilterEdges },
+    [finalEntities, links, width, height, showNeighborsOnly, focusedNodeId, preFilterNodes, preFilterEdges],
+  );
+
+  // visibleIds: keyed on the type-filtered set so positions persist across neighbor-focus changes.
+  const visibleIds = useMemo(() => typeFilteredEntities.map((e) => e.id), [typeFilteredEntities]);
 
   // ── Drag state ──────────────────────────────────────────────────────────────
   const [nodePositions, setNodePositions] = useState<Map<number, { x: number; y: number }>>(
@@ -464,6 +529,14 @@ export function EntityGraph({
 
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
+  // Auto-clear focus when the focused node is filtered out of the visible set
+  useEffect(() => {
+    if (focusedNodeId != null && !nodeById.has(focusedNodeId)) {
+      setFocusedNodeId(null);
+      setShowNeighborsOnly(false);
+    }
+  }, [focusedNodeId, nodeById]);
+
   const assetNodes = useMemo(
     () => buildAssetNodes(assets ?? [], nodeById, width / 2, height / 2),
     [assets, nodeById, width, height],
@@ -498,18 +571,28 @@ export function EntityGraph({
   const entityById = new Map(entities.map((e) => [e.id, e]));
   const assetById = useMemo(() => new Map((assets ?? []).map((a) => [a.id, a])), [assets]);
   const explicitEdges = edges.filter((e) => e.kind === "explicit");
-  const inferredEdges = edges.filter((e) => e.kind === "inferred");
+  // Apply min-weight filter to inferred edges
+  const inferredEdges = edges.filter((e) => e.kind === "inferred" && e.weight >= minWeight);
 
   const linkedAssetCount = assetNodes.length;
-  const legendTypes = ALL_COMPONENT_TYPES.filter((t) => entities.some((e) => e.type === t));
-  const usedAssetKinds = [...new Set((assets ?? []).filter((a) => a.entityId).map((a) => a.kind))];
+  // Legend only shows types visible in the current filtered graph
+  const visibleNodeTypes = new Set(nodes.map((n) => n.type));
+  const legendTypes = ALL_COMPONENT_TYPES.filter((t) => visibleNodeTypes.has(t));
+  const usedAssetKinds = [...new Set((assets ?? []).filter((a) => a.entityId && nodeById.has(a.entityId)).map((a) => a.kind))];
   const hasCustomPositions = nodePositions.size > 0;
+
+  // Focused node info
+  const focusedEntity = focusedNodeId != null ? entityById.get(focusedNodeId) : undefined;
+  const focusedNeighborCount = focusedNodeId != null
+    ? adjacent(focusedNodeId).size
+    : 0;
 
   const handleNodeClick = (entity: Entity) => {
     if (didDragRef.current) {
       didDragRef.current = false;
       return;
     }
+    setFocusedNodeId((prev) => (prev === entity.id ? null : entity.id));
     if (onEntityClick) {
       onEntityClick(entity);
     } else {
@@ -529,13 +612,18 @@ export function EntityGraph({
     }
   };
 
+  const maxWeight = useMemo(() => {
+    const weights = preFilterEdges.filter((e) => e.kind === "inferred").map((e) => e.weight);
+    return weights.length > 0 ? Math.max(...weights) : 10;
+  }, [preFilterEdges]);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <GitBranch className="h-4 w-4" /> Component graph
           <Badge variant="outline" className="text-[10px] ml-1">
-            {nodes.length} entities · {linkedAssetCount} assets · {edges.length} links
+            {nodes.length} entities · {linkedAssetCount} assets · {explicitEdges.length + inferredEdges.length} links
           </Badge>
           {hasCustomPositions && (
             <Button
@@ -556,7 +644,7 @@ export function EntityGraph({
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-block w-6 h-px border-t border-dashed border-foreground/50" />
-            Inferred (rule co-occurrence ≥ 2)
+            Inferred (rule co-occurrence ≥ {minWeight})
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-block w-4 h-px border-t border-dashed" style={{ borderColor: "#3b82f6" }} />
@@ -568,9 +656,104 @@ export function EntityGraph({
           </span>
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
+        {/* ── Type filter pills ── */}
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="graph-type-filters">
+          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0 mr-1">
+            <Filter className="h-3 w-3" /> Type
+          </span>
+          {!allActive && (
+            <button
+              onClick={resetTypes}
+              className="text-[10px] px-2 py-0.5 rounded-full border border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              data-testid="graph-filter-all"
+            >
+              All
+            </button>
+          )}
+          {presentTypes.map((t) => {
+            const on = activeTypes.has(t);
+            const count = cappedEntities.filter((e) => e.type === t).length;
+            return (
+              <button
+                key={t}
+                onClick={() => toggleType(t)}
+                className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  on
+                    ? `${typeBadge(t)} opacity-100`
+                    : "border-border/40 bg-background/40 text-muted-foreground/50 opacity-60"
+                }`}
+                data-testid={`graph-filter-type-${t}`}
+              >
+                <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: typeHex(t), opacity: on ? 1 : 0.4 }} />
+                {t}
+                <span className="text-[9px] opacity-70">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Edge weight slider ── */}
+        <div className="flex items-center gap-3" data-testid="graph-weight-slider">
+          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
+            <SlidersHorizontal className="h-3 w-3" /> Min. co-occurrence
+          </span>
+          <input
+            type="range"
+            min={2}
+            max={Math.max(2, maxWeight)}
+            value={minWeight}
+            onChange={(e) => setMinWeight(Number(e.target.value))}
+            className="flex-1 max-w-[140px] h-1.5 accent-primary cursor-pointer"
+            data-testid="graph-weight-range"
+          />
+          <Badge variant="outline" className="text-[10px] tabular-nums shrink-0">≥ {minWeight}</Badge>
+          {minWeight > 2 && (
+            <button
+              onClick={() => setMinWeight(2)}
+              className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+              data-testid="graph-weight-reset"
+            >
+              reset
+            </button>
+          )}
+        </div>
+
+        {/* ── Focused node / neighbor strip ── */}
+        {focusedEntity && (
+          <div
+            className="flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs"
+            data-testid="graph-focus-bar"
+          >
+            <span className="text-muted-foreground">Focused:</span>
+            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${typeBadge(focusedEntity.type)}`}>
+              {focusedEntity.type}
+            </span>
+            <span className="font-medium text-white">{focusedEntity.name}</span>
+            <span className="text-muted-foreground/70">· {focusedNeighborCount} neighbor{focusedNeighborCount !== 1 ? "s" : ""}</span>
+            <button
+              onClick={() => setShowNeighborsOnly((v) => !v)}
+              className={`ml-1 px-2 py-0.5 rounded border text-[10px] transition-colors ${
+                showNeighborsOnly
+                  ? "bg-primary/20 border-primary/50 text-primary"
+                  : "border-border/60 bg-background/40 text-muted-foreground hover:text-white"
+              }`}
+              data-testid="graph-neighbors-toggle"
+            >
+              {showNeighborsOnly ? "Showing neighbors only" : "Show neighbors only"}
+            </button>
+            <button
+              onClick={() => { setFocusedNodeId(null); setShowNeighborsOnly(false); }}
+              className="ml-auto text-muted-foreground/60 hover:text-white transition-colors"
+              data-testid="graph-focus-clear"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         {overCap && (
-          <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
+          <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
             <span className="text-amber-200/90">
               {entities.length} components is too many for one graph — showing the top {GRAPH_NODE_CAP} by rule references.
             </span>
@@ -579,126 +762,150 @@ export function EntityGraph({
             </Button>
           </div>
         )}
-        <div className="rounded-md border border-border bg-background/40 overflow-hidden">
-          <svg
-            ref={svgRef}
-            viewBox={`0 0 ${width} ${height}`}
-            className="w-full h-auto"
-            data-testid="entity-graph-svg"
-            onPointerMove={handleSvgPointerMove}
-            onPointerUp={handleSvgPointerUp}
-            onPointerCancel={handleSvgPointerCancel}
-            onPointerLeave={handleSvgPointerUp}
-            style={{ touchAction: "none" }}
-          >
-            <g>
-              {inferredEdges.map((e, i) => {
-                const a = nodeById.get(e.a);
-                const b = nodeById.get(e.b);
-                if (!a || !b) return null;
-                const muted = hoverId != null && hoverId !== e.a && hoverId !== e.b;
-                return (
-                  <line key={`i${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                    stroke="currentColor" strokeOpacity={muted ? 0.05 : 0.25}
-                    strokeWidth={Math.min(3, 1 + Math.log2(e.weight))}
-                    strokeDasharray="4 3" className="text-foreground">
-                    <title>{a.name} ↔ {b.name} (co-occur in {e.weight} rules)</title>
-                  </line>
-                );
-              })}
-              {explicitEdges.map((e, i) => {
-                const a = nodeById.get(e.a);
-                const b = nodeById.get(e.b);
-                if (!a || !b) return null;
-                const muted = hoverId != null && hoverId !== e.a && hoverId !== e.b;
-                return (
-                  <line key={`e${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                    stroke="currentColor" strokeOpacity={muted ? 0.08 : 0.55}
-                    strokeWidth={1.4} className="text-foreground">
-                    <title>{a.name} → {b.name} (explicit)</title>
-                  </line>
-                );
-              })}
-              {assetNodes.map((an) => {
-                const en = nodeById.get(an.entityId);
-                if (!en) return null;
-                const muted = hoverId != null && hoverId !== an.entityId;
-                return (
-                  <line key={`asset-edge-${an.id}`}
-                    x1={en.x} y1={en.y} x2={an.x} y2={an.y}
-                    stroke={assetKindHex(an.kind)}
-                    strokeOpacity={muted ? 0.08 : 0.45}
-                    strokeWidth={1}
-                    strokeDasharray="3 2">
-                    <title>{an.name} → {en.name} (asset link)</title>
-                  </line>
-                );
-              })}
-            </g>
-            <g>
-              {assetNodes.map((an) => {
-                const muted = hoverId != null && hoverId !== an.entityId;
-                const s = an.size;
-                const clickable = !!(onAssetClick || onEntityClick);
-                return (
-                  <g key={`asset-node-${an.id}`} transform={`translate(${an.x},${an.y})`}
-                    onClick={() => handleAssetClick(an)}
-                    style={{ cursor: clickable ? "pointer" : "default" }}
-                    data-testid={`graph-asset-node-${an.id}`}>
-                    <rect x={-s} y={-s} width={s * 2} height={s * 2}
-                      rx={1.5}
-                      fill={assetKindHex(an.kind)}
-                      fillOpacity={muted ? 0.1 : 0.7}
+
+        {nodes.length === 0 && (
+          <div className="rounded-md border border-border bg-background/40 px-4 py-8 text-center text-sm text-muted-foreground">
+            No components match the current filters.{" "}
+            <button onClick={resetTypes} className="text-primary hover:underline">Reset filters</button>
+          </div>
+        )}
+
+        {nodes.length > 0 && (
+          <div className="rounded-md border border-border bg-background/40 overflow-hidden">
+            <svg
+              ref={svgRef}
+              viewBox={`0 0 ${width} ${height}`}
+              className="w-full h-auto"
+              data-testid="entity-graph-svg"
+              onPointerMove={handleSvgPointerMove}
+              onPointerUp={handleSvgPointerUp}
+              onPointerCancel={handleSvgPointerCancel}
+              onPointerLeave={handleSvgPointerUp}
+              style={{ touchAction: "none" }}
+            >
+              <g>
+                {inferredEdges.map((e, i) => {
+                  const a = nodeById.get(e.a);
+                  const b = nodeById.get(e.b);
+                  if (!a || !b) return null;
+                  const muted = hoverId != null && hoverId !== e.a && hoverId !== e.b;
+                  return (
+                    <line key={`i${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                      stroke="currentColor" strokeOpacity={muted ? 0.05 : 0.25}
+                      strokeWidth={Math.min(3, 1 + Math.log2(e.weight))}
+                      strokeDasharray="4 3" className="text-foreground">
+                      <title>{a.name} ↔ {b.name} (co-occur in {e.weight} rules)</title>
+                    </line>
+                  );
+                })}
+                {explicitEdges.map((e, i) => {
+                  const a = nodeById.get(e.a);
+                  const b = nodeById.get(e.b);
+                  if (!a || !b) return null;
+                  const muted = hoverId != null && hoverId !== e.a && hoverId !== e.b;
+                  return (
+                    <line key={`e${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                      stroke="currentColor" strokeOpacity={muted ? 0.08 : 0.55}
+                      strokeWidth={1.4} className="text-foreground">
+                      <title>{a.name} → {b.name} (explicit)</title>
+                    </line>
+                  );
+                })}
+                {assetNodes.map((an) => {
+                  const en = nodeById.get(an.entityId);
+                  if (!en) return null;
+                  const muted = hoverId != null && hoverId !== an.entityId;
+                  return (
+                    <line key={`asset-edge-${an.id}`}
+                      x1={en.x} y1={en.y} x2={an.x} y2={an.y}
                       stroke={assetKindHex(an.kind)}
-                      strokeOpacity={muted ? 0.1 : 0.9}
-                      strokeWidth={0.8} />
-                    <title>{an.name} ({an.kind} asset) — click to inspect linked component</title>
-                  </g>
-                );
-              })}
-            </g>
-            <g>
-              {nodes.map((n) => {
-                const isHover = hoverId === n.id;
-                const isAdj = hoverAdj.has(n.id);
-                const isDragging = draggingId === n.id;
-                const dim = hoverId != null && !isHover && !isAdj && !isDragging;
-                const entity = entityById.get(n.id);
-                return (
-                  <g key={n.id} transform={`translate(${n.x},${n.y})`}
-                    onMouseEnter={() => !dragRef.current && setHoverId(n.id)}
-                    onMouseLeave={() => !dragRef.current && setHoverId((x) => (x === n.id ? null : x))}
-                    onPointerDown={(e) => handleNodePointerDown(e, n.id, n.x, n.y)}
-                    onClick={() => entity && handleNodeClick(entity)}
-                    style={{ cursor: isDragging ? "grabbing" : "grab" }}
-                    data-testid={`graph-node-${n.id}`}>
-                    <circle r={n.r + (isHover || isDragging ? 3 : 0)} fill={typeHex(n.type)}
-                      fillOpacity={dim ? 0.2 : 0.85} stroke="currentColor"
-                      strokeOpacity={isHover || isDragging ? 0.9 : 0.4}
-                      strokeWidth={isHover || isDragging ? 2 : 1}
-                      className="text-foreground" />
-                    {(isHover || isAdj || isDragging) && (
-                      <text y={-(n.r + 6)} textAnchor="middle" fontSize="11"
-                        fill="currentColor" className="text-foreground font-medium pointer-events-none">
-                        {n.name}
-                      </text>
-                    )}
-                    <title>{n.name} ({n.type}) — drag to reposition · click to inspect</title>
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
-        </div>
-        <div className="flex flex-wrap gap-3 mt-3">
+                      strokeOpacity={muted ? 0.08 : 0.45}
+                      strokeWidth={1}
+                      strokeDasharray="3 2">
+                      <title>{an.name} → {en.name} (asset link)</title>
+                    </line>
+                  );
+                })}
+              </g>
+              <g>
+                {assetNodes.map((an) => {
+                  const muted = hoverId != null && hoverId !== an.entityId;
+                  const s = an.size;
+                  const clickable = !!(onAssetClick || onEntityClick);
+                  return (
+                    <g key={`asset-node-${an.id}`} transform={`translate(${an.x},${an.y})`}
+                      onClick={() => handleAssetClick(an)}
+                      style={{ cursor: clickable ? "pointer" : "default" }}
+                      data-testid={`graph-asset-node-${an.id}`}>
+                      <rect x={-s} y={-s} width={s * 2} height={s * 2}
+                        rx={1.5}
+                        fill={assetKindHex(an.kind)}
+                        fillOpacity={muted ? 0.1 : 0.7}
+                        stroke={assetKindHex(an.kind)}
+                        strokeOpacity={muted ? 0.1 : 0.9}
+                        strokeWidth={0.8} />
+                      <title>{an.name} ({an.kind} asset) — click to inspect linked component</title>
+                    </g>
+                  );
+                })}
+              </g>
+              <g>
+                {nodes.map((n) => {
+                  const isHover = hoverId === n.id;
+                  const isFocused = focusedNodeId === n.id;
+                  const isAdj = hoverAdj.has(n.id);
+                  const isDragging = draggingId === n.id;
+                  const dim = hoverId != null && !isHover && !isAdj && !isDragging;
+                  const entity = entityById.get(n.id);
+                  return (
+                    <g key={n.id} transform={`translate(${n.x},${n.y})`}
+                      onMouseEnter={() => !dragRef.current && setHoverId(n.id)}
+                      onMouseLeave={() => !dragRef.current && setHoverId((x) => (x === n.id ? null : x))}
+                      onPointerDown={(e) => handleNodePointerDown(e, n.id, n.x, n.y)}
+                      onClick={() => entity && handleNodeClick(entity)}
+                      style={{ cursor: isDragging ? "grabbing" : "grab" }}
+                      data-testid={`graph-node-${n.id}`}>
+                      <circle r={n.r + (isHover || isDragging ? 3 : 0)} fill={typeHex(n.type)}
+                        fillOpacity={dim ? 0.2 : 0.85} stroke="currentColor"
+                        strokeOpacity={isFocused ? 1 : isHover || isDragging ? 0.9 : 0.4}
+                        strokeWidth={isFocused ? 2.5 : isHover || isDragging ? 2 : 1}
+                        className="text-foreground" />
+                      {isFocused && (
+                        <circle r={n.r + 6} fill="none" stroke="currentColor"
+                          strokeOpacity={0.4} strokeWidth={1} strokeDasharray="3 2"
+                          className="text-primary" />
+                      )}
+                      {(isHover || isAdj || isDragging || isFocused) && (
+                        <text y={-(n.r + 8)} textAnchor="middle" fontSize="11"
+                          fill="currentColor" className="text-foreground font-medium pointer-events-none">
+                          {n.name}
+                        </text>
+                      )}
+                      <title>{n.name} ({n.type}) — drag to reposition · click to focus · inspect</title>
+                    </g>
+                  );
+                })}
+              </g>
+            </svg>
+          </div>
+        )}
+
+        {/* ── Legend — only types visible in the current filtered graph ── */}
+        <div className="flex flex-wrap gap-3">
           {legendTypes.map((t) => {
-            const count = entities.filter((e) => e.type === t).length;
+            const count = nodes.filter((n) => n.type === t).length;
             return (
-              <div key={t} className="flex items-center gap-1.5 text-xs">
+              <button
+                key={t}
+                onClick={() => toggleType(t)}
+                className="flex items-center gap-1.5 text-xs hover:opacity-80 transition-opacity"
+                title={`Click to toggle ${t} visibility`}
+                data-testid={`graph-legend-${t}`}
+              >
                 <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: typeHex(t) }} />
                 <span className="text-muted-foreground">{t}</span>
                 <span className="text-muted-foreground/60">({count})</span>
-              </div>
+              </button>
             );
           })}
           {usedAssetKinds.map((k) => (
