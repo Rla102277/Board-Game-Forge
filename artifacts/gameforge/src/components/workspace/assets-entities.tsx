@@ -511,12 +511,18 @@ function AssetsView({
   const [showAddForm, setShowAddForm] = useState(false);
   const [addFormKind, setAddFormKind] = useState<string>("card");
   const [narrativeOpen, setNarrativeOpen] = useState(false);
-  const [groupByType, setGroupByType] = useState(false);
+  const [groupByType, setGroupByType] = useState(
+    () => localStorage.getItem("gameforge:groupByType") === "true"
+  );
   const [bulkGenerating, setBulkGenerating] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   // Inspector sheet
   const [inspectorAssetId, setInspectorAssetId] = useState<number | null>(null);
   const inspectorAsset = assets?.find((a) => a.id === inspectorAssetId) ?? null;
+
+  useEffect(() => {
+    localStorage.setItem("gameforge:groupByType", String(groupByType));
+  }, [groupByType]);
 
   // Drag-and-drop order tracking
   const [draggedId, setDraggedId] = useState<number | null>(null);
