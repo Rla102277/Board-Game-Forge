@@ -25,7 +25,7 @@ import {
   Activity, Users, FileText, CheckSquare, MessageSquare,
   Flag, Trophy, Swords, Plus, X, Target, Layers, Clock,
   ImageIcon, AlertTriangle, AlertCircle, Eye, Send, Calendar, UserPlus,
-  Settings, LayoutDashboard, Pencil,
+  Settings, LayoutDashboard, Pencil, Loader2, Check,
 } from "lucide-react";
 
 interface OverviewProps {
@@ -175,6 +175,9 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   const [turnPhaseInput, setTurnPhaseInput] = useState("");
   const [turnPhases, setTurnPhases] = useState<string[]>([]);
   const [narrative, setNarrative] = useState("");
+  const [narrativeSaveStatus, setNarrativeSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const narrativeSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const narrativeSaveSeqRef = useRef(0);
 
   /* ── Per-column jsonb state ────────────────────────────────────── */
   const [heroMeta,     setHeroMeta]     = useState<HeroMeta>({});
@@ -259,20 +262,48 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
 
   useEffect(() => {
     if (!initRef.current) return;
+    if (narrativeSaveTimerRef.current) clearTimeout(narrativeSaveTimerRef.current);
+    if (narrative !== savedNarrativeRef.current) {
+      setNarrativeSaveStatus("saving");
+    } else {
+      setNarrativeSaveStatus("idle");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narrative]);
+
+  useEffect(() => {
+    if (!initRef.current) return;
     if (dbNarrative !== savedNarrativeRef.current) {
       const valueToSave = dbNarrative;
+      const seq = ++narrativeSaveSeqRef.current;
+      setNarrativeSaveStatus("saving");
       updateProject.mutate(
         { projectId, data: { narrative: valueToSave } },
         {
           onSuccess: () => {
+            if (seq !== narrativeSaveSeqRef.current) return;
             savedNarrativeRef.current = valueToSave;
             qc.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
+            if (narrativeSaveTimerRef.current) clearTimeout(narrativeSaveTimerRef.current);
+            setNarrativeSaveStatus("saved");
+            narrativeSaveTimerRef.current = setTimeout(() => setNarrativeSaveStatus("idle"), 2000);
+          },
+          onError: () => {
+            if (seq !== narrativeSaveSeqRef.current) return;
+            if (narrativeSaveTimerRef.current) clearTimeout(narrativeSaveTimerRef.current);
+            setNarrativeSaveStatus("idle");
           },
         },
       );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbNarrative]);
+
+  useEffect(() => {
+    return () => {
+      if (narrativeSaveTimerRef.current) clearTimeout(narrativeSaveTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!initRef.current) return;
@@ -402,9 +433,22 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
                 value={narrative}
                 onChange={(e) => setNarrative(e.target.value)}
               />
-              <p className="text-[10px] text-muted-foreground mt-1">
-                This seed is shared across the studio — it guides AI generation for components, rules, and players.
-              </p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-[10px] text-muted-foreground">
+                  This seed is shared across the studio — it guides AI generation for components, rules, and players.
+                </p>
+                <span className="flex items-center gap-1 text-[10px] shrink-0 ml-2 transition-opacity duration-300" style={{ opacity: narrativeSaveStatus === "idle" ? 0 : 1 }}>
+                  {narrativeSaveStatus === "saving" ? (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+                    </span>
+                  ) : narrativeSaveStatus === "saved" ? (
+                    <span className="flex items-center gap-1 text-green-500">
+                      <Check className="h-3 w-3" /> Saved
+                    </span>
+                  ) : null}
+                </span>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
