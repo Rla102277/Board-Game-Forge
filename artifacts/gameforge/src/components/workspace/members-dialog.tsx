@@ -3,68 +3,35 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trash2, UserPlus, Mail, Link2, RefreshCw, Copy, Check, AlertCircle } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  Copy,
+  Link2,
+  Mail,
+  RefreshCw,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 import { workspacesApi, type WorkspaceMember } from "@/lib/workspaces-api";
-
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Badge } from "../ui/badge";
-import { ScrollArea } from "../ui/scroll-area";
-import { UserPlus, X, Shield, User, Eye } from "lucide-react";
-import { useToast } from "../../hooks/use-toast";
-
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Badge } from "../ui/badge";
-import { ScrollArea } from "../ui/scroll-area";
-import { UserPlus, X, Shield, User, Eye } from "lucide-react";
-import { useToast } from "../../hooks/use-toast";
 
 interface Props {
   open: boolean;
-  onOpenChange: (b: boolean) => void;
+  onOpenChange: (open: boolean) => void;
   workspaceSlug: string;
   members: WorkspaceMember[];
   canManage: boolean;
   onChanged: () => void;
 }
 
-interface WorkspaceMember {
-  id: number;
-  userId: string;
-  userName: string;
-  email?: string;
-  role: "owner" | "admin" | "editor" | "viewer";
-  avatarUrl?: string;
-  joinedAt: Date;
-}
-
-const roleIcons: Record<string, React.ReactNode> = {
-  owner: <Shield className="h-4 w-4" />,
-  admin: <Shield className="h-4 w-4" />,
-  editor: <User className="h-4 w-4" />,
-  viewer: <Eye className="h-4 w-4" />,
-};
-
-const roleColors: Record<string, string> = {
-  owner: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  admin: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  editor: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  viewer: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300",
-};
-
 export function MembersDialog({
   open,
   onOpenChange,
@@ -73,437 +40,6 @@ export function MembersDialog({
   canManage,
   onChanged,
 }: Props) {
-  const { toast } = useToast();
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "editor" | "viewer">("editor");
-  const [localMembers, setLocalMembers] = useState<WorkspaceMember[]>([]);
-
-  useEffect(() => {
-    setLocalMembers(members);
-  }, [members]);
-
-  const handleAddMember = () => {
-    if (!email.trim()) return;
-
-    const newMember: WorkspaceMember = {
-      id: Date.now(),
-      userId: `user-${Date.now()}`,
-      userName: email.split("@")[0],
-      email: email,
-      role: role,
-      joinedAt: new Date(),
-    };
-
-    setLocalMembers([...localMembers, newMember]);
-    setEmail("");
-
-    toast({
-      title: "Member added",
-      description: `${newMember.userName} has been added as ${role}`,
-    });
-
-    onChanged();
-  };
-
-  const handleRemoveMember = (userId: string) => {
-    setLocalMembers(localMembers.filter((m) => m.userId !== userId));
-    toast({
-      title: "Member removed",
-      description: "Member has been removed from workspace",
-    });
-    onChanged();
-  };
-
-  const handleChangeRole = (userId: string, newRole: "admin" | "editor" | "viewer") => {
-    setLocalMembers(
-      localMembers.map((m) =>
-        m.userId === userId ? { ...m, role: newRole } : m
-      )
-    );
-    toast({
-      title: "Role updated",
-      description: `Member's role has been changed to ${newRole}`,
-    });
-    onChanged();
-  };
-
-  const getRoleBadge = (role: string) => {
-    const colorClass = roleColors[role] || "bg-gray-100 text-gray-800";
-    return (
-      <Badge className={`${colorClass} border-0`} variant="outline">
-        <span className="flex items-center gap-1">
-          {roleIcons[role]}
-          {role.charAt(0).toUpperCase() + role.slice(1)}
-        </span>
-      </Badge>
-    );
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            Workspace Members
-          </DialogTitle>
-          <DialogDescription>
-            Manage who has access to "{workspaceSlug}"
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Add member section */}
-          {canManage && (
-            <div className="space-y-2">
-              <Label>Add member</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter email address..."
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleAddMember();
-                    }
-                  }}
-                />
-                <Select
-                  value={role}
-                  onValueChange={(v: "admin" | "editor" | "viewer") => setRole(v)}
-                >
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="editor">Editor</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleAddMember} size="icon">
-                  <UserPlus className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Members list */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Members ({localMembers.length})</Label>
-            </div>
-            <ScrollArea className="h-[300px] pr-4">
-              <div className="space-y-2">
-                {localMembers.map((member) => (
-                  <div
-                    key={member.userId}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={member.avatarUrl} />
-                        <AvatarFallback>
-                          {member.userName.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium">{member.userName}</p>
-                          {getRoleBadge(member.role)}
-                        </div>
-                        {member.email && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {member.email}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {canManage && member.role !== "owner" && (
-                        <>
-                          <Select
-                            value={member.role}
-                            onValueChange={(v: "admin" | "editor" | "viewer") =>
-                              handleChangeRole(member.userId, v)
-                            }
-                          >
-                            <SelectTrigger className="w-[100px] h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="editor">Editor</SelectItem>
-                              <SelectItem value="viewer">Viewer</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => handleRemoveMember(member.userId)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-
-          {/* Info section */}
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="flex items-center gap-2 text-sm">
-              <Shield className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">
-                {canManage
-                  ? "You can manage members and their roles"
-                  : "You have view-only access to member management"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-interface WorkspaceMember {
-  id: number;
-  userId: string;
-  userName: string;
-  email?: string;
-  role: "owner" | "admin" | "editor" | "viewer";
-  avatarUrl?: string;
-  joinedAt: Date;
-}
-
-const roleIcons: Record<string, React.ReactNode> = {
-  owner: <Shield className="h-4 w-4" />,
-  admin: <Shield className="h-4 w-4" />,
-  editor: <User className="h-4 w-4" />,
-  viewer: <Eye className="h-4 w-4" />,
-};
-
-const roleColors: Record<string, string> = {
-  owner: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  admin: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  editor: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  viewer: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300",
-};
-
-export function MembersDialog({
-  open,
-  onOpenChange,
-  workspaceSlug,
-  members,
-  canManage,
-  onChanged,
-}: Props) {
-  const { toast } = useToast();
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "editor" | "viewer">("editor");
-  const [localMembers, setLocalMembers] = useState<WorkspaceMember[]>([]);
-
-  useEffect(() => {
-    setLocalMembers(members);
-  }, [members]);
-
-  const handleAddMember = () => {
-    if (!email.trim()) return;
-
-    const newMember: WorkspaceMember = {
-      id: Date.now(),
-      userId: `user-${Date.now()}`,
-      userName: email.split("@")[0],
-      email: email,
-      role: role,
-      joinedAt: new Date(),
-    };
-
-    setLocalMembers([...localMembers, newMember]);
-    setEmail("");
-
-    toast({
-      title: "Member added",
-      description: `${newMember.userName} has been added as ${role}`,
-    });
-
-    onChanged();
-  };
-
-  const handleRemoveMember = (userId: string) => {
-    setLocalMembers(localMembers.filter((m) => m.userId !== userId));
-    toast({
-      title: "Member removed",
-      description: "Member has been removed from workspace",
-    });
-    onChanged();
-  };
-
-  const handleChangeRole = (userId: string, newRole: "admin" | "editor" | "viewer") => {
-    setLocalMembers(
-      localMembers.map((m) =>
-        m.userId === userId ? { ...m, role: newRole } : m
-      )
-    );
-    toast({
-      title: "Role updated",
-      description: `Member's role has been changed to ${newRole}`,
-    });
-    onChanged();
-  };
-
-  const getRoleBadge = (role: string) => {
-    const colorClass = roleColors[role] || "bg-gray-100 text-gray-800";
-    return (
-      <Badge className={`${colorClass} border-0`} variant="outline">
-        <span className="flex items-center gap-1">
-          {roleIcons[role]}
-          {role.charAt(0).toUpperCase() + role.slice(1)}
-        </span>
-      </Badge>
-    );
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            Workspace Members
-          </DialogTitle>
-          <DialogDescription>
-            Manage who has access to "{workspaceSlug}"
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Add member section */}
-          {canManage && (
-            <div className="space-y-2">
-              <Label>Add member</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter email address..."
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleAddMember();
-                    }
-                  }}
-                />
-                <Select
-                  value={role}
-                  onValueChange={(v: "admin" | "editor" | "viewer") => setRole(v)}
-                >
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="editor">Editor</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleAddMember} size="icon">
-                  <UserPlus className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Members list */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Members ({localMembers.length})</Label>
-            </div>
-            <ScrollArea className="h-[300px] pr-4">
-              <div className="space-y-2">
-                {localMembers.map((member) => (
-                  <div
-                    key={member.userId}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={member.avatarUrl} />
-                        <AvatarFallback>
-                          {member.userName.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium">{member.userName}</p>
-                          {getRoleBadge(member.role)}
-                        </div>
-                        {member.email && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {member.email}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {canManage && member.role !== "owner" && (
-                        <>
-                          <Select
-                            value={member.role}
-                            onValueChange={(v: "admin" | "editor" | "viewer") =>
-                              handleChangeRole(member.userId, v)
-                            }
-                          >
-                            <SelectTrigger className="w-[100px] h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="editor">Editor</SelectItem>
-                              <SelectItem value="viewer">Viewer</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => handleRemoveMember(member.userId)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-
-          {/* Info section */}
-          <div className="rounded-lg border bg-muted/50 p-3">
-            <div className="flex items-center gap-2 text-sm">
-              <Shield className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">
-                {canManage
-                  ? "You can manage members and their roles"
-                  : "You have view-only access to member management"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canManage, onChanged }: Props) {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -514,9 +50,12 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
 
   useEffect(() => {
     if (open && canManage) {
-      workspacesApi.getInviteCode(workspaceSlug)
+      workspacesApi
+        .getInviteCode(workspaceSlug)
         .then((r) => setJoinUrl(r.joinUrl))
-        .catch(() => {/* non-fatal */});
+        .catch(() => {
+          /* non-fatal */
+        });
     }
     if (!open) setLastInvitedEmail(null);
   }, [open, canManage, workspaceSlug]);
@@ -533,9 +72,16 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
     try {
       const r = await workspacesApi.refreshInviteCode(workspaceSlug);
       setJoinUrl(r.joinUrl);
-      toast({ title: "Invite link refreshed", description: "The old link is now invalid." });
+      toast({
+        title: "Invite link refreshed",
+        description: "The old link is now invalid.",
+      });
     } catch (err) {
-      toast({ title: "Failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      toast({
+        title: "Failed",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -559,7 +105,11 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
       setLastInvitedEmail(invitedEmail);
       onChanged();
     } catch (err) {
-      toast({ title: "Invite failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      toast({
+        title: "Invite failed",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -572,7 +122,11 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
       toast({ title: "Member removed" });
       onChanged();
     } catch (err) {
-      toast({ title: "Remove failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      toast({
+        title: "Remove failed",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -582,7 +136,9 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Workspace members</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" /> Workspace members
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {canManage && (
@@ -599,19 +155,39 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
                     readOnly
                     value={joinUrl ?? "Generating…"}
                     className="text-xs font-mono bg-background"
-                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                    onClick={(e) =>
+                      (e.target as HTMLInputElement).select()
+                    }
                   />
-                  <Button size="icon" variant="outline" onClick={copyLink} disabled={!joinUrl} title="Copy link">
-                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={copyLink}
+                    disabled={!joinUrl}
+                    title="Copy link"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                   </Button>
-                  <Button size="icon" variant="outline" onClick={refreshLink} disabled={busy} title="Reset link">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={refreshLink}
+                    disabled={busy}
+                    title="Reset link"
+                  >
                     <RefreshCw className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
               <form onSubmit={invite} className="flex items-end gap-2">
                 <div className="flex-1 space-y-1.5">
-                  <Label htmlFor="invite-email">Or reserve a spot by email</Label>
+                  <Label htmlFor="invite-email">
+                    Or reserve a spot by email
+                  </Label>
                   <Input
                     id="invite-email"
                     type="email"
@@ -621,7 +197,9 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
                     disabled={busy}
                   />
                 </div>
-                <Button type="submit" disabled={busy || !email.trim()}>Add</Button>
+                <Button type="submit" disabled={busy || !email.trim()}>
+                  Add
+                </Button>
               </form>
 
               {lastInvitedEmail && joinUrl && (
@@ -629,7 +207,9 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
                   <div className="flex items-start gap-2 text-sm text-amber-600 dark:text-amber-400">
                     <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                     <span>
-                      <span className="font-medium">{lastInvitedEmail}</span> was added but no email was sent. Send them the invite link so they can join.
+                      <span className="font-medium">{lastInvitedEmail}</span>{" "}
+                      was added but no email was sent. Send them the invite
+                      link so they can join.
                     </span>
                   </div>
                   <div className="flex gap-2">
@@ -637,10 +217,21 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
                       readOnly
                       value={joinUrl}
                       className="text-xs font-mono bg-background"
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onClick={(e) =>
+                        (e.target as HTMLInputElement).select()
+                      }
                     />
-                    <Button size="icon" variant="outline" onClick={copyLink} title="Copy link">
-                      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={copyLink}
+                      title="Copy link"
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -649,27 +240,47 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
           )}
           <div className="border rounded-md divide-y">
             {members.length === 0 && (
-              <div className="p-4 text-sm text-muted-foreground">No members yet.</div>
+              <div className="p-4 text-sm text-muted-foreground">
+                No members yet.
+              </div>
             )}
             {members.map((m) => {
               const display = m.user
-                ? [m.user.firstName, m.user.lastName].filter(Boolean).join(" ") || m.user.email || "Member"
-                : m.invitedEmail ?? "Pending";
+                ? [m.user.firstName, m.user.lastName]
+                    .filter(Boolean)
+                    .join(" ") ||
+                  m.user.email ||
+                  "Member"
+                : (m.invitedEmail ?? "Pending");
               const initial = (display[0] || "?").toUpperCase();
               return (
-                <div key={m.id} className="flex items-center gap-3 p-3" data-testid={`member-row-${m.id}`}>
+                <div
+                  key={m.id}
+                  className="flex items-center gap-3 p-3"
+                  data-testid={`member-row-${m.id}`}
+                >
                   <Avatar className="h-9 w-9">
-                    {m.user?.imageUrl && <AvatarImage src={m.user.imageUrl} alt="" />}
+                    {m.user?.imageUrl && (
+                      <AvatarImage src={m.user.imageUrl} alt="" />
+                    )}
                     <AvatarFallback>{initial}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{display}</div>
+                    <div className="text-sm font-medium truncate">
+                      {display}
+                    </div>
                     <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
                       {m.user?.email ?? m.invitedEmail}
-                      {m.status === "pending" && <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500"><Mail className="h-3 w-3" /> Pending</span>}
+                      {m.status === "pending" && (
+                        <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500">
+                          <Mail className="h-3 w-3" /> Pending
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground mr-1">{m.role}</div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground mr-1">
+                    {m.role}
+                  </div>
                   {canManage && m.status === "pending" && joinUrl && (
                     <Button
                       size="icon"
@@ -679,9 +290,11 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
                       onClick={() => copyForPending(m.id)}
                       disabled={busy}
                     >
-                      {copiedPending === m.id
-                        ? <Check className="h-3.5 w-3.5 text-green-500" />
-                        : <Copy className="h-3.5 w-3.5" />}
+                      {copiedPending === m.id ? (
+                        <Check className="h-3.5 w-3.5 text-green-500" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   )}
                   {canManage && m.role !== "owner" && (
@@ -702,7 +315,9 @@ export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canM
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Done</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Done
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

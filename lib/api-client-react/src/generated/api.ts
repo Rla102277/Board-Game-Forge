@@ -7775,7 +7775,8 @@ export const getGenerateExportMutationOptions = <
         | "rulebook-md"
         | "kickstarter"
         | "sell-sheet"
-        | "press-kit";
+        | "press-kit"
+        | "gamma-doc";
     },
     TContext
   >;
@@ -7790,7 +7791,8 @@ export const getGenerateExportMutationOptions = <
       | "rulebook-md"
       | "kickstarter"
       | "sell-sheet"
-      | "press-kit";
+      | "press-kit"
+        | "gamma-doc";
   },
   TContext
 > => {
@@ -7812,7 +7814,8 @@ export const getGenerateExportMutationOptions = <
         | "rulebook-md"
         | "kickstarter"
         | "sell-sheet"
-        | "press-kit";
+        | "press-kit"
+        | "gamma-doc";
     }
   > = (props) => {
     const { projectId, kind } = props ?? {};
@@ -7843,7 +7846,8 @@ export const useGenerateExport = <
         | "rulebook-md"
         | "kickstarter"
         | "sell-sheet"
-        | "press-kit";
+        | "press-kit"
+        | "gamma-doc";
     },
     TContext
   >;
@@ -7858,7 +7862,8 @@ export const useGenerateExport = <
       | "rulebook-md"
       | "kickstarter"
       | "sell-sheet"
-      | "press-kit";
+      | "press-kit"
+        | "gamma-doc";
   },
   TContext
 > => {

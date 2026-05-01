@@ -1572,6 +1572,7 @@ paths:
               - kickstarter
               - sell-sheet
               - press-kit
+              - gamma-doc
       responses:
         "200":
           description: Generated export content
