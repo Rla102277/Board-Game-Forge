@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, desc } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db, players } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import {
@@ -21,7 +21,7 @@ router.get("/projects/:projectId/players", async (req, res): Promise<void> => {
     .select()
     .from(players)
     .where(eq(players.projectId, params.data.projectId))
-    .orderBy(desc(players.createdAt));
+    .orderBy(asc(players.displayOrder), asc(players.id));
   res.json(schemas.ListPlayersResponse.parse(rows));
 });
 
@@ -186,6 +186,10 @@ router.post(
         name: p.name,
         role: p.role,
         description: p.description,
+        motivation: p.motivation,
+        flaw: p.flaw,
+        arc: p.arc,
+        faction: p.faction,
         strategy: p.strategy,
         archetype: p.archetype,
         victoryCondition: p.victoryCondition,
@@ -194,17 +198,27 @@ router.post(
         startingResources: p.startingResources,
       };
       const text = await complete(req, {
-        prompt: `Enhance this player archetype with vivid detail and a concrete special ability. Keep existing fields, but rewrite empty or weak fields.
+        prompt: `Enhance this character profile for a board game. Keep existing fields but rewrite empty or weak fields with vivid detail.
 
-Existing:
+Existing character data:
 ${JSON.stringify(editable, null, 2)}
 
-Return ONLY a flat JSON object with these field names (no wrapper, no nesting): description, strategy, archetype, victoryCondition, specialAbility, playstyle, startingResources.
+Return ONLY a flat JSON object with these field names (no wrapper, no nesting):
+description, motivation, flaw, arc, strategy, archetype, victoryCondition, specialAbility, playstyle, startingResources, role
+
+- description: 1-2 sentences about who they are and what makes them unique.
+- motivation: what they want most (their core drive).
+- flaw: what they fear or their key weakness/obstacle.
+- arc: how they change through the game, or "N/A" for non-narrative types.
+- strategy: 1 sentence on how they play optimally.
 Output JUST the JSON object.`,
-        maxTokens: 800,
+        maxTokens: 900,
       });
       const allowed = [
         "description",
+        "motivation",
+        "flaw",
+        "arc",
         "strategy",
         "archetype",
         "victoryCondition",

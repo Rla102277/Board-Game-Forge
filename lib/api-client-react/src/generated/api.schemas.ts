@@ -477,6 +477,20 @@ export interface Player {
   specialAbility?: string | null;
   /** @nullable */
   playstyle?: string | null;
+  /** @nullable */
+  faction?: string | null;
+  /** @nullable */
+  motivation?: string | null;
+  /** @nullable */
+  flaw?: string | null;
+  /** @nullable */
+  arc?: string | null;
+  /** @nullable */
+  displayOrder?: number | null;
+  /** @nullable */
+  behaviorProfile?: Record<string, unknown> | null;
+  /** @nullable */
+  relationships?: Record<string, unknown>[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -492,6 +506,13 @@ export interface CreatePlayerBody {
   victoryCondition?: string;
   specialAbility?: string;
   playstyle?: string;
+  faction?: string;
+  motivation?: string;
+  flaw?: string;
+  arc?: string;
+  displayOrder?: number;
+  behaviorProfile?: Record<string, unknown>;
+  relationships?: Record<string, unknown>[];
 }
 
 export interface UpdatePlayerBody {
@@ -505,6 +526,13 @@ export interface UpdatePlayerBody {
   victoryCondition?: string;
   specialAbility?: string;
   playstyle?: string;
+  faction?: string;
+  motivation?: string;
+  flaw?: string;
+  arc?: string;
+  displayOrder?: number;
+  behaviorProfile?: Record<string, unknown>;
+  relationships?: Record<string, unknown>[];
 }
 
 export interface Note {

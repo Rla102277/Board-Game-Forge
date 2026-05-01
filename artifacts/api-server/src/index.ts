@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { createWebSocketServer } from "./websocket-server";
+import { runStartupMigrations } from "./lib/startup-migrations";
 
 const rawPort = process.env["PORT"];
 
@@ -15,6 +16,11 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+// Run startup migrations (idempotent ADD COLUMN IF NOT EXISTS)
+runStartupMigrations().catch((err) =>
+  logger.error({ err }, "startup migrations failed")
+);
 
 // Start WebSocket server
 createWebSocketServer();

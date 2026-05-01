@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { projects } from "./projects";
@@ -18,6 +18,14 @@ export const players = pgTable("players", {
   victoryCondition: text("victory_condition"),
   specialAbility: text("special_ability"),
   playstyle: text("playstyle"),
+  // New profile fields (migration 0008)
+  faction: text("faction"),
+  motivation: text("motivation"),
+  flaw: text("flaw"),
+  arc: text("arc"),
+  displayOrder: integer("display_order").default(0),
+  behaviorProfile: jsonb("behavior_profile"),
+  relationships: jsonb("relationships"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

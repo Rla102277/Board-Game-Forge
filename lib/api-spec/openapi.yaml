@@ -2418,6 +2418,26 @@ components:
           type: [string, "null"]
         playstyle:
           type: [string, "null"]
+        faction:
+          type: [string, "null"]
+        motivation:
+          type: [string, "null"]
+        flaw:
+          type: [string, "null"]
+        arc:
+          type: [string, "null"]
+        displayOrder:
+          type: [integer, "null"]
+        behaviorProfile:
+          type: object
+          nullable: true
+          additionalProperties: true
+        relationships:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
         createdAt:
           type: string
           format: date-time
@@ -2449,6 +2469,24 @@ components:
           type: string
         playstyle:
           type: string
+        faction:
+          type: string
+        motivation:
+          type: string
+        flaw:
+          type: string
+        arc:
+          type: string
+        displayOrder:
+          type: integer
+        behaviorProfile:
+          type: object
+          additionalProperties: true
+        relationships:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
       required: [name]
 
     UpdatePlayerBody:
@@ -2474,6 +2512,24 @@ components:
           type: string
         playstyle:
           type: string
+        faction:
+          type: string
+        motivation:
+          type: string
+        flaw:
+          type: string
+        arc:
+          type: string
+        displayOrder:
+          type: integer
+        behaviorProfile:
+          type: object
+          additionalProperties: true
+        relationships:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
 
     Note:
       type: object
