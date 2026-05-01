@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, eq, asc } from "drizzle-orm";
-import { db, entityProperties, entities } from "@workspace/db";
+import { db, entityProperties, entities, projects } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import { complete, tryParseJsonObject } from "../lib/aiRouter";
 
@@ -160,14 +160,18 @@ router.post(
       return;
     }
     // Pull existing properties so AI doesn't suggest duplicates
+    const [project] = await db.select().from(projects).where(eq(projects.id, params.data.projectId));
     const existingProps = await db
       .select()
       .from(entityProperties)
       .where(eq(entityProperties.entityId, entity.id));
     const existingNames = existingProps.map((p) => p.name).join(", ") || "none";
+    const narrativeLine = project?.narrative?.trim()
+      ? `\nGame narrative: ${project.narrative.trim()}\n`
+      : "";
     try {
       const text = await complete(req, {
-        prompt: `You are a senior board-game designer enhancing one entity in a game's design document.
+        prompt: `You are a senior board-game designer enhancing one entity in a game's design document.${narrativeLine}
 
 Return ONLY a JSON object — no prose, no code fences. Emit keys in EXACTLY this order so the most important fields are produced first:
 {

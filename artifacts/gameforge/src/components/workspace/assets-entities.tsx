@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   useListAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useAiEnhanceAsset,
   useGetProject, useUpdateProject, getListAssetsQueryKey, getGetProjectQueryKey,
@@ -207,6 +207,9 @@ export function AssetsEntities({
   const [narrativeDirty, setNarrativeDirty] = useState(false);
   const [savingNarrative, setSavingNarrative] = useState(false);
   const [gammaDialog, setGammaDialog] = useState<{ title: string; prompt: string } | null>(null);
+  const narrativeRef = useRef(narrative);
+  narrativeRef.current = narrative;
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Advanced drawer state
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -220,18 +223,35 @@ export function AssetsEntities({
     if (project && !narrativeDirty) setNarrative(project.narrative ?? "");
   }, [project, narrativeDirty]);
 
-  const saveNarrative = async () => {
+  // Flush any pending debounce save on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = null;
+      }
+    };
+  }, []);
+
+  const saveNarrative = async (value: string) => {
     setSavingNarrative(true);
     try {
-      await updateProject.mutateAsync({ projectId, data: { narrative } });
+      await updateProject.mutateAsync({ projectId, data: { narrative: value } });
       qc.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
-      setNarrativeDirty(false);
-      toast({ title: "Narrative saved" });
+      // Only clear dirty flag if the narrative hasn't changed since this save started
+      setNarrativeDirty((dirty) => (dirty && narrativeRef.current !== value ? dirty : false));
     } catch (err) {
-      toast({ title: "Save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      toast({ title: "Narrative save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
       setSavingNarrative(false);
     }
+  };
+
+  const handleNarrativeChange = (value: string) => {
+    setNarrative(value);
+    setNarrativeDirty(true);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => saveNarrative(value), 1000);
   };
 
   const openGamma = (title: string, prompt: string) => setGammaDialog({ title, prompt });
@@ -291,11 +311,9 @@ export function AssetsEntities({
       <AssetsView
         projectId={projectId}
         narrative={narrative}
-        setNarrative={setNarrative}
-        setNarrativeDirty={setNarrativeDirty}
+        onNarrativeChange={handleNarrativeChange}
         narrativeDirty={narrativeDirty}
         savingNarrative={savingNarrative}
-        onSaveNarrative={saveNarrative}
         projectName={project?.name ?? "Untitled"}
         projectDescription={project?.description ?? ""}
         onGamma={openGamma}
@@ -438,16 +456,14 @@ export function AssetsEntities({
 // ── Assets view (Component Studio — Generation Bar + Gallery + Inspector) ─────
 
 function AssetsView({
-  projectId, narrative, setNarrative, setNarrativeDirty, narrativeDirty,
-  savingNarrative, onSaveNarrative, projectName, projectDescription, onGamma,
+  projectId, narrative, onNarrativeChange, narrativeDirty,
+  savingNarrative, projectName, projectDescription, onGamma,
 }: {
   projectId: number;
   narrative: string;
-  setNarrative: (v: string) => void;
-  setNarrativeDirty: (v: boolean) => void;
+  onNarrativeChange: (v: string) => void;
   narrativeDirty: boolean;
   savingNarrative: boolean;
-  onSaveNarrative: () => void;
   projectName: string;
   projectDescription: string;
   onGamma: (title: string, prompt: string) => void;
@@ -728,20 +744,21 @@ function AssetsView({
                   rows={3}
                   placeholder="A storm-wracked archipelago where rival cartels of weather-shapers race to claim drifting sky-islands…"
                   value={narrative}
-                  onChange={(e) => { setNarrative(e.target.value); setNarrativeDirty(true); }}
+                  onChange={(e) => onNarrativeChange(e.target.value)}
                   className="bg-input text-sm resize-none"
                 />
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    onClick={onSaveNarrative}
-                    disabled={!narrativeDirty || savingNarrative}
-                    data-testid="save-narrative"
-                    className="gap-1.5 h-7 text-xs"
-                  >
-                    {savingNarrative ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                    {savingNarrative ? "Saving…" : narrativeDirty ? "Save" : "Saved"}
-                  </Button>
+                <div className="flex justify-end items-center gap-1.5 h-7">
+                  {savingNarrative ? (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+                    </span>
+                  ) : narrativeDirty ? (
+                    <span className="text-xs text-muted-foreground">Unsaved</span>
+                  ) : narrative.trim() ? (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Check className="h-3 w-3 text-green-500" /> Saved
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </CollapsibleContent>

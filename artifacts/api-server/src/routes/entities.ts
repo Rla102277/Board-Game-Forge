@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, eq, desc } from "drizzle-orm";
-import { db, entities, entityRules, rules } from "@workspace/db";
+import { db, entities, entityRules, rules, projects } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import { complete, tryParseJsonArray } from "../lib/aiRouter";
 
@@ -115,9 +115,13 @@ router.post(
       return;
     }
     const count = parsed.data.count ?? 4;
+    const [project] = await db.select().from(projects).where(eq(projects.id, params.data.projectId));
+    const narrativeLine = project?.narrative?.trim()
+      ? `\nGame narrative: ${project.narrative.trim()}\n`
+      : "";
     try {
       const text = await complete(req, {
-        prompt: `Design ${count} distinct game components for a tabletop game with this brief: "${parsed.data.prompt}".
+        prompt: `Design ${count} distinct game components for a tabletop game with this brief: "${parsed.data.prompt}".${narrativeLine}
 
 Return ONLY a JSON array (no prose, no code fences). Emit each component's keys in EXACTLY this order:
 [{"name":"...","type":"...","subtype":"...","description":"...","stats":"...","relatedTo":"...","lore":"...","designNotes":"..."}]

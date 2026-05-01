@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, eq, desc } from "drizzle-orm";
-import { db, assets, entities } from "@workspace/db";
+import { db, assets, entities, projects } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import {
   complete,
@@ -314,6 +314,7 @@ router.post(
       res.status(404).json({ error: "Asset not found" });
       return;
     }
+    const [project] = await db.select().from(projects).where(eq(projects.id, params.data.projectId));
     let entityName: string | null = null;
     if (a.entityId) {
       const [e] = await db
@@ -322,10 +323,12 @@ router.post(
         .where(eq(entities.id, a.entityId));
       entityName = e?.name ?? null;
     }
+    const narrativeLine = project?.narrative?.trim()
+      ? `\nGame narrative: ${project.narrative.trim()}\n`
+      : "";
     try {
       const text = await complete(req, {
-        prompt: `Enhance this game asset's metadata. Tighten the name, sharpen the description into a designer-facing brief, and write evocative flavor text.
-
+        prompt: `Enhance this game asset's metadata. Tighten the name, sharpen the description into a designer-facing brief, and write evocative flavor text.${narrativeLine}
 Existing asset:
 kind: ${a.kind}
 name: ${a.name}
