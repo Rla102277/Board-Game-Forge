@@ -878,10 +878,10 @@ function AssetsView({
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-lg mx-auto px-4">
             {[
-              { id: "card",  label: "Card Deck",  kind: "card",  icon: Layers,   promptHint: "a hand-illustrated card with title bar, central art frame, and rule text area" },
-              { id: "token", label: "Token Set",  kind: "token", icon: Circle,   promptHint: "a set of small circular player tokens with distinct icons and colors" },
-              { id: "board", label: "Game Board", kind: "board", icon: Square,   promptHint: "a top-down game board with hex or grid regions, paths, and iconography" },
-              { id: "dice",  label: "Dice",       kind: "dice",  icon: Dice5,    promptHint: "custom-faced dice with engraved symbols on each face, wooden or resin" },
+              { id: "card",  label: "Standard Card Deck", kind: "card",  icon: Layers,   promptHint: "a hand-illustrated card with title bar, central art frame, and rule text area" },
+              { id: "tile",  label: "Hex Tile Set",       kind: "tile",  icon: MapIcon,  promptHint: "a collection of interlocking hex terrain tiles with illustrated surfaces" },
+              { id: "token", label: "Token Collection",   kind: "token", icon: Circle,   promptHint: "a set of small circular player tokens with distinct icons and colors" },
+              { id: "board", label: "Game Board",         kind: "board", icon: Square,   promptHint: "a top-down game board with hex or grid regions, paths, and iconography" },
             ].map((tile) => {
               const Icon = tile.icon;
               const busy = generatingTile === tile.id;
@@ -1733,10 +1733,32 @@ function ComponentInspector({
             </div>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-xs" onClick={() => setImagePromptOpen((v) => !v)} disabled={isGenerating}>
             <Sparkles className="h-3 w-3" /> {isGenerating ? "Generating…" : asset.imageDataUrl ? "Regen image" : "Generate image"}
           </Button>
+          <label className="cursor-pointer">
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs pointer-events-none" asChild>
+              <span><ImageIcon className="h-3 w-3" /> Upload</span>
+            </Button>
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async () => {
+                  const dataUrl = reader.result as string;
+                  await saveField({ imageDataUrl: dataUrl } as Parameters<typeof saveField>[0]);
+                  toast({ title: "Image uploaded" });
+                };
+                reader.readAsDataURL(file);
+                e.target.value = "";
+              }}
+            />
+          </label>
           {asset.imageDataUrl && (
             <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={onDownload}>
               <Download className="h-3 w-3" /> Download
