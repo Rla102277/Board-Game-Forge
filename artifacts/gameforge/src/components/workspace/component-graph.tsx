@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { type Entity, type Rule, type EntityProperty, type Asset } from "@workspace/api-client-react";
-import { AlertTriangle, Sparkles, Box, Activity, GitBranch, Search, ArrowRight, Link as LinkIcon, Layers, Table as TableIcon, ImageIcon, X, ChevronRight } from "lucide-react";
+import { AlertTriangle, Sparkles, Box, Activity, GitBranch, Search, ArrowRight, Link as LinkIcon, Layers, Table as TableIcon, ImageIcon, X, ChevronRight, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -318,6 +318,31 @@ function buildAssetNodes(
   return result;
 }
 
+function storageKey(entityIds: number[]): string {
+  return `gameforge-graph-positions-${[...entityIds].sort((a, b) => a - b).join(",")}`;
+}
+
+function loadPositions(entityIds: number[]): Map<number, { x: number; y: number }> {
+  try {
+    const raw = localStorage.getItem(storageKey(entityIds));
+    if (!raw) return new Map();
+    const obj = JSON.parse(raw) as Record<string, { x: number; y: number }>;
+    return new Map(Object.entries(obj).map(([k, v]) => [Number(k), v]));
+  } catch {
+    return new Map();
+  }
+}
+
+function savePositions(entityIds: number[], positions: Map<number, { x: number; y: number }>) {
+  try {
+    const obj: Record<string, { x: number; y: number }> = {};
+    for (const [id, pos] of positions) obj[String(id)] = pos;
+    localStorage.setItem(storageKey(entityIds), JSON.stringify(obj));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function EntityGraph({
   entities, links, assets, onEntityClick, onAssetClick, onJump,
 }: {
@@ -344,10 +369,98 @@ export function EntityGraph({
     return sorted.slice(0, GRAPH_NODE_CAP);
   }, [entities, links, overCap, showAll]);
 
-  const { nodes, edges } = useMemo(
+  const visibleIds = useMemo(() => visibleEntities.map((e) => e.id), [visibleEntities]);
+
+  const baseGraph = useMemo(
     () => buildGraph(visibleEntities, links, width, height),
     [visibleEntities, links, width, height],
   );
+
+  // ── Drag state ──────────────────────────────────────────────────────────────
+  const [nodePositions, setNodePositions] = useState<Map<number, { x: number; y: number }>>(
+    () => loadPositions(visibleIds),
+  );
+
+  useEffect(() => {
+    setNodePositions(loadPositions(visibleIds));
+  }, [visibleIds.join(",")]);
+
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const dragRef = useRef<{
+    nodeId: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+  const didDragRef = useRef(false);
+
+  const clientToSvg = useCallback((clientX: number, clientY: number): { x: number; y: number } => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const transformed = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+    return { x: transformed.x, y: transformed.y };
+  }, []);
+
+  const handleNodePointerDown = useCallback(
+    (e: React.PointerEvent, nodeId: number, nodeX: number, nodeY: number) => {
+      e.stopPropagation();
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+      const svgPos = clientToSvg(e.clientX, e.clientY);
+      dragRef.current = {
+        nodeId,
+        offsetX: svgPos.x - nodeX,
+        offsetY: svgPos.y - nodeY,
+      };
+    },
+    [clientToSvg],
+  );
+
+  const handleSvgPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const svgPos = clientToSvg(e.clientX, e.clientY);
+      const newX = Math.max(10, Math.min(width - 10, svgPos.x - drag.offsetX));
+      const newY = Math.max(10, Math.min(height - 10, svgPos.y - drag.offsetY));
+      didDragRef.current = true;
+      setNodePositions((prev) => {
+        const next = new Map(prev);
+        next.set(drag.nodeId, { x: newX, y: newY });
+        return next;
+      });
+    },
+    [clientToSvg, width, height],
+  );
+
+  const endDrag = useCallback(() => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setNodePositions((prev) => {
+      savePositions(visibleIds, prev);
+      return prev;
+    });
+  }, [visibleIds]);
+
+  const handleSvgPointerUp = endDrag;
+  const handleSvgPointerCancel = endDrag;
+
+  const resetLayout = useCallback(() => {
+    const empty = new Map<number, { x: number; y: number }>();
+    setNodePositions(empty);
+    try { localStorage.removeItem(storageKey(visibleIds)); } catch { /* ignore */ }
+  }, [visibleIds]);
+
+  const nodes: GraphNode[] = useMemo(
+    () =>
+      baseGraph.nodes.map((n) => {
+        const override = nodePositions.get(n.id);
+        return override ? { ...n, x: override.x, y: override.y } : n;
+      }),
+    [baseGraph.nodes, nodePositions],
+  );
+  const { edges } = baseGraph;
 
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
@@ -380,6 +493,7 @@ export function EntityGraph({
     return set;
   };
 
+  const draggingId = dragRef.current?.nodeId ?? null;
   const hoverAdj = hoverId == null ? new Set<number>() : adjacent(hoverId);
   const entityById = new Map(entities.map((e) => [e.id, e]));
   const assetById = useMemo(() => new Map((assets ?? []).map((a) => [a.id, a])), [assets]);
@@ -389,8 +503,13 @@ export function EntityGraph({
   const linkedAssetCount = assetNodes.length;
   const legendTypes = ALL_COMPONENT_TYPES.filter((t) => entities.some((e) => e.type === t));
   const usedAssetKinds = [...new Set((assets ?? []).filter((a) => a.entityId).map((a) => a.kind))];
+  const hasCustomPositions = nodePositions.size > 0;
 
   const handleNodeClick = (entity: Entity) => {
+    if (didDragRef.current) {
+      didDragRef.current = false;
+      return;
+    }
     if (onEntityClick) {
       onEntityClick(entity);
     } else {
@@ -418,6 +537,17 @@ export function EntityGraph({
           <Badge variant="outline" className="text-[10px] ml-1">
             {nodes.length} entities · {linkedAssetCount} assets · {edges.length} links
           </Badge>
+          {hasCustomPositions && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[10px] text-muted-foreground hover:text-white ml-auto"
+              onClick={resetLayout}
+              data-testid="graph-reset-layout"
+            >
+              <RotateCcw className="h-3 w-3 mr-1" /> Reset layout
+            </Button>
+          )}
         </CardTitle>
         <CardDescription className="flex flex-wrap gap-x-4 gap-y-1 items-center">
           <span className="inline-flex items-center gap-1.5">
@@ -434,7 +564,7 @@ export function EntityGraph({
             Asset link
           </span>
           <span className="inline-flex items-center gap-1.5 text-muted-foreground/70">
-            Click any node to inspect it.
+            Drag nodes to rearrange · click to inspect.
           </span>
         </CardDescription>
       </CardHeader>
@@ -450,7 +580,17 @@ export function EntityGraph({
           </div>
         )}
         <div className="rounded-md border border-border bg-background/40 overflow-hidden">
-          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" data-testid="entity-graph-svg">
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${width} ${height}`}
+            className="w-full h-auto"
+            data-testid="entity-graph-svg"
+            onPointerMove={handleSvgPointerMove}
+            onPointerUp={handleSvgPointerUp}
+            onPointerCancel={handleSvgPointerCancel}
+            onPointerLeave={handleSvgPointerUp}
+            style={{ touchAction: "none" }}
+          >
             <g>
               {inferredEdges.map((e, i) => {
                 const a = nodeById.get(e.a);
@@ -521,26 +661,29 @@ export function EntityGraph({
               {nodes.map((n) => {
                 const isHover = hoverId === n.id;
                 const isAdj = hoverAdj.has(n.id);
-                const dim = hoverId != null && !isHover && !isAdj;
+                const isDragging = draggingId === n.id;
+                const dim = hoverId != null && !isHover && !isAdj && !isDragging;
                 const entity = entityById.get(n.id);
                 return (
                   <g key={n.id} transform={`translate(${n.x},${n.y})`}
-                    onMouseEnter={() => setHoverId(n.id)}
-                    onMouseLeave={() => setHoverId((x) => (x === n.id ? null : x))}
+                    onMouseEnter={() => !dragRef.current && setHoverId(n.id)}
+                    onMouseLeave={() => !dragRef.current && setHoverId((x) => (x === n.id ? null : x))}
+                    onPointerDown={(e) => handleNodePointerDown(e, n.id, n.x, n.y)}
                     onClick={() => entity && handleNodeClick(entity)}
-                    style={{ cursor: "pointer" }}
+                    style={{ cursor: isDragging ? "grabbing" : "grab" }}
                     data-testid={`graph-node-${n.id}`}>
-                    <circle r={n.r + (isHover ? 3 : 0)} fill={typeHex(n.type)}
+                    <circle r={n.r + (isHover || isDragging ? 3 : 0)} fill={typeHex(n.type)}
                       fillOpacity={dim ? 0.2 : 0.85} stroke="currentColor"
-                      strokeOpacity={isHover ? 0.9 : 0.4} strokeWidth={isHover ? 2 : 1}
+                      strokeOpacity={isHover || isDragging ? 0.9 : 0.4}
+                      strokeWidth={isHover || isDragging ? 2 : 1}
                       className="text-foreground" />
-                    {(isHover || isAdj) && (
+                    {(isHover || isAdj || isDragging) && (
                       <text y={-(n.r + 6)} textAnchor="middle" fontSize="11"
                         fill="currentColor" className="text-foreground font-medium pointer-events-none">
                         {n.name}
                       </text>
                     )}
-                    <title>{n.name} ({n.type}) — click to inspect</title>
+                    <title>{n.name} ({n.type}) — drag to reposition · click to inspect</title>
                   </g>
                 );
               })}
