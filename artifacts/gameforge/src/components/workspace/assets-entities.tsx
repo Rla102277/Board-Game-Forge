@@ -51,13 +51,13 @@ const COMPONENT_KINDS: ComponentKind[] = [
   { id: "board",     label: "Game Board",   kind: "board",    icon: Square,   promptHint: "a top-down game board with hex or grid regions, paths, and iconography" },
   { id: "token",     label: "Token Set",    kind: "token",    icon: Circle,   promptHint: "a set of small circular player tokens with distinct icons and colors" },
   { id: "tile",      label: "Tile Set",     kind: "tile",     icon: MapIcon,  promptHint: "a collection of interlocking hex or square terrain tiles with illustrated surfaces" },
-  { id: "dice",      label: "Dice",         kind: "other",    icon: Dice5,    promptHint: "custom-faced dice with engraved symbols on each face, wooden or resin" },
+  { id: "dice",      label: "Dice",         kind: "dice",     icon: Dice5,    promptHint: "custom-faced dice with engraved symbols on each face, wooden or resin" },
   { id: "rulebook",  label: "Rulebook",     kind: "rulebook", icon: BookOpen, promptHint: "a booklet cover with the game logo and thematic art, professional layout" },
   { id: "character", label: "Character",    kind: "other",    icon: User,     promptHint: "a character portrait, three-quarter view, hand-painted illustration" },
   { id: "custom",    label: "Custom…",      kind: "other",    icon: Tag,      promptHint: "a custom game component with thematic art and professional finish" },
 ];
 
-const ASSET_KINDS = ["card", "token", "board", "tile", "rulebook", "other"];
+const ASSET_KINDS = ["card", "token", "board", "tile", "dice", "rulebook", "other"];
 
 type AIEnhanceEntity = {
   description: string;
@@ -466,6 +466,7 @@ function AssetsView({
   const [generatingFreeform, setGeneratingFreeform] = useState(false);
   const [genCount, setGenCount] = useState(1);
   const [genQueue, setGenQueue] = useState<{ done: number; total: number } | null>(null);
+  const [placeholders, setPlaceholders] = useState<Array<{ tempId: string; name: string }>>([]);
   const [generating, setGenerating] = useState<number | null>(null);
   const [imagePromptId, setImagePromptId] = useState<number | null>(null);
   const [imagePrompt, setImagePrompt] = useState("");
@@ -531,6 +532,12 @@ function AssetsView({
     if (!txt) return;
     setGeneratingFreeform(true);
     const count = Math.max(1, Math.min(10, genCount));
+    // Seed optimistic placeholder cards immediately
+    const seeds = Array.from({ length: count }, (_, i) => ({
+      tempId: `ph-${Date.now()}-${i}`,
+      name: count > 1 ? `${txt.slice(0, 40)} #${i + 1}` : txt.slice(0, 60),
+    }));
+    setPlaceholders(seeds);
     if (count > 1) setGenQueue({ done: 0, total: count });
     let succeeded = 0;
     try {
@@ -539,6 +546,8 @@ function AssetsView({
       for (let i = 0; i < count; i++) {
         const suffix = count > 1 ? ` #${i + 1}` : "";
         const created = await createAsset.mutateAsync({ projectId, data: { name: (txt.slice(0, 58) + suffix).slice(0, 60), kind: "other", description: `Custom — ${txt}`.slice(0, 240), flavorText: "Custom" } });
+        // Replace the first placeholder with the real card
+        setPlaceholders((prev) => prev.slice(1));
         refresh();
         const ok = await generateImageDirect(created.id, fullPrompt);
         if (ok) succeeded++;
@@ -552,6 +561,7 @@ function AssetsView({
     } finally {
       setGeneratingFreeform(false);
       setGenQueue(null);
+      setPlaceholders([]);
     }
   };
 
@@ -591,12 +601,13 @@ function AssetsView({
     toast({ title: `Generated images for ${done} asset${done === 1 ? "" : "s"}` });
   };
 
-  // Fixed section order for grouped gallery
+  // Fixed section order for grouped gallery — Dice is first-class
   const GALLERY_SECTIONS: { kind: string; label: string }[] = [
     { kind: "card",     label: "Cards" },
     { kind: "token",    label: "Tokens" },
     { kind: "tile",     label: "Tiles" },
     { kind: "board",    label: "Boards" },
+    { kind: "dice",     label: "Dice" },
     { kind: "rulebook", label: "Rulebooks" },
     { kind: "other",    label: "Other" },
   ];
@@ -831,12 +842,31 @@ function AssetsView({
         </Card>
       )}
 
+      {/* Optimistic placeholder cards (during batch freeform generation) */}
+      {placeholders.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {placeholders.map((ph) => (
+            <div key={ph.tempId} className="rounded-xl border border-primary/30 bg-card overflow-hidden animate-pulse">
+              <div className="aspect-video bg-muted/40 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                <span className="text-xs text-muted-foreground">Generating…</span>
+              </div>
+              <div className="p-3 space-y-1.5">
+                <div className="h-3.5 bg-muted/60 rounded w-3/4" />
+                <div className="h-3 bg-muted/40 rounded w-1/2" />
+                <p className="text-[10px] text-muted-foreground truncate mt-1 italic">{ph.name}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Gallery: loading / empty / grouped / flat */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-80" />)}
         </div>
-      ) : !assets?.length ? (
+      ) : !assets?.length && placeholders.length === 0 ? (
         /* Empty state */
         <div className="py-10 border border-dashed border-border rounded-xl space-y-6">
           <div className="text-center space-y-2">
@@ -848,10 +878,10 @@ function AssetsView({
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-lg mx-auto px-4">
             {[
-              { id: "card", label: "Card Deck", kind: "card", icon: Layers, promptHint: "a standard illustrated card deck with a frame and title bar" },
-              { id: "tile", label: "Tile Set", kind: "tile", icon: Square, promptHint: "a set of hex terrain tiles with a patterned back face" },
-              { id: "token", label: "Token Set", kind: "token", icon: Circle, promptHint: "a collection of small round player tokens with unique icons" },
-              { id: "board", label: "Game Board", kind: "board", icon: MapIcon, promptHint: "a top-down game board with zones, regions and iconography" },
+              { id: "card",  label: "Card Deck",  kind: "card",  icon: Layers,   promptHint: "a hand-illustrated card with title bar, central art frame, and rule text area" },
+              { id: "token", label: "Token Set",  kind: "token", icon: Circle,   promptHint: "a set of small circular player tokens with distinct icons and colors" },
+              { id: "board", label: "Game Board", kind: "board", icon: Square,   promptHint: "a top-down game board with hex or grid regions, paths, and iconography" },
+              { id: "dice",  label: "Dice",       kind: "dice",  icon: Dice5,    promptHint: "custom-faced dice with engraved symbols on each face, wooden or resin" },
             ].map((tile) => {
               const Icon = tile.icon;
               const busy = generatingTile === tile.id;
@@ -919,7 +949,7 @@ function AssetsView({
       ) : (
         /* Flat grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {assets.map((a) => (
+          {(assets ?? []).map((a) => (
             <AssetCard
               key={a.id}
               asset={a}
@@ -1806,11 +1836,13 @@ function ComponentInspector({
             />
           </div>
 
-          <ComponentDetailsEditor
-            kind={editForm.kind}
-            value={editForm.componentDetails}
-            onChange={(v) => setEditForm((f) => ({ ...f, componentDetails: v }))}
-          />
+          <div onBlur={() => saveField({ componentDetails: editForm.componentDetails || undefined })}>
+            <ComponentDetailsEditor
+              kind={editForm.kind}
+              value={editForm.componentDetails}
+              onChange={(v) => setEditForm((f) => ({ ...f, componentDetails: v }))}
+            />
+          </div>
         </div>
 
         {/* AI Enhance */}
