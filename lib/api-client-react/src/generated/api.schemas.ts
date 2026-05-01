@@ -563,6 +563,10 @@ export interface UpdatePlayerBody {
   relationships?: UpdatePlayerBodyRelationshipsItem[];
 }
 
+export interface ReorderPlayersBody {
+  playerIds: number[];
+}
+
 export interface Note {
   id: number;
   projectId: number;

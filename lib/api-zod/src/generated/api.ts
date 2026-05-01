@@ -1787,3 +1787,36 @@ export const GenerateExportResponse = zod.object({
   content: zod.string(),
   filename: zod.string(),
 });
+
+export const ReorderPlayersParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ReorderPlayersBody = zod.object({
+  playerIds: zod.array(zod.number()),
+});
+
+export const ReorderPlayersResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  playerType: zod.string().nullish(),
+  role: zod.string().nullish(),
+  archetype: zod.string().nullish(),
+  description: zod.string().nullish(),
+  strategy: zod.string().nullish(),
+  startingResources: zod.string().nullish(),
+  victoryCondition: zod.string().nullish(),
+  specialAbility: zod.string().nullish(),
+  playstyle: zod.string().nullish(),
+  faction: zod.string().nullish(),
+  motivation: zod.string().nullish(),
+  flaw: zod.string().nullish(),
+  arc: zod.string().nullish(),
+  displayOrder: zod.number().nullish(),
+  behaviorProfile: zod.record(zod.unknown()).nullish(),
+  relationships: zod.array(zod.record(zod.unknown())).nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ReorderPlayersResponse = zod.array(ReorderPlayersResponseItem);

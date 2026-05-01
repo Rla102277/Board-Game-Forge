@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useListPlayers, useCreatePlayer, useUpdatePlayer, useDeletePlayer,
-  useAiEnhancePlayer, getListPlayersQueryKey, type Player,
+  useAiEnhancePlayer, useReorderPlayers, getListPlayersQueryKey, type Player,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,6 +171,7 @@ export function Players({ projectId }: PlayersProps) {
   const updatePlayer = useUpdatePlayer();
   const deletePlayer = useDeletePlayer();
   const enhancePlayer = useAiEnhancePlayer();
+  const reorderPlayers = useReorderPlayers();
 
   // ── UI state
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -300,7 +301,7 @@ export function Players({ projectId }: PlayersProps) {
   // ── Drag-to-reorder (HTML5, within type group)
   const handleDragStart = (id: number) => setDraggedId(id);
   const handleDragOver = (e: React.DragEvent, id: number) => { e.preventDefault(); setDragOverId(id); };
-  const handleDrop = async (targetId: number, type: PlayerType) => {
+  const handleDrop = (targetId: number, type: PlayerType) => {
     if (!draggedId || draggedId === targetId) { setDraggedId(null); setDragOverId(null); return; }
     const group = grouped.get(type) ?? [];
     const fromIdx = group.findIndex((p) => p.id === draggedId);
@@ -311,12 +312,32 @@ export function Players({ projectId }: PlayersProps) {
     reordered.splice(toIdx, 0, moved);
     setDraggedId(null);
     setDragOverId(null);
-    await Promise.all(
-      reordered.map((p, idx) =>
-        updatePlayer.mutateAsync({ projectId, playerId: p.id, data: { displayOrder: idx } }),
-      ),
+
+    // Optimistic update — immediately reflect the new order in the cache
+    const queryKey = getListPlayersQueryKey(projectId);
+    const previous = qc.getQueryData<Player[]>(queryKey);
+    if (previous) {
+      const idSet = new Set(reordered.map((p) => p.id));
+      const updated = previous
+        .filter((p) => !idSet.has(p.id))
+        .concat(reordered.map((p, idx) => ({ ...p, displayOrder: idx })));
+      qc.setQueryData(queryKey, updated);
+    }
+
+    // Single round-trip to the dedicated reorder endpoint
+    reorderPlayers.mutate(
+      { projectId, data: { playerIds: reordered.map((p) => p.id) } },
+      {
+        onSuccess: (rows) => {
+          qc.setQueryData(getListPlayersQueryKey(projectId), rows);
+        },
+        onError: (err) => {
+          // Roll back the optimistic update on failure
+          if (previous) qc.setQueryData(queryKey, previous);
+          toast({ title: "Reorder failed", description: String(err), variant: "destructive" });
+        },
+      },
     );
-    refresh();
   };
 
   // ── Relationship helpers

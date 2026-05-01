@@ -116,3 +116,4 @@ export * from "./updateResearchBody";
 export * from "./updateRuleBody";
 export * from "./updateStoryboardNodeBody";
 export * from "./updateTaskBody";
+export * from "./reorderPlayersBody";

@@ -1021,6 +1021,29 @@ paths:
         "204":
           description: Deleted
 
+  /projects/{projectId}/players/reorder:
+    patch:
+      operationId: reorderPlayers
+      tags: [players]
+      summary: Reorder the player roster by providing an ordered array of player IDs
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderPlayersBody"
+      responses:
+        "200":
+          description: Reordered player list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Player"
+
   /projects/{projectId}/players/ai-generate:
     post:
       operationId: aiGeneratePlayers
@@ -2704,6 +2727,16 @@ components:
           items:
             type: object
             additionalProperties: true
+
+    ReorderPlayersBody:
+      type: object
+      required: [playerIds]
+      properties:
+        playerIds:
+          type: array
+          items:
+            type: integer
+          description: Ordered list of player IDs reflecting the desired display order
 
     Note:
       type: object

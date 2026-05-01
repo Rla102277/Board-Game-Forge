@@ -96,6 +96,7 @@ import type {
   UpdateRuleBody,
   UpdateStoryboardNodeBody,
   UpdateTaskBody,
+  ReorderPlayersBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -5185,6 +5186,87 @@ export const useAiEnhancePlayer = <
   TContext
 > => {
   return useMutation(getAiEnhancePlayerMutationOptions(options));
+};
+
+export const getReorderPlayersUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/players/reorder`;
+};
+
+export const reorderPlayers = async (
+  projectId: number,
+  reorderPlayersBody: ReorderPlayersBody,
+  options?: RequestInit,
+): Promise<Player[]> => {
+  return customFetch<Player[]>(getReorderPlayersUrl(projectId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(reorderPlayersBody),
+  });
+};
+
+export const getReorderPlayersMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderPlayers>>,
+    TError,
+    { projectId: number; data: BodyType<ReorderPlayersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reorderPlayers>>,
+  TError,
+  { projectId: number; data: BodyType<ReorderPlayersBody> },
+  TContext
+> => {
+  const mutationKey = ["reorderPlayers"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reorderPlayers>>,
+    { projectId: number; data: BodyType<ReorderPlayersBody> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return reorderPlayers(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReorderPlayersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reorderPlayers>>
+>;
+export type ReorderPlayersMutationBody = BodyType<ReorderPlayersBody>;
+export type ReorderPlayersMutationError = ErrorType<unknown>;
+
+export const useReorderPlayers = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderPlayers>>,
+    TError,
+    { projectId: number; data: BodyType<ReorderPlayersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reorderPlayers>>,
+  TError,
+  { projectId: number; data: BodyType<ReorderPlayersBody> },
+  TContext
+> => {
+  return useMutation(getReorderPlayersMutationOptions(options));
 };
 
 export const getListNotesUrl = (projectId: number) => {

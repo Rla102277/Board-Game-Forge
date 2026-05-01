@@ -43,6 +43,62 @@ router.post("/projects/:projectId/players", async (req, res): Promise<void> => {
   res.status(201).json(row);
 });
 
+router.patch(
+  "/projects/:projectId/players/reorder",
+  async (req, res): Promise<void> => {
+    const params = schemas.ReorderPlayersParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.ReorderPlayersBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const { playerIds } = parsed.data;
+    const { projectId } = params.data;
+
+    if (new Set(playerIds).size !== playerIds.length) {
+      res.status(400).json({ error: "playerIds must not contain duplicates" });
+      return;
+    }
+
+    const existing = await db
+      .select({ id: players.id })
+      .from(players)
+      .where(eq(players.projectId, projectId));
+    const existingIds = new Set(existing.map((r) => r.id));
+    const foreign = playerIds.filter((id) => !existingIds.has(id));
+    if (foreign.length > 0) {
+      res.status(400).json({ error: `playerIds contain IDs not in this project: ${foreign.join(", ")}` });
+      return;
+    }
+
+    const rows = await db.transaction(async (tx) => {
+      await Promise.all(
+        playerIds.map((id, idx) =>
+          tx
+            .update(players)
+            .set({ displayOrder: idx })
+            .where(
+              and(
+                eq(players.id, id),
+                eq(players.projectId, projectId),
+              ),
+            ),
+        ),
+      );
+      return tx
+        .select()
+        .from(players)
+        .where(eq(players.projectId, projectId))
+        .orderBy(asc(players.displayOrder), asc(players.id));
+    });
+    res.json(schemas.ReorderPlayersResponse.parse(rows));
+  },
+);
+
 router.patch("/projects/:projectId/players/:playerId", async (req, res): Promise<void> => {
   const params = schemas.UpdatePlayerParams.safeParse(req.params);
   if (!params.success) {
