@@ -175,7 +175,9 @@ export function Players({ projectId }: PlayersProps) {
 
   // ── UI state
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
+  const [viewMode, setViewMode] = useState<"list" | "graph">(
+    () => (localStorage.getItem("gameforge:players:viewMode") as "list" | "graph" | null) ?? "list"
+  );
   const [search, setSearch] = useState("");
   const [factionFilter, setFactionFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<PlayerType | null>(null);
@@ -192,6 +194,7 @@ export function Players({ projectId }: PlayersProps) {
   // ── Drag state
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<number | null>(null);
 
   // ── Relationship add UI
   const [addingRelType, setAddingRelType] = useState<string>("Allied");
@@ -224,6 +227,9 @@ export function Players({ projectId }: PlayersProps) {
       { onError: (err) => toast({ title: "Auto-save failed", description: String(err), variant: "destructive" }) },
     );
   }, [debouncedSheet, selectedId, sheetPlayerId, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist viewMode
+  useEffect(() => { localStorage.setItem("gameforge:players:viewMode", viewMode); }, [viewMode]);
 
   // ── Factions
   const factions = useMemo(() => {
@@ -298,20 +304,35 @@ export function Players({ projectId }: PlayersProps) {
     }
   };
 
+  // ── Unfiltered group for drag-to-reorder (#35 — preserve order across filters)
+  const unfilteredGrouped = useMemo(() => {
+    const map = new Map<PlayerType, Player[]>();
+    PLAYER_TYPES.forEach((t) => map.set(t, []));
+    (players ?? []).forEach((p) => {
+      const t = (p.playerType as PlayerType) ?? "Character";
+      map.get(t)?.push(p);
+    });
+    map.forEach((group) => group.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)));
+    return map;
+  }, [players]);
+
   // ── Drag-to-reorder (HTML5, within type group)
-  const handleDragStart = (id: number) => setDraggedId(id);
-  const handleDragOver = (e: React.DragEvent, id: number) => { e.preventDefault(); setDragOverId(id); };
+  const handleDragStart = (id: number) => { setDraggedId(id); document.body.style.cursor = "grabbing"; };
+  const handleDragOver = (e: React.DragEvent, id: number) => { e.preventDefault(); setDragOverId(id); setDropTargetId(id); };
   const handleDrop = (targetId: number, type: PlayerType) => {
-    if (!draggedId || draggedId === targetId) { setDraggedId(null); setDragOverId(null); return; }
-    const group = grouped.get(type) ?? [];
+    document.body.style.cursor = "";
+    if (!draggedId || draggedId === targetId) { setDraggedId(null); setDragOverId(null); setDropTargetId(null); return; }
+    // Use unfiltered group so filtering doesn't break displayOrder assignments (#35)
+    const group = unfilteredGrouped.get(type) ?? [];
     const fromIdx = group.findIndex((p) => p.id === draggedId);
     const toIdx = group.findIndex((p) => p.id === targetId);
-    if (fromIdx === -1 || toIdx === -1) { setDraggedId(null); setDragOverId(null); return; }
+    if (fromIdx === -1 || toIdx === -1) { setDraggedId(null); setDragOverId(null); setDropTargetId(null); return; }
     const reordered = [...group];
     const [moved] = reordered.splice(fromIdx, 1);
     reordered.splice(toIdx, 0, moved);
     setDraggedId(null);
     setDragOverId(null);
+    setDropTargetId(null);
 
     // Optimistic update — immediately reflect the new order in the cache
     const queryKey = getListPlayersQueryKey(projectId);
@@ -523,7 +544,7 @@ export function Players({ projectId }: PlayersProps) {
                     {/* Roster rows */}
                     {!collapsed && group.map((p) => {
                       const isSelected = p.id === selectedId;
-                      const isDragOver = dragOverId === p.id;
+                      const isDropTarget = dropTargetId === p.id && draggedId !== null && draggedId !== p.id;
                       return (
                         <div
                           key={p.id}
@@ -531,9 +552,9 @@ export function Players({ projectId }: PlayersProps) {
                           onDragStart={() => handleDragStart(p.id)}
                           onDragOver={(e) => handleDragOver(e, p.id)}
                           onDrop={() => handleDrop(p.id, type)}
-                          onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
+                          onDragEnd={() => { document.body.style.cursor = ""; setDraggedId(null); setDragOverId(null); setDropTargetId(null); }}
                           onClick={() => setSelectedId(isSelected ? null : p.id)}
-                          className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-colors border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${isDragOver ? "border-t border-primary/40" : ""} ${draggedId === p.id ? "opacity-40" : ""}`}
+                          className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-all border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${isDropTarget ? "ring-1 ring-inset ring-primary bg-primary/5" : ""} ${draggedId === p.id ? "opacity-40 cursor-grabbing" : ""}`}
                         >
                           <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0 cursor-grab" />
                           <m.Icon className={`h-3.5 w-3.5 shrink-0 ${m.color}`} />
@@ -668,7 +689,7 @@ function NoSelectionState({ players, onSelect }: { players: Player[]; onSelect: 
         <div className="space-y-1 w-full max-w-xs">
           <p className="text-xs text-muted-foreground text-center mb-2">Recent</p>
           {recent.map((p) => {
-            const m = getMeta(p.playerType);
+            const m = getMeta(p.playerType ?? "Character");
             return (
               <button key={p.id} onClick={() => onSelect(p.id)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/20 transition-colors text-left">
                 <m.Icon className={`h-4 w-4 shrink-0 ${m.color}`} />
@@ -872,7 +893,7 @@ function CharacterSheet({
             <div className="flex flex-wrap gap-2">
               {sheet.relationships.map((rel) => {
                 const target = relPlayerMap.get(rel.targetPlayerId);
-                const tm = target ? getMeta(target.playerType) : null;
+                const tm = target ? getMeta(target.playerType ?? "Character") : null;
                 return (
                   <div key={rel.targetPlayerId} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-muted/30 text-xs">
                     {tm && <tm.Icon className={`h-3 w-3 ${tm.color}`} />}
@@ -900,7 +921,7 @@ function CharacterSheet({
                   {allPlayers
                     .filter((p) => !sheet.relationships.some((r) => r.targetPlayerId === p.id))
                     .map((p) => {
-                      const pm = getMeta(p.playerType);
+                      const pm = getMeta(p.playerType ?? "Character");
                       return (
                         <SelectItem key={p.id} value={String(p.id)} className="text-xs">
                           <span className="flex items-center gap-1.5">

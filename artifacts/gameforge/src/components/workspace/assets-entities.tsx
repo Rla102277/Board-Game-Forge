@@ -687,6 +687,9 @@ function AssetsView({
     dragOverIdRef.current = null;
   };
 
+  // Card element refs for focus restoration after keyboard move (#38)
+  const cardElemRefs = useRef<Map<number, HTMLElement>>(new Map());
+
   const moveAsset = async (id: number, delta: -1 | 1) => {
     const currentOrder = localOrderRef.current;
     const idx = currentOrder.indexOf(id);
@@ -697,6 +700,7 @@ function AssetsView({
     finalOrder.splice(idx, 1);
     finalOrder.splice(newIdx, 0, id);
     setLocalOrder(finalOrder);
+    requestAnimationFrame(() => cardElemRefs.current.get(id)?.focus());
     try {
       await Promise.all(
         finalOrder.map((aid, index) =>
@@ -710,14 +714,41 @@ function AssetsView({
     }
   };
 
-  const handleCardKeyDown = (e: React.KeyboardEvent, id: number) => {
+  const moveGroupedAsset = async (id: number, kind: string, delta: -1 | 1) => {
+    const kindIds = localGroupOrder.get(kind) ?? [];
+    const idx = kindIds.indexOf(id);
+    if (idx === -1) return;
+    const newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= kindIds.length) return;
+    const next = [...kindIds];
+    next.splice(idx, 1);
+    next.splice(newIdx, 0, id);
+    setLocalGroupOrder((prev) => { const m = new Map(prev); m.set(kind, next); return m; });
+    requestAnimationFrame(() => cardElemRefs.current.get(id)?.focus());
+    const kindOffset = KIND_ORDER_OFFSET[kind] ?? 60000;
+    try {
+      await Promise.all(
+        next.map((aid, index) =>
+          updateAsset.mutateAsync({ projectId, assetId: aid, data: { displayOrder: kindOffset + index } })
+        )
+      );
+      refresh();
+    } catch {
+      toast({ title: "Failed to save order", variant: "destructive" });
+      refresh();
+    }
+  };
+
+  const handleCardKeyDown = (e: React.KeyboardEvent, id: number, kind?: string) => {
     if (!e.shiftKey) return;
     if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
       e.preventDefault();
-      moveAsset(id, -1);
+      if (groupByType && kind) moveGroupedAsset(id, kind, -1);
+      else moveAsset(id, -1);
     } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
       e.preventDefault();
-      moveAsset(id, 1);
+      if (groupByType && kind) moveGroupedAsset(id, kind, 1);
+      else moveAsset(id, 1);
     }
   };
 
@@ -1169,6 +1200,7 @@ function AssetsView({
                   {kindAssets.map((a) => (
                     <div
                       key={a.id}
+                      ref={(el) => { if (el) cardElemRefs.current.set(a.id, el); else cardElemRefs.current.delete(a.id); }}
                       draggable
                       tabIndex={0}
                       role="group"
@@ -1179,7 +1211,7 @@ function AssetsView({
                       onDragEnd={handleGroupedDragEnd}
                       onFocus={() => setFocusedId(a.id)}
                       onBlur={() => setFocusedId((prev) => (prev === a.id ? null : prev))}
-                      onKeyDown={(e) => handleCardKeyDown(e, a.id)}
+                      onKeyDown={(e) => handleCardKeyDown(e, a.id, sec.kind)}
                       className={[
                         "relative transition-all duration-150 rounded-xl outline-none",
                         draggedId === a.id
@@ -1233,6 +1265,7 @@ function AssetsView({
           {orderedAssets.map((a) => (
             <div
               key={a.id}
+              ref={(el) => { if (el) cardElemRefs.current.set(a.id, el); else cardElemRefs.current.delete(a.id); }}
               draggable
               tabIndex={0}
               role="group"
@@ -2236,801 +2269,6 @@ function ComponentInspector({
       </div>
 
       {showCardPreview && <CardPreviewDialog asset={asset} onClose={() => setShowCardPreview(false)} />}
-    </div>
-  );
-}
-
-// ── Entities view ─────────────────────────────────────────────────────────────
-
-function EntitiesView({
-  projectId, narrative, projectName, onGamma,
-}: {
-  projectId: number;
-  narrative: string;
-  projectName: string;
-  onGamma: (title: string, prompt: string) => void;
-}) {
-  const queryClient = useQueryClient();
-  const { data: entities, isLoading } = useListEntities(projectId);
-  const createEntity = useCreateEntity();
-  const deleteEntity = useDeleteEntity();
-  const aiGenerate = useAiGenerateEntities();
-  const { toast } = useToast();
-
-  const [entityView, setEntityView] = useState<"cards" | "sheet">("cards");
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiCount, setAiCount] = useState(5);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [showAIPanel, setShowAIPanel] = useState(false);
-  const [newEntity, setNewEntity] = useState<{
-    name: string; type: ComponentType; subtype: string; description: string; parentEntityId?: number;
-  }>({ name: "", type: "Card", subtype: "", description: "" });
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [filterType, setFilterType] = useState("all");
-
-  const errMsg = (err: unknown) => err instanceof Error ? err.message : String(err);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey(projectId) });
-
-  const handleAiGenerate = async () => {
-    if (!aiPrompt) return;
-    try {
-      await aiGenerate.mutateAsync({ projectId, data: { prompt: aiPrompt, count: aiCount } });
-      setAiPrompt(""); setShowAIPanel(false); refresh();
-      toast({ title: "Components generated" });
-    } catch (err) {
-      toast({ title: "AI generate failed", description: errMsg(err), variant: "destructive" });
-    }
-  };
-
-  const handleAddEntity = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newEntity.name) return;
-    try {
-      await createEntity.mutateAsync({
-        projectId,
-        data: { name: newEntity.name, type: newEntity.type, subtype: newEntity.subtype || undefined, description: newEntity.description || undefined, parentEntityId: newEntity.parentEntityId || undefined },
-      });
-      setNewEntity({ name: "", type: "Card", subtype: "", description: "" });
-      setShowAddForm(false); refresh();
-    } catch (err) {
-      toast({ title: "Could not create component", description: errMsg(err), variant: "destructive" });
-    }
-  };
-
-  const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`Delete "${name}"?`)) return;
-    try { await deleteEntity.mutateAsync({ projectId, entityId: id }); refresh(); }
-    catch (err) { toast({ title: "Delete failed", description: errMsg(err), variant: "destructive" }); }
-  };
-
-  const toggleExpand = (id: number) =>
-    setExpandedIds((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
-
-  const toggleGroup = (type: string) =>
-    setCollapsedGroups((prev) => { const s = new Set(prev); s.has(type) ? s.delete(type) : s.add(type); return s; });
-
-  const typeCounts = useMemo(() => {
-    const out: Record<string, number> = {};
-    (entities ?? []).forEach((e) => { out[e.type] = (out[e.type] || 0) + 1; });
-    return out;
-  }, [entities]);
-
-  const { topLevel, childrenByParent, decks } = useMemo(() => {
-    const all = entities ?? [];
-    const childrenByParent: Record<number, Entity[]> = {};
-    const childIds = new Set<number>();
-    all.forEach((e) => {
-      if (e.parentEntityId) {
-        childIds.add(e.id);
-        if (!childrenByParent[e.parentEntityId]) childrenByParent[e.parentEntityId] = [];
-        childrenByParent[e.parentEntityId].push(e);
-      }
-    });
-    return { topLevel: all.filter((e) => !childIds.has(e.id)), childrenByParent, decks: new Set(all.filter((e) => e.type === "Deck").map((e) => e.id)) };
-  }, [entities]);
-
-  const filtered = useMemo(() => filterType === "all" ? topLevel : topLevel.filter((e) => e.type === filterType), [topLevel, filterType]);
-
-  const grouped = useMemo(() => {
-    if (filterType !== "all") return null;
-    const map = new Map<string, Entity[]>();
-    filtered.forEach((e) => { if (!map.has(e.type)) map.set(e.type, []); map.get(e.type)!.push(e); });
-    return map;
-  }, [filtered, filterType]);
-
-  const deckOptions = useMemo(() => (entities ?? []).filter((e) => e.type === "Deck"), [entities]);
-
-  return (
-    <div className="space-y-4 pb-8">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <p className="text-xs text-muted-foreground">
-            {entities?.length ?? 0} components
-          </p>
-          {/* Cards / Sheet toggle */}
-          <div className="flex gap-0.5 p-0.5 bg-muted/30 rounded border border-border">
-            <button
-              onClick={() => setEntityView("cards")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${entityView === "cards" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <Layers className="w-3 h-3" /> Cards
-            </button>
-            <button
-              onClick={() => setEntityView("sheet")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${entityView === "sheet" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <TableIcon className="w-3 h-3" /> Sheet
-            </button>
-          </div>
-        </div>
-        <div className="flex gap-1.5">
-          <Button onClick={() => { setShowAIPanel(!showAIPanel); setShowAddForm(false); }} variant="outline" size="sm" className="h-8 border-primary/30 text-primary hover:bg-primary/10">
-            <Sparkles className="w-3.5 h-3.5 mr-1" /> AI Generate
-          </Button>
-          <Button onClick={() => { setShowAddForm(!showAddForm); setShowAIPanel(false); }} size="sm" className="h-8">
-            <Plus className="w-3.5 h-3.5 mr-1" /> Add Component
-          </Button>
-        </div>
-      </div>
-
-      {/* Filter pills */}
-      {entities && entities.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="flex gap-1.5 flex-wrap">
-            <button onClick={() => setFilterType("all")} className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${filterType === "all" ? "bg-white/10 text-white border-white/20" : "text-muted-foreground border-border hover:text-white"}`}>
-              All ({topLevel.length})
-            </button>
-            {PHYSICAL_TYPES.map((t) => { const c = typeCounts[t]; if (!c) return null; const m = getMeta(t); return (
-              <button key={t} onClick={() => setFilterType(t)} className={`text-xs px-2.5 py-1 rounded-full border transition-colors flex items-center gap-1 ${filterType === t ? m.badge : "text-muted-foreground border-border hover:text-white"}`}>
-                <span>{m.icon}</span> {t} ({c})
-              </button>
-            ); })}
-          </div>
-          <div className="flex gap-1.5 flex-wrap">
-            {WORLD_TYPES.map((t) => { const c = typeCounts[t]; if (!c) return null; const m = getMeta(t); return (
-              <button key={t} onClick={() => setFilterType(t)} className={`text-xs px-2.5 py-1 rounded-full border transition-colors flex items-center gap-1 ${filterType === t ? m.badge : "text-muted-foreground border-border hover:text-white"}`}>
-                <span>{m.icon}</span> {t} ({c})
-              </button>
-            ); })}
-          </div>
-        </div>
-      )}
-
-      {/* AI panel */}
-      {showAIPanel && (
-        <Card className="p-4 bg-card border-primary/30 border space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-primary flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> AI Component Generator</p>
-            <button onClick={() => setShowAIPanel(false)} className="text-muted-foreground hover:text-white"><X className="w-3.5 h-3.5" /></button>
-          </div>
-          <div className="flex gap-2">
-            <Textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="e.g. 5 item cards and a matching deck for a fantasy dungeon crawler…" className="bg-input h-14 resize-none text-xs flex-1" />
-            <div className="w-16 shrink-0 space-y-1">
-              <Label className="text-xs">Count</Label>
-              <Select value={aiCount.toString()} onValueChange={(v) => setAiCount(parseInt(v))}>
-                <SelectTrigger className="h-8 bg-input text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{[3, 5, 8].map((n) => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <Button onClick={handleAiGenerate} disabled={!aiPrompt || aiGenerate.isPending} size="sm" className="w-full">
-            {aiGenerate.isPending ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Generating…</> : <><Sparkles className="w-3.5 h-3.5 mr-1.5" />Generate</>}
-          </Button>
-        </Card>
-      )}
-
-      {/* Add form */}
-      {showAddForm && (
-        <Card className="p-4 bg-card border-border">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-medium text-white flex items-center gap-1.5"><Plus className="w-3.5 h-3.5 text-primary" /> New Component</p>
-            <button onClick={() => setShowAddForm(false)} className="text-muted-foreground hover:text-white"><X className="w-3.5 h-3.5" /></button>
-          </div>
-          <form onSubmit={handleAddEntity} className="space-y-3">
-            <div className="flex gap-2">
-              <div className="flex-1 space-y-1">
-                <Label className="text-xs">Name *</Label>
-                <Input value={newEntity.name} onChange={(e) => setNewEntity({ ...newEntity, name: e.target.value })} className="h-8 bg-input" autoFocus />
-              </div>
-              <div className="w-44 shrink-0 space-y-1">
-                <Label className="text-xs">Type</Label>
-                <Select value={newEntity.type} onValueChange={(v) => setNewEntity({ ...newEntity, type: v as ComponentType, subtype: "", parentEntityId: undefined })}>
-                  <SelectTrigger className="h-8 bg-input text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup><SelectLabel className="text-[10px]">Physical</SelectLabel>{PHYSICAL_TYPES.map((t) => <SelectItem key={t} value={t}>{getMeta(t).icon} {t}</SelectItem>)}</SelectGroup>
-                    <SelectGroup><SelectLabel className="text-[10px]">World</SelectLabel>{WORLD_TYPES.map((t) => <SelectItem key={t} value={t}>{getMeta(t).icon} {t}</SelectItem>)}</SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <div className="flex-1 space-y-1">
-                <Label className="text-xs">Subtype</Label>
-                <Select value={newEntity.subtype || "__none__"} onValueChange={(v) => setNewEntity({ ...newEntity, subtype: v === "__none__" ? "" : v })}>
-                  <SelectTrigger className="h-8 bg-input text-xs"><SelectValue placeholder="Select subtype…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— None —</SelectItem>
-                    {COMPONENT_SUBTYPES[newEntity.type].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              {newEntity.type === "Card" && deckOptions.length > 0 && (
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs">Add to Deck</Label>
-                  <Select value={newEntity.parentEntityId ? String(newEntity.parentEntityId) : "__none__"} onValueChange={(v) => setNewEntity({ ...newEntity, parentEntityId: v === "__none__" ? undefined : parseInt(v) })}>
-                    <SelectTrigger className="h-8 bg-input text-xs"><SelectValue placeholder="No deck…" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— No deck —</SelectItem>
-                      {deckOptions.map((d) => <SelectItem key={d.id} value={String(d.id)}>📦 {d.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Description</Label>
-              <Textarea value={newEntity.description} onChange={(e) => setNewEntity({ ...newEntity, description: e.target.value })} className="h-16 resize-none bg-input" placeholder={getMeta(newEntity.type).desc} />
-            </div>
-            <Button type="submit" size="sm" className="w-full" disabled={createEntity.isPending}>
-              {createEntity.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Plus className="w-3.5 h-3.5 mr-1.5" />}
-              Add {newEntity.type}
-            </Button>
-          </form>
-        </Card>
-      )}
-
-      {/* Sheet view */}
-      {entityView === "sheet" && entities && (
-        <EntitySheetView
-          projectId={projectId}
-          entities={entities}
-          projectName={projectName}
-          onRefresh={refresh}
-        />
-      )}
-
-      {/* Card list view */}
-      {entityView === "cards" && (isLoading ? (
-        <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
-      ) : !entities || entities.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-border rounded-xl bg-card/50">
-          <Layers className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium">No components yet</h3>
-          <p className="text-muted-foreground mt-1 text-sm">Generate with AI or add manually.</p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <p className="text-center text-muted-foreground text-sm py-10">No {filterType} components yet.</p>
-      ) : grouped ? (
-        <div className="space-y-3">
-          {Array.from(grouped.entries()).map(([type, items]) => {
-            const m = getMeta(type);
-            const collapsed = collapsedGroups.has(type);
-            return (
-              <div key={type} className="rounded-lg border border-border overflow-hidden">
-                <button onClick={() => toggleGroup(type)} className="w-full flex items-center gap-3 px-4 py-2.5 bg-muted/20 hover:bg-muted/30 transition-colors text-left">
-                  {collapsed ? <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
-                  <span className="text-base">{m.icon}</span>
-                  <span className={`text-sm font-semibold ${m.color}`}>{type}s</span>
-                  <Badge variant="outline" className={`text-[10px] ml-1 ${m.badge}`}>{items.length}</Badge>
-                  <span className="text-xs text-muted-foreground ml-1 hidden sm:block">{m.desc}</span>
-                </button>
-                {!collapsed && (
-                  <div className="divide-y divide-border/50">
-                    {items.map((entity) => (
-                      <EntityCard
-                        key={entity.id}
-                        entity={entity}
-                        projectId={projectId}
-                        isExpanded={expandedIds.has(entity.id)}
-                        onToggle={() => toggleExpand(entity.id)}
-                        onDelete={() => handleDelete(entity.id, entity.name)}
-                        onUpdated={refresh}
-                        childEntities={childrenByParent[entity.id]}
-                        isDeck={decks.has(entity.id)}
-                        deckOptions={deckOptions}
-                        onGamma={() =>
-                          onGamma(
-                            decks.has(entity.id) ? `Deck PDF — ${entity.name}` : `Component Doc — ${entity.name}`,
-                            decks.has(entity.id)
-                              ? buildDeckPrompt(entity, childrenByParent[entity.id] ?? [], projectName, narrative)
-                              : buildEntityPrompt(entity, projectName, narrative),
-                          )
-                        }
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((entity) => (
-            <EntityCard
-              key={entity.id}
-              entity={entity}
-              projectId={projectId}
-              isExpanded={expandedIds.has(entity.id)}
-              onToggle={() => toggleExpand(entity.id)}
-              onDelete={() => handleDelete(entity.id, entity.name)}
-              onUpdated={refresh}
-              childEntities={childrenByParent[entity.id]}
-              isDeck={decks.has(entity.id)}
-              deckOptions={deckOptions}
-              onGamma={() =>
-                onGamma(
-                  decks.has(entity.id) ? `Deck PDF — ${entity.name}` : `Component Doc — ${entity.name}`,
-                  decks.has(entity.id)
-                    ? buildDeckPrompt(entity, childrenByParent[entity.id] ?? [], projectName, narrative)
-                    : buildEntityPrompt(entity, projectName, narrative),
-                )
-              }
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Entity card ───────────────────────────────────────────────────────────────
-
-function EntityCard({
-  entity, projectId, isExpanded, onToggle, onDelete, onUpdated,
-  childEntities, isDeck, deckOptions, onGamma,
-}: {
-  entity: Entity;
-  projectId: number;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onDelete: () => void;
-  onUpdated: () => void;
-  childEntities?: Entity[];
-  isDeck?: boolean;
-  deckOptions?: Entity[];
-  onGamma: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const updateEntity = useUpdateEntity();
-  const createEntity = useCreateEntity();
-  const enhanceEntity = useAiEnhanceEntity();
-  const { toast } = useToast();
-
-  const [showEnhance, setShowEnhance] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false);
-  const [enhance, setEnhance] = useState<AIEnhanceEntity | null>(null);
-  const [showStatusPicker, setShowStatusPicker] = useState(false);
-  const [selectedProps, setSelectedProps] = useState<Set<number>>(new Set());
-  const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    name: entity.name, type: entity.type, subtype: entity.subtype ?? "",
-    description: entity.description ?? "", parentEntityId: entity.parentEntityId ?? undefined as number | undefined,
-  });
-  const createProperty = useCreateEntityProperty();
-  const meta = getMeta(entity.type);
-  const errMsg = (err: unknown) => err instanceof Error ? err.message : String(err);
-
-  const handleSaveEdit = async () => {
-    try {
-      await updateEntity.mutateAsync({
-        projectId, entityId: entity.id,
-        data: { name: editForm.name, type: editForm.type, subtype: editForm.subtype || undefined, description: editForm.description, parentEntityId: editForm.parentEntityId ?? null },
-      });
-      setIsEditing(false); onUpdated();
-      toast({ title: "Component updated" });
-    } catch (err) {
-      toast({ title: "Update failed", description: errMsg(err), variant: "destructive" });
-    }
-  };
-
-  const handleDuplicate = async () => {
-    try {
-      await createEntity.mutateAsync({ projectId, data: { name: `${entity.name} (Copy)`, type: entity.type, description: entity.description ?? "" } });
-      onUpdated(); toast({ title: "Component duplicated" });
-    } catch (err) {
-      toast({ title: "Duplicate failed", description: errMsg(err), variant: "destructive" });
-    }
-  };
-
-  const handleEnhance = async () => {
-    setIsEnhancing(true); setEnhance(null); setShowEnhance(true);
-    try {
-      const raw = await enhanceEntity.mutateAsync({ projectId, entityId: entity.id });
-      const safeProps = Array.isArray(raw?.suggestedProperties)
-        ? raw.suggestedProperties.filter((p): p is AIEnhanceEntity["suggestedProperties"][number] => !!p && typeof p === "object" && typeof p.name === "string")
-        : [];
-      const data: AIEnhanceEntity = {
-        description: typeof raw?.description === "string" ? raw.description : "",
-        lore: typeof raw?.lore === "string" ? raw.lore : undefined,
-        designNotes: typeof raw?.designNotes === "string" ? raw.designNotes : undefined,
-        suggestedProperties: safeProps,
-      };
-      if (!data.description && data.suggestedProperties.length === 0) {
-        toast({ title: "AI returned no usable suggestions", variant: "destructive" });
-        setShowEnhance(false);
-      } else {
-        setEnhance(data);
-        setSelectedProps(new Set(data.suggestedProperties.map((_, i) => i)));
-      }
-    } catch (err) {
-      toast({ title: "AI enhance failed", description: errMsg(err), variant: "destructive" });
-      setShowEnhance(false);
-    } finally {
-      setIsEnhancing(false);
-    }
-  };
-
-  const buildPropertyPayload = (p: { name: string; dataType: string; defaultValue?: string }) => {
-    const payload: { name: string; dataType: string; defaultValue?: number; textValue?: string } = { name: p.name, dataType: p.dataType };
-    if (p.defaultValue != null && p.defaultValue !== "") {
-      const n = Number(p.defaultValue);
-      if (Number.isFinite(n) && p.defaultValue.trim() !== "") payload.defaultValue = n;
-      else payload.textValue = p.defaultValue;
-    }
-    return payload;
-  };
-
-  const handleApply = async () => {
-    if (!enhance) return;
-    setApplying(true);
-    try {
-      await updateEntity.mutateAsync({
-        projectId, entityId: entity.id,
-        data: { description: enhance.description, ...(enhance.lore ? { lore: enhance.lore } : {}), ...(enhance.designNotes ? { designNotes: enhance.designNotes } : {}) },
-      });
-      const propsToAdd = enhance.suggestedProperties.filter((_, i) => selectedProps.has(i));
-      for (const prop of propsToAdd) {
-        await createProperty.mutateAsync({ projectId, entityId: entity.id, data: buildPropertyPayload(prop) });
-      }
-      queryClient.invalidateQueries({ queryKey: getListEntityPropertiesQueryKey(projectId, entity.id) });
-      onUpdated(); setApplied(true);
-      toast({ title: "Applied!", description: `Description updated${propsToAdd.length ? ` + ${propsToAdd.length} propert${propsToAdd.length === 1 ? "y" : "ies"} added.` : "."}` });
-      setTimeout(() => { setShowEnhance(false); setApplied(false); setEnhance(null); }, 1500);
-    } catch (err) {
-      toast({ title: "Apply failed", description: errMsg(err), variant: "destructive" });
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  return (
-    <Card className="bg-card border-border overflow-hidden rounded-none border-0 border-b last:border-b-0">
-      {isEditing ? (
-        <div className="px-4 py-3 space-y-3 border-b border-border bg-muted/10">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} className="bg-input h-8 text-sm font-semibold flex-1 min-w-[140px]" autoFocus />
-            <Select value={editForm.type} onValueChange={(v) => setEditForm((f) => ({ ...f, type: v, subtype: "" }))}>
-              <SelectTrigger className="bg-input h-8 text-xs w-40"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectGroup><SelectLabel className="text-[10px]">Physical</SelectLabel>{PHYSICAL_TYPES.map((t) => <SelectItem key={t} value={t}>{getMeta(t).icon} {t}</SelectItem>)}</SelectGroup>
-                <SelectGroup><SelectLabel className="text-[10px]">World</SelectLabel>{WORLD_TYPES.map((t) => <SelectItem key={t} value={t}>{getMeta(t).icon} {t}</SelectItem>)}</SelectGroup>
-              </SelectContent>
-            </Select>
-            <Select value={editForm.subtype || "__none__"} onValueChange={(v) => setEditForm((f) => ({ ...f, subtype: v === "__none__" ? "" : v }))}>
-              <SelectTrigger className="bg-input h-8 text-xs w-36"><SelectValue placeholder="Subtype…" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">— None —</SelectItem>
-                {COMPONENT_SUBTYPES[editForm.type as ComponentType]?.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          {editForm.type === "Card" && deckOptions && deckOptions.length > 0 && (
-            <Select value={editForm.parentEntityId ? String(editForm.parentEntityId) : "__none__"} onValueChange={(v) => setEditForm((f) => ({ ...f, parentEntityId: v === "__none__" ? undefined : parseInt(v) }))}>
-              <SelectTrigger className="h-8 bg-input text-xs w-56"><SelectValue placeholder="No deck…" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">— No deck —</SelectItem>
-                {deckOptions.map((d) => <SelectItem key={d.id} value={String(d.id)}>📦 {d.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-          <Textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} placeholder="Description…" className="bg-input text-sm resize-none h-16" />
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleSaveEdit} className="h-7 text-xs gap-1" disabled={updateEntity.isPending}>
-              {updateEntity.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Save
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setEditForm({ name: entity.name, type: entity.type, subtype: entity.subtype ?? "", description: entity.description ?? "", parentEntityId: entity.parentEntityId ?? undefined }); setIsEditing(false); }} className="h-7 text-xs text-muted-foreground">
-              <X className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/10 transition-colors" onClick={onToggle}>
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
-            <span className="text-sm shrink-0">{meta.icon}</span>
-            <span className={`text-base font-semibold truncate ${meta.color}`}>{entity.name}</span>
-            {entity.subtype && <Badge variant="outline" className={`text-[10px] shrink-0 ${meta.badge}`}>{entity.subtype}</Badge>}
-            {isDeck && childEntities && childEntities.length > 0 && (
-              <Badge variant="outline" className="text-[10px] shrink-0 bg-indigo-500/10 text-indigo-400 border-indigo-500/30">
-                {childEntities.length} card{childEntities.length !== 1 ? "s" : ""}
-              </Badge>
-            )}
-            <button
-              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border shrink-0 ${getStatusMeta((entity as any).status ?? "draft").color}`}
-              onClick={(e) => { e.stopPropagation(); setShowStatusPicker((v) => !v); }}
-              title="Change status"
-            >
-              {getStatusMeta((entity as any).status ?? "draft").label}
-            </button>
-            {entity.description && <span className="text-xs text-muted-foreground truncate hidden md:block">{entity.description}</span>}
-          </div>
-          <div className="flex items-center gap-1 shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="sm" className={`text-xs h-7 px-2 gap-1 ${showEnhance ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}
-              onClick={() => { setShowEnhance(!showEnhance); if (!showEnhance && !enhance) handleEnhance(); }}>
-              <Wand2 className="w-3.5 h-3.5" /> AI
-            </Button>
-            <Button variant="ghost" size="sm" className="text-xs h-7 px-2 gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={onGamma} title={isDeck ? "Generate deck PDF with Gamma" : "Generate component doc with Gamma"}>
-              <FileText className="w-3.5 h-3.5" /> {isDeck ? "PDF" : "Doc"}
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-white hover:bg-muted/20"
-              onClick={() => { setEditForm({ name: entity.name, type: entity.type, subtype: entity.subtype ?? "", description: entity.description ?? "", parentEntityId: entity.parentEntityId ?? undefined }); setIsEditing(true); }}>
-              <Pencil className="w-3.5 h-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-white" onClick={handleDuplicate}>
-              <Copy className="w-3.5 h-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete}>
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Status quick-picker */}
-      {showStatusPicker && (
-        <div className="flex items-center gap-2 px-5 py-2 border-t border-border bg-muted/10" onClick={(e) => e.stopPropagation()}>
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">Status:</span>
-          {STATUS_OPTIONS.map((s) => (
-            <button
-              key={s.value}
-              onClick={async () => {
-                try {
-                  await updateEntity.mutateAsync({ projectId, entityId: entity.id, data: { status: s.value } });
-                  onUpdated();
-                  setShowStatusPicker(false);
-                } catch {}
-              }}
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition-opacity ${s.color} ${(entity as any).status === s.value ? "opacity-100 ring-1 ring-current" : "opacity-60 hover:opacity-100"}`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* AI enhance panel */}
-      {showEnhance && (
-        <div className={`border-t border-border ${meta.bg} px-5 py-4`}>
-          {isEnhancing && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-              <Loader2 className="w-4 h-4 animate-spin text-primary" /> Analyzing and generating improvements…
-            </div>
-          )}
-          {enhance && !isEnhancing && (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <div className={`flex items-center gap-1.5 text-xs font-semibold ${meta.color}`}><Sparkles className="w-3.5 h-3.5" /> Enhanced Description</div>
-                <p className="text-sm text-white leading-relaxed bg-background/50 border border-border rounded-md p-3">{enhance.description}</p>
-              </div>
-              {(enhance.lore || enhance.designNotes) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {enhance.lore && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Flavor / Lore</p>
-                      <p className="text-xs text-muted-foreground italic leading-relaxed bg-background/40 border border-border/50 rounded p-2.5">"{enhance.lore}"</p>
-                    </div>
-                  )}
-                  {enhance.designNotes && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Designer's Notes</p>
-                      <p className="text-xs text-muted-foreground leading-relaxed bg-background/40 border border-border/50 rounded p-2.5">{enhance.designNotes}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-              {enhance.suggestedProperties.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className={`text-xs font-semibold uppercase tracking-wider ${meta.color}`}>Suggested Properties ({enhance.suggestedProperties.length})</p>
-                    <div className="flex gap-2 text-xs">
-                      <button className="text-primary hover:underline" onClick={() => setSelectedProps(new Set(enhance.suggestedProperties.map((_, i) => i)))}>All</button>
-                      <button className="text-muted-foreground hover:underline" onClick={() => setSelectedProps(new Set())}>None</button>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    {enhance.suggestedProperties.map((prop, i) => {
-                      const isSel = selectedProps.has(i);
-                      return (
-                        <div key={i} className={`flex items-start gap-2.5 p-2.5 rounded-md border cursor-pointer transition-colors ${isSel ? "border-primary/40 bg-primary/5" : "border-border bg-muted/10"}`}
-                          onClick={() => setSelectedProps((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; })}>
-                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 ${isSel ? "border-primary bg-primary" : "border-border"}`}>
-                            {isSel && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <code className="text-white text-xs font-mono">{prop.name}</code>
-                              <Badge variant="outline" className="text-[10px] font-mono bg-secondary/30">{prop.dataType}</Badge>
-                              {prop.defaultValue != null && prop.defaultValue !== "" && <span className="text-xs text-muted-foreground font-mono">= {prop.defaultValue}</span>}
-                            </div>
-                            {prop.reason && <p className="text-xs text-muted-foreground mt-0.5">{prop.reason}</p>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              <div className="flex items-center gap-2 pt-1 flex-wrap">
-                <Button onClick={handleApply} disabled={applying || applied} size="sm" className="bg-primary text-primary-foreground">
-                  {applied ? <><Check className="w-3.5 h-3.5 mr-1.5" />Applied!</> : applying ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Applying…</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" />Apply{selectedProps.size > 0 ? ` + ${selectedProps.size} Props` : ""}</>}
-                </Button>
-                <Button onClick={handleEnhance} disabled={isEnhancing} size="sm" variant="outline" className="text-muted-foreground border-border hover:text-white">
-                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />Regenerate
-                </Button>
-                <Button onClick={() => setShowEnhance(false)} size="sm" variant="ghost" className="text-muted-foreground hover:text-white ml-auto">Dismiss</Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Expanded panel */}
-      {isExpanded && (
-        <div className="px-5 py-4 border-t border-border bg-muted/5 space-y-4">
-          {(entity.lore || entity.designNotes) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {entity.lore && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Flavor / Lore</p>
-                  <p className="text-xs text-muted-foreground italic leading-relaxed bg-background/40 border border-border/50 rounded p-2.5 whitespace-pre-wrap">"{entity.lore}"</p>
-                </div>
-              )}
-              {entity.designNotes && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Designer's Notes</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed bg-background/40 border border-border/50 rounded p-2.5 whitespace-pre-wrap">{entity.designNotes}</p>
-                </div>
-              )}
-            </div>
-          )}
-          {isDeck && (
-            <CardStudio
-              projectId={projectId}
-              deck={entity}
-              cards={childEntities ?? []}
-              onRefresh={onUpdated}
-            />
-          )}
-          {entity.type === "Die" && (
-            <DieFaceDesigner projectId={projectId} entityId={entity.id} />
-          )}
-          {(entity.type === "Tile" || entity.type === "Token") && (
-            <VariantManager projectId={projectId} entityId={entity.id} entityName={entity.name} />
-          )}
-          <LinkedRulesPanel projectId={projectId} entityId={entity.id} />
-          <EntityProperties projectId={projectId} entityId={entity.id} />
-        </div>
-      )}
-    </Card>
-  );
-}
-
-// ── Linked rules panel ────────────────────────────────────────────────────────
-
-function LinkedRulesPanel({ projectId, entityId }: { projectId: number; entityId: number }) {
-  const { data: links, isLoading: linksLoading } = useListEntityRules(projectId, entityId);
-  const { data: allRules } = useListRules(projectId);
-  const linkRule = useLinkEntityRule();
-  const unlinkRule = useUnlinkEntityRule();
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const [showPicker, setShowPicker] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const linkedRuleIds = new Set((links ?? []).map((l) => l.ruleId));
-
-  const refresh = () => qc.invalidateQueries({ queryKey: getListEntityRulesQueryKey(projectId, entityId) });
-
-  const linkedRules = (allRules ?? []).filter((r) => linkedRuleIds.has(r.id));
-  const availableRules = (allRules ?? []).filter(
-    (r) => !linkedRuleIds.has(r.id) && r.title.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  const handleLink = async (ruleId: number) => {
-    try {
-      await linkRule.mutateAsync({ projectId, entityId, ruleId });
-      refresh();
-      setSearch("");
-    } catch (err) {
-      toast({ title: "Could not link rule", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
-    }
-  };
-
-  const handleUnlink = async (ruleId: number) => {
-    try {
-      await unlinkRule.mutateAsync({ projectId, entityId, ruleId });
-      refresh();
-    } catch (err) {
-      toast({ title: "Could not unlink rule", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
-    }
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        <Activity className="w-3.5 h-3.5" /> Governing Rules
-        <button
-          onClick={() => setShowPicker((v) => !v)}
-          className="ml-auto text-[10px] normal-case tracking-normal font-normal text-primary hover:underline flex items-center gap-0.5"
-        >
-          <Plus className="w-3 h-3" /> Link rule
-        </button>
-      </div>
-
-      {linksLoading ? (
-        <div className="text-xs text-muted-foreground/60">Loading…</div>
-      ) : linkedRules.length === 0 ? (
-        <p className="text-xs text-muted-foreground/60">No rules linked yet.</p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {linkedRules.map((rule) => (
-            <span
-              key={rule.id}
-              className="inline-flex items-center gap-1 text-[11px] bg-primary/10 border border-primary/25 text-primary rounded px-2 py-0.5"
-            >
-              {rule.title}
-              <button
-                onClick={() => handleUnlink(rule.id)}
-                className="text-muted-foreground hover:text-destructive ml-0.5"
-                title="Unlink"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {showPicker && (
-        <div className="rounded-md border border-border bg-background shadow-md overflow-hidden">
-          <div className="p-2 border-b border-border">
-            <Input
-              autoFocus
-              placeholder="Search rules…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-7 text-xs"
-            />
-          </div>
-          <div className="max-h-40 overflow-y-auto">
-            {availableRules.length === 0 ? (
-              <p className="text-xs text-muted-foreground p-3 text-center">
-                {allRules?.length === 0 ? "No rules exist yet." : "All rules already linked."}
-              </p>
-            ) : (
-              availableRules.map((rule) => (
-                <button
-                  key={rule.id}
-                  onClick={() => handleLink(rule.id)}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-primary/10 border-b border-border/30 last:border-0 flex items-start gap-2"
-                >
-                  <span className="text-primary font-medium truncate flex-1">{rule.title}</span>
-                  {rule.category && <span className="text-[10px] text-muted-foreground shrink-0">{rule.category}</span>}
-                </button>
-              ))
-            )}
-          </div>
-          <div className="p-2 border-t border-border">
-            <Button size="sm" variant="ghost" className="w-full h-6 text-[11px] text-muted-foreground" onClick={() => { setShowPicker(false); setSearch(""); }}>
-              Close
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

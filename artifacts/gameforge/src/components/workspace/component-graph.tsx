@@ -486,6 +486,31 @@ export function EntityGraph({
     setNodePositions(loadLocalPositions(projectId));
   }, [projectId]);
 
+  // #58: On mount, migrate old per-entity localStorage keys to the project-scoped format
+  useEffect(() => {
+    try {
+      const projectKey = localStorageKey(projectId);
+      if (localStorage.getItem(projectKey)) return; // already has project-scoped layout
+      const merged: Record<string, { x: number; y: number }> = {};
+      const toDelete: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.startsWith("entity-graph-layout-")) continue;
+        try {
+          const val = localStorage.getItem(key);
+          if (!val) continue;
+          const parsed = JSON.parse(val) as Record<string, { x: number; y: number }>;
+          Object.assign(merged, parsed);
+          toDelete.push(key);
+        } catch { /* skip malformed entries */ }
+      }
+      if (Object.keys(merged).length > 0) {
+        localStorage.setItem(projectKey, JSON.stringify(merged));
+        toDelete.forEach((k) => localStorage.removeItem(k));
+      }
+    } catch { /* ignore storage errors */ }
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<{
     nodeId: number;

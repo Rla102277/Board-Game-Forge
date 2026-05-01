@@ -93,8 +93,10 @@ export function Entities({ projectId }: EntitiesProps) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiCount, setAiCount] = useState(5);
 
-  // View / filter
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  // View / filter — persisted (#45)
+  const [viewMode, setViewMode] = useState<"grid" | "list">(
+    () => (localStorage.getItem("gameforge:entities:viewMode") as "grid" | "list" | null) ?? "grid"
+  );
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterSubtype, setFilterSubtype] = useState<string>("all");
@@ -105,6 +107,12 @@ export function Entities({ projectId }: EntitiesProps) {
 
   const errMsg = (err: unknown) => err instanceof Error ? err.message : String(err);
   const refresh = () => queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey(projectId) });
+
+  // Persist viewMode
+  const handleSetViewMode = (mode: "grid" | "list") => {
+    setViewMode(mode);
+    localStorage.setItem("gameforge:entities:viewMode", mode);
+  };
 
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -466,14 +474,14 @@ export function Entities({ projectId }: EntitiesProps) {
             </div>
             <div className="flex gap-0.5 p-0.5 bg-muted/30 rounded border border-border shrink-0">
               <button
-                onClick={() => setViewMode("grid")}
+                onClick={() => handleSetViewMode("grid")}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${viewMode === "grid" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 title="Grid view"
               >
                 <LayoutGrid className="w-3 h-3" />
               </button>
               <button
-                onClick={() => setViewMode("list")}
+                onClick={() => handleSetViewMode("list")}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${viewMode === "list" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 title="List view"
               >
@@ -890,6 +898,7 @@ function EntityVisualCard({
   const [statsEditing, setStatsEditing] = useState(false);
   const [statPairs, setStatPairs] = useState<{ key: string; val: string }[]>([]);
   const [showChildren, setShowChildren] = useState(false);
+  const [isDragTarget, setIsDragTarget] = useState(false);
 
   const [editForm, setEditForm] = useState({
     name: entity.name,
@@ -912,6 +921,43 @@ function EntityVisualCard({
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey(projectId) });
     onUpdated();
+  };
+
+  // ── Drag-to-deck (#52) ───────────────────────────────────────────────────
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData("cardEntityId", String(entity.id));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!isDeck) return;
+    const hasCard = e.dataTransfer.types.includes("cardentityid");
+    if (!hasCard) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setIsDragTarget(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear when leaving the card entirely (not entering a child element)
+    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+      setIsDragTarget(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragTarget(false);
+    if (!isDeck) return;
+    const cardId = parseInt(e.dataTransfer.getData("cardEntityId"), 10);
+    if (!cardId || cardId === entity.id) return;
+    try {
+      await updateEntity.mutateAsync({ projectId, entityId: cardId, data: { parentEntityId: entity.id } });
+      refresh();
+      toast({ title: `Card added to ${entity.name}` });
+    } catch (err) {
+      toast({ title: "Could not move card to deck", description: errMsg(err), variant: "destructive" });
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -1175,11 +1221,27 @@ function EntityVisualCard({
 
   return (
     <Card
-      className="bg-card border-border overflow-hidden flex flex-col group hover:border-border/80 transition-all hover:shadow-md hover:shadow-black/20"
+      draggable={entity.type === "Card"}
+      onDragStart={entity.type === "Card" ? handleDragStart : undefined}
+      onDragOver={isDeck ? handleDragOver : undefined}
+      onDragLeave={isDeck ? handleDragLeave : undefined}
+      onDrop={isDeck ? handleDrop : undefined}
+      className={[
+        "relative bg-card border-border overflow-hidden flex flex-col group hover:border-border/80 transition-all hover:shadow-md hover:shadow-black/20",
+        entity.type === "Card" ? "cursor-grab active:cursor-grabbing" : "",
+        isDragTarget ? "ring-2 ring-indigo-400 ring-offset-2 ring-offset-background scale-[1.02] border-indigo-400/50" : "",
+      ].join(" ")}
       data-testid={`entity-card-${entity.id}`}
     >
       {/* Color accent header */}
       <div className={`h-1.5 w-full bg-gradient-to-r ${accentFrom} to-transparent`} />
+      {isDragTarget && (
+        <div className="absolute inset-x-0 top-1.5 flex items-center justify-center pointer-events-none z-10">
+          <span className="text-[10px] font-semibold bg-indigo-500/90 text-white px-2 py-0.5 rounded-full shadow-sm">
+            Drop to add to deck
+          </span>
+        </div>
+      )}
 
       <div className="p-4 flex-1 flex flex-col gap-3">
         {/* Type + status badges */}
