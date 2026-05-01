@@ -3,7 +3,7 @@ import {
   useGetProject, useUpdateProject, useGetProjectStats,
   useListEntities, useListRules, useListPlayers, useListNotes,
 } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -20,10 +20,10 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
 } from "recharts";
 import {
-  LayoutDashboard, Activity, Users, FileText, CheckSquare, MessageSquare,
-  Flag, BookOpen, Trophy, Swords, Plus, X, Target, Layers, Clock,
+  Activity, Users, FileText, CheckSquare, MessageSquare,
+  Flag, Trophy, Swords, Plus, X, Target, Layers, Clock,
   ImageIcon, AlertTriangle, AlertCircle, Eye, Send, Calendar, UserPlus,
-  Settings, ChevronDown, ChevronUp, Pencil,
+  Settings, LayoutDashboard, Pencil,
 } from "lucide-react";
 
 interface OverviewProps {
@@ -31,21 +31,22 @@ interface OverviewProps {
   onPromptSend: (prompt: string) => void;
 }
 
+/* ── Typed shapes for each jsonb column ───────────────────────────── */
 interface DesignProblem {
   id: string;
   text: string;
   severity: "blocker" | "concern" | "watch";
   resolved?: boolean;
 }
-interface DecisionEntry {
-  id: string;
-  text: string;
-  createdAt: string;
-}
 interface NextPlaytest {
   date?: string;
   attendees?: string[];
   focus?: string;
+}
+interface DecisionEntry {
+  id: string;
+  text: string;
+  createdAt: string;
 }
 interface MechanicFingerprint {
   luck: number;
@@ -54,42 +55,38 @@ interface MechanicFingerprint {
   complexity: number;
   replayability: number;
 }
-interface OverviewMeta {
+/* overviewMeta is kept only for hero-level fields without dedicated columns */
+interface HeroMeta {
   elevatorPitch?: string;
   playsLike?: string;
   ageRange?: string;
-  designProblems?: DesignProblem[];
-  nextPlaytest?: NextPlaytest;
-  decisionLog?: DecisionEntry[];
-  mechanicFingerprint?: MechanicFingerprint;
+  complexityTier?: string;
 }
 
+const COMPLEXITY_TIERS = [
+  { value: "filler",  label: "Filler",  desc: "≤ 15 min, minimal rules" },
+  { value: "light",   label: "Light",   desc: "30-60 min, easy to learn" },
+  { value: "medium",  label: "Medium",  desc: "60-120 min, moderate depth" },
+  { value: "heavy",   label: "Heavy",   desc: "2+ hrs, complex systems" },
+  { value: "expert",  label: "Expert",  desc: "Highly complex, long learning curve" },
+] as const;
+
 const DESIGN_PHASES = [
-  { value: "concept",   label: "Concept",   desc: "Exploring what the game could be",              color: "bg-slate-500/20 text-slate-300 border-slate-500/40" },
-  { value: "prototype", label: "Prototype", desc: "First playable — rough rules and components",    color: "bg-blue-500/20 text-blue-300 border-blue-500/40" },
-  { value: "alpha",     label: "Alpha",     desc: "Core loop works — iterating rules and balance",  color: "bg-violet-500/20 text-violet-300 border-violet-500/40" },
+  { value: "concept",   label: "Concept",   desc: "Exploring what the game could be",             color: "bg-slate-500/20 text-slate-300 border-slate-500/40" },
+  { value: "prototype", label: "Prototype", desc: "First playable — rough rules and components",   color: "bg-blue-500/20 text-blue-300 border-blue-500/40" },
+  { value: "alpha",     label: "Alpha",     desc: "Core loop works — iterating rules and balance", color: "bg-violet-500/20 text-violet-300 border-violet-500/40" },
   { value: "beta",      label: "Beta",      desc: "Feature complete — polishing and blind testing", color: "bg-amber-500/20 text-amber-300 border-amber-500/40" },
-  { value: "rc",        label: "Release Candidate", desc: "Print-ready — final checks",            color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" },
+  { value: "rc",        label: "Release Candidate", desc: "Print-ready — final checks",           color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" },
 ] as const;
 const PHASE_INDEX: Record<string, number> = { concept: 0, prototype: 1, alpha: 2, beta: 3, rc: 4 };
 
-const SEVERITY_CONFIG = {
-  blocker: { label: "Blocker", icon: AlertTriangle, color: "text-red-400", bg: "bg-red-500/10 border-red-500/30" },
-  concern:  { label: "Concern", icon: AlertCircle,  color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/30" },
-  watch:    { label: "Watch",   icon: Eye,           color: "text-blue-400",  bg: "bg-blue-500/10 border-blue-500/30"  },
-};
+const SEVERITY = {
+  blocker: { label: "Blockers",  Icon: AlertTriangle, color: "text-red-400",   bg: "bg-red-500/10",   border: "border-red-500/30",   header: "border-b border-red-500/30"  },
+  concern:  { label: "Concerns", Icon: AlertCircle,   color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/30", header: "border-b border-amber-500/30" },
+  watch:    { label: "Watch",    Icon: Eye,            color: "text-blue-400",  bg: "bg-blue-500/10",  border: "border-blue-500/30",  header: "border-b border-blue-500/30"  },
+} as const;
 
 const FINGERPRINT_AXES = ["luck", "strategy", "interaction", "complexity", "replayability"] as const;
-
-function parseTurnPhases(raw: string | null | undefined): string[] {
-  if (!raw) return [];
-  try { return JSON.parse(raw); } catch { return raw.split(",").map((s) => s.trim()).filter(Boolean); }
-}
-
-function parseOverviewMeta(raw: Record<string, unknown> | null | undefined): OverviewMeta {
-  if (!raw) return {};
-  return raw as OverviewMeta;
-}
 
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -104,251 +101,304 @@ function relativeTime(dateStr: string): string {
 }
 
 function daysUntil(dateStr: string): number {
-  const diff = new Date(dateStr).getTime() - Date.now();
-  return Math.ceil(diff / 86400000);
+  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
 }
 
-export function Overview({ projectId, onPromptSend }: OverviewProps) {
+function parseTurnPhases(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return raw.split(",").map((s) => s.trim()).filter(Boolean); }
+}
+
+function castHeroMeta(raw: Record<string, unknown> | null | undefined): HeroMeta {
+  return (raw ?? {}) as HeroMeta;
+}
+function castProblems(raw: Record<string, unknown>[] | null | undefined): DesignProblem[] {
+  return (raw ?? []) as unknown as DesignProblem[];
+}
+function castNextPlaytest(raw: Record<string, unknown> | null | undefined): NextPlaytest {
+  return (raw ?? {}) as NextPlaytest;
+}
+function castDecisionLog(raw: Record<string, unknown>[] | null | undefined): DecisionEntry[] {
+  return (raw ?? []) as unknown as DecisionEntry[];
+}
+function castFingerprint(raw: Record<string, unknown> | null | undefined): MechanicFingerprint {
+  return { luck: 3, strategy: 3, interaction: 3, complexity: 3, replayability: 3, ...(raw ?? {}) } as MechanicFingerprint;
+}
+
+export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewProps) {
   const { data: project, isLoading: projectLoading } = useGetProject(projectId);
   const { data: stats, isLoading: statsLoading } = useGetProjectStats(projectId);
   const updateProject = useUpdateProject();
 
   const { data: entities } = useListEntities(projectId);
-  const { data: rules } = useListRules(projectId);
-  const { data: players } = useListPlayers(projectId);
-  const { data: notes } = useListNotes(projectId);
+  const { data: rules }    = useListRules(projectId);
+  const { data: players }  = useListPlayers(projectId);
+  const { data: notes }    = useListNotes(projectId);
 
-  const [formData, setFormData] = useState({
-    name: "", description: "", gameType: "", genre: "", playerCount: "", targetDuration: "",
-    winCondition: "", eliminationRule: "", designPhase: "concept",
+  /* ── Base project fields ───────────────────────────────────────── */
+  const [form, setForm] = useState({
+    name: "", description: "", gameType: "", genre: "",
+    playerCount: "", targetDuration: "", winCondition: "",
+    eliminationRule: "", designPhase: "concept",
   });
   const [turnPhaseInput, setTurnPhaseInput] = useState("");
   const [turnPhases, setTurnPhases] = useState<string[]>([]);
-  const [meta, setMeta] = useState<OverviewMeta>({});
-  const [newProblemText, setNewProblemText] = useState("");
+
+  /* ── Per-column jsonb state ────────────────────────────────────── */
+  const [heroMeta,     setHeroMeta]     = useState<HeroMeta>({});
+  const [problems,     setProblems]     = useState<DesignProblem[]>([]);
+  const [nextPlaytest, setNextPlaytest] = useState<NextPlaytest>({});
+  const [decisionLog,  setDecisionLog]  = useState<DecisionEntry[]>([]);
+  const [fingerprint,  setFingerprint]  = useState<MechanicFingerprint>({ luck: 3, strategy: 3, interaction: 3, complexity: 3, replayability: 3 });
+
+  /* ── UI state ──────────────────────────────────────────────────── */
+  const [newProblemText,     setNewProblemText]     = useState("");
   const [newProblemSeverity, setNewProblemSeverity] = useState<DesignProblem["severity"]>("concern");
-  const [newLogEntry, setNewLogEntry] = useState("");
-  const [newAttendee, setNewAttendee] = useState("");
+  const [newLogEntry,        setNewLogEntry]        = useState("");
+  const [newAttendee,        setNewAttendee]        = useState("");
 
-  const debouncedName        = useDebounce(formData.name, 1000);
-  const debouncedDesc        = useDebounce(formData.description, 1000);
-  const debouncedType        = useDebounce(formData.gameType, 1000);
-  const debouncedGenre       = useDebounce(formData.genre, 1000);
-  const debouncedPlayers     = useDebounce(formData.playerCount, 1000);
-  const debouncedDuration    = useDebounce(formData.targetDuration, 1000);
-  const debouncedWin         = useDebounce(formData.winCondition, 1200);
-  const debouncedElim        = useDebounce(formData.eliminationRule, 1200);
-  const debouncedMeta        = useDebounce(meta, 1500);
-
-  const initRef        = useRef(false);
-  const lastSavedRef   = useRef({ ...formData, turnPhases: "[]" });
-  const lastMetaRef    = useRef<string>("{}");
+  const initRef = useRef(false);
+  const savedFormRef        = useRef("");
+  const savedHeroMetaRef    = useRef("");
+  const savedProblemsRef    = useRef("");
+  const savedPlaytestRef    = useRef("");
+  const savedDecisionRef    = useRef("");
+  const savedFingerprintRef = useRef("");
 
   useEffect(() => {
-    if (project && !initRef.current) {
-      const phases = parseTurnPhases(project.turnPhases);
-      const d = {
-        name: project.name || "", description: project.description || "",
-        gameType: project.gameType || "", genre: project.genre || "",
-        playerCount: project.playerCount || "", targetDuration: project.targetDuration || "",
-        winCondition: project.winCondition || "", eliminationRule: project.eliminationRule || "",
-        designPhase: project.designPhase || "concept",
-      };
-      setFormData(d);
-      setTurnPhases(phases);
-      lastSavedRef.current = { ...d, turnPhases: JSON.stringify(phases) };
-      const parsedMeta = parseOverviewMeta(project.overviewMeta);
-      setMeta(parsedMeta);
-      lastMetaRef.current = JSON.stringify(parsedMeta);
-      initRef.current = true;
-    }
+    if (!project || initRef.current) return;
+    const phases = parseTurnPhases(project.turnPhases);
+    const f = {
+      name: project.name || "", description: project.description || "",
+      gameType: project.gameType || "", genre: project.genre || "",
+      playerCount: project.playerCount || "", targetDuration: project.targetDuration || "",
+      winCondition: project.winCondition || "", eliminationRule: project.eliminationRule || "",
+      designPhase: project.designPhase || "concept",
+    };
+    setForm(f); savedFormRef.current = JSON.stringify(f);
+    setTurnPhases(phases);
+    const hm = castHeroMeta(project.overviewMeta);
+    setHeroMeta(hm); savedHeroMetaRef.current = JSON.stringify(hm);
+    const pr = castProblems(project.designProblems);
+    setProblems(pr); savedProblemsRef.current = JSON.stringify(pr);
+    const np = castNextPlaytest(project.nextPlaytest);
+    setNextPlaytest(np); savedPlaytestRef.current = JSON.stringify(np);
+    const dl = castDecisionLog(project.decisionLog);
+    setDecisionLog(dl); savedDecisionRef.current = JSON.stringify(dl);
+    const fp = castFingerprint(project.mechanicFingerprint);
+    setFingerprint(fp); savedFingerprintRef.current = JSON.stringify(fp);
+    initRef.current = true;
   }, [project]);
 
   const save = (patch: Parameters<typeof updateProject.mutate>[0]["data"]) => {
     updateProject.mutate({ projectId, data: patch });
   };
 
-  useEffect(() => {
-    if (!initRef.current) return;
-    const data = {
-      name: debouncedName, description: debouncedDesc, gameType: debouncedType,
-      genre: debouncedGenre, playerCount: debouncedPlayers, targetDuration: debouncedDuration,
-      winCondition: debouncedWin, eliminationRule: debouncedElim,
-    };
-    const changed = Object.keys(data).some((k) => data[k as keyof typeof data] !== (lastSavedRef.current as Record<string, string>)[k]);
-    if (changed && data.name) { save(data); Object.assign(lastSavedRef.current, data); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedName, debouncedDesc, debouncedType, debouncedGenre, debouncedPlayers, debouncedDuration, debouncedWin, debouncedElim]);
+  /* Debounce base form */
+  const db = {
+    name: useDebounce(form.name, 1000),
+    description: useDebounce(form.description, 1000),
+    gameType: useDebounce(form.gameType, 1000),
+    genre: useDebounce(form.genre, 1000),
+    playerCount: useDebounce(form.playerCount, 1000),
+    targetDuration: useDebounce(form.targetDuration, 1000),
+    winCondition: useDebounce(form.winCondition, 1200),
+    eliminationRule: useDebounce(form.eliminationRule, 1200),
+  };
+  const dbHeroMeta    = useDebounce(heroMeta, 1500);
+  const dbProblems    = useDebounce(problems, 1500);
+  const dbPlaytest    = useDebounce(nextPlaytest, 1500);
+  const dbDecision    = useDebounce(decisionLog, 1500);
+  const dbFingerprint = useDebounce(fingerprint, 1500);
 
   useEffect(() => {
     if (!initRef.current) return;
-    const serialized = JSON.stringify(debouncedMeta);
-    if (serialized !== lastMetaRef.current) {
-      save({ overviewMeta: debouncedMeta as Record<string, unknown> });
-      lastMetaRef.current = serialized;
+    const serialized = JSON.stringify(db);
+    if (serialized !== savedFormRef.current && db.name) {
+      save({ name: db.name, description: db.description, gameType: db.gameType, genre: db.genre, playerCount: db.playerCount, targetDuration: db.targetDuration, winCondition: db.winCondition, eliminationRule: db.eliminationRule });
+      savedFormRef.current = serialized;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedMeta]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db.name, db.description, db.gameType, db.genre, db.playerCount, db.targetDuration, db.winCondition, db.eliminationRule]);
 
-  const updateMeta = (patch: Partial<OverviewMeta>) => setMeta((m) => ({ ...m, ...patch }));
+  useEffect(() => {
+    if (!initRef.current) return;
+    const s = JSON.stringify(dbHeroMeta);
+    if (s !== savedHeroMetaRef.current) { save({ overviewMeta: dbHeroMeta as Record<string, unknown> }); savedHeroMetaRef.current = s; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbHeroMeta]);
 
+  useEffect(() => {
+    if (!initRef.current) return;
+    const s = JSON.stringify(dbProblems);
+    if (s !== savedProblemsRef.current) { save({ designProblems: dbProblems as unknown as Record<string, unknown>[] }); savedProblemsRef.current = s; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbProblems]);
+
+  useEffect(() => {
+    if (!initRef.current) return;
+    const s = JSON.stringify(dbPlaytest);
+    if (s !== savedPlaytestRef.current) { save({ nextPlaytest: dbPlaytest as Record<string, unknown> }); savedPlaytestRef.current = s; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbPlaytest]);
+
+  useEffect(() => {
+    if (!initRef.current) return;
+    const s = JSON.stringify(dbDecision);
+    if (s !== savedDecisionRef.current) { save({ decisionLog: dbDecision as unknown as Record<string, unknown>[] }); savedDecisionRef.current = s; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbDecision]);
+
+  useEffect(() => {
+    if (!initRef.current) return;
+    const s = JSON.stringify(dbFingerprint);
+    if (s !== savedFingerprintRef.current) { save({ mechanicFingerprint: dbFingerprint as unknown as Record<string, unknown> }); savedFingerprintRef.current = s; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbFingerprint]);
+
+  /* ── Helpers ───────────────────────────────────────────────────── */
   const saveTurnPhases  = (phases: string[]) => { setTurnPhases(phases); save({ turnPhases: JSON.stringify(phases) }); };
-  const saveDesignPhase = (phase: string)    => { setFormData((f) => ({ ...f, designPhase: phase })); save({ designPhase: phase }); };
+  const saveDesignPhase = (phase: string)    => { setForm((f) => ({ ...f, designPhase: phase })); save({ designPhase: phase }); };
 
   const addProblem = () => {
     if (!newProblemText.trim()) return;
-    const problem: DesignProblem = {
-      id: Date.now().toString(), text: newProblemText.trim(), severity: newProblemSeverity,
-    };
-    updateMeta({ designProblems: [problem, ...(meta.designProblems || [])] });
+    setProblems((p) => [{ id: Date.now().toString(), text: newProblemText.trim(), severity: newProblemSeverity }, ...p]);
     setNewProblemText("");
   };
-
-  const resolveProblem = (id: string) => {
-    updateMeta({
-      designProblems: (meta.designProblems || []).map((p) =>
-        p.id === id ? { ...p, resolved: !p.resolved } : p
-      ),
-    });
-  };
-
-  const removeProblem = (id: string) => {
-    updateMeta({ designProblems: (meta.designProblems || []).filter((p) => p.id !== id) });
-  };
+  const resolveProblem = (id: string) => setProblems((p) => p.map((x) => x.id === id ? { ...x, resolved: !x.resolved } : x));
+  const removeProblem  = (id: string) => setProblems((p) => p.filter((x) => x.id !== id));
 
   const addLogEntry = () => {
     if (!newLogEntry.trim() || newLogEntry.length > 280) return;
-    const entry: DecisionEntry = { id: Date.now().toString(), text: newLogEntry.trim(), createdAt: new Date().toISOString() };
-    const existing = meta.decisionLog || [];
-    updateMeta({ decisionLog: [entry, ...existing].slice(0, 100) });
+    setDecisionLog((d) => [{ id: Date.now().toString(), text: newLogEntry.trim(), createdAt: new Date().toISOString() }, ...d].slice(0, 100));
     setNewLogEntry("");
   };
 
-  const addAttendee = () => {
-    if (!newAttendee.trim()) return;
-    const current = meta.nextPlaytest?.attendees || [];
-    updateMeta({ nextPlaytest: { ...meta.nextPlaytest, attendees: [...current, newAttendee.trim()] } });
-    setNewAttendee("");
-  };
+  const addAttendee    = () => { if (!newAttendee.trim()) return; setNextPlaytest((p) => ({ ...p, attendees: [...(p.attendees || []), newAttendee.trim()] })); setNewAttendee(""); };
+  const removeAttendee = (i: number) => setNextPlaytest((p) => ({ ...p, attendees: (p.attendees || []).filter((_, idx) => idx !== i) }));
 
-  const removeAttendee = (idx: number) => {
-    const current = meta.nextPlaytest?.attendees || [];
-    updateMeta({ nextPlaytest: { ...meta.nextPlaytest, attendees: current.filter((_, i) => i !== idx) } });
-  };
+  const setFp = (axis: typeof FINGERPRINT_AXES[number], val: number) => setFingerprint((f) => ({ ...f, [axis]: val }));
 
-  const setFingerprintAxis = (axis: typeof FINGERPRINT_AXES[number], val: number) => {
-    updateMeta({ mechanicFingerprint: { luck: 3, strategy: 3, interaction: 3, complexity: 3, replayability: 3, ...(meta.mechanicFingerprint || {}), [axis]: val } });
-  };
-
+  /* ── Derived ───────────────────────────────────────────────────── */
   const recentItems = useMemo(() => {
     type Item = { id: string; name: string; section: string; Icon: React.ElementType; updatedAt: string };
     const all: Item[] = [
-      ...(entities || []).map((e) => ({ id: `e-${e.id}`, name: e.name, section: "Components", Icon: ImageIcon, updatedAt: e.updatedAt })),
-      ...(rules || []).map((r) => ({ id: `r-${r.id}`, name: r.title, section: "Rules", Icon: Activity, updatedAt: r.updatedAt })),
-      ...(players || []).map((p) => ({ id: `p-${p.id}`, name: p.name, section: "Players", Icon: Users, updatedAt: p.updatedAt })),
-      ...(notes || []).map((n) => ({ id: `n-${n.id}`, name: n.title || "Untitled note", section: "Notes", Icon: FileText, updatedAt: n.updatedAt })),
+      ...(entities || []).map((e) => ({ id: `e-${e.id}`, name: e.name,  section: "Components", Icon: ImageIcon,    updatedAt: e.updatedAt })),
+      ...(rules    || []).map((r) => ({ id: `r-${r.id}`, name: r.title, section: "Rules",      Icon: Activity,     updatedAt: r.updatedAt })),
+      ...(players  || []).map((p) => ({ id: `p-${p.id}`, name: p.name,  section: "Players",    Icon: Users,        updatedAt: p.updatedAt })),
+      ...(notes    || []).map((n) => ({ id: `n-${n.id}`, name: n.title || "Untitled note", section: "Notes", Icon: FileText, updatedAt: n.updatedAt })),
     ];
-    return all.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 4);
+    return all.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 3);
   }, [entities, rules, players, notes]);
+
+  const activeByCol = useMemo(() => ({
+    blocker: problems.filter((p) => !p.resolved && p.severity === "blocker"),
+    concern: problems.filter((p) => !p.resolved && p.severity === "concern"),
+    watch:   problems.filter((p) => !p.resolved && p.severity === "watch"),
+  }), [problems]);
+
+  const totalActive   = activeByCol.blocker.length + activeByCol.concern.length + activeByCol.watch.length;
+  const resolvedCount = problems.filter((p) => p.resolved).length;
+
+  const visibleStats = [
+    { label: "Components", count: stats?.entityCount,      Icon: LayoutDashboard, color: "text-blue-400",    bg: "bg-blue-500/10"    },
+    { label: "Rules",      count: stats?.ruleCount,        Icon: Activity,        color: "text-violet-400",  bg: "bg-violet-500/10"  },
+    { label: "Players",    count: stats?.playerCount,      Icon: Users,           color: "text-emerald-400", bg: "bg-emerald-500/10" },
+    { label: "Notes",      count: stats?.noteCount,        Icon: FileText,        color: "text-amber-400",   bg: "bg-amber-500/10"   },
+    { label: "Tasks",      count: stats?.taskCount,        Icon: CheckSquare,     color: "text-rose-400",    bg: "bg-rose-500/10"    },
+    { label: "Messages",   count: stats?.chatMessageCount, Icon: MessageSquare,   color: "text-sky-400",     bg: "bg-sky-500/10"     },
+  ].filter((s) => (s.count ?? 0) > 0);
+
+  const radarData = FINGERPRINT_AXES.map((ax) => ({
+    subject: ax.charAt(0).toUpperCase() + ax.slice(1),
+    value: fingerprint[ax],
+  }));
+
+  const currentPhaseIdx = PHASE_INDEX[form.designPhase] ?? 0;
+  const currentPhase    = DESIGN_PHASES[currentPhaseIdx];
+  const playtestDate    = nextPlaytest.date;
+  const daysAway        = playtestDate ? daysUntil(playtestDate) : null;
 
   if (projectLoading) {
     return <div className="space-y-4 pb-8"><Skeleton className="h-32 w-full" /><Skeleton className="h-64 w-full" /></div>;
   }
 
-  const currentPhaseIdx = PHASE_INDEX[formData.designPhase] ?? 0;
-  const currentPhase = DESIGN_PHASES[currentPhaseIdx];
-
-  const fp = meta.mechanicFingerprint || { luck: 3, strategy: 3, interaction: 3, complexity: 3, replayability: 3 };
-  const radarData = FINGERPRINT_AXES.map((ax) => ({ subject: ax.charAt(0).toUpperCase() + ax.slice(1), value: fp[ax] }));
-
-  const activeProblems  = (meta.designProblems || []).filter((p) => !p.resolved);
-  const resolvedCount   = (meta.designProblems || []).length - activeProblems.length;
-
-  const visibleStats = [
-    { label: "Components", count: stats?.entityCount,      Icon: LayoutDashboard, color: "text-blue-400",   bg: "bg-blue-500/10"   },
-    { label: "Rules",      count: stats?.ruleCount,        Icon: Activity,        color: "text-violet-400", bg: "bg-violet-500/10" },
-    { label: "Players",    count: stats?.playerCount,      Icon: Users,           color: "text-emerald-400",bg: "bg-emerald-500/10"},
-    { label: "Notes",      count: stats?.noteCount,        Icon: FileText,        color: "text-amber-400",  bg: "bg-amber-500/10"  },
-    { label: "Tasks",      count: stats?.taskCount,        Icon: CheckSquare,     color: "text-rose-400",   bg: "bg-rose-500/10"   },
-    { label: "Messages",   count: stats?.chatMessageCount, Icon: MessageSquare,   color: "text-sky-400",    bg: "bg-sky-500/10"    },
-  ].filter((s) => (s.count ?? 0) > 0);
-
-  const nextPlaytest = meta.nextPlaytest;
-  const playtestDate = nextPlaytest?.date;
-  const daysAway = playtestDate ? daysUntil(playtestDate) : null;
-
   return (
     <div className="space-y-6 pb-10">
 
-      {/* ── Game Identity Hero ──────────────────────────────────────────── */}
+      {/* ── Game Identity Hero ───────────────────────────────────────── */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
         <CardContent className="pt-5 pb-5 space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-1 space-y-3">
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Elevator pitch</Label>
+              <Textarea
+                placeholder="In one or two sentences, what's the core experience of your game?"
+                rows={2}
+                className="resize-none text-sm bg-background/60"
+                value={heroMeta.elevatorPitch || ""}
+                onChange={(e) => setHeroMeta((m) => ({ ...m, elevatorPitch: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Elevator pitch</Label>
-                <Textarea
-                  placeholder="In one or two sentences, what's the core experience of your game?"
-                  rows={2}
-                  className="resize-none text-sm bg-background/60"
-                  value={meta.elevatorPitch || ""}
-                  onChange={(e) => updateMeta({ elevatorPitch: e.target.value })}
-                />
+                <Label className="text-xs text-muted-foreground mb-1 block">Player count</Label>
+                <Input placeholder="e.g. 2–5" className="h-8 text-sm bg-background/60"
+                  value={form.playerCount} onChange={(e) => setForm((f) => ({ ...f, playerCount: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground mb-1 block">Player count</Label>
-                  <Input
-                    placeholder="e.g. 2–5"
-                    className="h-8 text-sm bg-background/60"
-                    value={formData.playerCount}
-                    onChange={(e) => setFormData((p) => ({ ...p, playerCount: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground mb-1 block">Play time</Label>
-                  <Input
-                    placeholder="e.g. 45–90 min"
-                    className="h-8 text-sm bg-background/60"
-                    value={formData.targetDuration}
-                    onChange={(e) => setFormData((p) => ({ ...p, targetDuration: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground mb-1 block">Age range</Label>
-                  <Input
-                    placeholder="e.g. 12+"
-                    className="h-8 text-sm bg-background/60"
-                    value={meta.ageRange || ""}
-                    onChange={(e) => updateMeta({ ageRange: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground mb-1 block">Plays like</Label>
-                  <Input
-                    placeholder="e.g. Catan meets Dominion"
-                    className="h-8 text-sm bg-background/60"
-                    value={meta.playsLike || ""}
-                    onChange={(e) => updateMeta({ playsLike: e.target.value })}
-                  />
-                </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Play time</Label>
+                <Input placeholder="e.g. 45–90 min" className="h-8 text-sm bg-background/60"
+                  value={form.targetDuration} onChange={(e) => setForm((f) => ({ ...f, targetDuration: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Age range</Label>
+                <Input placeholder="e.g. 12+" className="h-8 text-sm bg-background/60"
+                  value={heroMeta.ageRange || ""} onChange={(e) => setHeroMeta((m) => ({ ...m, ageRange: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Plays like</Label>
+                <Input placeholder="e.g. Catan meets Dominion" className="h-8 text-sm bg-background/60"
+                  value={heroMeta.playsLike || ""} onChange={(e) => setHeroMeta((m) => ({ ...m, playsLike: e.target.value }))} />
+              </div>
+            </div>
+
+            {/* Complexity tier selector */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Complexity tier</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {COMPLEXITY_TIERS.map((tier) => (
+                  <button
+                    key={tier.value}
+                    onClick={() => setHeroMeta((m) => ({ ...m, complexityTier: tier.value }))}
+                    title={tier.desc}
+                    className={`px-2.5 py-1 rounded-md border text-xs font-medium transition-all ${
+                      heroMeta.complexityTier === tier.value
+                        ? "bg-primary/15 border-primary/40 text-primary"
+                        : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
+                    }`}
+                  >
+                    {tier.label}
+                    <span className="ml-1 hidden sm:inline opacity-60 font-normal">— {tier.desc}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* ── Two-column body ──────────────────────────────────────────────── */}
+      {/* ── Two-column body ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* ── LEFT COLUMN ──────────────────────────────────────────────── */}
+        {/* ── LEFT column ──────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Last Session strip */}
+          {/* Last Session — exactly top 3 */}
           {recentItems.length > 0 && (
             <section>
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-2">Where you left off</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {recentItems.map((item) => {
                   const Icon = item.Icon;
                   return (
@@ -365,15 +415,15 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
             </section>
           )}
 
-          {/* ── Design Problems ────────────────────────────────────────── */}
+          {/* ── Design Problems — Kanban 3-column ──────────────────── */}
           <Card>
             <CardHeader className="py-4 px-5 border-b border-border">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-400" />
                   Design Problems
-                  {activeProblems.length > 0 && (
-                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{activeProblems.length} open</Badge>
+                  {totalActive > 0 && (
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{totalActive} open</Badge>
                   )}
                 </CardTitle>
                 {resolvedCount > 0 && (
@@ -382,10 +432,10 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
               </div>
             </CardHeader>
             <CardContent className="px-5 py-4 space-y-3">
-              {/* Add problem */}
+              {/* Add problem bar */}
               <div className="flex gap-2">
                 <Input
-                  placeholder="e.g. 3-player balance feels off…"
+                  placeholder="Describe a design tension…"
                   className="h-8 text-sm flex-1"
                   value={newProblemText}
                   onChange={(e) => setNewProblemText(e.target.value)}
@@ -393,15 +443,15 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                 />
                 <div className="flex gap-1">
                   {(["blocker", "concern", "watch"] as const).map((sev) => {
-                    const cfg = SEVERITY_CONFIG[sev];
-                    const Icon = cfg.icon;
+                    const cfg = SEVERITY[sev];
+                    const Icon = cfg.Icon;
                     return (
                       <button
                         key={sev}
                         onClick={() => setNewProblemSeverity(sev)}
                         title={cfg.label}
-                        className={`h-8 w-8 rounded flex items-center justify-center transition-all border ${
-                          newProblemSeverity === sev ? cfg.bg : "border-transparent hover:border-border"
+                        className={`h-8 w-8 rounded flex items-center justify-center border transition-all ${
+                          newProblemSeverity === sev ? `${cfg.bg} ${cfg.border}` : "border-transparent hover:border-border"
                         }`}
                       >
                         <Icon className={`h-3.5 w-3.5 ${newProblemSeverity === sev ? cfg.color : "text-muted-foreground"}`} />
@@ -414,39 +464,42 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                 </Button>
               </div>
 
-              {/* Problem list */}
-              {activeProblems.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-3">No open design problems — great shape!</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {activeProblems.map((p) => {
-                    const cfg = SEVERITY_CONFIG[p.severity];
-                    const Icon = cfg.icon;
-                    return (
-                      <div key={p.id} className={`flex items-start gap-2 px-3 py-2 rounded-lg border ${cfg.bg}`}>
-                        <Icon className={`h-3.5 w-3.5 ${cfg.color} shrink-0 mt-0.5`} />
-                        <p className="text-sm flex-1 leading-snug">{p.text}</p>
-                        <div className="flex gap-1 shrink-0">
-                          <button
-                            onClick={() => resolveProblem(p.id)}
-                            className="text-xs text-muted-foreground hover:text-emerald-400 transition-colors px-1"
-                            title="Mark resolved"
-                          >
-                            ✓
-                          </button>
-                          <button onClick={() => removeProblem(p.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
+              {/* Kanban board — 3 columns */}
+              <div className="grid grid-cols-3 gap-3">
+                {(["blocker", "concern", "watch"] as const).map((sev) => {
+                  const cfg = SEVERITY[sev];
+                  const Icon = cfg.Icon;
+                  const col  = activeByCol[sev];
+                  return (
+                    <div key={sev} className={`rounded-lg border ${cfg.border} ${cfg.bg} flex flex-col`}>
+                      <div className={`flex items-center gap-1.5 px-3 py-2 ${cfg.header}`}>
+                        <Icon className={`h-3 w-3 ${cfg.color}`} />
+                        <span className={`text-xs font-semibold ${cfg.color}`}>{cfg.label}</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground">{col.length}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                      <div className="flex flex-col gap-1.5 p-2 min-h-[60px]">
+                        {col.length === 0 ? (
+                          <p className="text-[10px] text-muted-foreground text-center py-2 italic">None</p>
+                        ) : (
+                          col.map((p) => (
+                            <div key={p.id} className="bg-background/60 rounded-md px-2 py-1.5 group relative">
+                              <p className="text-xs leading-snug pr-8">{p.text}</p>
+                              <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => resolveProblem(p.id)} className="text-[9px] text-muted-foreground hover:text-emerald-400 px-0.5" title="Resolve">✓</button>
+                                <button onClick={() => removeProblem(p.id)} className="text-muted-foreground hover:text-destructive"><X className="h-2.5 w-2.5" /></button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
 
-          {/* ── Decision Log ───────────────────────────────────────────── */}
+          {/* ── Decision Log ─────────────────────────────────────────── */}
           <Card>
             <CardHeader className="py-4 px-5 border-b border-border">
               <CardTitle className="text-base flex items-center gap-2">
@@ -472,22 +525,18 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                   <Send className="h-3.5 w-3.5" />
                 </Button>
               </div>
-
-              {(meta.decisionLog || []).length === 0 ? (
+              {decisionLog.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-2">No decisions logged yet.</p>
               ) : (
                 <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                  {(meta.decisionLog || []).map((entry) => (
+                  {decisionLog.map((entry) => (
                     <div key={entry.id} className="flex gap-2 text-sm">
                       <div className="w-1 shrink-0 bg-primary/30 rounded-full mt-0.5" />
                       <div className="flex-1">
                         <p className="leading-snug">{entry.text}</p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">{relativeTime(entry.createdAt)}</p>
                       </div>
-                      <button
-                        onClick={() => updateMeta({ decisionLog: (meta.decisionLog || []).filter((e) => e.id !== entry.id) })}
-                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
-                      >
+                      <button onClick={() => setDecisionLog((d) => d.filter((e) => e.id !== entry.id))} className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5">
                         <X className="h-3 w-3" />
                       </button>
                     </div>
@@ -498,11 +547,11 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
           </Card>
         </div>
 
-        {/* ── RIGHT COLUMN ─────────────────────────────────────────────── */}
+        {/* ── RIGHT column ─────────────────────────────────────────── */}
         <div className="space-y-5">
 
           {/* Design Phase tracker */}
-          <Card className="border-border">
+          <Card>
             <CardHeader className="border-b border-border py-3 px-4 flex-row items-center gap-2">
               <Flag className="w-4 h-4 text-primary shrink-0" />
               <div className="flex-1 min-w-0">
@@ -514,12 +563,12 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
             </CardHeader>
             <CardContent className="px-4 py-3 space-y-2">
               <div className="flex flex-col gap-1">
-                {DESIGN_PHASES.map((p, i) => (
+                {DESIGN_PHASES.map((p) => (
                   <button
                     key={p.value}
                     onClick={() => saveDesignPhase(p.value)}
                     className={`text-left px-2.5 py-1.5 rounded-md border text-xs font-medium transition-all ${
-                      formData.designPhase === p.value
+                      form.designPhase === p.value
                         ? `${p.color} ring-1 ring-current`
                         : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
                     }`}
@@ -530,10 +579,8 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                 ))}
               </div>
               <div className="h-1 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-500"
-                  style={{ width: `${((currentPhaseIdx + 1) / DESIGN_PHASES.length) * 100}%` }}
-                />
+                <div className="h-full bg-primary rounded-full transition-all duration-500"
+                  style={{ width: `${((currentPhaseIdx + 1) / DESIGN_PHASES.length) * 100}%` }} />
               </div>
             </CardContent>
           </Card>
@@ -557,17 +604,11 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                     <span className="text-[10px] text-muted-foreground w-20 capitalize">{ax}</span>
                     <div className="flex gap-1">
                       {[1, 2, 3, 4, 5].map((v) => (
-                        <button
-                          key={v}
-                          onClick={() => setFingerprintAxis(ax, v)}
+                        <button key={v} onClick={() => setFp(ax, v)}
                           className={`h-4 w-4 rounded-sm text-[9px] font-bold transition-all ${
-                            fp[ax] >= v
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                            fingerprint[ax] >= v ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
                           }`}
-                        >
-                          {v}
-                        </button>
+                        >{v}</button>
                       ))}
                     </div>
                   </div>
@@ -591,30 +632,22 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
               </div>
             </CardHeader>
             <CardContent className="px-4 py-3 space-y-3">
-              <Input
-                type="date"
-                className="h-8 text-sm"
-                value={nextPlaytest?.date || ""}
-                onChange={(e) => updateMeta({ nextPlaytest: { ...nextPlaytest, date: e.target.value } })}
-              />
+              <Input type="date" className="h-8 text-sm"
+                value={nextPlaytest.date || ""}
+                onChange={(e) => setNextPlaytest((p) => ({ ...p, date: e.target.value }))} />
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Attending</Label>
                 <div className="flex flex-wrap gap-1 mb-1.5">
-                  {(nextPlaytest?.attendees || []).map((a, i) => (
+                  {(nextPlaytest.attendees || []).map((a, i) => (
                     <span key={i} className="inline-flex items-center gap-1 text-xs bg-secondary rounded px-2 py-0.5">
-                      {a}
-                      <button onClick={() => removeAttendee(i)}><X className="h-2.5 w-2.5" /></button>
+                      {a}<button onClick={() => removeAttendee(i)}><X className="h-2.5 w-2.5" /></button>
                     </span>
                   ))}
                 </div>
                 <div className="flex gap-1">
-                  <Input
-                    placeholder="Add person…"
-                    className="h-7 text-xs"
-                    value={newAttendee}
-                    onChange={(e) => setNewAttendee(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addAttendee()}
-                  />
+                  <Input placeholder="Add person…" className="h-7 text-xs"
+                    value={newAttendee} onChange={(e) => setNewAttendee(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addAttendee()} />
                   <Button size="icon" variant="outline" className="h-7 w-7 shrink-0" onClick={addAttendee}>
                     <UserPlus className="h-3 w-3" />
                   </Button>
@@ -622,13 +655,10 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">What to test</Label>
-                <Textarea
-                  placeholder="e.g. Test the new scoring rule, check 4-player balance…"
-                  rows={2}
+                <Textarea placeholder="e.g. Test new scoring rule, check 4-player balance…" rows={2}
                   className="resize-none text-xs"
-                  value={nextPlaytest?.focus || ""}
-                  onChange={(e) => updateMeta({ nextPlaytest: { ...nextPlaytest, focus: e.target.value } })}
-                />
+                  value={nextPlaytest.focus || ""}
+                  onChange={(e) => setNextPlaytest((p) => ({ ...p, focus: e.target.value }))} />
               </div>
             </CardContent>
           </Card>
@@ -652,22 +682,22 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
             </section>
           )}
 
-          {/* Complexity score */}
+          {/* Complexity widget */}
           {stats && (
             <ComplexityScore
               ruleCount={(stats as any).ruleCount ?? 0}
               entityCount={(stats as any).entityCount ?? 0}
-              playerCount={formData.playerCount}
+              playerCount={form.playerCount}
               playtestCount={(stats as any).playtestCount ?? 0}
             />
           )}
         </div>
       </div>
 
-      {/* ── Collaboration widgets ─────────────────────────────────────── */}
+      {/* ── Collaboration ─────────────────────────────────────────── */}
       <CollaborationDashboard projectId={projectId} />
 
-      {/* ── Game Bible accordion ─────────────────────────────────────── */}
+      {/* ── Game Bible accordion ──────────────────────────────────── */}
       <Accordion type="single" collapsible className="border border-border rounded-lg overflow-hidden">
         <AccordionItem value="game-bible" className="border-0">
           <AccordionTrigger className="px-5 py-4 text-sm font-semibold hover:no-underline bg-card">
@@ -679,42 +709,44 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
           </AccordionTrigger>
           <AccordionContent className="px-5 py-5 bg-background/60 space-y-6">
 
-            {/* Project metadata */}
             <div className="space-y-4">
               <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Project metadata</h4>
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Label htmlFor="name" className="text-xs">Project name</Label>
-                  <Input id="name" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} />
+                  <Input id="name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="description" className="text-xs">Description</Label>
-                  <AiEditTextarea projectId={projectId} value={formData.description} onChange={(next) => setFormData((p) => ({ ...p, description: next }))} placeholder="A longer description of your game…" rows={3} className="min-h-[80px]" contextLabel="project description" />
+                  <AiEditTextarea projectId={projectId} value={form.description} onChange={(next) => setForm((f) => ({ ...f, description: next }))} placeholder="A longer description of your game…" rows={3} className="min-h-[80px]" contextLabel="project description" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label htmlFor="gameType" className="text-xs">Game type</Label>
-                    <Input id="gameType" placeholder="e.g. Strategy, Party, Worker placement" value={formData.gameType} onChange={(e) => setFormData((p) => ({ ...p, gameType: e.target.value }))} />
+                    <Input id="gameType" placeholder="e.g. Strategy, Party, Worker placement"
+                      value={form.gameType} onChange={(e) => setForm((f) => ({ ...f, gameType: e.target.value }))} />
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="genre" className="text-xs">Genre</Label>
-                    <Input id="genre" placeholder="e.g. Fantasy, Sci-fi, Historical" value={formData.genre} onChange={(e) => setFormData((p) => ({ ...p, genre: e.target.value }))} />
+                    <Input id="genre" placeholder="e.g. Fantasy, Sci-fi, Historical"
+                      value={form.genre} onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))} />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Core game loop */}
             <div className="space-y-4">
               <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Core game loop</h4>
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Label className="text-xs flex items-center gap-1.5"><Trophy className="w-3 h-3 text-amber-400" /> Win condition</Label>
-                  <Textarea placeholder="e.g. First player to collect 10 Victory Points wins…" rows={2} value={formData.winCondition} onChange={(e) => setFormData((p) => ({ ...p, winCondition: e.target.value }))} className="resize-none" />
+                  <Textarea placeholder="e.g. First player to collect 10 Victory Points wins…" rows={2}
+                    value={form.winCondition} onChange={(e) => setForm((f) => ({ ...f, winCondition: e.target.value }))} className="resize-none" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs flex items-center gap-1.5"><Swords className="w-3 h-3 text-red-400" /> Elimination / losing</Label>
-                  <Input placeholder="e.g. Last player standing wins…" value={formData.eliminationRule} onChange={(e) => setFormData((p) => ({ ...p, eliminationRule: e.target.value }))} />
+                  <Input placeholder="e.g. Last player standing wins…"
+                    value={form.eliminationRule} onChange={(e) => setForm((f) => ({ ...f, eliminationRule: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs flex items-center gap-1.5"><Layers className="w-3 h-3 text-blue-400" /> Turn phases</Label>
@@ -724,7 +756,8 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                         <span key={i} className="inline-flex items-center gap-1 text-xs bg-primary/10 border border-primary/25 text-primary rounded px-2 py-0.5">
                           <span className="text-[10px] text-muted-foreground font-mono mr-0.5">{i + 1}.</span>
                           {phase}
-                          <button onClick={() => saveTurnPhases(turnPhases.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive ml-0.5">
+                          <button onClick={() => saveTurnPhases(turnPhases.filter((_, j) => j !== i))}
+                            className="text-muted-foreground hover:text-destructive ml-0.5">
                             <X className="w-2.5 h-2.5" />
                           </button>
                         </span>
@@ -732,13 +765,12 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <Input
-                      placeholder="e.g. Draw Phase, Action Phase, Cleanup…"
-                      value={turnPhaseInput}
-                      onChange={(e) => setTurnPhaseInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter" && turnPhaseInput.trim()) { saveTurnPhases([...turnPhases, turnPhaseInput.trim()]); setTurnPhaseInput(""); } }}
-                    />
-                    <Button type="button" size="sm" variant="outline" onClick={() => { if (turnPhaseInput.trim()) { saveTurnPhases([...turnPhases, turnPhaseInput.trim()]); setTurnPhaseInput(""); } }} disabled={!turnPhaseInput.trim()}>
+                    <Input placeholder="e.g. Draw Phase, Action Phase, Cleanup…"
+                      value={turnPhaseInput} onChange={(e) => setTurnPhaseInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && turnPhaseInput.trim()) { saveTurnPhases([...turnPhases, turnPhaseInput.trim()]); setTurnPhaseInput(""); } }} />
+                    <Button type="button" size="sm" variant="outline"
+                      onClick={() => { if (turnPhaseInput.trim()) { saveTurnPhases([...turnPhases, turnPhaseInput.trim()]); setTurnPhaseInput(""); } }}
+                      disabled={!turnPhaseInput.trim()}>
                       <Plus className="w-3.5 h-3.5 mr-1" /> Add
                     </Button>
                   </div>
@@ -746,7 +778,6 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
               </div>
             </div>
 
-            {/* Project versions */}
             <ProjectVersions projectId={projectId} />
           </AccordionContent>
         </AccordionItem>

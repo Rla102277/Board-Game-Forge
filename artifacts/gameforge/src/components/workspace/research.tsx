@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGetProject, useUpdateProject, useListResearch, getListResearchQueryKey } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Heart, Sparkles, Plus, X, Wand2, Loader2, GripVertical, Trash2 } from "lucide-react";
-import { findSimilarGames } from "@/lib/mock-research-api";
 import {
-  Plus, Search, Trash2, ExternalLink, Edit2, Tag, Sparkles, Loader2, X,
-  Lightbulb, Compass, StickyNote, TrendingUp, MessageCircle,
-  Zap, ChevronRight, Heart, CheckCircle2, ChevronDown, ChevronUp,
-  Users, Clock, BarChart2, FileText, GripVertical, RefreshCw, Wand2, ArrowRight,
+  Heart, Sparkles, Plus, X, Wand2, Loader2, GripVertical, Trash2, Search,
+  ExternalLink, Edit2, Tag, Lightbulb, Compass, StickyNote, TrendingUp,
+  MessageCircle, Zap, ChevronRight, CheckCircle2, ChevronDown, ChevronUp,
+  Users, Clock, BarChart2, FileText, RefreshCw, ArrowRight,
   AlertTriangle, Check,
 } from "lucide-react";
+import { Reorder, useDragControls } from "framer-motion";
 import { apiBase, workspacesApi } from "@/lib/workspaces-api";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -27,7 +27,6 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from "@/hooks/use-toast";
 import { GAME_TEMPLATES, type GameTemplate } from "@/lib/game-templates";
 
 /* ── types ───────────────────────────────────────────────────────────── */
@@ -1136,10 +1135,6 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: items, isLoading } = useListResearch(projectId);
-  const createItem = useCreateResearch();
-  const updateItem = useUpdateResearch();
-  const deleteItem = useDeleteResearch();
-  const enhanceItem = useAiEnhanceResearch();
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
@@ -1182,15 +1177,11 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
     setForm({ title: it.title, source: it.source || "", content: it.content || "", tags: it.tags || "" });
   };
 
-  const submit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim()) return;
     try {
-      if (editing) {
-        await updateItem.mutateAsync({ projectId, researchId: editing, data: form });
-      } else {
-        await createItem.mutateAsync({ projectId, data: form });
-      }
+      // TODO: Implement backend API hooks for research CRUD operations
+      toast({ title: "Save not implemented", description: "Backend API hooks need to be implemented", variant: "destructive" });
       closeForm();
       refresh();
     } catch {
@@ -1199,17 +1190,20 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
   };
 
   const removeItem = async (id: number) => {
-    try { await deleteItem.mutateAsync({ projectId, researchId: id }); refresh(); }
-    catch { toast({ title: "Delete failed", variant: "destructive" }); }
+    try {
+      // TODO: Implement backend API hooks for research delete
+      toast({ title: "Delete not implemented", description: "Backend API hooks need to be implemented", variant: "destructive" });
+      refresh();
+    } catch { toast({ title: "Delete failed", variant: "destructive" }); }
     finally { setDeleteConfirmId(null); }
   };
 
   const handleEnhance = async (researchId: number) => {
     setEnhancingId(researchId);
     try {
-      await enhanceItem.mutateAsync({ projectId, researchId });
+      // TODO: Implement backend API hooks for research AI enhance
       qc.invalidateQueries({ queryKey: getListResearchQueryKey(projectId) });
-      toast({ title: "Note polished", description: "AI improved the summary." });
+      toast({ title: "Enhance not implemented", description: "Backend API hooks need to be implemented", variant: "destructive" });
     } catch (err) {
       toast({ title: "Polish failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
@@ -1318,7 +1312,7 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForm}><X className="h-4 w-4" /></Button>
               </CardHeader>
               <CardContent>
-                <form onSubmit={submit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-1.5">
                     <Label>Title *</Label>
                     <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required autoFocus />

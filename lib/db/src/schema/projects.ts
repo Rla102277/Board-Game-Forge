@@ -24,6 +24,10 @@ export const projects = pgTable(
     referenceGames: text("reference_games"),
     designPhase: text("design_phase").default("concept").notNull(),
     overviewMeta: jsonb("overview_meta"),
+    designProblems: jsonb("design_problems"),
+    nextPlaytest: jsonb("next_playtest"),
+    decisionLog: jsonb("decision_log"),
+    mechanicFingerprint: jsonb("mechanic_fingerprint"),
     forkedFromProjectId: integer("forked_from_project_id"),
     forkedFromSnapshotId: integer("forked_from_snapshot_id"),
     createdAt: timestamp("created_at", { withTimezone: true })

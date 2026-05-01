@@ -161,6 +161,10 @@ export const GetProjectResponse = zod.object({
   referenceGames: zod.string().nullish(),
   designPhase: zod.string().default("concept"),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
+  designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
+  decisionLog: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  mechanicFingerprint: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -185,6 +189,10 @@ export const UpdateProjectBody = zod.object({
   referenceGames: zod.string().optional(),
   designPhase: zod.string().optional(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
+  designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
+  decisionLog: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  mechanicFingerprint: zod.record(zod.string(), zod.unknown()).nullish(),
 });
 
 export const UpdateProjectResponse = zod.object({
@@ -205,6 +213,10 @@ export const UpdateProjectResponse = zod.object({
   referenceGames: zod.string().nullish(),
   designPhase: zod.string().default("concept"),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
+  designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
+  decisionLog: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  mechanicFingerprint: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

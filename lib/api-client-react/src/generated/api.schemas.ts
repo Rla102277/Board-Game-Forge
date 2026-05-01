@@ -92,6 +92,14 @@ export interface Project {
   designPhase: string;
   /** @nullable */
   overviewMeta?: Record<string, unknown> | null;
+  /** @nullable */
+  designProblems?: Record<string, unknown>[] | null;
+  /** @nullable */
+  nextPlaytest?: Record<string, unknown> | null;
+  /** @nullable */
+  decisionLog?: Record<string, unknown>[] | null;
+  /** @nullable */
+  mechanicFingerprint?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -121,6 +129,10 @@ export interface UpdateProjectBody {
   referenceGames?: string;
   designPhase?: string;
   overviewMeta?: Record<string, unknown> | null;
+  designProblems?: Record<string, unknown>[] | null;
+  nextPlaytest?: Record<string, unknown> | null;
+  decisionLog?: Record<string, unknown>[] | null;
+  mechanicFingerprint?: Record<string, unknown> | null;
 }
 
 export interface ProjectStats {
