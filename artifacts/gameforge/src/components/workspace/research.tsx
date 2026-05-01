@@ -580,6 +580,9 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
   const [lookingUp, setLookingUp] = useState<string | null>(null);
   const [showReverseDialog, setShowReverseDialog] = useState(false);
   const [preselectedGameId, setPreselectedGameId] = useState<string | null>(null);
+  const [findingSimilar, setFindingSimilar] = useState(false);
+  const [similarGames, setSimilarGames] = useState<string[]>([]);
+  const [showSimilarDialog, setShowSimilarDialog] = useState(false);
   const initRef = useRef(false);
 
   useEffect(() => {
@@ -633,6 +636,46 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
     }
   };
 
+  const findSimilarGames = async () => {
+    if (!project) return;
+    setFindingSimilar(true);
+    try {
+      const res = await fetch(`${apiBase()}/api/projects/${projectId}/research/similar-games`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          gameName: project.name,
+          description: project.description,
+          gameType: project.gameType,
+          genre: project.genre,
+          playerCount: project.playerCount,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { games } = await res.json() as { games: string[] };
+      setSimilarGames(games);
+      setShowSimilarDialog(true);
+      toast({ title: "Similar games found", description: `Found ${games.length} games similar to your project.` });
+    } catch (err) {
+      toast({ title: "Could not find similar games", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setFindingSimilar(false);
+    }
+  };
+
+  const addSimilarGame = (gameName: string) => {
+    const newGame: RefGame = {
+      id: crypto.randomUUID(),
+      name: gameName,
+      borrowing: "",
+      avoiding: "",
+    };
+    persist([...refGames, newGame]);
+    setSimilarGames(similarGames.filter((g) => g !== gameName));
+    toast({ title: "Game added", description: `${gameName} added to your research list.` });
+  };
+
   const researched = refGames.filter((g) => g.gameData);
 
   return (
@@ -649,6 +692,16 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 shrink-0 border-primary/30 text-primary hover:bg-primary/10"
+            onClick={findSimilarGames}
+            disabled={findingSimilar || !project}
+          >
+            {findingSimilar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Find similar games
+          </Button>
           {researched.length >= 1 && workspaceSlug && (
             <Button
               size="sm"
@@ -750,6 +803,48 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
           }
         }}
       />
+
+      {/* Similar games dialog */}
+      <Dialog open={showSimilarDialog} onOpenChange={setShowSimilarDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Games similar to your project
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Based on your project's characteristics, here are similar games you might want to research:
+            </p>
+            {similarGames.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No similar games found.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {similarGames.map((gameName) => (
+                  <div
+                    key={gameName}
+                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-card/80 transition-colors"
+                  >
+                    <span className="text-sm font-medium">{gameName}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs h-7"
+                      onClick={() => addSimilarGame(gameName)}
+                    >
+                      <Plus className="h-3 w-3" /> Add
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSimilarDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
