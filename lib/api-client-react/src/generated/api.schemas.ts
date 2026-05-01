@@ -551,46 +551,6 @@ export interface AiTextEditResponse {
   rewritten: string;
 }
 
-export type PlayerBehaviorProfile = { [key: string]: unknown } | null;
-
-export type PlayerRelationshipsItem = { [key: string]: unknown };
-
-export interface Player {
-  id: number;
-  projectId: number;
-  name: string;
-  playerType?: string;
-  /** @nullable */
-  role?: string | null;
-  /** @nullable */
-  archetype?: string | null;
-  /** @nullable */
-  description?: string | null;
-  /** @nullable */
-  strategy?: string | null;
-  /** @nullable */
-  startingResources?: string | null;
-  /** @nullable */
-  victoryCondition?: string | null;
-  /** @nullable */
-  specialAbility?: string | null;
-  /** @nullable */
-  playstyle?: string | null;
-  /** @nullable */
-  faction?: string | null;
-  /** @nullable */
-  motivation?: string | null;
-  /** @nullable */
-  flaw?: string | null;
-  /** @nullable */
-  arc?: string | null;
-  /** @nullable */
-  displayOrder?: number | null;
-  behaviorProfile?: PlayerBehaviorProfile;
-  relationships?: PlayerRelationshipsItem[] | null;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export type CreatePlayerBodyBehaviorProfile = { [key: string]: unknown };
 

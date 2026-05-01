@@ -29,7 +29,6 @@ export interface Entity {
   lore?: string | null;
   /** @nullable */
   designNotes?: string | null;
-  status: string;
   createdAt: Date;
   updatedAt: Date;
 }

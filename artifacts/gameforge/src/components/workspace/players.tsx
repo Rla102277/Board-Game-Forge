@@ -195,7 +195,9 @@ export function Players({ projectId }: PlayersProps) {
   // ── Drag state
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
+  // dropTargetId + insertBefore: where the insertion line should appear
   const [dropTargetId, setDropTargetId] = useState<number | null>(null);
+  const [insertBefore, setInsertBefore] = useState<boolean>(true);
 
   // ── Relationship add UI
   const [addingRelType, setAddingRelType] = useState<string>("Allied");
@@ -327,21 +329,31 @@ export function Players({ projectId }: PlayersProps) {
 
   // ── Drag-to-reorder (HTML5, within type group)
   const handleDragStart = (id: number) => { setDraggedId(id); document.body.style.cursor = "grabbing"; };
-  const handleDragOver = (e: React.DragEvent, id: number) => { e.preventDefault(); setDragOverId(id); setDropTargetId(id); };
+  const handleDragOver = (e: React.DragEvent, id: number) => {
+    e.preventDefault();
+    setDragOverId(id);
+    setDropTargetId(id);
+    // Determine whether to insert before or after based on cursor position in the row
+    const rect = e.currentTarget.getBoundingClientRect();
+    setInsertBefore(e.clientY < rect.top + rect.height / 2);
+  };
+  const clearDragState = () => { setDraggedId(null); setDragOverId(null); setDropTargetId(null); setInsertBefore(true); };
   const handleDrop = (targetId: number, type: PlayerType) => {
     document.body.style.cursor = "";
-    if (!draggedId || draggedId === targetId) { setDraggedId(null); setDragOverId(null); setDropTargetId(null); return; }
+    if (!draggedId || draggedId === targetId) { clearDragState(); return; }
     // Use unfiltered group so filtering doesn't break displayOrder assignments (#35)
     const group = unfilteredGrouped.get(type) ?? [];
     const fromIdx = group.findIndex((p) => p.id === draggedId);
-    const toIdx = group.findIndex((p) => p.id === targetId);
-    if (fromIdx === -1 || toIdx === -1) { setDraggedId(null); setDragOverId(null); setDropTargetId(null); return; }
+    let toIdx = group.findIndex((p) => p.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) { clearDragState(); return; }
+    // Adjust insertion index based on whether we're inserting before or after the target
+    if (!insertBefore && toIdx < group.length - 1) toIdx += 1;
     const reordered = [...group];
     const [moved] = reordered.splice(fromIdx, 1);
-    reordered.splice(toIdx, 0, moved);
-    setDraggedId(null);
-    setDragOverId(null);
-    setDropTargetId(null);
+    // Recalculate toIdx after removing the dragged item
+    const adjustedTo = Math.min(insertBefore ? toIdx : toIdx - 1, reordered.length);
+    reordered.splice(Math.max(0, adjustedTo), 0, moved);
+    clearDragState();
 
     // Optimistic update — immediately reflect the new order in the cache
     const queryKey = getListPlayersQueryKey(projectId);
@@ -553,40 +565,51 @@ export function Players({ projectId }: PlayersProps) {
                     {/* Roster rows */}
                     {!collapsed && group.map((p) => {
                       const isSelected = p.id === selectedId;
-                      const isDropTarget = dropTargetId === p.id && draggedId !== null && draggedId !== p.id;
+                      const isActive = dropTargetId === p.id && draggedId !== null && draggedId !== p.id;
+                      const showLineAbove = isActive && insertBefore;
+                      const showLineBelow = isActive && !insertBefore;
                       return (
-                        <div
-                          key={p.id}
-                          draggable
-                          onDragStart={() => handleDragStart(p.id)}
-                          onDragOver={(e) => handleDragOver(e, p.id)}
-                          onDrop={() => handleDrop(p.id, type)}
-                          onDragEnd={() => { document.body.style.cursor = ""; setDraggedId(null); setDragOverId(null); setDropTargetId(null); }}
-                          onClick={() => setSelectedId(isSelected ? null : p.id)}
-                          className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-all border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${isDropTarget ? "ring-1 ring-inset ring-primary bg-primary/5" : ""} ${draggedId === p.id ? "opacity-40 cursor-grabbing" : ""}`}
-                        >
-                          <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0 cursor-grab" />
-                          <m.Icon className={`h-3.5 w-3.5 shrink-0 ${m.color}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">{p.name}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">
-                              <span className={m.color}>{p.playerType}</span>
-                              {p.role ? ` · ${p.role}` : ""}
-                              {p.faction ? ` · ${p.faction}` : ""}
-                            </p>
-                          </div>
-                          {deleteConfirmId === p.id ? (
-                            <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => handleDelete(p.id)} className="text-[10px] text-destructive hover:text-destructive/80 font-medium">Del</button>
-                              <button onClick={() => setDeleteConfirmId(null)} className="text-[10px] text-muted-foreground">✕</button>
+                        <div key={p.id} className="relative">
+                          {/* Insertion line — above */}
+                          {showLineAbove && (
+                            <div className="absolute top-0 inset-x-2 h-0.5 bg-primary rounded-full z-10 pointer-events-none" />
+                          )}
+                          <div
+                            draggable
+                            onDragStart={() => handleDragStart(p.id)}
+                            onDragOver={(e) => handleDragOver(e, p.id)}
+                            onDrop={() => handleDrop(p.id, type)}
+                            onDragEnd={() => { document.body.style.cursor = ""; clearDragState(); }}
+                            onClick={() => setSelectedId(isSelected ? null : p.id)}
+                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-all border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${draggedId === p.id ? "opacity-40 cursor-grabbing" : ""}`}
+                          >
+                            <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0 cursor-grab" />
+                            <m.Icon className={`h-3.5 w-3.5 shrink-0 ${m.color}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{p.name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                <span className={m.color}>{p.playerType}</span>
+                                {p.role ? ` · ${p.role}` : ""}
+                                {p.faction ? ` · ${p.faction}` : ""}
+                              </p>
                             </div>
-                          ) : (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(p.id); }}
-                              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
+                            {deleteConfirmId === p.id ? (
+                              <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <button onClick={() => handleDelete(p.id)} className="text-[10px] text-destructive hover:text-destructive/80 font-medium">Del</button>
+                                <button onClick={() => setDeleteConfirmId(null)} className="text-[10px] text-muted-foreground">✕</button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(p.id); }}
+                                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                          {/* Insertion line — below */}
+                          {showLineBelow && (
+                            <div className="absolute bottom-0 inset-x-2 h-0.5 bg-primary rounded-full z-10 pointer-events-none" />
                           )}
                         </div>
                       );
