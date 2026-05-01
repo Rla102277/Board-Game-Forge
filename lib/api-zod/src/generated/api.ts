@@ -194,10 +194,9 @@ export const UpdateProjectBody = zod.object({
   blueprint: zod.string().optional(),
   narrative: zod.string().optional(),
   winCondition: zod.string().optional(),
-  turnPhases: zod.string().optional(),
   eliminationRule: zod.string().optional(),
-  referenceGames: zod.string().optional(),
   designPhase: zod.string().optional(),
+  turnPhases: zod.string().optional(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -550,10 +549,6 @@ export const ListEntitiesResponseItem = zod.object({
   parentEntityId: zod.number().nullish(),
   description: zod.string().nullish(),
   stats: zod.string().nullish(),
-  color: zod.string().nullish(),
-  relatedTo: zod.string().nullish(),
-  lore: zod.string().nullish(),
-  designNotes: zod.string().nullish(),
   status: zod.string(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -589,11 +584,11 @@ export const UpdateEntityBody = zod.object({
   parentEntityId: zod.number().nullish(),
   description: zod.string().optional(),
   stats: zod.string().optional(),
+  status: zod.string().optional(),
   color: zod.string().optional(),
   relatedTo: zod.string().optional(),
   lore: zod.string().optional(),
   designNotes: zod.string().optional(),
-  status: zod.string().optional(),
 });
 
 export const UpdateEntityResponse = zod.object({
@@ -605,10 +600,6 @@ export const UpdateEntityResponse = zod.object({
   parentEntityId: zod.number().nullish(),
   description: zod.string().nullish(),
   stats: zod.string().nullish(),
-  color: zod.string().nullish(),
-  relatedTo: zod.string().nullish(),
-  lore: zod.string().nullish(),
-  designNotes: zod.string().nullish(),
   status: zod.string(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -637,10 +628,6 @@ export const AiGenerateEntitiesResponseItem = zod.object({
   parentEntityId: zod.number().nullish(),
   description: zod.string().nullish(),
   stats: zod.string().nullish(),
-  color: zod.string().nullish(),
-  relatedTo: zod.string().nullish(),
-  lore: zod.string().nullish(),
-  designNotes: zod.string().nullish(),
   status: zod.string(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -858,51 +845,6 @@ export const DeleteRuleParams = zod.object({
   ruleId: zod.coerce.number(),
 });
 
-export const AiGenerateRulesParams = zod.object({
-  projectId: zod.coerce.number(),
-});
-
-export const AiGenerateRulesBody = zod.object({
-  prompt: zod.string(),
-  count: zod.number().optional(),
-});
-
-export const AiGenerateRulesResponseItem = zod.object({
-  id: zod.number(),
-  projectId: zod.number(),
-  title: zod.string(),
-  content: zod.string(),
-  category: zod.string().nullish(),
-  priority: zod.number(),
-  designNotes: zod.string().nullish(),
-  edgeCases: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-export const AiGenerateRulesResponse = zod.array(AiGenerateRulesResponseItem);
-
-export const AiEnhanceRuleParams = zod.object({
-  projectId: zod.coerce.number(),
-  ruleId: zod.coerce.number(),
-});
-
-export const AiEnhanceRuleResponse = zod.object({
-  rewrittenContent: zod.string(),
-  improvedTitle: zod.string(),
-  designNotes: zod.string().optional(),
-  edgeCases: zod.string().optional(),
-  relatedRuleSuggestions: zod.array(
-    zod.object({
-      title: zod.string(),
-      content: zod.string(),
-      category: zod.string(),
-    }),
-  ),
-});
-
-/**
- * @summary List entities linked to a specific rule
- */
 export const ListRuleEntitiesParams = zod.object({
   projectId: zod.coerce.number(),
   ruleId: zod.coerce.number(),
@@ -916,6 +858,62 @@ export const ListRuleEntitiesResponseItem = zod.object({
   color: zod.string().nullish(),
 });
 export const ListRuleEntitiesResponse = zod.array(ListRuleEntitiesResponseItem);
+
+export const AiGenerateRulesParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const AiGenerateRulesBody = zod.object({
+  prompt: zod.string(),
+  count: zod.number().optional(),
+});
+
+export const AiGenerateRulesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      projectId: zod.number(),
+      title: zod.string(),
+      content: zod.string(),
+      category: zod.string().nullish(),
+      priority: zod.number(),
+      designNotes: zod.string().nullish(),
+      edgeCases: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+  narrativeApplied: zod
+    .boolean()
+    .describe(
+      "True when the project's narrative seed was included in the AI prompt",
+    ),
+});
+
+export const AiEnhanceRuleParams = zod.object({
+  projectId: zod.coerce.number(),
+  ruleId: zod.coerce.number(),
+});
+
+export const AiEnhanceRuleResponse = zod.object({
+  rewrittenContent: zod.string(),
+  improvedTitle: zod.string(),
+  designNotes: zod.string().optional(),
+  edgeCases: zod.string().optional(),
+  narrativeApplied: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the project's narrative seed was used in the AI prompt",
+    ),
+  relatedRuleSuggestions: zod.array(
+    zod.object({
+      title: zod.string(),
+      content: zod.string(),
+      category: zod.string(),
+    }),
+  ),
+});
 
 export const ConflictCheckRulesParams = zod.object({
   projectId: zod.coerce.number(),
@@ -937,11 +935,13 @@ export const ListPlayersParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
+export const listPlayersResponsePlayerTypeDefault = `Character`;
+
 export const ListPlayersResponseItem = zod.object({
   id: zod.number(),
   projectId: zod.number(),
   name: zod.string(),
-  playerType: zod.string().optional(),
+  playerType: zod.string().default(listPlayersResponsePlayerTypeDefault),
   role: zod.string().nullish(),
   archetype: zod.string().nullish(),
   description: zod.string().nullish(),
@@ -1011,11 +1011,13 @@ export const UpdatePlayerBody = zod.object({
   relationships: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
 });
 
+export const updatePlayerResponsePlayerTypeDefault = `Character`;
+
 export const UpdatePlayerResponse = zod.object({
   id: zod.number(),
   projectId: zod.number(),
   name: zod.string(),
-  playerType: zod.string().optional(),
+  playerType: zod.string().default(updatePlayerResponsePlayerTypeDefault),
   role: zod.string().nullish(),
   archetype: zod.string().nullish(),
   description: zod.string().nullish(),
@@ -1049,60 +1051,83 @@ export const AiGeneratePlayersBody = zod.object({
   count: zod.number().optional(),
 });
 
-export const AiGeneratePlayersResponseItem = zod.object({
-  id: zod.number(),
-  projectId: zod.number(),
-  name: zod.string(),
-  playerType: zod.string().optional(),
-  role: zod.string().nullish(),
-  archetype: zod.string().nullish(),
-  description: zod.string().nullish(),
-  strategy: zod.string().nullish(),
-  startingResources: zod.string().nullish(),
-  victoryCondition: zod.string().nullish(),
-  specialAbility: zod.string().nullish(),
-  playstyle: zod.string().nullish(),
-  faction: zod.string().nullish(),
-  motivation: zod.string().nullish(),
-  flaw: zod.string().nullish(),
-  arc: zod.string().nullish(),
-  displayOrder: zod.number().nullish(),
-  behaviorProfile: zod.record(zod.string(), zod.unknown()).nullish(),
-  relationships: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+export const aiGeneratePlayersResponseItemsItemPlayerTypeDefault = `Character`;
+
+export const AiGeneratePlayersResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      projectId: zod.number(),
+      name: zod.string(),
+      playerType: zod
+        .string()
+        .default(aiGeneratePlayersResponseItemsItemPlayerTypeDefault),
+      role: zod.string().nullish(),
+      archetype: zod.string().nullish(),
+      description: zod.string().nullish(),
+      strategy: zod.string().nullish(),
+      startingResources: zod.string().nullish(),
+      victoryCondition: zod.string().nullish(),
+      specialAbility: zod.string().nullish(),
+      playstyle: zod.string().nullish(),
+      faction: zod.string().nullish(),
+      motivation: zod.string().nullish(),
+      flaw: zod.string().nullish(),
+      arc: zod.string().nullish(),
+      displayOrder: zod.number().nullish(),
+      behaviorProfile: zod.record(zod.string(), zod.unknown()).nullish(),
+      relationships: zod
+        .array(zod.record(zod.string(), zod.unknown()))
+        .nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+  narrativeApplied: zod
+    .boolean()
+    .describe(
+      "True when the project's narrative seed was included in the AI prompt",
+    ),
 });
-export const AiGeneratePlayersResponse = zod.array(
-  AiGeneratePlayersResponseItem,
-);
 
 export const AiEnhancePlayerParams = zod.object({
   projectId: zod.coerce.number(),
   playerId: zod.coerce.number(),
 });
 
+export const aiEnhancePlayerResponsePlayerPlayerTypeDefault = `Character`;
+
 export const AiEnhancePlayerResponse = zod.object({
-  id: zod.number(),
-  projectId: zod.number(),
-  name: zod.string(),
-  playerType: zod.string().optional(),
-  role: zod.string().nullish(),
-  archetype: zod.string().nullish(),
-  description: zod.string().nullish(),
-  strategy: zod.string().nullish(),
-  startingResources: zod.string().nullish(),
-  victoryCondition: zod.string().nullish(),
-  specialAbility: zod.string().nullish(),
-  playstyle: zod.string().nullish(),
-  faction: zod.string().nullish(),
-  motivation: zod.string().nullish(),
-  flaw: zod.string().nullish(),
-  arc: zod.string().nullish(),
-  displayOrder: zod.number().nullish(),
-  behaviorProfile: zod.record(zod.string(), zod.unknown()).nullish(),
-  relationships: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  player: zod.object({
+    id: zod.number(),
+    projectId: zod.number(),
+    name: zod.string(),
+    playerType: zod
+      .string()
+      .default(aiEnhancePlayerResponsePlayerPlayerTypeDefault),
+    role: zod.string().nullish(),
+    archetype: zod.string().nullish(),
+    description: zod.string().nullish(),
+    strategy: zod.string().nullish(),
+    startingResources: zod.string().nullish(),
+    victoryCondition: zod.string().nullish(),
+    specialAbility: zod.string().nullish(),
+    playstyle: zod.string().nullish(),
+    faction: zod.string().nullish(),
+    motivation: zod.string().nullish(),
+    flaw: zod.string().nullish(),
+    arc: zod.string().nullish(),
+    displayOrder: zod.number().nullish(),
+    behaviorProfile: zod.record(zod.string(), zod.unknown()).nullish(),
+    relationships: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+  narrativeApplied: zod
+    .boolean()
+    .describe(
+      "True when the project's narrative seed was included in the AI prompt",
+    ),
 });
 
 export const ListNotesParams = zod.object({
@@ -1332,9 +1357,6 @@ export const CreateAssetBody = zod.object({
   description: zod.string().optional(),
   flavorText: zod.string().optional(),
   imagePrompt: zod.string().optional(),
-  quantity: zod.number().optional(),
-  status: zod.string().optional(),
-  componentDetails: zod.string().optional(),
 });
 
 export const UpdateAssetParams = zod.object({
@@ -1345,7 +1367,7 @@ export const UpdateAssetParams = zod.object({
 export const UpdateAssetBody = zod.object({
   name: zod.string().optional(),
   kind: zod.string().optional(),
-  entityId: zod.number().optional(),
+  entityId: zod.number().nullish(),
   description: zod.string().optional(),
   flavorText: zod.string().optional(),
   imagePrompt: zod.string().optional(),

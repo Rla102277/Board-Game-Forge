@@ -12,5 +12,7 @@ export interface RuleEnhanceSuggestion {
   improvedTitle: string;
   designNotes?: string;
   edgeCases?: string;
+  /** True when the project's narrative seed was used in the AI prompt */
+  narrativeApplied?: boolean;
   relatedRuleSuggestions: RuleEnhanceSuggestionRelatedRuleSuggestionsItem[];
 }

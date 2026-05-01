@@ -12,7 +12,7 @@ export interface Player {
   id: number;
   projectId: number;
   name: string;
-  playerType?: string;
+  playerType: string;
   /** @nullable */
   role?: string | null;
   /** @nullable */

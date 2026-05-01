@@ -134,7 +134,7 @@ Output JUST the JSON array.`,
         })),
       )
       .returning();
-    res.json(inserted);
+    res.json({ items: inserted, narrativeApplied: !!narrativeLine });
   } catch (err) {
     req.log.error({ err }, "ai-generate-rules failed");
     res.status(500).json({ error: "AI generation failed" });
@@ -237,7 +237,7 @@ router.post(
         res.status(502).json({ error: "AI returned no usable content. Try again or switch model." });
         return;
       }
-      res.json(result);
+      res.json({ ...result, narrativeApplied: !!narrativeLine });
     } catch (err) {
       req.log.error({ err }, "enhance rule failed");
       res.status(500).json({ error: "Enhance failed" });

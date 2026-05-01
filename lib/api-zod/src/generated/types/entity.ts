@@ -20,6 +20,8 @@ export interface Entity {
   /** @nullable */
   stats?: string | null;
   /** @nullable */
+  status?: string | null;
+  /** @nullable */
   color?: string | null;
   /** @nullable */
   relatedTo?: string | null;

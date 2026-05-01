@@ -9,7 +9,7 @@
 export interface UpdateAssetBody {
   name?: string;
   kind?: string;
-  entityId?: number;
+  entityId?: number | null;
   description?: string;
   flavorText?: string;
   imagePrompt?: string;

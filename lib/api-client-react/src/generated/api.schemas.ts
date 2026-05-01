@@ -290,6 +290,8 @@ export interface Entity {
   /** @nullable */
   stats?: string | null;
   /** @nullable */
+  status?: string | null;
+  /** @nullable */
   color?: string | null;
   /** @nullable */
   relatedTo?: string | null;
@@ -297,7 +299,6 @@ export interface Entity {
   lore?: string | null;
   /** @nullable */
   designNotes?: string | null;
-  status: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -323,11 +324,11 @@ export interface UpdateEntityBody {
   parentEntityId?: number | null;
   description?: string;
   stats?: string;
+  status?: string;
   color?: string;
   relatedTo?: string;
   lore?: string;
   designNotes?: string;
-  status?: string;
 }
 
 export interface EntityProperty {
@@ -442,7 +443,83 @@ export interface RuleEnhanceSuggestion {
   improvedTitle: string;
   designNotes?: string;
   edgeCases?: string;
+  /** True when the project's narrative seed was used in the AI prompt */
+  narrativeApplied?: boolean;
   relatedRuleSuggestions: RuleEnhanceSuggestionRelatedRuleSuggestionsItem[];
+}
+
+export interface EntityRuleLink {
+  entityId: number;
+  ruleId: number;
+}
+
+export interface RuleLinkedEntity {
+  id: number;
+  name: string;
+  type: string;
+  /** @nullable */
+  subtype?: string | null;
+  /** @nullable */
+  color?: string | null;
+}
+
+export interface AiGenerateRulesResult {
+  items: Rule[];
+  /** True when the project's narrative seed was included in the AI prompt */
+  narrativeApplied: boolean;
+}
+
+export type PlayerBehaviorProfile = { [key: string]: unknown } | null;
+
+export type PlayerRelationshipsItem = { [key: string]: unknown };
+
+export interface Player {
+  id: number;
+  projectId: number;
+  name: string;
+  playerType: string;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  archetype?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  strategy?: string | null;
+  /** @nullable */
+  startingResources?: string | null;
+  /** @nullable */
+  victoryCondition?: string | null;
+  /** @nullable */
+  specialAbility?: string | null;
+  /** @nullable */
+  playstyle?: string | null;
+  /** @nullable */
+  faction?: string | null;
+  /** @nullable */
+  motivation?: string | null;
+  /** @nullable */
+  flaw?: string | null;
+  /** @nullable */
+  arc?: string | null;
+  /** @nullable */
+  displayOrder?: number | null;
+  behaviorProfile?: PlayerBehaviorProfile;
+  relationships?: PlayerRelationshipsItem[] | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiGeneratePlayersResult {
+  items: Player[];
+  /** True when the project's narrative seed was included in the AI prompt */
+  narrativeApplied: boolean;
+}
+
+export interface AiEnhancePlayerResult {
+  player: Player;
+  /** True when the project's narrative seed was included in the AI prompt */
+  narrativeApplied: boolean;
 }
 
 export interface AssetEnhanceSuggestion {
@@ -685,8 +762,9 @@ export interface Asset {
   imageDataUrl?: string | null;
   /** @nullable */
   imagePrompt?: string | null;
-  quantity: number;
-  status: string;
+  quantity?: number;
+  /** @nullable */
+  status?: string | null;
   /** @nullable */
   componentDetails?: string | null;
   /** @nullable */
@@ -702,15 +780,12 @@ export interface CreateAssetBody {
   description?: string;
   flavorText?: string;
   imagePrompt?: string;
-  quantity?: number;
-  status?: string;
-  componentDetails?: string;
 }
 
 export interface UpdateAssetBody {
   name?: string;
   kind?: string;
-  entityId?: number;
+  entityId?: number | null;
   description?: string;
   flavorText?: string;
   imagePrompt?: string;

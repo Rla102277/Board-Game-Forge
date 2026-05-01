@@ -8,7 +8,10 @@
 
 export * from "./activityEvent";
 export * from "./adminUser";
+export * from "./aiEnhancePlayerResult";
 export * from "./aiGenerateBody";
+export * from "./aiGeneratePlayersResult";
+export * from "./aiGenerateRulesResult";
 export * from "./aiProviderSettings";
 export * from "./aiTextEditBody";
 export * from "./aiTextEditBodyAction";
@@ -48,6 +51,7 @@ export * from "./entityEnhanceSuggestion";
 export * from "./entityEnhanceSuggestionSuggestedPropertiesItem";
 export * from "./entityProperty";
 export * from "./entityRule";
+export * from "./entityRuleLink";
 export * from "./errorResponse";
 export * from "./exportResult";
 export * from "./forbiddenResponse";

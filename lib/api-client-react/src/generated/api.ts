@@ -19,7 +19,10 @@ import type {
 import type {
   ActivityEvent,
   AdminUser,
+  AiEnhancePlayerResult,
   AiGenerateBody,
+  AiGeneratePlayersResult,
+  AiGenerateRulesResult,
   AiProviderSettings,
   AiTextEditBody,
   AiTextEditResponse,
@@ -49,6 +52,7 @@ import type {
   EntityEnhanceSuggestion,
   EntityProperty,
   EntityRule,
+  EntityRuleLink,
   ExportResult,
   ForbiddenResponse,
   ForkSnapshotBody,
@@ -4046,6 +4050,274 @@ export const useDeleteEntityProperty = <
   return useMutation(getDeleteEntityPropertyMutationOptions(options));
 };
 
+export const getListEntityRulesUrl = (projectId: number, entityId: number) => {
+  return `/api/projects/${projectId}/entities/${entityId}/rules`;
+};
+
+export const listEntityRules = async (
+  projectId: number,
+  entityId: number,
+  options?: RequestInit,
+): Promise<EntityRuleLink[]> => {
+  return customFetch<EntityRuleLink[]>(
+    getListEntityRulesUrl(projectId, entityId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListEntityRulesQueryKey = (
+  projectId: number,
+  entityId: number,
+) => {
+  return [`/api/projects/${projectId}/entities/${entityId}/rules`] as const;
+};
+
+export const getListEntityRulesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEntityRules>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  entityId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEntityRules>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListEntityRulesQueryKey(projectId, entityId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listEntityRules>>> = ({
+    signal,
+  }) => listEntityRules(projectId, entityId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(projectId && entityId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEntityRules>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEntityRulesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEntityRules>>
+>;
+export type ListEntityRulesQueryError = ErrorType<unknown>;
+
+export function useListEntityRules<
+  TData = Awaited<ReturnType<typeof listEntityRules>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  entityId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEntityRules>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEntityRulesQueryOptions(
+    projectId,
+    entityId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getLinkEntityRuleUrl = (
+  projectId: number,
+  entityId: number,
+  ruleId: number,
+) => {
+  return `/api/projects/${projectId}/entities/${entityId}/rules/${ruleId}`;
+};
+
+export const linkEntityRule = async (
+  projectId: number,
+  entityId: number,
+  ruleId: number,
+  options?: RequestInit,
+): Promise<EntityRuleLink> => {
+  return customFetch<EntityRuleLink>(
+    getLinkEntityRuleUrl(projectId, entityId, ruleId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getLinkEntityRuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkEntityRule>>,
+    TError,
+    { projectId: number; entityId: number; ruleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof linkEntityRule>>,
+  TError,
+  { projectId: number; entityId: number; ruleId: number },
+  TContext
+> => {
+  const mutationKey = ["linkEntityRule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof linkEntityRule>>,
+    { projectId: number; entityId: number; ruleId: number }
+  > = (props) => {
+    const { projectId, entityId, ruleId } = props ?? {};
+
+    return linkEntityRule(projectId, entityId, ruleId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LinkEntityRuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof linkEntityRule>>
+>;
+
+export type LinkEntityRuleMutationError = ErrorType<unknown>;
+
+export const useLinkEntityRule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkEntityRule>>,
+    TError,
+    { projectId: number; entityId: number; ruleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof linkEntityRule>>,
+  TError,
+  { projectId: number; entityId: number; ruleId: number },
+  TContext
+> => {
+  return useMutation(getLinkEntityRuleMutationOptions(options));
+};
+
+export const getUnlinkEntityRuleUrl = (
+  projectId: number,
+  entityId: number,
+  ruleId: number,
+) => {
+  return `/api/projects/${projectId}/entities/${entityId}/rules/${ruleId}`;
+};
+
+export const unlinkEntityRule = async (
+  projectId: number,
+  entityId: number,
+  ruleId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getUnlinkEntityRuleUrl(projectId, entityId, ruleId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getUnlinkEntityRuleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkEntityRule>>,
+    TError,
+    { projectId: number; entityId: number; ruleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unlinkEntityRule>>,
+  TError,
+  { projectId: number; entityId: number; ruleId: number },
+  TContext
+> => {
+  const mutationKey = ["unlinkEntityRule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unlinkEntityRule>>,
+    { projectId: number; entityId: number; ruleId: number }
+  > = (props) => {
+    const { projectId, entityId, ruleId } = props ?? {};
+
+    return unlinkEntityRule(projectId, entityId, ruleId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnlinkEntityRuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unlinkEntityRule>>
+>;
+
+export type UnlinkEntityRuleMutationError = ErrorType<unknown>;
+
+export const useUnlinkEntityRule = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkEntityRule>>,
+    TError,
+    { projectId: number; entityId: number; ruleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unlinkEntityRule>>,
+  TError,
+  { projectId: number; entityId: number; ruleId: number },
+  TContext
+> => {
+  return useMutation(getUnlinkEntityRuleMutationOptions(options));
+};
+
 export const getListRulesUrl = (projectId: number) => {
   return `/api/projects/${projectId}/rules`;
 };
@@ -4366,6 +4638,101 @@ export const useDeleteRule = <
   return useMutation(getDeleteRuleMutationOptions(options));
 };
 
+export const getListRuleEntitiesUrl = (projectId: number, ruleId: number) => {
+  return `/api/projects/${projectId}/rules/${ruleId}/entities`;
+};
+
+export const listRuleEntities = async (
+  projectId: number,
+  ruleId: number,
+  options?: RequestInit,
+): Promise<RuleLinkedEntity[]> => {
+  return customFetch<RuleLinkedEntity[]>(
+    getListRuleEntitiesUrl(projectId, ruleId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListRuleEntitiesQueryKey = (
+  projectId: number,
+  ruleId: number,
+) => {
+  return [`/api/projects/${projectId}/rules/${ruleId}/entities`] as const;
+};
+
+export const getListRuleEntitiesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRuleEntities>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  ruleId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRuleEntities>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListRuleEntitiesQueryKey(projectId, ruleId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRuleEntities>>
+  > = ({ signal }) =>
+    listRuleEntities(projectId, ruleId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(projectId && ruleId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRuleEntities>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRuleEntitiesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRuleEntities>>
+>;
+export type ListRuleEntitiesQueryError = ErrorType<unknown>;
+
+export function useListRuleEntities<
+  TData = Awaited<ReturnType<typeof listRuleEntities>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  ruleId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRuleEntities>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRuleEntitiesQueryOptions(
+    projectId,
+    ruleId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
 export const getAiGenerateRulesUrl = (projectId: number) => {
   return `/api/projects/${projectId}/rules/ai-generate`;
 };
@@ -4374,8 +4741,8 @@ export const aiGenerateRules = async (
   projectId: number,
   aiGenerateBody: AiGenerateBody,
   options?: RequestInit,
-): Promise<Rule[]> => {
-  return customFetch<Rule[]>(getAiGenerateRulesUrl(projectId), {
+): Promise<AiGenerateRulesResult> => {
+  return customFetch<AiGenerateRulesResult>(getAiGenerateRulesUrl(projectId), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -5039,13 +5406,16 @@ export const aiGeneratePlayers = async (
   projectId: number,
   aiGenerateBody: AiGenerateBody,
   options?: RequestInit,
-): Promise<Player[]> => {
-  return customFetch<Player[]>(getAiGeneratePlayersUrl(projectId), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(aiGenerateBody),
-  });
+): Promise<AiGeneratePlayersResult> => {
+  return customFetch<AiGeneratePlayersResult>(
+    getAiGeneratePlayersUrl(projectId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(aiGenerateBody),
+    },
+  );
 };
 
 export const getAiGeneratePlayersMutationOptions = <
@@ -5120,11 +5490,14 @@ export const aiEnhancePlayer = async (
   projectId: number,
   playerId: number,
   options?: RequestInit,
-): Promise<Player> => {
-  return customFetch<Player>(getAiEnhancePlayerUrl(projectId, playerId), {
-    ...options,
-    method: "POST",
-  });
+): Promise<AiEnhancePlayerResult> => {
+  return customFetch<AiEnhancePlayerResult>(
+    getAiEnhancePlayerUrl(projectId, playerId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
 };
 
 export const getAiEnhancePlayerMutationOptions = <

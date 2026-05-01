@@ -212,7 +212,7 @@ Output JUST the JSON array.`,
           })),
         )
         .returning();
-      res.json(inserted);
+      res.json({ items: inserted, narrativeApplied: !!narrativeLine });
     } catch (err) {
       req.log.error({ err }, "ai-generate-players failed");
       res.status(500).json({ error: "AI generation failed" });
@@ -308,7 +308,7 @@ Output JUST the JSON object.`,
         .set(update)
         .where(eq(players.id, p.id))
         .returning();
-      res.json(updated);
+      res.json({ player: updated, narrativeApplied: !!narrativeLine });
     } catch (err) {
       req.log.error({ err }, "enhance player failed");
       res.status(500).json({ error: "Enhance failed" });

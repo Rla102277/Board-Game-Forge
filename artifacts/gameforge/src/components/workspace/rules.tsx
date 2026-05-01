@@ -66,6 +66,7 @@ type AIEnhance = {
   improvedTitle: string;
   designNotes?: string;
   edgeCases?: string;
+  narrativeApplied?: boolean;
   relatedRuleSuggestions?: { title: string; content: string; category: string }[];
 };
 
@@ -83,6 +84,8 @@ export function Rules({ projectId }: RulesProps) {
 
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [narrativeRuleIds, setNarrativeRuleIds] = useState<Set<number>>(new Set());
+  const [narrativeEnhanceRuleIds, setNarrativeEnhanceRuleIds] = useState<Set<number>>(new Set());
   const [filter, setFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
@@ -141,11 +144,21 @@ export function Rules({ projectId }: RulesProps) {
   const handleAiGenerate = async () => {
     if (!aiPrompt) return;
     try {
-      await aiGenerate.mutateAsync({ projectId, data: { prompt: aiPrompt, count: 3 } });
+      const result = await aiGenerate.mutateAsync({ projectId, data: { prompt: aiPrompt, count: 3 } });
       setAiPrompt("");
       setIsAiOpen(false);
       refresh();
-      toast({ title: "AI rules generated" });
+      if (result.narrativeApplied) {
+        setNarrativeRuleIds((prev) => new Set([...prev, ...result.items.map((r) => r.id)]));
+      }
+      toast({
+        title: result.narrativeApplied
+          ? "AI rules generated · Narrative applied"
+          : "AI rules generated",
+        description: result.narrativeApplied
+          ? "Rules are grounded in your game's narrative."
+          : undefined,
+      });
     } catch (err) {
       toast({ title: "AI generate failed", description: errMsg(err), variant: "destructive" });
     }
@@ -310,7 +323,7 @@ export function Rules({ projectId }: RulesProps) {
           <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
             <div>
               <CardTitle className="text-base">Generate rules with AI</CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">Describe the kind of rules you want — the AI will draft a few based on this project's context.</p>
+              <p className="text-xs text-muted-foreground mt-1">Describe the kind of rules you want — the AI will draft them using your project's narrative seed as context.</p>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForms}><X className="h-4 w-4" /></Button>
           </CardHeader>
@@ -451,6 +464,11 @@ export function Rules({ projectId }: RulesProps) {
               onDelete={() => handleDelete(rule.id)}
               isDuplicating={duplicatingId === rule.id}
               onUpdated={refresh}
+              isNarrativeGrounded={narrativeRuleIds.has(rule.id)}
+              onNarrativeEnhanced={(id) =>
+                setNarrativeEnhanceRuleIds((prev) => new Set([...prev, id]))
+              }
+              isNarrativeEnhanced={narrativeEnhanceRuleIds.has(rule.id)}
             />
           ))}
         </div>
@@ -565,6 +583,7 @@ function LinkedEntitiesBar({ projectId, ruleId }: { projectId: number; ruleId: n
 // ════════════════════════════════════════════════════════════════════════════
 function RuleCard({
   rule, projectId, isExpanded, onToggle, onEdit, onDuplicate, onDelete, isDuplicating, onUpdated,
+  isNarrativeGrounded, isNarrativeEnhanced, onNarrativeEnhanced,
 }: {
   rule: Rule;
   projectId: number;
@@ -575,6 +594,9 @@ function RuleCard({
   onDelete: () => void;
   isDuplicating: boolean;
   onUpdated: () => void;
+  isNarrativeGrounded?: boolean;
+  isNarrativeEnhanced?: boolean;
+  onNarrativeEnhanced?: (ruleId: number) => void;
 }) {
   const queryClient = useQueryClient();
   const updateRule = useUpdateRule();
@@ -619,6 +641,7 @@ function RuleCard({
         improvedTitle: typeof raw?.improvedTitle === "string" ? raw.improvedTitle : rule.title,
         designNotes: typeof raw?.designNotes === "string" ? raw.designNotes : undefined,
         edgeCases: typeof raw?.edgeCases === "string" ? raw.edgeCases : undefined,
+        narrativeApplied: raw?.narrativeApplied === true,
         relatedRuleSuggestions: safeRelated,
       };
       if (!data.rewrittenContent) {
@@ -629,6 +652,7 @@ function RuleCard({
         });
         setShowEnhance(false);
       } else {
+        if (data.narrativeApplied) onNarrativeEnhanced?.(rule.id);
         setEnhance(data);
       }
     } catch {
@@ -710,6 +734,16 @@ function RuleCard({
             <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border ${meta.bg} ${meta.text} ${meta.border}`}>
               {meta.label}
             </span>
+            {(isNarrativeGrounded || isNarrativeEnhanced) && (
+              <span
+                className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border bg-violet-500/15 text-violet-300 border-violet-500/30 flex items-center gap-1"
+                title="This rule was created or enhanced using your game's narrative seed"
+                data-testid={`narrative-badge-${rule.id}`}
+              >
+                <Sparkles className="h-2.5 w-2.5" />
+                Narrative
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground pl-5">
             <PriorityDots value={rule.priority || 0} />
@@ -812,6 +846,16 @@ function RuleCard({
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary shrink-0" />
             <p className="text-sm font-semibold text-primary flex-1">AI Enhancement</p>
+            {enhance?.narrativeApplied && !isEnhancing && (
+              <span
+                className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border bg-violet-500/15 text-violet-300 border-violet-500/30 flex items-center gap-1"
+                title="Narrative seed was used in this enhancement"
+                data-testid={`enhance-narrative-badge-${rule.id}`}
+              >
+                <Sparkles className="h-2.5 w-2.5" />
+                Narrative
+              </span>
+            )}
             {isEnhancing && <span className="text-xs text-muted-foreground">Analyzing rule…</span>}
             <button
               onClick={() => { setShowEnhance(false); setEnhance(null); }}

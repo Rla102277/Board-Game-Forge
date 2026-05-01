@@ -824,6 +824,49 @@ paths:
         "204":
           description: Deleted
 
+  /projects/{projectId}/entities/{entityId}/rules:
+    get:
+      operationId: listEntityRules
+      tags: [entities]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+      responses:
+        "200":
+          description: Rules linked to this entity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EntityRuleLink"
+
+  /projects/{projectId}/entities/{entityId}/rules/{ruleId}:
+    post:
+      operationId: linkEntityRule
+      tags: [entities]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "201":
+          description: Link created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityRuleLink"
+    delete:
+      operationId: unlinkEntityRule
+      tags: [entities]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/EntityId"
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "204":
+          description: Unlinked
+
   /projects/{projectId}/rules:
     get:
       operationId: listRules
@@ -888,6 +931,23 @@ paths:
         "204":
           description: Deleted
 
+  /projects/{projectId}/rules/{ruleId}/entities:
+    get:
+      operationId: listRuleEntities
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "200":
+          description: Entities linked to this rule
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RuleLinkedEntity"
+
   /projects/{projectId}/rules/ai-generate:
     post:
       operationId: aiGenerateRules
@@ -906,9 +966,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Rule"
+                $ref: "#/components/schemas/AiGenerateRulesResult"
 
   /projects/{projectId}/rules/{ruleId}/enhance:
     post:
@@ -1062,9 +1120,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Player"
+                $ref: "#/components/schemas/AiGeneratePlayersResult"
 
   /projects/{projectId}/players/{playerId}/enhance:
     post:
@@ -1075,11 +1131,11 @@ paths:
         - $ref: "#/components/parameters/PlayerId"
       responses:
         "200":
-          description: Enhanced player
+          description: Enhanced player with narrative context flag
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Player"
+                $ref: "#/components/schemas/AiEnhancePlayerResult"
 
   /projects/{projectId}/notes:
     get:
@@ -2290,6 +2346,8 @@ components:
           type: [string, "null"]
         stats:
           type: [string, "null"]
+        status:
+          type: [string, "null"]
         color:
           type: [string, "null"]
         relatedTo:
@@ -2347,6 +2405,8 @@ components:
         description:
           type: string
         stats:
+          type: string
+        status:
           type: string
         color:
           type: string
@@ -2544,6 +2604,9 @@ components:
           type: string
         edgeCases:
           type: string
+        narrativeApplied:
+          type: boolean
+          description: True when the project's narrative seed was used in the AI prompt
         relatedRuleSuggestions:
           type: array
           items:
@@ -2557,6 +2620,64 @@ components:
                 type: string
             required: [title, content, category]
       required: [rewrittenContent, improvedTitle, relatedRuleSuggestions]
+
+    EntityRuleLink:
+      type: object
+      properties:
+        entityId:
+          type: integer
+        ruleId:
+          type: integer
+      required: [entityId, ruleId]
+
+    RuleLinkedEntity:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+        subtype:
+          type: [string, "null"]
+        color:
+          type: [string, "null"]
+      required: [id, name, type]
+
+    AiGenerateRulesResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Rule"
+        narrativeApplied:
+          type: boolean
+          description: True when the project's narrative seed was included in the AI prompt
+      required: [items, narrativeApplied]
+
+    AiGeneratePlayersResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Player"
+        narrativeApplied:
+          type: boolean
+          description: True when the project's narrative seed was included in the AI prompt
+      required: [items, narrativeApplied]
+
+    AiEnhancePlayerResult:
+      type: object
+      properties:
+        player:
+          $ref: "#/components/schemas/Player"
+        narrativeApplied:
+          type: boolean
+          description: True when the project's narrative seed was included in the AI prompt
+      required: [player, narrativeApplied]
 
     AssetEnhanceSuggestion:
       type: object
@@ -2599,6 +2720,7 @@ components:
           type: string
         playerType:
           type: string
+          default: "Character"
         role:
           type: [string, "null"]
         archetype:
@@ -2641,7 +2763,7 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, projectId, name, createdAt, updatedAt]
+      required: [id, projectId, name, playerType, createdAt, updatedAt]
 
     CreatePlayerBody:
       type: object
@@ -2985,6 +3107,7 @@ components:
           type: string
         entityId:
           type: integer
+          nullable: true
         description:
           type: string
         flavorText:

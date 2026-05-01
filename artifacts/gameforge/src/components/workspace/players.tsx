@@ -183,6 +183,7 @@ export function Players({ projectId }: PlayersProps) {
   const [typeFilter, setTypeFilter] = useState<PlayerType | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<PlayerType>>(new Set());
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
+  const [narrativeEnhancedIds, setNarrativeEnhancedIds] = useState<Set<number>>(new Set());
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [addingType, setAddingType] = useState<PlayerType | null>(null);
   const [newName, setNewName] = useState("");
@@ -294,9 +295,17 @@ export function Players({ projectId }: PlayersProps) {
   const handleEnhance = async (playerId: number) => {
     setEnhancingId(playerId);
     try {
-      await enhancePlayer.mutateAsync({ projectId, playerId });
+      const result = await enhancePlayer.mutateAsync({ projectId, playerId });
       refresh();
-      toast({ title: "Profile enhanced", description: "AI has enriched the character." });
+      if (result.narrativeApplied) {
+        setNarrativeEnhancedIds((prev) => new Set([...prev, playerId]));
+      }
+      toast({
+        title: result.narrativeApplied ? "Profile enhanced · Narrative applied" : "Profile enhanced",
+        description: result.narrativeApplied
+          ? "Character is grounded in your game's narrative."
+          : "AI has enriched the character.",
+      });
     } catch (err) {
       toast({ title: "Enhance failed", description: String(err), variant: "destructive" });
     } finally {
@@ -623,6 +632,7 @@ export function Players({ projectId }: PlayersProps) {
             onRemoveRelationship={removeRelationship}
             onEnhance={() => handleEnhance(selectedPlayer.id)}
             enhancing={enhancingId === selectedPlayer.id}
+            isNarrativeEnhanced={narrativeEnhancedIds.has(selectedPlayer.id)}
             onDelete={() => setDeleteConfirmId(selectedPlayer.id)}
             deleteConfirm={deleteConfirmId === selectedPlayer.id}
             onDeleteConfirm={() => handleDelete(selectedPlayer.id)}
@@ -721,6 +731,7 @@ interface SheetProps {
   onRemoveRelationship: (id: number) => void;
   onEnhance: () => void;
   enhancing: boolean;
+  isNarrativeEnhanced?: boolean;
   onDelete: () => void;
   deleteConfirm: boolean;
   onDeleteConfirm: () => void;
@@ -732,7 +743,7 @@ function CharacterSheet({
   allPlayers,
   addingRelType, setAddingRelType, addingRelTarget, setAddingRelTarget,
   onAddRelationship, onRemoveRelationship,
-  onEnhance, enhancing,
+  onEnhance, enhancing, isNarrativeEnhanced,
   onDelete, deleteConfirm, onDeleteConfirm, onDeleteCancel,
 }: SheetProps) {
   const m = getMeta(sheet.playerType);
@@ -779,6 +790,16 @@ function CharacterSheet({
             <Badge variant="outline" className={`text-[10px] ${m.badge}`}>{sheet.playerType}</Badge>
             {sheet.role && <span className="text-xs text-muted-foreground">{sheet.role}</span>}
             {sheet.faction && <span className="text-xs text-muted-foreground">· {sheet.faction}</span>}
+            {isNarrativeEnhanced && (
+              <span
+                className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border bg-violet-500/15 text-violet-300 border-violet-500/30 flex items-center gap-1"
+                title="This character was enhanced using your game's narrative seed"
+                data-testid={`narrative-badge-player-${player.id}`}
+              >
+                <Sparkles className="h-2.5 w-2.5" />
+                Narrative
+              </span>
+            )}
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
