@@ -10,10 +10,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip as RTooltip,
+} from "recharts";
 import {
   Plus, Trash2, Sparkles, Loader2, X, ChevronDown, ChevronRight,
   Shield, MessageCircle, Zap, Star, Leaf, Heart,
-  Search, GripVertical, Users, UserPlus, List, GitGraph,
+  Search, GripVertical, Users, UserPlus, BarChart3, User,
+  Target, Sword, Package, Trophy, Wand2, Gamepad2, List, GitGraph,
 } from "lucide-react";
 import { PlayerRelationshipGraph } from "./player-relationship-graph";
 import { useQueryClient } from "@tanstack/react-query";
@@ -27,6 +32,11 @@ type PlayerType = typeof PLAYER_TYPES[number];
 
 const DECISION_STYLES = ["Optimiser", "Roleplayer", "Disruptive", "Cooperative"] as const;
 const RELATIONSHIP_TYPES = ["Allied", "Enemy", "Rival", "Mentor", "Dependent", "Neutral"] as const;
+
+const PLAYSTYLE_TAGS = ["Solo", "Team", "Asymmetric", "Cooperative", "Competitive", "Hybrid"] as const;
+type PlaystyleTag = typeof PLAYSTYLE_TAGS[number];
+
+const COMMON_ARCHETYPES = ["Hero", "Villain", "Trickster", "Mentor", "Guardian", "Wanderer", "Ruler", "Rebel", "Sage", "Innocent"] as const;
 
 interface BehaviorProfile { riskTolerance: number; aggression: number; decisionStyle: string; }
 interface Relationship { targetPlayerId: number; relationshipType: string; }
@@ -72,8 +82,8 @@ const TYPE_META: Record<PlayerType, {
   },
 };
 
-function getMeta(type: string) {
-  return TYPE_META[type as PlayerType] ?? TYPE_META.Character;
+function getMeta(type: string | undefined) {
+  return TYPE_META[(type ?? "Character") as PlayerType] ?? TYPE_META.Character;
 }
 
 // ─── JSONB cast helpers ────────────────────────────────────────────────────────
@@ -106,11 +116,17 @@ interface SheetState {
   name: string;
   playerType: PlayerType;
   role: string;
+  archetype: string;
   faction: string;
   motivation: string;
   flaw: string;
   arc: string;
   description: string;
+  strategy: string;
+  startingResources: string;
+  victoryCondition: string;
+  specialAbility: string;
+  playstyle: string;
   riskTolerance: number;
   aggression: number;
   decisionStyle: string;
@@ -119,8 +135,9 @@ interface SheetState {
 
 function emptySheet(type?: PlayerType): SheetState {
   return {
-    name: "", playerType: type ?? "Character", role: "", faction: "",
-    motivation: "", flaw: "", arc: "", description: "",
+    name: "", playerType: type ?? "Character", role: "", archetype: "",
+    faction: "", motivation: "", flaw: "", arc: "", description: "",
+    strategy: "", startingResources: "", victoryCondition: "", specialAbility: "", playstyle: "",
     riskTolerance: 50, aggression: 50, decisionStyle: "Optimiser",
     relationships: [],
   };
@@ -132,11 +149,17 @@ function playerToSheet(p: Player): SheetState {
     name: p.name,
     playerType: (p.playerType as PlayerType) ?? "Character",
     role: p.role ?? "",
+    archetype: p.archetype ?? "",
     faction: p.faction ?? "",
     motivation: p.motivation ?? "",
     flaw: p.flaw ?? "",
     arc: p.arc ?? "",
     description: p.description ?? "",
+    strategy: p.strategy ?? "",
+    startingResources: p.startingResources ?? "",
+    victoryCondition: p.victoryCondition ?? "",
+    specialAbility: p.specialAbility ?? "",
+    playstyle: p.playstyle ?? "",
     riskTolerance: b.riskTolerance,
     aggression: b.aggression,
     decisionStyle: b.decisionStyle,
@@ -149,14 +172,382 @@ function sheetToBody(s: SheetState): Record<string, unknown> {
     name: s.name,
     playerType: s.playerType,
     role: s.role || undefined,
+    archetype: s.archetype || undefined,
     faction: s.faction || undefined,
     motivation: s.motivation || undefined,
     flaw: s.flaw || undefined,
     arc: s.arc || undefined,
     description: s.description || undefined,
+    strategy: s.strategy || undefined,
+    startingResources: s.startingResources || undefined,
+    victoryCondition: s.victoryCondition || undefined,
+    specialAbility: s.specialAbility || undefined,
+    playstyle: s.playstyle || undefined,
     behaviorProfile: { riskTolerance: s.riskTolerance, aggression: s.aggression, decisionStyle: s.decisionStyle },
     relationships: s.relationships,
   };
+}
+
+// ─── Quick-add modal ───────────────────────────────────────────────────────────
+
+interface QuickAddModalProps {
+  open: boolean;
+  onClose: () => void;
+  onCreate: (type: PlayerType, name: string, archetype?: string) => Promise<unknown>;
+}
+
+function QuickAddModal({ open, onClose, onCreate }: QuickAddModalProps) {
+  const [name, setName] = useState("");
+  const [type, setType] = useState<PlayerType>("Character");
+  const [archetype, setArchetype] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const handleCreate = async () => {
+    if (!name.trim()) return;
+    setCreating(true);
+    try {
+      await onCreate(type, name.trim(), archetype);
+      setName(""); setType("Character"); setArchetype("");
+      onClose();
+    } catch {
+      // keep modal open and inputs intact so user can retry
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-4 w-4" /> Add Player Persona
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Type tiles */}
+        <div>
+          <Label className="text-xs text-muted-foreground mb-2 block">Player type</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {PLAYER_TYPES.map((t) => {
+              const m = getMeta(t);
+              const active = type === t;
+              return (
+                <button
+                  key={t}
+                  onClick={() => setType(t)}
+                  className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border text-center transition-all ${
+                    active
+                      ? `${m.bg} border-current ${m.color}`
+                      : "border-border text-muted-foreground hover:border-border/80 hover:bg-muted/20"
+                  }`}
+                >
+                  <m.Icon className={`h-5 w-5 ${active ? m.color : ""}`} />
+                  <span className="text-[11px] font-medium">{t}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Name</Label>
+          <Input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") onClose(); }}
+            placeholder={`e.g. ${getMeta(type).quickRole}…`}
+            className="h-9 text-sm"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Archetype (optional)</Label>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {COMMON_ARCHETYPES.map((a) => (
+              <button
+                key={a}
+                onClick={() => setArchetype(archetype === a ? "" : a)}
+                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                  archetype === a
+                    ? "bg-primary/15 border-primary/40 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
+          <Input
+            value={archetype}
+            onChange={(e) => setArchetype(e.target.value)}
+            placeholder="Custom archetype…"
+            className="h-8 text-sm"
+          />
+        </div>
+
+        <div className="flex gap-2 justify-end pt-1">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={handleCreate} disabled={!name.trim() || creating}>
+            {creating ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
+            Create
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Balance view ──────────────────────────────────────────────────────────────
+
+const RADAR_COLORS = [
+  "#60a5fa", "#f87171", "#34d399", "#fbbf24", "#a78bfa", "#22d3ee",
+];
+
+interface BalanceViewProps { players: Player[]; }
+
+function BalanceView({ players }: BalanceViewProps) {
+  const [selected, setSelected] = useState<Set<number>>(() => new Set(players.slice(0, 4).map((p) => p.id)));
+
+  // Auto-add newly created players to the selection
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      players.forEach((p) => {
+        if (!next.has(p.id)) { next.add(p.id); changed = true; }
+      });
+      return changed ? next : prev;
+    });
+  }, [players]);
+
+  const visiblePlayers = players.filter((p) => selected.has(p.id));
+
+  const radarData = useMemo(() => {
+    const axes = ["Risk Tolerance", "Aggression", "Strategy Depth", "Completeness"];
+    return axes.map((axis) => {
+      const entry: Record<string, string | number> = { axis };
+      visiblePlayers.forEach((p, i) => {
+        const b = castBehavior(p.behaviorProfile as Record<string, unknown> | null | undefined);
+        if (axis === "Risk Tolerance") entry[`p${i}`] = b.riskTolerance;
+        else if (axis === "Aggression") entry[`p${i}`] = b.aggression;
+        else if (axis === "Strategy Depth") entry[`p${i}`] = p.strategy ? Math.min(100, p.strategy.length * 1.2) : 0;
+        else if (axis === "Completeness") {
+          const fields = [p.archetype, p.strategy, p.startingResources, p.victoryCondition, p.specialAbility, p.playstyle, p.description, p.motivation];
+          entry[`p${i}`] = Math.round((fields.filter(Boolean).length / fields.length) * 100);
+        }
+      });
+      return entry;
+    });
+  }, [visiblePlayers]);
+
+  const comparisonFields: { label: string; key: keyof Player; icon: React.ElementType }[] = [
+    { label: "Archetype", key: "archetype", icon: User },
+    { label: "Role", key: "role", icon: Shield },
+    { label: "Faction", key: "faction", icon: Users },
+    { label: "Starting Resources", key: "startingResources", icon: Package },
+    { label: "Victory Condition", key: "victoryCondition", icon: Trophy },
+    { label: "Special Ability", key: "specialAbility", icon: Wand2 },
+    { label: "Playstyle", key: "playstyle", icon: Gamepad2 },
+  ];
+
+  if (players.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center gap-3 p-8">
+        <BarChart3 className="h-10 w-10 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Add players to compare them in the balance view.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Player selector */}
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1 mb-3">Compare Players</h3>
+        <div className="flex flex-wrap gap-2">
+          {players.map((p, i) => {
+            const m = getMeta(p.playerType);
+            const colorIdx = players.indexOf(p) % RADAR_COLORS.length;
+            const active = selected.has(p.id);
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelected((s) => {
+                  const n = new Set(s);
+                  n.has(p.id) ? n.delete(p.id) : n.add(p.id);
+                  return n;
+                })}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+                  active ? "border-current" : "border-border text-muted-foreground opacity-50"
+                }`}
+                style={active ? { color: RADAR_COLORS[colorIdx % RADAR_COLORS.length], borderColor: RADAR_COLORS[colorIdx % RADAR_COLORS.length], backgroundColor: `${RADAR_COLORS[colorIdx % RADAR_COLORS.length]}15` } : {}}
+              >
+                <m.Icon className="h-3 w-3" />
+                {p.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {visiblePlayers.length > 0 && (
+        <>
+          {/* Radar chart */}
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1 mb-4">Behavior Radar</h3>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
+                  <PolarGrid stroke="rgba(255,255,255,0.08)" />
+                  <PolarAngleAxis dataKey="axis" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <RTooltip
+                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                    formatter={(value: number, name: string) => {
+                      const idx = parseInt(name.replace("p", ""), 10);
+                      return [`${value}%`, visiblePlayers[idx]?.name ?? name];
+                    }}
+                  />
+                  {visiblePlayers.map((p, i) => {
+                    const colorIdx = players.indexOf(p) % RADAR_COLORS.length;
+                    return (
+                      <Radar
+                        key={p.id}
+                        name={`p${i}`}
+                        dataKey={`p${i}`}
+                        stroke={RADAR_COLORS[colorIdx % RADAR_COLORS.length]}
+                        fill={RADAR_COLORS[colorIdx % RADAR_COLORS.length]}
+                        fillOpacity={0.08}
+                        strokeWidth={2}
+                      />
+                    );
+                  })}
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Legend */}
+            <div className="flex flex-wrap gap-3 justify-center mt-2">
+              {visiblePlayers.map((p) => {
+                const colorIdx = players.indexOf(p) % RADAR_COLORS.length;
+                return (
+                  <div key={p.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: RADAR_COLORS[colorIdx % RADAR_COLORS.length] }} />
+                    {p.name}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Comparison table */}
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1 mb-3">Side-by-Side Comparison</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr>
+                    <th className="text-left py-2 pr-4 text-muted-foreground font-medium w-36">Attribute</th>
+                    {visiblePlayers.map((p) => {
+                      const m = getMeta(p.playerType);
+                      const colorIdx = players.indexOf(p) % RADAR_COLORS.length;
+                      return (
+                        <th key={p.id} className="text-left py-2 px-3 font-medium min-w-[140px]" style={{ color: RADAR_COLORS[colorIdx % RADAR_COLORS.length] }}>
+                          <div className="flex items-center gap-1.5">
+                            <m.Icon className="h-3 w-3" /> {p.name}
+                          </div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-border/40">
+                    <td className="py-2 pr-4 text-muted-foreground">Type</td>
+                    {visiblePlayers.map((p) => {
+                      const m = getMeta(p.playerType);
+                      return (
+                        <td key={p.id} className="py-2 px-3">
+                          <Badge variant="outline" className={`text-[10px] ${m.badge}`}>{p.playerType}</Badge>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {comparisonFields.map((f) => (
+                    <tr key={f.key} className="border-t border-border/40">
+                      <td className="py-2 pr-4 text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <f.icon className="h-3 w-3 shrink-0" /> {f.label}
+                        </div>
+                      </td>
+                      {visiblePlayers.map((p) => {
+                        const val = p[f.key] as string | undefined;
+                        return (
+                          <td key={p.id} className="py-2 px-3 text-foreground/80">
+                            {val ? (
+                              <span className="line-clamp-2">{val}</span>
+                            ) : (
+                              <span className="text-muted-foreground italic">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                  {/* Behavior sliders comparison */}
+                  <tr className="border-t border-border/40">
+                    <td className="py-2 pr-4 text-muted-foreground">Risk Tolerance</td>
+                    {visiblePlayers.map((p) => {
+                      const b = castBehavior(p.behaviorProfile as Record<string, unknown> | null | undefined);
+                      return (
+                        <td key={p.id} className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full bg-blue-400" style={{ width: `${b.riskTolerance}%` }} />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground w-8 shrink-0">{b.riskTolerance}%</span>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr className="border-t border-border/40">
+                    <td className="py-2 pr-4 text-muted-foreground">Aggression</td>
+                    {visiblePlayers.map((p) => {
+                      const b = castBehavior(p.behaviorProfile as Record<string, unknown> | null | undefined);
+                      return (
+                        <td key={p.id} className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full bg-red-400" style={{ width: `${b.aggression}%` }} />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground w-8 shrink-0">{b.aggression}%</span>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr className="border-t border-border/40">
+                    <td className="py-2 pr-4 text-muted-foreground">Decision Style</td>
+                    {visiblePlayers.map((p) => {
+                      const b = castBehavior(p.behaviorProfile as Record<string, unknown> | null | undefined);
+                      return (
+                        <td key={p.id} className="py-2 px-3 text-foreground/80">{b.decisionStyle}</td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {visiblePlayers.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-8">Select players above to compare them.</p>
+      )}
+    </div>
+  );
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
@@ -178,6 +569,7 @@ export function Players({ projectId }: PlayersProps) {
   const [viewMode, setViewMode] = useState<"list" | "graph">(
     () => (localStorage.getItem("gameforge:players:viewMode") as "list" | "graph" | null) ?? "list"
   );
+  const [view, setView] = useState<"persona" | "balance">("persona");
   const [search, setSearch] = useState("");
   const [factionFilter, setFactionFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<PlayerType | null>(null);
@@ -185,8 +577,7 @@ export function Players({ projectId }: PlayersProps) {
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
   const [narrativeEnhancedIds, setNarrativeEnhancedIds] = useState<Set<number>>(new Set());
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  const [addingType, setAddingType] = useState<PlayerType | null>(null);
-  const [newName, setNewName] = useState("");
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   // ── Sheet local state
   const [sheet, setSheet] = useState<SheetState>(emptySheet());
@@ -264,20 +655,21 @@ export function Players({ projectId }: PlayersProps) {
   // ── Handlers
   const refresh = () => qc.invalidateQueries({ queryKey: getListPlayersQueryKey(projectId) });
 
-  const handleCreate = async (type: PlayerType, name: string) => {
+  const handleCreate = async (type: PlayerType, name: string, archetype?: string) => {
     if (!name.trim()) return;
     const existingCount = (grouped.get(type) ?? []).length;
     try {
       const row = await createPlayer.mutateAsync({
         projectId,
-        data: { name: name.trim(), playerType: type, displayOrder: existingCount },
+        data: { name: name.trim(), playerType: type, archetype: archetype || undefined, displayOrder: existingCount },
       });
       refresh();
       setSelectedId(row.id);
-      setAddingType(null);
-      setNewName("");
+      setView("persona");
+      return row;
     } catch (err) {
       toast({ title: "Create failed", description: String(err), variant: "destructive" });
+      throw err;
     }
   };
 
@@ -305,7 +697,7 @@ export function Players({ projectId }: PlayersProps) {
         title: result.narrativeApplied ? "Profile enhanced · Narrative applied" : "Profile enhanced",
         description: result.narrativeApplied
           ? "Character is grounded in your game's narrative."
-          : "AI has enriched the character.",
+          : "AI has enriched the player persona.",
       });
     } catch (err) {
       toast({ title: "Enhance failed", description: String(err), variant: "destructive" });
@@ -417,101 +809,108 @@ export function Players({ projectId }: PlayersProps) {
   const noPlayers = !players || players.length === 0;
 
   return (
-    <div className="flex gap-0 h-[calc(100vh-220px)] min-h-[500px]">
-      {/* ── LEFT PANE ── */}
-      <div className="w-64 shrink-0 flex flex-col border-r border-border bg-card/30">
-        {/* Search + view toggle */}
-        <div className="p-3 border-b border-border space-y-2">
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search…"
-                className="pl-8 h-8 text-sm bg-background/50"
+    <>
+      <QuickAddModal
+        open={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        onCreate={handleCreate}
+      />
+
+      <div className="flex gap-0 h-[calc(100vh-220px)] min-h-[500px]">
+        {/* ── LEFT PANE ── */}
+        <div className="w-64 shrink-0 flex flex-col border-r border-border bg-card/30">
+          {/* Search + view toggle */}
+          <div className="p-3 border-b border-border space-y-2">
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search…"
+                  className="pl-8 h-8 text-sm bg-background/50"
+                />
+              </div>
+              <div className="flex items-center rounded-md border border-border overflow-hidden shrink-0">
+                <button
+                  onClick={() => setViewMode("list")}
+                  title="List view"
+                  className={`flex items-center justify-center h-8 w-8 transition-colors ${viewMode === "list" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("graph")}
+                  title="Relationship graph"
+                  className={`flex items-center justify-center h-8 w-8 transition-colors ${viewMode === "graph" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
+                >
+                  <GitGraph className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {viewMode === "list" && (
+            <>
+              {/* Type filter chips */}
+              {!noPlayers && (
+                <div className="px-3 py-2 border-b border-border flex flex-wrap gap-1">
+                  {PLAYER_TYPES.filter((t) => (grouped.get(t) ?? []).length > 0 || typeFilter === t).map((type) => {
+                    const tm = getMeta(type);
+                    const active = typeFilter === type;
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setTypeFilter(active ? null : type)}
+                        className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${active ? `${tm.badge}` : "text-muted-foreground border-border hover:text-foreground"}`}
+                      >
+                        <tm.Icon className="h-2.5 w-2.5" />
+                        {type}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Faction filter chips */}
+              {factions.length > 0 && (
+                <div className="px-3 py-2 border-b border-border flex flex-wrap gap-1">
+                  {factions.map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setFactionFilter(factionFilter === f ? null : f)}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${factionFilter === f ? "bg-primary/20 text-primary border-primary/40" : "text-muted-foreground border-border hover:text-foreground"}`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Roster (list view) or Graph */}
+          {viewMode === "graph" ? (
+            <div className="flex-1 overflow-hidden">
+              <PlayerRelationshipGraph
+                players={players ?? []}
+                selectedId={selectedId}
+                onSelect={(id) => setSelectedId(selectedId === id ? null : id)}
               />
             </div>
-            <div className="flex items-center rounded-md border border-border overflow-hidden shrink-0">
-              <button
-                onClick={() => setViewMode("list")}
-                title="List view"
-                className={`flex items-center justify-center h-8 w-8 transition-colors ${viewMode === "list" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
-              >
-                <List className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => setViewMode("graph")}
-                title="Relationship graph"
-                className={`flex items-center justify-center h-8 w-8 transition-colors ${viewMode === "graph" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
-              >
-                <GitGraph className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {viewMode === "list" && (
-          <>
-            {/* Type filter chips */}
-            {!noPlayers && (
-              <div className="px-3 py-2 border-b border-border flex flex-wrap gap-1">
-                {PLAYER_TYPES.filter((t) => (grouped.get(t) ?? []).length > 0 || typeFilter === t).map((type) => {
-                  const tm = getMeta(type);
-                  const active = typeFilter === type;
-                  return (
-                    <button
-                      key={type}
-                      onClick={() => setTypeFilter(active ? null : type)}
-                      className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${active ? `${tm.badge}` : "text-muted-foreground border-border hover:text-foreground"}`}
-                    >
-                      <tm.Icon className="h-2.5 w-2.5" />
-                      {type}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Faction filter chips */}
-            {factions.length > 0 && (
-              <div className="px-3 py-2 border-b border-border flex flex-wrap gap-1">
-                {factions.map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFactionFilter(factionFilter === f ? null : f)}
-                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${factionFilter === f ? "bg-primary/20 text-primary border-primary/40" : "text-muted-foreground border-border hover:text-foreground"}`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Roster (list view) or Graph */}
-        {viewMode === "graph" ? (
-          <div className="flex-1 overflow-hidden">
-            <PlayerRelationshipGraph
-              players={players ?? []}
-              selectedId={selectedId}
-              onSelect={(id) => setSelectedId(selectedId === id ? null : id)}
-            />
-          </div>
-        ) : (
+          ) : (
           <div className="flex-1 overflow-y-auto">
             {noPlayers ? (
               <div className="p-4 text-center">
                 <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground">No characters yet</p>
+                <p className="text-xs text-muted-foreground">No players yet</p>
               </div>
             ) : totalFiltered === 0 ? (
               <p className="text-xs text-muted-foreground text-center p-4">No matches</p>
             ) : (
               PLAYER_TYPES.map((type) => {
                 const group = grouped.get(type) ?? [];
-                if (group.length === 0 && !addingType) return null;
+                if (group.length === 0) return null;
                 const m = getMeta(type);
                 const collapsed = collapsedGroups.has(type);
                 return (
@@ -528,39 +927,9 @@ export function Players({ projectId }: PlayersProps) {
                       <m.Icon className={`h-3 w-3 ${m.color}`} />
                       <span className={`text-xs font-medium ${m.color} flex-1`}>{type}</span>
                       <span className="text-[10px] text-muted-foreground">{group.length}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setAddingType(type); setNewName(""); }}
-                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground ml-1"
-                        aria-label={`Add ${type}`}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
                     </div>
 
-                    {/* Inline quick-add */}
-                    {!collapsed && addingType === type && (
-                      <div className="px-3 pb-2 flex gap-1">
-                        <Input
-                          autoFocus
-                          value={newName}
-                          onChange={(e) => setNewName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleCreate(type, newName);
-                            if (e.key === "Escape") { setAddingType(null); setNewName(""); }
-                          }}
-                          placeholder={`New ${type}…`}
-                          className="h-7 text-xs flex-1"
-                        />
-                        <Button size="icon" className="h-7 w-7 shrink-0" onClick={() => handleCreate(type, newName)} disabled={!newName.trim()}>
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => { setAddingType(null); setNewName(""); }}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
 
-                    {/* Roster rows */}
                     {!collapsed && group.map((p) => {
                       const isSelected = p.id === selectedId;
                       const isActive = dropTargetId === p.id && draggedId !== null && draggedId !== p.id;
@@ -578,7 +947,7 @@ export function Players({ projectId }: PlayersProps) {
                             onDragOver={(e) => handleDragOver(e, p.id)}
                             onDrop={() => handleDrop(p.id, type)}
                             onDragEnd={() => { document.body.style.cursor = ""; clearDragState(); }}
-                            onClick={() => setSelectedId(isSelected ? null : p.id)}
+                            onClick={() => { setSelectedId(isSelected ? null : p.id); setView("persona"); }}
                             className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-all border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${draggedId === p.id ? "opacity-40 cursor-grabbing" : ""}`}
                           >
                             <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0 cursor-grab" />
@@ -586,7 +955,7 @@ export function Players({ projectId }: PlayersProps) {
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium truncate">{p.name}</p>
                               <p className="text-[10px] text-muted-foreground truncate">
-                                <span className={m.color}>{p.playerType}</span>
+                                {p.archetype ? p.archetype : <span className={m.color}>{p.playerType}</span>}
                                 {p.role ? ` · ${p.role}` : ""}
                                 {p.faction ? ` · ${p.faction}` : ""}
                               </p>
@@ -617,129 +986,143 @@ export function Players({ projectId }: PlayersProps) {
               })
             )}
           </div>
-        )}
+          )}
 
-        {/* Add button */}
-        <div className="p-3 border-t border-border">
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full text-xs"
-            onClick={() => { setAddingType("Character"); setNewName(""); setViewMode("list"); }}
-            data-testid="add-player-button"
-          >
-            <UserPlus className="h-3.5 w-3.5 mr-1.5" /> Add Character
-          </Button>
+          {/* Add button */}
+          <div className="p-3 border-t border-border">
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full text-xs"
+              onClick={() => { setQuickAddOpen(true); setViewMode("list"); }}
+              data-testid="add-player-button"
+            >
+              <UserPlus className="h-3.5 w-3.5 mr-1.5" /> Add Player
+            </Button>
+          </div>
+        </div>
+
+        {/* ── RIGHT PANE ── */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          {/* View tabs */}
+          {!noPlayers && (
+            <div className="flex items-center gap-1 px-4 pt-3 pb-0 border-b border-border shrink-0">
+              <button
+                onClick={() => setView("persona")}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-px ${
+                  view === "persona" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <User className="h-3.5 w-3.5" /> Persona
+              </button>
+              <button
+                onClick={() => setView("balance")}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-px ${
+                  view === "balance" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <BarChart3 className="h-3.5 w-3.5" /> Balance
+              </button>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto">
+            {noPlayers ? (
+              <EmptyCastState onAdd={() => setQuickAddOpen(true)} />
+            ) : view === "balance" ? (
+              <BalanceView players={players ?? []} />
+            ) : !selectedPlayer ? (
+              <NoSelectionState players={players ?? []} onSelect={(id) => { setSelectedId(id); setView("persona"); }} onAdd={() => setQuickAddOpen(true)} />
+            ) : (
+              <PersonaCard
+                player={selectedPlayer}
+                sheet={sheet}
+                setSheet={setSheet}
+                allPlayers={allOtherPlayers}
+                addingRelType={addingRelType}
+                setAddingRelType={setAddingRelType}
+                addingRelTarget={addingRelTarget}
+                setAddingRelTarget={setAddingRelTarget}
+                onAddRelationship={addRelationship}
+                onRemoveRelationship={removeRelationship}
+                onEnhance={() => handleEnhance(selectedPlayer.id)}
+                enhancing={enhancingId === selectedPlayer.id}
+                isNarrativeEnhanced={narrativeEnhancedIds.has(selectedPlayer.id)}
+                onDelete={() => setDeleteConfirmId(selectedPlayer.id)}
+                deleteConfirm={deleteConfirmId === selectedPlayer.id}
+                onDeleteConfirm={() => handleDelete(selectedPlayer.id)}
+                onDeleteCancel={() => setDeleteConfirmId(null)}
+              />
+            )}
+          </div>
         </div>
       </div>
-
-      {/* ── RIGHT PANE ── */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        {noPlayers ? (
-          <EmptyCastState onCreate={handleCreate} />
-        ) : !selectedPlayer ? (
-          <NoSelectionState players={players ?? []} onSelect={setSelectedId} />
-        ) : (
-          <CharacterSheet
-            player={selectedPlayer}
-            sheet={sheet}
-            setSheet={setSheet}
-            allPlayers={allOtherPlayers}
-            addingRelType={addingRelType}
-            setAddingRelType={setAddingRelType}
-            addingRelTarget={addingRelTarget}
-            setAddingRelTarget={setAddingRelTarget}
-            onAddRelationship={addRelationship}
-            onRemoveRelationship={removeRelationship}
-            onEnhance={() => handleEnhance(selectedPlayer.id)}
-            enhancing={enhancingId === selectedPlayer.id}
-            isNarrativeEnhanced={narrativeEnhancedIds.has(selectedPlayer.id)}
-            onDelete={() => setDeleteConfirmId(selectedPlayer.id)}
-            deleteConfirm={deleteConfirmId === selectedPlayer.id}
-            onDeleteConfirm={() => handleDelete(selectedPlayer.id)}
-            onDeleteCancel={() => setDeleteConfirmId(null)}
-          />
-        )}
-      </div>
-    </div>
+    </>
   );
 }
 
 // ─── Empty "Cast your game" state ──────────────────────────────────────────────
 
-function EmptyCastState({ onCreate }: { onCreate: (type: PlayerType, name: string) => Promise<void> }) {
-  const [creating, setCreating] = useState<PlayerType | null>(null);
+function EmptyCastState({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
       <div className="text-center">
         <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-        <h3 className="text-lg font-semibold">Cast your game</h3>
-        <p className="text-sm text-muted-foreground mt-1">Every great game has memorable characters. Start with a hero, villain, or supporting NPC.</p>
+        <h3 className="text-lg font-semibold">Design your player roster</h3>
+        <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+          Build rich player personas with archetypes, strategies, and victory conditions. Use the Balance view to compare players side-by-side.
+        </p>
       </div>
-      <div className="flex gap-3 flex-wrap justify-center">
-        {(["Character", "Enemy", "NPC"] as PlayerType[]).map((type) => {
-          const m = getMeta(type);
-          const isCreating = creating === type;
-          return (
-            <button
-              key={type}
-              disabled={creating !== null}
-              onClick={async () => {
-                setCreating(type);
-                await onCreate(type, m.quickRole);
-                setCreating(null);
-              }}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl border border-border ${m.bg} hover:border-primary/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed`}
-            >
-              {isCreating
-                ? <Loader2 className={`h-5 w-5 ${m.color} animate-spin`} />
-                : <m.Icon className={`h-5 w-5 ${m.color}`} />}
-              <div className="text-left">
-                <p className="text-sm font-medium">+ {m.quickRole}</p>
-                <p className="text-[10px] text-muted-foreground">{m.desc}</p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-      <p className="text-xs text-muted-foreground">Or use the list on the left to add any character type.</p>
+      <Button onClick={onAdd} data-testid="add-player-button">
+        <UserPlus className="h-4 w-4 mr-2" /> Add First Player
+      </Button>
     </div>
   );
 }
 
 // ─── No selection state ────────────────────────────────────────────────────────
 
-function NoSelectionState({ players, onSelect }: { players: Player[]; onSelect: (id: number) => void }) {
-  const recent = [...players].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 5);
+function NoSelectionState({ players, onSelect, onAdd }: { players: Player[]; onSelect: (id: number) => void; onAdd: () => void }) {
+  const recent = [...players].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 6);
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
+    <div className="flex flex-col items-center justify-center h-full gap-5 p-8">
       <div className="text-center">
-        <p className="text-muted-foreground text-sm">Select a character to view their profile</p>
+        <p className="text-muted-foreground text-sm">Select a player to view and edit their persona</p>
       </div>
       {recent.length > 0 && (
-        <div className="space-y-1 w-full max-w-xs">
-          <p className="text-xs text-muted-foreground text-center mb-2">Recent</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
           {recent.map((p) => {
             const m = getMeta(p.playerType ?? "Character");
             return (
-              <button key={p.id} onClick={() => onSelect(p.id)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/20 transition-colors text-left">
-                <m.Icon className={`h-4 w-4 shrink-0 ${m.color}`} />
+              <button
+                key={p.id}
+                onClick={() => onSelect(p.id)}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border hover:bg-muted/20 hover:border-primary/30 transition-colors text-left"
+              >
+                <div className={`w-9 h-9 rounded-lg ${m.bg} flex items-center justify-center shrink-0`}>
+                  <m.Icon className={`h-4 w-4 ${m.color}`} />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{p.name}</p>
-                  <p className="text-[10px] text-muted-foreground">{p.playerType}{p.faction ? ` · ${p.faction}` : ""}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {p.archetype || p.playerType}{p.role ? ` · ${p.role}` : ""}
+                  </p>
                 </div>
               </button>
             );
           })}
         </div>
       )}
+      <Button variant="outline" size="sm" onClick={onAdd}>
+        <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Player
+      </Button>
     </div>
   );
 }
 
-// ─── Character Sheet ───────────────────────────────────────────────────────────
+// ─── Persona Card ──────────────────────────────────────────────────────────────
 
-interface SheetProps {
+interface PersonaCardProps {
   player: Player;
   sheet: SheetState;
   setSheet: React.Dispatch<React.SetStateAction<SheetState>>;
@@ -759,14 +1142,14 @@ interface SheetProps {
   onDeleteCancel: () => void;
 }
 
-function CharacterSheet({
+function PersonaCard({
   player, sheet, setSheet,
   allPlayers,
   addingRelType, setAddingRelType, addingRelTarget, setAddingRelTarget,
   onAddRelationship, onRemoveRelationship,
   onEnhance, enhancing, isNarrativeEnhanced,
   onDelete, deleteConfirm, onDeleteConfirm, onDeleteCancel,
-}: SheetProps) {
+}: PersonaCardProps) {
   const m = getMeta(sheet.playerType);
 
   const set = <K extends keyof SheetState>(key: K, val: SheetState[K]) =>
@@ -785,218 +1168,339 @@ function CharacterSheet({
     .map((w) => w[0]!.toUpperCase())
     .join("") || "?";
 
+  const activeTags = sheet.playstyle
+    ? sheet.playstyle.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const toggleTag = (tag: string) => {
+    const has = activeTags.includes(tag);
+    const next = has ? activeTags.filter((t) => t !== tag) : [...activeTags, tag];
+    set("playstyle", next.join(", "));
+  };
+
   return (
     <div className="p-6 space-y-6">
-      {/* Header bar */}
-      <div className="flex items-start gap-3">
-        {/* Avatar placeholder with initials */}
-        <div className="shrink-0 flex flex-col items-center gap-1">
-          <div className={`w-14 h-14 rounded-xl ${m.bg} border border-border flex items-center justify-center relative group cursor-default select-none`}
-               title="Character avatar">
-            <span className={`text-lg font-bold ${m.color}`}>{initials}</span>
-            <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-white" aria-label="Generate avatar via AI Enhance" />
+
+      {/* ── Hero header ── */}
+      <div className={`rounded-2xl border ${m.bg} border-current/10 p-5`}>
+        <div className="flex items-start gap-4">
+          {/* Avatar */}
+          <div className={`shrink-0 w-16 h-16 rounded-2xl ${m.bg} border border-current/20 flex items-center justify-center relative group cursor-default select-none`}>
+            <span className={`text-xl font-bold ${m.color}`}>{initials}</span>
+            <div className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-white" />
             </div>
           </div>
-          <span className="text-[9px] text-muted-foreground">avatar</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <Input
-            value={sheet.name}
-            onChange={(e) => set("name", e.target.value)}
-            className="text-lg font-bold bg-transparent border-none px-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
-            placeholder="Character name…"
-          />
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <Badge variant="outline" className={`text-[10px] ${m.badge}`}>{sheet.playerType}</Badge>
-            {sheet.role && <span className="text-xs text-muted-foreground">{sheet.role}</span>}
-            {sheet.faction && <span className="text-xs text-muted-foreground">· {sheet.faction}</span>}
-            {isNarrativeEnhanced && (
-              <span
-                className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border bg-violet-500/15 text-violet-300 border-violet-500/30 flex items-center gap-1"
-                title="This character was enhanced using your game's narrative seed"
-                data-testid={`narrative-badge-player-${player.id}`}
-              >
-                <Sparkles className="h-2.5 w-2.5" />
-                Narrative
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-2 shrink-0">
-          <Button size="sm" variant="outline" onClick={onEnhance} disabled={enhancing} title="AI Enhance">
-            {enhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            <span className="ml-1.5 hidden sm:inline">Enhance</span>
-          </Button>
-          {deleteConfirm ? (
-            <div className="flex gap-1 items-center">
-              <Button size="sm" variant="destructive" onClick={onDeleteConfirm}>Delete</Button>
-              <Button size="sm" variant="ghost" onClick={onDeleteCancel}><X className="h-3.5 w-3.5" /></Button>
+
+          <div className="flex-1 min-w-0">
+            {/* Name */}
+            <Input
+              value={sheet.name}
+              onChange={(e) => set("name", e.target.value)}
+              className="text-xl font-bold bg-transparent border-none px-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 mb-1"
+              placeholder="Player name…"
+            />
+            {/* Meta row */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={sheet.playerType} onValueChange={(v) => set("playerType", v as PlayerType)}>
+                <SelectTrigger className={`h-6 text-[11px] border-0 bg-transparent px-0 w-auto gap-1 focus:ring-0 ${m.color} font-medium`}>
+                  <Badge variant="outline" className={`text-[10px] ${m.badge} cursor-pointer`}>
+                    <m.Icon className="h-3 w-3 mr-1" />{sheet.playerType}
+                  </Badge>
+                </SelectTrigger>
+                <SelectContent>
+                  {PLAYER_TYPES.map((t) => {
+                    const tm = getMeta(t);
+                    return (
+                      <SelectItem key={t} value={t}>
+                        <span className="flex items-center gap-2">
+                          <tm.Icon className={`h-3.5 w-3.5 ${tm.color}`} /> {t}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {sheet.archetype && (
+                <span className="text-xs text-muted-foreground">· {sheet.archetype}</span>
+              )}
+              {sheet.faction && (
+                <span className="text-xs text-muted-foreground">· {sheet.faction}</span>
+              )}
+              {isNarrativeEnhanced && (
+                <span
+                  className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border bg-violet-500/15 text-violet-300 border-violet-500/30 flex items-center gap-1"
+                  title="This character was enhanced using your game's narrative seed"
+                  data-testid={`narrative-badge-player-${player.id}`}
+                >
+                  <Sparkles className="h-2.5 w-2.5" />
+                  Narrative
+                </span>
+              )}
             </div>
-          ) : (
-            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={onDelete}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
-      </div>
 
-      {/* ── SECTION: Identity ── */}
-      <Section title="Identity">
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Type">
-            <Select value={sheet.playerType} onValueChange={(v) => set("playerType", v as PlayerType)}>
-              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PLAYER_TYPES.map((t) => {
-                  const tm = getMeta(t);
-                  return (
-                    <SelectItem key={t} value={t}>
-                      <span className="flex items-center gap-2">
-                        <tm.Icon className={`h-3.5 w-3.5 ${tm.color}`} /> {t}
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Role / Title">
-            <Input value={sheet.role} onChange={(e) => set("role", e.target.value)} placeholder="e.g. Tank, Quest Giver…" className="h-8 text-sm" />
-          </Field>
-          <Field label="Faction" className="col-span-2">
-            <Input value={sheet.faction} onChange={(e) => set("faction", e.target.value)} placeholder="e.g. The Iron Guild, Unaffiliated…" className="h-8 text-sm" />
-          </Field>
-        </div>
-      </Section>
-
-      {/* ── SECTION: Motivation & Arc ── */}
-      <Section title="Motivation & Arc">
-        <div className="space-y-3">
-          <Field label="What they want (goal)">
-            <Textarea
-              value={sheet.motivation}
-              onChange={(e) => set("motivation", e.target.value)}
-              placeholder="What drives this character above all else?"
-              className="text-sm min-h-[60px] resize-none"
-            />
-          </Field>
-          <Field label="What they fear (flaw / obstacle)">
-            <Textarea
-              value={sheet.flaw}
-              onChange={(e) => set("flaw", e.target.value)}
-              placeholder="Their weakness, fear, or greatest obstacle…"
-              className="text-sm min-h-[60px] resize-none"
-            />
-          </Field>
-          <Field label="How they change (story arc)">
-            <Textarea
-              value={sheet.arc}
-              onChange={(e) => set("arc", e.target.value)}
-              placeholder="Their journey or transformation — or 'N/A' for non-narrative types."
-              className="text-sm min-h-[60px] resize-none"
-            />
-          </Field>
-        </div>
-      </Section>
-
-      {/* ── SECTION: Behavioral Profile ── */}
-      <Section title="Behavioral Profile">
-        <div className="space-y-4">
-          <SliderField
-            label="Risk Tolerance"
-            leftLabel="Cautious"
-            rightLabel="Reckless"
-            value={sheet.riskTolerance}
-            onChange={(v) => set("riskTolerance", v)}
-          />
-          <SliderField
-            label="Aggression"
-            leftLabel="Passive"
-            rightLabel="Aggressive"
-            value={sheet.aggression}
-            onChange={(v) => set("aggression", v)}
-          />
-          <Field label="Decision Style">
-            <Select value={sheet.decisionStyle} onValueChange={(v) => set("decisionStyle", v)}>
-              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {DECISION_STYLES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
-      </Section>
-
-      {/* ── SECTION: Relationships ── */}
-      <Section title="Faction & Relationships">
-        <div className="space-y-3">
-          {sheet.relationships.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {sheet.relationships.map((rel) => {
-                const target = relPlayerMap.get(rel.targetPlayerId);
-                const tm = target ? getMeta(target.playerType ?? "Character") : null;
+            {/* Playstyle tags */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {PLAYSTYLE_TAGS.map((tag) => {
+                const active = activeTags.includes(tag);
                 return (
-                  <div key={rel.targetPlayerId} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-muted/30 text-xs">
-                    {tm && <tm.Icon className={`h-3 w-3 ${tm.color}`} />}
-                    <span className="text-muted-foreground">{rel.relationshipType}:</span>
-                    <span className="font-medium">{target?.name ?? `#${rel.targetPlayerId}`}</span>
-                    <button onClick={() => onRemoveRelationship(rel.targetPlayerId)} className="text-muted-foreground hover:text-destructive ml-0.5">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
+                  <button
+                    key={tag}
+                    onClick={() => toggleTag(tag)}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-all font-medium ${
+                      active
+                        ? "bg-primary/15 border-primary/40 text-primary"
+                        : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
+                    }`}
+                  >
+                    {tag}
+                  </button>
                 );
               })}
             </div>
-          )}
-          {allPlayers.length > 0 && (
-            <div className="flex gap-2">
-              <Select value={addingRelType} onValueChange={setAddingRelType}>
-                <SelectTrigger className="h-7 text-xs w-28 shrink-0"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {RELATIONSHIP_TYPES.map((r) => <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={addingRelTarget} onValueChange={setAddingRelTarget}>
-                <SelectTrigger className="h-7 text-xs flex-1"><SelectValue placeholder="Select character…" /></SelectTrigger>
-                <SelectContent>
-                  {allPlayers
-                    .filter((p) => !sheet.relationships.some((r) => r.targetPlayerId === p.id))
-                    .map((p) => {
-                      const pm = getMeta(p.playerType ?? "Character");
-                      return (
-                        <SelectItem key={p.id} value={String(p.id)} className="text-xs">
-                          <span className="flex items-center gap-1.5">
-                            <pm.Icon className={`h-3 w-3 ${pm.color}`} /> {p.name}
-                          </span>
-                        </SelectItem>
-                      );
-                    })}
-                </SelectContent>
-              </Select>
-              <Button size="sm" variant="outline" className="h-7 px-2 text-xs shrink-0" onClick={onAddRelationship} disabled={!addingRelTarget}>
-                <Plus className="h-3 w-3" />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" variant="outline" onClick={onEnhance} disabled={enhancing} title="AI Enhance">
+              {enhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              <span className="ml-1.5 hidden sm:inline">Enhance</span>
+            </Button>
+            {deleteConfirm ? (
+              <div className="flex gap-1 items-center">
+                <Button size="sm" variant="destructive" onClick={onDeleteConfirm}>Delete</Button>
+                <Button size="sm" variant="ghost" onClick={onDeleteCancel}><X className="h-3.5 w-3.5" /></Button>
+              </div>
+            ) : (
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={onDelete}>
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
-            </div>
-          )}
-          {allPlayers.length === 0 && (
-            <p className="text-xs text-muted-foreground italic">Add more characters to create relationships.</p>
-          )}
+            )}
+          </div>
         </div>
-      </Section>
+      </div>
 
-      {/* ── SECTION: Design Notes ── */}
-      <Section title="Design Notes">
-        <Textarea
-          value={sheet.description}
-          onChange={(e) => set("description", e.target.value)}
-          placeholder="Designer scratchpad — mechanics, open questions, balance notes…"
-          className="text-sm min-h-[100px] resize-none"
-        />
-        <p className="text-[10px] text-muted-foreground mt-1">Auto-saves as you type. Use AI Enhance to populate Motivation & Arc with richer context.</p>
-      </Section>
+      {/* ── Two-column persona grid ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-      <div className="h-8" />
+        {/* ── LEFT column ── */}
+        <div className="space-y-5">
+
+          {/* Identity */}
+          <Section title="Identity">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Archetype">
+                  <div className="relative">
+                    <Input value={sheet.archetype} onChange={(e) => set("archetype", e.target.value)} placeholder="e.g. Hero, Trickster…" className="h-8 text-sm pr-8" />
+                    {!sheet.archetype && (
+                      <Select onValueChange={(v) => set("archetype", v)}>
+                        <SelectTrigger className="absolute right-1 top-1 h-6 w-6 border-0 bg-transparent p-0 opacity-40 hover:opacity-100" />
+                        <SelectContent>
+                          {COMMON_ARCHETYPES.map((a) => <SelectItem key={a} value={a} className="text-xs">{a}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </Field>
+                <Field label="Role / Title">
+                  <Input value={sheet.role} onChange={(e) => set("role", e.target.value)} placeholder="e.g. Tank, Scout…" className="h-8 text-sm" />
+                </Field>
+              </div>
+              <Field label="Faction">
+                <Input value={sheet.faction} onChange={(e) => set("faction", e.target.value)} placeholder="e.g. The Iron Guild, Unaffiliated…" className="h-8 text-sm" />
+              </Field>
+              <Field label="Description">
+                <Textarea
+                  value={sheet.description}
+                  onChange={(e) => set("description", e.target.value)}
+                  placeholder="A short description of this player's role in the game world…"
+                  className="text-sm min-h-[80px] resize-none"
+                />
+              </Field>
+            </div>
+          </Section>
+
+          {/* Strategy */}
+          <Section title="Strategy & Gameplay">
+            <div className="space-y-3">
+              <Field label="Strategy">
+                <Textarea
+                  value={sheet.strategy}
+                  onChange={(e) => set("strategy", e.target.value)}
+                  placeholder="How does this player win? What's their core game plan?"
+                  className="text-sm min-h-[72px] resize-none"
+                />
+              </Field>
+              <div className="grid grid-cols-1 gap-3">
+                <Field label="Special Ability">
+                  <div className="flex items-start gap-2">
+                    <Wand2 className="h-3.5 w-3.5 text-muted-foreground mt-2 shrink-0" />
+                    <Textarea
+                      value={sheet.specialAbility}
+                      onChange={(e) => set("specialAbility", e.target.value)}
+                      placeholder="Unique power or rule exception this player has…"
+                      className="text-sm min-h-[60px] resize-none flex-1"
+                    />
+                  </div>
+                </Field>
+              </div>
+            </div>
+          </Section>
+
+          {/* Motivation & Arc */}
+          <Section title="Motivation & Arc">
+            <div className="space-y-3">
+              <Field label="What they want">
+                <Textarea
+                  value={sheet.motivation}
+                  onChange={(e) => set("motivation", e.target.value)}
+                  placeholder="What drives this player above all else?"
+                  className="text-sm min-h-[60px] resize-none"
+                />
+              </Field>
+              <Field label="Weakness / Flaw">
+                <Textarea
+                  value={sheet.flaw}
+                  onChange={(e) => set("flaw", e.target.value)}
+                  placeholder="Their greatest obstacle or vulnerability…"
+                  className="text-sm min-h-[60px] resize-none"
+                />
+              </Field>
+              <Field label="Story arc">
+                <Textarea
+                  value={sheet.arc}
+                  onChange={(e) => set("arc", e.target.value)}
+                  placeholder="Their journey or transformation through the game…"
+                  className="text-sm min-h-[60px] resize-none"
+                />
+              </Field>
+            </div>
+          </Section>
+        </div>
+
+        {/* ── RIGHT column ── */}
+        <div className="space-y-5">
+
+          {/* Game mechanics */}
+          <Section title="Game Mechanics">
+            <div className="space-y-3">
+              <Field label="Starting Resources">
+                <div className="flex items-start gap-2">
+                  <Package className="h-3.5 w-3.5 text-muted-foreground mt-2 shrink-0" />
+                  <Textarea
+                    value={sheet.startingResources}
+                    onChange={(e) => set("startingResources", e.target.value)}
+                    placeholder="e.g. 5 gold, 2 action cards, 1 territory…"
+                    className="text-sm min-h-[60px] resize-none flex-1"
+                  />
+                </div>
+              </Field>
+              <Field label="Victory Condition">
+                <div className="flex items-start gap-2">
+                  <Trophy className="h-3.5 w-3.5 text-muted-foreground mt-2 shrink-0" />
+                  <Textarea
+                    value={sheet.victoryCondition}
+                    onChange={(e) => set("victoryCondition", e.target.value)}
+                    placeholder="How does this player win the game?"
+                    className="text-sm min-h-[60px] resize-none flex-1"
+                  />
+                </div>
+              </Field>
+            </div>
+          </Section>
+
+          {/* Behavioral profile */}
+          <Section title="Behavioral Profile">
+            <div className="space-y-4">
+              <SliderField
+                label="Risk Tolerance"
+                leftLabel="Cautious"
+                rightLabel="Reckless"
+                value={sheet.riskTolerance}
+                onChange={(v) => set("riskTolerance", v)}
+              />
+              <SliderField
+                label="Aggression"
+                leftLabel="Passive"
+                rightLabel="Aggressive"
+                value={sheet.aggression}
+                onChange={(v) => set("aggression", v)}
+              />
+              <Field label="Decision Style">
+                <Select value={sheet.decisionStyle} onValueChange={(v) => set("decisionStyle", v)}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DECISION_STYLES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+          </Section>
+
+          {/* Relationships */}
+          <Section title="Relationships">
+            <div className="space-y-3">
+              {sheet.relationships.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {sheet.relationships.map((rel) => {
+                    const target = relPlayerMap.get(rel.targetPlayerId);
+                    const tm = target ? getMeta(target.playerType) : null;
+                    return (
+                      <div key={rel.targetPlayerId} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-muted/30 text-xs">
+                        {tm && <tm.Icon className={`h-3 w-3 ${tm.color}`} />}
+                        <span className="text-muted-foreground">{rel.relationshipType}:</span>
+                        <span className="font-medium">{target?.name ?? `#${rel.targetPlayerId}`}</span>
+                        <button onClick={() => onRemoveRelationship(rel.targetPlayerId)} className="text-muted-foreground hover:text-destructive ml-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {allPlayers.length > 0 && (
+                <div className="flex gap-2">
+                  <Select value={addingRelType} onValueChange={setAddingRelType}>
+                    <SelectTrigger className="h-7 text-xs w-28 shrink-0"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {RELATIONSHIP_TYPES.map((r) => <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={addingRelTarget} onValueChange={setAddingRelTarget}>
+                    <SelectTrigger className="h-7 text-xs flex-1"><SelectValue placeholder="Select player…" /></SelectTrigger>
+                    <SelectContent>
+                      {allPlayers
+                        .filter((p) => !sheet.relationships.some((r) => r.targetPlayerId === p.id))
+                        .map((p) => {
+                          const pm = getMeta(p.playerType);
+                          return (
+                            <SelectItem key={p.id} value={String(p.id)} className="text-xs">
+                              <span className="flex items-center gap-1.5">
+                                <pm.Icon className={`h-3 w-3 ${pm.color}`} /> {p.name}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs shrink-0" onClick={onAddRelationship} disabled={!addingRelTarget}>
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {allPlayers.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">Add more players to create relationships.</p>
+              )}
+            </div>
+          </Section>
+
+        </div>
+      </div>
+
+      <p className="text-[10px] text-muted-foreground text-center pb-4">
+        Auto-saves as you type · Use AI Enhance to fill in persona details
+      </p>
     </div>
   );
 }
