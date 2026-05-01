@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Trash2, Sparkles, Loader2, X, ChevronDown, ChevronRight,
   Shield, MessageCircle, Zap, Star, Leaf, Heart,
-  Search, GripVertical, Users, UserPlus,
+  Search, GripVertical, Users, UserPlus, List, GitGraph,
 } from "lucide-react";
+import { PlayerRelationshipGraph } from "./player-relationship-graph";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -173,6 +174,7 @@ export function Players({ projectId }: PlayersProps) {
 
   // ── UI state
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
   const [search, setSearch] = useState("");
   const [factionFilter, setFactionFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<PlayerType | null>(null);
@@ -357,161 +359,193 @@ export function Players({ projectId }: PlayersProps) {
     <div className="flex gap-0 h-[calc(100vh-220px)] min-h-[500px]">
       {/* ── LEFT PANE ── */}
       <div className="w-64 shrink-0 flex flex-col border-r border-border bg-card/30">
-        {/* Search */}
-        <div className="p-3 border-b border-border">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search…"
-              className="pl-8 h-8 text-sm bg-background/50"
+        {/* Search + view toggle */}
+        <div className="p-3 border-b border-border space-y-2">
+          <div className="flex items-center gap-1.5">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search…"
+                className="pl-8 h-8 text-sm bg-background/50"
+              />
+            </div>
+            <div className="flex items-center rounded-md border border-border overflow-hidden shrink-0">
+              <button
+                onClick={() => setViewMode("list")}
+                title="List view"
+                className={`flex items-center justify-center h-8 w-8 transition-colors ${viewMode === "list" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setViewMode("graph")}
+                title="Relationship graph"
+                className={`flex items-center justify-center h-8 w-8 transition-colors ${viewMode === "graph" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
+              >
+                <GitGraph className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {viewMode === "list" && (
+          <>
+            {/* Type filter chips */}
+            {!noPlayers && (
+              <div className="px-3 py-2 border-b border-border flex flex-wrap gap-1">
+                {PLAYER_TYPES.filter((t) => (grouped.get(t) ?? []).length > 0 || typeFilter === t).map((type) => {
+                  const tm = getMeta(type);
+                  const active = typeFilter === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setTypeFilter(active ? null : type)}
+                      className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${active ? `${tm.badge}` : "text-muted-foreground border-border hover:text-foreground"}`}
+                    >
+                      <tm.Icon className="h-2.5 w-2.5" />
+                      {type}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Faction filter chips */}
+            {factions.length > 0 && (
+              <div className="px-3 py-2 border-b border-border flex flex-wrap gap-1">
+                {factions.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFactionFilter(factionFilter === f ? null : f)}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${factionFilter === f ? "bg-primary/20 text-primary border-primary/40" : "text-muted-foreground border-border hover:text-foreground"}`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Roster (list view) or Graph */}
+        {viewMode === "graph" ? (
+          <div className="flex-1 overflow-hidden">
+            <PlayerRelationshipGraph
+              players={players ?? []}
+              selectedId={selectedId}
+              onSelect={(id) => setSelectedId(selectedId === id ? null : id)}
             />
           </div>
-        </div>
-
-        {/* Type filter chips */}
-        {!noPlayers && (
-          <div className="px-3 py-2 border-b border-border flex flex-wrap gap-1">
-            {PLAYER_TYPES.filter((t) => (grouped.get(t) ?? []).length > 0 || typeFilter === t).map((type) => {
-              const tm = getMeta(type);
-              const active = typeFilter === type;
-              return (
-                <button
-                  key={type}
-                  onClick={() => setTypeFilter(active ? null : type)}
-                  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition-colors ${active ? `${tm.badge}` : "text-muted-foreground border-border hover:text-foreground"}`}
-                >
-                  <tm.Icon className="h-2.5 w-2.5" />
-                  {type}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Faction filter chips */}
-        {factions.length > 0 && (
-          <div className="px-3 py-2 border-b border-border flex flex-wrap gap-1">
-            {factions.map((f) => (
-              <button
-                key={f}
-                onClick={() => setFactionFilter(factionFilter === f ? null : f)}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${factionFilter === f ? "bg-primary/20 text-primary border-primary/40" : "text-muted-foreground border-border hover:text-foreground"}`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Roster */}
-        <div className="flex-1 overflow-y-auto">
-          {noPlayers ? (
-            <div className="p-4 text-center">
-              <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">No characters yet</p>
-            </div>
-          ) : totalFiltered === 0 ? (
-            <p className="text-xs text-muted-foreground text-center p-4">No matches</p>
-          ) : (
-            PLAYER_TYPES.map((type) => {
-              const group = grouped.get(type) ?? [];
-              if (group.length === 0 && !addingType) return null;
-              const m = getMeta(type);
-              const collapsed = collapsedGroups.has(type);
-              return (
-                <div key={type}>
-                  {/* Group header — use div+role to avoid nested-button semantic issue */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setCollapsedGroups((s) => { const n = new Set(s); n.has(type) ? n.delete(type) : n.add(type); return n; }); }}
-                    onClick={() => setCollapsedGroups((s) => { const n = new Set(s); n.has(type) ? n.delete(type) : n.add(type); return n; })}
-                    className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-muted/20 text-left group cursor-pointer select-none"
-                  >
-                    {collapsed ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
-                    <m.Icon className={`h-3 w-3 ${m.color}`} />
-                    <span className={`text-xs font-medium ${m.color} flex-1`}>{type}</span>
-                    <span className="text-[10px] text-muted-foreground">{group.length}</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setAddingType(type); setNewName(""); }}
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground ml-1"
-                      aria-label={`Add ${type}`}
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            {noPlayers ? (
+              <div className="p-4 text-center">
+                <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">No characters yet</p>
+              </div>
+            ) : totalFiltered === 0 ? (
+              <p className="text-xs text-muted-foreground text-center p-4">No matches</p>
+            ) : (
+              PLAYER_TYPES.map((type) => {
+                const group = grouped.get(type) ?? [];
+                if (group.length === 0 && !addingType) return null;
+                const m = getMeta(type);
+                const collapsed = collapsedGroups.has(type);
+                return (
+                  <div key={type}>
+                    {/* Group header — use div+role to avoid nested-button semantic issue */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setCollapsedGroups((s) => { const n = new Set(s); n.has(type) ? n.delete(type) : n.add(type); return n; }); }}
+                      onClick={() => setCollapsedGroups((s) => { const n = new Set(s); n.has(type) ? n.delete(type) : n.add(type); return n; })}
+                      className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-muted/20 text-left group cursor-pointer select-none"
                     >
-                      <Plus className="h-3 w-3" />
-                    </button>
-                  </div>
-
-                  {/* Inline quick-add */}
-                  {!collapsed && addingType === type && (
-                    <div className="px-3 pb-2 flex gap-1">
-                      <Input
-                        autoFocus
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleCreate(type, newName);
-                          if (e.key === "Escape") { setAddingType(null); setNewName(""); }
-                        }}
-                        placeholder={`New ${type}…`}
-                        className="h-7 text-xs flex-1"
-                      />
-                      <Button size="icon" className="h-7 w-7 shrink-0" onClick={() => handleCreate(type, newName)} disabled={!newName.trim()}>
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => { setAddingType(null); setNewName(""); }}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Roster rows */}
-                  {!collapsed && group.map((p) => {
-                    const isSelected = p.id === selectedId;
-                    const isDragOver = dragOverId === p.id;
-                    return (
-                      <div
-                        key={p.id}
-                        draggable
-                        onDragStart={() => handleDragStart(p.id)}
-                        onDragOver={(e) => handleDragOver(e, p.id)}
-                        onDrop={() => handleDrop(p.id, type)}
-                        onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
-                        onClick={() => setSelectedId(isSelected ? null : p.id)}
-                        className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-colors border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${isDragOver ? "border-t border-primary/40" : ""} ${draggedId === p.id ? "opacity-40" : ""}`}
+                      {collapsed ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                      <m.Icon className={`h-3 w-3 ${m.color}`} />
+                      <span className={`text-xs font-medium ${m.color} flex-1`}>{type}</span>
+                      <span className="text-[10px] text-muted-foreground">{group.length}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setAddingType(type); setNewName(""); }}
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground ml-1"
+                        aria-label={`Add ${type}`}
                       >
-                        <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0 cursor-grab" />
-                        <m.Icon className={`h-3.5 w-3.5 shrink-0 ${m.color}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{p.name}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            <span className={m.color}>{p.playerType}</span>
-                            {p.role ? ` · ${p.role}` : ""}
-                            {p.faction ? ` · ${p.faction}` : ""}
-                          </p>
-                        </div>
-                        {deleteConfirmId === p.id ? (
-                          <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => handleDelete(p.id)} className="text-[10px] text-destructive hover:text-destructive/80 font-medium">Del</button>
-                            <button onClick={() => setDeleteConfirmId(null)} className="text-[10px] text-muted-foreground">✕</button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(p.id); }}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        )}
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+
+                    {/* Inline quick-add */}
+                    {!collapsed && addingType === type && (
+                      <div className="px-3 pb-2 flex gap-1">
+                        <Input
+                          autoFocus
+                          value={newName}
+                          onChange={(e) => setNewName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleCreate(type, newName);
+                            if (e.key === "Escape") { setAddingType(null); setNewName(""); }
+                          }}
+                          placeholder={`New ${type}…`}
+                          className="h-7 text-xs flex-1"
+                        />
+                        <Button size="icon" className="h-7 w-7 shrink-0" onClick={() => handleCreate(type, newName)} disabled={!newName.trim()}>
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => { setAddingType(null); setNewName(""); }}>
+                          <X className="h-3 w-3" />
+                        </Button>
                       </div>
-                    );
-                  })}
-                </div>
-              );
-            })
-          )}
-        </div>
+                    )}
+
+                    {/* Roster rows */}
+                    {!collapsed && group.map((p) => {
+                      const isSelected = p.id === selectedId;
+                      const isDragOver = dragOverId === p.id;
+                      return (
+                        <div
+                          key={p.id}
+                          draggable
+                          onDragStart={() => handleDragStart(p.id)}
+                          onDragOver={(e) => handleDragOver(e, p.id)}
+                          onDrop={() => handleDrop(p.id, type)}
+                          onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
+                          onClick={() => setSelectedId(isSelected ? null : p.id)}
+                          className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-colors border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${isDragOver ? "border-t border-primary/40" : ""} ${draggedId === p.id ? "opacity-40" : ""}`}
+                        >
+                          <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0 cursor-grab" />
+                          <m.Icon className={`h-3.5 w-3.5 shrink-0 ${m.color}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{p.name}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              <span className={m.color}>{p.playerType}</span>
+                              {p.role ? ` · ${p.role}` : ""}
+                              {p.faction ? ` · ${p.faction}` : ""}
+                            </p>
+                          </div>
+                          {deleteConfirmId === p.id ? (
+                            <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => handleDelete(p.id)} className="text-[10px] text-destructive hover:text-destructive/80 font-medium">Del</button>
+                              <button onClick={() => setDeleteConfirmId(null)} className="text-[10px] text-muted-foreground">✕</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(p.id); }}
+                              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
 
         {/* Add button */}
         <div className="p-3 border-t border-border">
@@ -519,7 +553,7 @@ export function Players({ projectId }: PlayersProps) {
             size="sm"
             variant="outline"
             className="w-full text-xs"
-            onClick={() => { setAddingType("Character"); setNewName(""); }}
+            onClick={() => { setAddingType("Character"); setNewName(""); setViewMode("list"); }}
             data-testid="add-player-button"
           >
             <UserPlus className="h-3.5 w-3.5 mr-1.5" /> Add Character
