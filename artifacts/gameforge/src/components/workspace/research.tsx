@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { useGetProject, useUpdateProject, useListResearch, getListResearchQueryKey } from "@workspace/api-client-react";
+import {
+  useGetProject, useUpdateProject, useListResearch, getListResearchQueryKey,
+  useCreateResearch, useUpdateResearch, useDeleteResearch, useAiEnhanceResearch,
+} from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
@@ -1135,6 +1138,10 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: items, isLoading } = useListResearch(projectId);
+  const createResearch  = useCreateResearch();
+  const updateResearch  = useUpdateResearch();
+  const deleteResearch  = useDeleteResearch();
+  const enhanceResearch = useAiEnhanceResearch();
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
@@ -1180,8 +1187,13 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // TODO: Implement backend API hooks for research CRUD operations
-      toast({ title: "Save not implemented", description: "Backend API hooks need to be implemented", variant: "destructive" });
+      if (editing !== null) {
+        await updateResearch.mutateAsync({ projectId, researchId: editing, data: { title: form.title, source: form.source || undefined, content: form.content || undefined, tags: form.tags || undefined } });
+        toast({ title: "Research updated" });
+      } else {
+        await createResearch.mutateAsync({ projectId, data: { title: form.title, source: form.source || undefined, content: form.content || undefined, tags: form.tags || undefined } });
+        toast({ title: "Research saved" });
+      }
       closeForm();
       refresh();
     } catch {
@@ -1191,8 +1203,8 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
 
   const removeItem = async (id: number) => {
     try {
-      // TODO: Implement backend API hooks for research delete
-      toast({ title: "Delete not implemented", description: "Backend API hooks need to be implemented", variant: "destructive" });
+      await deleteResearch.mutateAsync({ projectId, researchId: id });
+      toast({ title: "Research deleted" });
       refresh();
     } catch { toast({ title: "Delete failed", variant: "destructive" }); }
     finally { setDeleteConfirmId(null); }
@@ -1201,9 +1213,9 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
   const handleEnhance = async (researchId: number) => {
     setEnhancingId(researchId);
     try {
-      // TODO: Implement backend API hooks for research AI enhance
+      await enhanceResearch.mutateAsync({ projectId, researchId });
       qc.invalidateQueries({ queryKey: getListResearchQueryKey(projectId) });
-      toast({ title: "Enhance not implemented", description: "Backend API hooks need to be implemented", variant: "destructive" });
+      toast({ title: "Research polished", description: "AI has enhanced your notes." });
     } catch (err) {
       toast({ title: "Polish failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
