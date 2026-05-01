@@ -125,7 +125,7 @@ function DraggableGameCard({
 }: {
   game: RefGame;
   onRemove: () => void;
-  onResearch: () => void;
+  onResearch: (depth: string) => void;
   onReResearch: () => void;
   onReverseEngineer: (gameId: string) => void;
   researching: boolean;
@@ -134,6 +134,7 @@ function DraggableGameCard({
   const controls = useDragControls();
   const [expanded, setExpanded] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [researchDepth, setResearchDepth] = useState("comprehensive");
   const hasData = Boolean(game.gameData);
 
   return (
@@ -244,16 +245,28 @@ function DraggableGameCard({
       {/* Footer actions */}
       <div className="border-t border-border px-4 py-2.5 flex items-center gap-2 flex-wrap">
         {!hasData ? (
-          <Button
-            size="sm" variant="outline"
-            className="gap-1.5 text-xs h-7 border-primary/30 hover:bg-primary/10"
-            onClick={onResearch}
-            disabled={researching}
-          >
-            {researching
-              ? <><Loader2 className="h-3 w-3 animate-spin" /> Looking it up…</>
-              : <><Sparkles className="h-3 w-3 text-primary" /> Research with AI</>}
-          </Button>
+          <div className="flex items-center gap-2">
+            <select
+              value={researchDepth}
+              onChange={(e) => setResearchDepth(e.target.value)}
+              className="text-[10px] bg-muted border border-border rounded px-2 py-1 text-foreground"
+              title="Research depth"
+            >
+              <option value="basic">Basic</option>
+              <option value="comprehensive">Comprehensive</option>
+              <option value="exhaustive">Exhaustive</option>
+            </select>
+            <Button
+              size="sm" variant="outline"
+              className="gap-1.5 text-xs h-7 border-primary/30 hover:bg-primary/10"
+              onClick={() => onResearch(researchDepth)}
+              disabled={researching}
+            >
+              {researching
+                ? <><Loader2 className="h-3 w-3 animate-spin" /> Looking it up…</>
+                : <><Sparkles className="h-3 w-3 text-primary" /> Research</>}
+            </Button>
+          </div>
         ) : (
           <>
             <button
@@ -282,7 +295,7 @@ function DraggableGameCard({
                 className="gap-1.5 text-xs h-7 border-violet-500/30 text-violet-400 hover:bg-violet-500/10 ml-auto"
                 onClick={() => onReverseEngineer(game.id)}
               >
-                <Wand2 className="h-3 w-3" /> Clone game
+                <Wand2 className="h-3 w-3" /> Reverse engineer
               </Button>
             )}
           </>
@@ -455,8 +468,8 @@ function ReverseEngineerDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5 text-violet-400" />
-            Clone as New Project
-            <span className="ml-auto text-[10px] font-normal bg-violet-500/10 border border-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">Powered by KIMI</span>
+            Reverse Engineer
+            <span className="ml-auto text-[10px] font-normal bg-violet-500/10 border border-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">Powered by AI</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -525,22 +538,10 @@ function ReverseEngineerDialog({
 
             {/* Info notice */}
             <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-violet-200">
-              <p className="font-semibold mb-1">Creates a brand-new project</p>
+              <p className="font-semibold mb-1">Recreates the exact game</p>
               <p className="text-violet-200/70">
-                This will create a new project that replicates the researched game(s) with all artifacts — entities, rules, players, and components.
+                AI will pull comprehensive details from all available sources and recreate the exact game with all its components, rules, mechanics, and structure — not an "inspired by" version.
               </p>
-            </div>
-
-            {/* Direction */}
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Creative direction <span className="font-normal text-muted-foreground">(optional)</span></Label>
-              <Textarea
-                rows={3}
-                placeholder={`e.g. "Faster and more chaotic" · "Set in ancient Rome with political intrigue" · "Cooperative with traitor mechanics"`}
-                value={direction}
-                onChange={(e) => setDirection(e.target.value)}
-                className="resize-none text-sm"
-              />
             </div>
           </div>
         )}
@@ -554,7 +555,7 @@ function ReverseEngineerDialog({
               disabled={selectedGames.length === 0}
             >
               <Wand2 className="h-4 w-4" />
-              Clone as new project
+              Reverse Engineer
               <ArrowRight className="h-4 w-4" />
             </Button>
           </DialogFooter>
@@ -602,7 +603,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
 
   const removeGame = (id: string) => persist(refGames.filter((g) => g.id !== id));
 
-  const lookUpGame = async (id: string, clearExisting = false) => {
+  const lookUpGame = async (id: string, depth = "comprehensive", clearExisting = false) => {
     const game = refGames.find((g) => g.id === id);
     if (!game) return;
     setLookingUp(id);
@@ -614,7 +615,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ gameName: game.name, borrowing: game.borrowing, avoiding: game.avoiding }),
+        body: JSON.stringify({ gameName: game.name, borrowing: game.borrowing, avoiding: game.avoiding, depth }),
       });
       if (!res.ok) throw new Error(await res.text());
       const { research, gameData } = await res.json() as { research: { id: number }; gameData: GameData };
@@ -643,8 +644,8 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
             <Heart className="h-4 w-4 text-rose-400" /> Games that shaped your vision
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Add a game, hit <span className="text-primary font-medium">Research with AI</span> for a full breakdown, then{" "}
-            <span className="text-violet-400 font-medium">Reverse Engineer</span> it into a new project.
+            Add a game, hit <span className="text-primary font-medium">Research with AI</span> to pull comprehensive details from all sources, then{" "}
+            <span className="text-violet-400 font-medium">Reverse Engineer</span> to recreate the exact game with all components.
           </p>
         </div>
         <div className="flex gap-2">
@@ -656,7 +657,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
               onClick={() => { setPreselectedGameId(null); setShowReverseDialog(true); }}
             >
               <Wand2 className="h-3.5 w-3.5" />
-              Clone all as new project
+              Reverse Engineer all
             </Button>
           )}
           {!showForm && (
@@ -709,8 +710,8 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
               key={rg.id}
               game={rg}
               onRemove={() => removeGame(rg.id)}
-              onResearch={() => lookUpGame(rg.id)}
-              onReResearch={() => lookUpGame(rg.id, true)}
+              onResearch={(depth) => lookUpGame(rg.id, depth)}
+              onReResearch={() => lookUpGame(rg.id, undefined, true)}
               onReverseEngineer={(gid) => { setPreselectedGameId(gid); setShowReverseDialog(true); }}
               researching={lookingUp === rg.id}
               canReverseEngineer={Boolean(workspaceSlug && rg.gameData)}
@@ -741,11 +742,11 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
         preselectedGameId={preselectedGameId}
         onSuccess={(result) => {
           if (result.workspaceSlug) {
-            toast({ title: "New project cloned!", description: result.project.name });
+            toast({ title: "Game reverse engineered!", description: `${result.project.name} recreated with all components and rules` });
             setLocation(`/${result.workspaceSlug}/${result.project.slug ?? result.project.id}`);
           } else {
             qc.invalidateQueries();
-            toast({ title: "Project cloned!", description: "A new project with all artifacts has been created." });
+            toast({ title: "Game reverse engineered!", description: "All components and rules have been recreated." });
           }
         }}
       />

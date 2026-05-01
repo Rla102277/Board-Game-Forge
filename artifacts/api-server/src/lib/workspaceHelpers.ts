@@ -128,12 +128,28 @@ export async function userHasWorkspaceAccess(
   workspaceId: number,
   userId: number,
 ): Promise<{ access: boolean; role: string | null }> {
+  // Check explicit member row first.
   const [row] = await db
     .select()
     .from(workspaceMembers)
     .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)));
-  if (!row || row.status !== "active") return { access: false, role: null };
-  return { access: true, role: row.role };
+  if (row && row.status === "active") return { access: true, role: row.role };
+
+  // Fallback: the user is the workspace owner (e.g. member row missing due to race or migration).
+  const [ws] = await db
+    .select({ ownerUserId: workspaces.ownerUserId })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId));
+  if (ws && ws.ownerUserId === userId) {
+    // Lazily insert the missing member row so future checks are fast.
+    await db
+      .insert(workspaceMembers)
+      .values({ workspaceId, userId, role: "owner", status: "active", joinedAt: new Date() })
+      .onConflictDoNothing();
+    return { access: true, role: "owner" };
+  }
+
+  return { access: false, role: null };
 }
 
 export async function findProjectInWorkspace(

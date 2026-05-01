@@ -74,7 +74,7 @@ export function TaskDetailDrawer({
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: users } = useListProjectUsers(projectId);
-  const { data: subtasks } = useListSubtasks(task?.id ?? 0);
+  const { data: subtasks } = useListSubtasks(task?.id ?? 0, projectId);
 
   const updateTask = useUpdateRichTask();
   const deleteTask = useDeleteRichTask();
@@ -106,19 +106,19 @@ export function TaskDetailDrawer({
 
   const handleAddSubtask = async () => {
     if (!subtaskInput.trim() || !task) return;
-    await createSubtask.mutateAsync({ taskId: task.id, title: subtaskInput.trim() });
+    await createSubtask.mutateAsync({ taskId: task.id, title: subtaskInput.trim(), projectId });
     setSubtaskInput("");
     setShowSubtaskAdd(false);
   };
 
   const handleToggleSubtask = async (subtaskId: number) => {
     if (!task) return;
-    await toggleSubtask.mutateAsync({ subtaskId, taskId: task.id });
+    await toggleSubtask.mutateAsync({ subtaskId, taskId: task.id, projectId });
   };
 
   const handleRemoveSubtask = async (subtaskId: number) => {
     if (!task) return;
-    await removeSubtask.mutateAsync({ subtaskId, taskId: task.id });
+    await removeSubtask.mutateAsync({ subtaskId, taskId: task.id, projectId });
   };
 
   const assignedUsers = (users ?? []).filter((u) => task.assigneeIds.includes(u.id));

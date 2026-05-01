@@ -49,6 +49,7 @@ const TEMPLATES: Template[] = [
   { key: "worker-placement",title: "Worker placement", desc: "Pick spots, gather, build",        emoji: "🏗️" },
   { key: "tile-laying",     title: "Tile-laying",      desc: "Spatial puzzles, patterns",        emoji: "🧩" },
   { key: "social-deduction",title: "Social deduction", desc: "Hidden roles, social bluffing",    emoji: "🎭" },
+  { key: "monopoly",        title: "Monopoly",         desc: "Classic property trading game",     emoji: "🎩" },
 ];
 
 function useWorkspacesList() {
@@ -158,6 +159,10 @@ export default function WorkspaceHome() {
   const createBlankProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createName.trim()) return;
+    if (!slug) {
+      toast({ title: "No workspace selected", description: "Please wait for your workspace to load.", variant: "destructive" });
+      return;
+    }
     try {
       const out = await workspacesApi.createProject(slug, { name: createName.trim() });
       setCreateOpen(false);

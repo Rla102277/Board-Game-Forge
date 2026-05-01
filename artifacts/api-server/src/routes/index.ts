@@ -27,6 +27,8 @@ import learnRouter from "./learn";
 import aiTextRouter from "./aiText";
 import snapshotsRouter from "./snapshots";
 import collaborationRouter from "./collaboration";
+import sharesRouter from "./shares";
+import notificationsRouter from "./notifications";
 import {
   requireAuth,
   requireProjectAccess,
@@ -79,5 +81,10 @@ router.use(kickstarterRouter);
 router.use(aiTextRouter);
 router.use(snapshotsRouter);
 router.use(collaborationRouter);
+router.use(sharesRouter);
+
+// User-scoped (not project-scoped) authenticated routes
+router.use("/notifications", requireAuth);
+router.use(notificationsRouter);
 
 export default router;

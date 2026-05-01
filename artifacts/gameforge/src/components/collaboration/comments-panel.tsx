@@ -20,7 +20,7 @@ export function CommentsPanel({ projectId: _projectId, entityType = "task", enti
   const [content, setContent] = useState("");
   const effectiveEntityId = entityId ?? _projectId;
 
-  const { data: comments, isLoading } = useListComments(entityType, effectiveEntityId);
+  const { data: comments, isLoading } = useListComments(entityType, effectiveEntityId, _projectId);
   const { data: users } = useListProjectUsers(_projectId);
   const create = useCreateComment();
   const remove = useDeleteComment();
@@ -28,7 +28,7 @@ export function CommentsPanel({ projectId: _projectId, entityType = "task", enti
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
-    await create.mutateAsync({ entityType, entityId: effectiveEntityId, content: content.trim(), parentId: replyTo });
+    await create.mutateAsync({ entityType, entityId: effectiveEntityId, content: content.trim(), parentId: replyTo, projectId: _projectId });
     setContent("");
     setReplyTo(null);
   };

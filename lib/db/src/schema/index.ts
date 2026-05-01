@@ -22,3 +22,8 @@ export * from "./comments";
 export * from "./activityFeed";
 export * from "./projectVersions";
 export * from "./entityRules";
+export * from "./taskAssignees";
+export * from "./taskSubtasks";
+export * from "./taskDependencies";
+export * from "./projectShares";
+export * from "./notifications";

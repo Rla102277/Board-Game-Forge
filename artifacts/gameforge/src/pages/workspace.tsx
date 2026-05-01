@@ -60,6 +60,14 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: "Tasks & Tracking",
+    defaultOpen: true,
+    items: [
+      { id: "tasks",          label: "Tasks",            icon: CheckSquare,  statKey: "taskCount",      shortcut: "t" },
+      { id: "notes",          label: "Notes",            icon: FileText,     statKey: "noteCount",      shortcut: null },
+    ],
+  },
+  {
     label: "Workshop",
     defaultOpen: true,
     items: [
@@ -101,17 +109,14 @@ const NAV_GROUPS = [
     items: [
       { id: "export",         label: "Exports",          icon: Download,     statKey: null,             shortcut: "8" },
       { id: "design-pipeline",label: "Design Pipeline",  icon: MapPin,       statKey: null,             shortcut: null },
-      { id: "notes",          label: "Notes",            icon: FileText,     statKey: "noteCount",      shortcut: null },
-      { id: "tasks",          label: "Tasks",            icon: CheckSquare,  statKey: "taskCount",      shortcut: null },
     ],
   },
   {
     label: "Team",
-    defaultOpen: false,
+    defaultOpen: true,
     items: [
       { id: "comments",       label: "Comments",         icon: MessageSquare,statKey: null,             shortcut: null },
       { id: "activity",       label: "Activity",         icon: History,      statKey: null,             shortcut: null },
-      { id: "versions",       label: "Versions",         icon: History,      statKey: null,             shortcut: null },
       { id: "members",        label: "Members",          icon: Users,        statKey: null,             shortcut: null },
     ],
   },

@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { integer, jsonb, numeric, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { projects } from "./projects";
@@ -8,12 +8,15 @@ export const tasks = pgTable("tasks", {
   projectId: integer("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
+  parentTaskId: integer("parent_task_id"),
   title: text("title").notNull(),
   description: text("description"),
   status: text("status").default("todo").notNull(),
   priority: text("priority").default("medium").notNull(),
   category: text("category"),
-  assignee: text("assignee"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  estimatedHours: numeric("estimated_hours", { precision: 6, scale: 2 }),
+  actualHours: numeric("actual_hours", { precision: 6, scale: 2 }),
   dueDate: timestamp("due_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

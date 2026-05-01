@@ -17,7 +17,6 @@ import {
   Sparkles, Settings, Flag, BookOpen, Trophy, Swords, Plus, X, Target, Layers, Loader2,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { MONOPOLY_ENTITIES } from "@/lib/game-component-types";
 
 interface OverviewProps {
   projectId: number;
@@ -51,7 +50,6 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
   });
   const [turnPhaseInput, setTurnPhaseInput] = useState("");
   const [turnPhases, setTurnPhases] = useState<string[]>([]);
-  const [loadingMonopoly, setLoadingMonopoly] = useState(false);
   const createEntity = useCreateEntity();
 
   const debouncedName = useDebounce(formData.name, 1000);
@@ -89,18 +87,6 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
 
   const save = (patch: Parameters<typeof updateProject.mutate>[0]["data"]) => {
     updateProject.mutate({ projectId, data: patch });
-  };
-
-  const handleLoadMonopoly = async () => {
-    if (!confirm("This will add 27 Monopoly component entities to this project as a worked example. Continue?")) return;
-    setLoadingMonopoly(true);
-    try {
-      for (const e of MONOPOLY_ENTITIES) {
-        await createEntity.mutateAsync({ projectId, data: { name: e.name, type: e.type, subtype: e.subtype, description: e.description } });
-      }
-      queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey(projectId) });
-    } catch {/* continue on partial failure */}
-    finally { setLoadingMonopoly(false); }
   };
 
   useEffect(() => {
@@ -332,33 +318,6 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
 
           {/* Collaboration dashboard widgets */}
           <CollaborationDashboard projectId={projectId} />
-
-          {/* Monopoly demo loader */}
-          <Card className="border-amber-500/30 bg-amber-500/5">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-amber-300 text-sm">
-                🎩 Monopoly Demo Template
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Load a pre-built Monopoly component set as a reference. Every GameForge feature maps to a real Monopoly piece — perfect for learning the tool.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full border-amber-500/40 text-amber-300 hover:bg-amber-500/10 gap-1.5"
-                onClick={handleLoadMonopoly}
-                disabled={loadingMonopoly}
-              >
-                {loadingMonopoly ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading 27 components…</>
-                ) : (
-                  <><BookOpen className="h-3.5 w-3.5" /> Load Monopoly Components</>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
 
         </div>
       </div>
