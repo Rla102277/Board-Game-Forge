@@ -11,6 +11,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { AiEditTextarea } from "@/components/workspace/ai-edit-textarea";
 import { ProjectVersions } from "@/components/workspace/project-versions";
 import { ComplexityScore } from "@/components/workspace/complexity-score";
+import { CollaborationDashboard } from "@/components/workspace/collaboration-dashboard";
 import {
   LayoutDashboard, Activity, Users, FileText, CheckSquare, MessageSquare,
   Sparkles, Settings, Flag, BookOpen, Trophy, Swords, Plus, X, Target, Layers, Loader2,
@@ -328,6 +329,9 @@ export function Overview({ projectId, onPromptSend }: OverviewProps) {
               playtestCount={(stats as any).playtestCount ?? 0}
             />
           )}
+
+          {/* Collaboration dashboard widgets */}
+          <CollaborationDashboard projectId={projectId} />
 
           {/* Monopoly demo loader */}
           <Card className="border-amber-500/30 bg-amber-500/5">

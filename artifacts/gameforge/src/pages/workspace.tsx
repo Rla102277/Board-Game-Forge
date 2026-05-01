@@ -33,6 +33,7 @@ const Tasks = lazy(() => import("@/components/workspace/tasks").then(m => ({ def
 const Balance = lazy(() => import("@/components/workspace/balance").then(m => ({ default: m.Balance })));
 const DesignPipeline = lazy(() => import("@/components/workspace/design-pipeline").then(m => ({ default: m.DesignPipeline })));
 const Exports = lazy(() => import("@/components/workspace/exports").then(m => ({ default: m.Exports })));
+const MembersDirectory = lazy(() => import("@/components/workspace/members-directory").then(m => ({ default: m.MembersDirectory })));
 const ChatPanel = lazy(() => import("@/components/workspace/chat-panel").then(m => ({ default: m.ChatPanel })));
 const TurnStructure = lazy(() => import("@/components/workspace/turn-structure").then(m => ({ default: m.TurnStructureVisualizer })));
 const ScalingMatrix = lazy(() => import("@/components/workspace/scaling-matrix").then(m => ({ default: m.ScalingMatrixVisualizer })));
@@ -41,10 +42,13 @@ const RulebookEditor = lazy(() => import("@/components/workspace/rulebook-editor
 const LayoutEditor = lazy(() => import("@/components/workspace/layout-editor").then(m => ({ default: m.LayoutEditor })));
 const ScoringCurve = lazy(() => import("@/components/workspace/scoring-curve").then(m => ({ default: m.ScoringCurve })));
 const CollaborationPresence = lazy(() => import("@/components/collaboration/cursor-indicators").then(m => ({ default: m.CollaborationPresence })));
+const CursorIndicators = lazy(() => import("@/components/collaboration/cursor-indicators").then(m => ({ default: m.CursorIndicators })));
+const PresenceAvatars = lazy(() => import("@/components/collaboration/presence-avatars").then(m => ({ default: m.PresenceAvatars })));
 const ActivityFeed = lazy(() => import("@/components/collaboration/activity-feed").then(m => ({ default: m.ActivityFeed })));
 const CommentsPanel = lazy(() => import("@/components/collaboration/comments-panel").then(m => ({ default: m.CommentsPanel })));
 const VersionHistory = lazy(() => import("@/components/collaboration/version-history").then(m => ({ default: m.VersionHistory })));
 const ShareDialog = lazy(() => import("@/components/collaboration/share-dialog").then(m => ({ default: m.ShareDialog })));
+const NotificationBell = lazy(() => import("@/components/collaboration/notification-bell").then(m => ({ default: m.NotificationBell })));
 
 const NAV_GROUPS = [
   {
@@ -108,6 +112,7 @@ const NAV_GROUPS = [
       { id: "comments",       label: "Comments",         icon: MessageSquare,statKey: null,             shortcut: null },
       { id: "activity",       label: "Activity",         icon: History,      statKey: null,             shortcut: null },
       { id: "versions",       label: "Versions",         icon: History,      statKey: null,             shortcut: null },
+      { id: "members",        label: "Members",          icon: Users,        statKey: null,             shortcut: null },
     ],
   },
 ] as const;
@@ -361,6 +366,13 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           </Suspense>
         </ErrorBoundary>
       );
+      case "members": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <MembersDirectory projectId={projectId} />
+          </Suspense>
+        </ErrorBoundary>
+      );
       default: return null;
     }
   };
@@ -507,6 +519,14 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           <span className="font-medium text-foreground">{project.name}</span>
           <span>/</span>
           <span className="text-primary">{ALL_SECTION_LABELS[activeSection] ?? activeSection}</span>
+          <div className="ml-auto flex items-center gap-2">
+            <Suspense fallback={null}>
+              <PresenceAvatars projectId={projectId} />
+            </Suspense>
+            <Suspense fallback={null}>
+              <NotificationBell />
+            </Suspense>
+          </div>
         </div>
         <div className="flex-1 p-6 overflow-y-auto">
           {renderSection()}
@@ -559,6 +579,10 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           </form>
         </DialogContent>
       </Dialog>
+
+      <Suspense fallback={null}>
+        <CursorIndicators projectId={projectId} />
+      </Suspense>
     </div>
   );
 }
