@@ -17,19 +17,22 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// Run startup migrations (idempotent ADD COLUMN IF NOT EXISTS)
-runStartupMigrations().catch((err) =>
-  logger.error({ err }, "startup migrations failed")
-);
-
-// Start WebSocket server
-createWebSocketServer();
-
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
+// Start everything after migrations complete (or gracefully log failures)
+(async () => {
+  try {
+    await runStartupMigrations();
+  } catch (err) {
+    logger.error({ err }, "startup migrations failed — server will start anyway");
   }
 
-  logger.info({ port }, "Server listening");
-});
+  // Start WebSocket server
+  createWebSocketServer();
+
+  app.listen(port, (listenErr) => {
+    if (listenErr) {
+      logger.error({ err: listenErr }, "Error listening on port");
+      process.exit(1);
+    }
+    logger.info({ port }, "Server listening");
+  });
+})();

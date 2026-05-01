@@ -500,7 +500,7 @@ export function Players({ projectId }: PlayersProps) {
       {/* ── RIGHT PANE ── */}
       <div className="flex-1 min-w-0 overflow-y-auto">
         {noPlayers ? (
-          <EmptyCastState onAdd={(type) => { setAddingType(type); setNewName(""); }} />
+          <EmptyCastState onCreate={handleCreate} />
         ) : !selectedPlayer ? (
           <NoSelectionState players={players ?? []} onSelect={setSelectedId} />
         ) : (
@@ -530,7 +530,8 @@ export function Players({ projectId }: PlayersProps) {
 
 // ─── Empty "Cast your game" state ──────────────────────────────────────────────
 
-function EmptyCastState({ onAdd }: { onAdd: (type: PlayerType) => void }) {
+function EmptyCastState({ onCreate }: { onCreate: (type: PlayerType, name: string) => Promise<void> }) {
+  const [creating, setCreating] = useState<PlayerType | null>(null);
   return (
     <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
       <div className="text-center">
@@ -541,13 +542,21 @@ function EmptyCastState({ onAdd }: { onAdd: (type: PlayerType) => void }) {
       <div className="flex gap-3 flex-wrap justify-center">
         {(["Character", "Enemy", "NPC"] as PlayerType[]).map((type) => {
           const m = getMeta(type);
+          const isCreating = creating === type;
           return (
             <button
               key={type}
-              onClick={() => onAdd(type)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl border border-border ${m.bg} hover:border-primary/40 transition-colors`}
+              disabled={creating !== null}
+              onClick={async () => {
+                setCreating(type);
+                await onCreate(type, m.quickRole);
+                setCreating(null);
+              }}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl border border-border ${m.bg} hover:border-primary/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed`}
             >
-              <m.Icon className={`h-5 w-5 ${m.color}`} />
+              {isCreating
+                ? <Loader2 className={`h-5 w-5 ${m.color} animate-spin`} />
+                : <m.Icon className={`h-5 w-5 ${m.color}`} />}
               <div className="text-left">
                 <p className="text-sm font-medium">+ {m.quickRole}</p>
                 <p className="text-[10px] text-muted-foreground">{m.desc}</p>
@@ -631,12 +640,27 @@ function CharacterSheet({
     return map;
   }, [allPlayers]);
 
+  const initials = sheet.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("") || "?";
+
   return (
     <div className="p-6 space-y-6">
       {/* Header bar */}
       <div className="flex items-start gap-3">
-        <div className={`w-12 h-12 rounded-xl ${m.bg} flex items-center justify-center shrink-0`}>
-          <m.Icon className={`h-6 w-6 ${m.color}`} />
+        {/* Avatar placeholder with initials */}
+        <div className="shrink-0 flex flex-col items-center gap-1">
+          <div className={`w-14 h-14 rounded-xl ${m.bg} border border-border flex items-center justify-center relative group cursor-default select-none`}
+               title="Character avatar">
+            <span className={`text-lg font-bold ${m.color}`}>{initials}</span>
+            <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-white" aria-label="Generate avatar via AI Enhance" />
+            </div>
+          </div>
+          <span className="text-[9px] text-muted-foreground">avatar</span>
         </div>
         <div className="flex-1 min-w-0">
           <Input
