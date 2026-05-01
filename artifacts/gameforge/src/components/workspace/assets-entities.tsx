@@ -496,6 +496,79 @@ function AssetsView({
   const [inspectorAssetId, setInspectorAssetId] = useState<number | null>(null);
   const inspectorAsset = assets?.find((a) => a.id === inspectorAssetId) ?? null;
 
+  // Drag-and-drop order tracking
+  const [draggedId, setDraggedId] = useState<number | null>(null);
+  const [localOrder, setLocalOrder] = useState<number[]>([]);
+  const dragOverIdRef = useRef<number | null>(null);
+  const isSavingOrder = useRef(false);
+
+  // Sync localOrder from server whenever assets change (but not during active drag)
+  useEffect(() => {
+    if (!assets || draggedId !== null) return;
+    setLocalOrder(assets.map((a) => a.id));
+  }, [assets, draggedId]);
+
+  // Derive sorted asset list from localOrder
+  const orderedAssets = useMemo(() => {
+    if (!assets?.length) return assets ?? [];
+    const orderMap = new Map(localOrder.map((id, i) => [id, i]));
+    return [...assets].sort((a, b) => {
+      const ia = orderMap.has(a.id) ? orderMap.get(a.id)! : Infinity;
+      const ib = orderMap.has(b.id) ? orderMap.get(b.id)! : Infinity;
+      return ia - ib;
+    });
+  }, [assets, localOrder]);
+
+  const handleDragStart = (id: number, e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = "move";
+    setDraggedId(id);
+    dragOverIdRef.current = null;
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (draggedId === null || draggedId === targetId) return;
+    if (dragOverIdRef.current === targetId) return;
+    dragOverIdRef.current = targetId;
+    setLocalOrder((prev) => {
+      const from = prev.indexOf(draggedId);
+      const to = prev.indexOf(targetId);
+      if (from === -1 || to === -1) return prev;
+      const next = [...prev];
+      next.splice(from, 1);
+      next.splice(to, 0, draggedId);
+      return next;
+    });
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedId === null || isSavingOrder.current) return;
+    isSavingOrder.current = true;
+    const finalOrder = [...localOrder];
+    setDraggedId(null);
+    dragOverIdRef.current = null;
+    try {
+      await Promise.all(
+        finalOrder.map((id, index) =>
+          updateAsset.mutateAsync({ projectId, assetId: id, data: { displayOrder: index } })
+        )
+      );
+      refresh();
+    } catch {
+      toast({ title: "Failed to save order", variant: "destructive" });
+      refresh();
+    } finally {
+      isSavingOrder.current = false;
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    dragOverIdRef.current = null;
+  };
+
   const refresh = () => qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
 
   const composedPrompt = (kind: ComponentKind, extra?: string) => {
@@ -921,7 +994,8 @@ function AssetsView({
         /* Grouped by type — fixed section order */
         <div className="space-y-6">
           {GALLERY_SECTIONS.filter((sec) => groupedAssets.has(sec.kind)).map((sec) => {
-            const kindAssets = groupedAssets.get(sec.kind)!;
+            const kindAssets = orderedAssets.filter((a) => (a.kind ?? "other") === sec.kind);
+            if (!kindAssets.length) return null;
             return (
               <div key={sec.kind}>
                 <div className="flex items-center gap-2 mb-3">
@@ -936,27 +1010,37 @@ function AssetsView({
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {kindAssets.map((a) => (
-                    <AssetCard
+                    <div
                       key={a.id}
-                      asset={a}
-                      entities={entities ?? []}
-                      projectId={projectId}
-                      isGenerating={generating === a.id}
-                      onGenerateImage={() => openImagePrompt(a.id)}
-                      onInspect={() => setInspectorAssetId(a.id)}
-                      onDownload={() => {
-                        if (!a.imageDataUrl) return;
-                        const link = document.createElement("a");
-                        link.href = a.imageDataUrl;
-                        link.download = `${a.name.replace(/[^a-z0-9]+/gi, "_")}.png`;
-                        link.click();
-                      }}
-                      onDelete={async () => { await deleteAsset.mutateAsync({ projectId, assetId: a.id }); refresh(); }}
-                      onUpdated={refresh}
-                      fetchEnhance={() => enhanceAsset.mutateAsync({ projectId, assetId: a.id })}
-                      applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
-                      onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
-                    />
+                      draggable
+                      onDragStart={(e) => handleDragStart(a.id, e)}
+                      onDragOver={(e) => handleDragOver(e, a.id)}
+                      onDrop={handleDrop}
+                      onDragEnd={handleDragEnd}
+                      className="transition-opacity"
+                      style={{ opacity: draggedId === a.id ? 0.35 : 1, cursor: "grab" }}
+                    >
+                      <AssetCard
+                        asset={a}
+                        entities={entities ?? []}
+                        projectId={projectId}
+                        isGenerating={generating === a.id}
+                        onGenerateImage={() => openImagePrompt(a.id)}
+                        onInspect={() => setInspectorAssetId(a.id)}
+                        onDownload={() => {
+                          if (!a.imageDataUrl) return;
+                          const link = document.createElement("a");
+                          link.href = a.imageDataUrl;
+                          link.download = `${a.name.replace(/[^a-z0-9]+/gi, "_")}.png`;
+                          link.click();
+                        }}
+                        onDelete={async () => { await deleteAsset.mutateAsync({ projectId, assetId: a.id }); refresh(); }}
+                        onUpdated={refresh}
+                        fetchEnhance={() => enhanceAsset.mutateAsync({ projectId, assetId: a.id })}
+                        applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
+                        onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -964,30 +1048,40 @@ function AssetsView({
           })}
         </div>
       ) : (
-        /* Flat grid */
+        /* Flat grid — drag-and-drop enabled */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(assets ?? []).map((a) => (
-            <AssetCard
+          {orderedAssets.map((a) => (
+            <div
               key={a.id}
-              asset={a}
-              entities={entities ?? []}
-              projectId={projectId}
-              isGenerating={generating === a.id}
-              onGenerateImage={() => openImagePrompt(a.id)}
-              onInspect={() => setInspectorAssetId(a.id)}
-              onDownload={() => {
-                if (!a.imageDataUrl) return;
-                const link = document.createElement("a");
-                link.href = a.imageDataUrl;
-                link.download = `${a.name.replace(/[^a-z0-9]+/gi, "_")}.png`;
-                link.click();
-              }}
-              onDelete={async () => { await deleteAsset.mutateAsync({ projectId, assetId: a.id }); refresh(); }}
-              onUpdated={refresh}
-              fetchEnhance={() => enhanceAsset.mutateAsync({ projectId, assetId: a.id })}
-              applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
-              onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
-            />
+              draggable
+              onDragStart={(e) => handleDragStart(a.id, e)}
+              onDragOver={(e) => handleDragOver(e, a.id)}
+              onDrop={handleDrop}
+              onDragEnd={handleDragEnd}
+              className="transition-opacity"
+              style={{ opacity: draggedId === a.id ? 0.35 : 1, cursor: "grab" }}
+            >
+              <AssetCard
+                asset={a}
+                entities={entities ?? []}
+                projectId={projectId}
+                isGenerating={generating === a.id}
+                onGenerateImage={() => openImagePrompt(a.id)}
+                onInspect={() => setInspectorAssetId(a.id)}
+                onDownload={() => {
+                  if (!a.imageDataUrl) return;
+                  const link = document.createElement("a");
+                  link.href = a.imageDataUrl;
+                  link.download = `${a.name.replace(/[^a-z0-9]+/gi, "_")}.png`;
+                  link.click();
+                }}
+                onDelete={async () => { await deleteAsset.mutateAsync({ projectId, assetId: a.id }); refresh(); }}
+                onUpdated={refresh}
+                fetchEnhance={() => enhanceAsset.mutateAsync({ projectId, assetId: a.id })}
+                applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
+                onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
+              />
+            </div>
           ))}
         </div>
       )}

@@ -21,6 +21,8 @@ export interface Asset {
   imageDataUrl?: string | null;
   /** @nullable */
   imagePrompt?: string | null;
+  /** @nullable */
+  displayOrder?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

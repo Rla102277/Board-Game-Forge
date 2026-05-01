@@ -13,4 +13,5 @@ export interface UpdateAssetBody {
   description?: string;
   flavorText?: string;
   imagePrompt?: string;
+  displayOrder?: number;
 }

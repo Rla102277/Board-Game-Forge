@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, asc } from "drizzle-orm";
 import { db, assets, entities, projects } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import {
@@ -104,7 +104,7 @@ router.get("/projects/:projectId/assets", async (req, res): Promise<void> => {
     .select()
     .from(assets)
     .where(eq(assets.projectId, params.data.projectId))
-    .orderBy(desc(assets.createdAt));
+    .orderBy(asc(assets.displayOrder), desc(assets.createdAt));
   res.json(schemas.ListAssetsResponse.parse(rows));
 });
 

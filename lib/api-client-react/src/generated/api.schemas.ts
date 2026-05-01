@@ -657,6 +657,8 @@ export interface Asset {
   status: string;
   /** @nullable */
   componentDetails?: string | null;
+  /** @nullable */
+  displayOrder?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -683,6 +685,7 @@ export interface UpdateAssetBody {
   quantity?: number;
   status?: string;
   componentDetails?: string;
+  displayOrder?: number;
 }
 
 export interface GenerateImageBody {

@@ -1207,6 +1207,7 @@ export const ListAssetsResponseItem = zod.object({
   quantity: zod.number().default(1),
   status: zod.string().default("draft"),
   componentDetails: zod.string().nullish(),
+  displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1243,6 +1244,7 @@ export const UpdateAssetBody = zod.object({
   quantity: zod.number().optional(),
   status: zod.string().optional(),
   componentDetails: zod.string().optional(),
+  displayOrder: zod.number().optional(),
 });
 
 export const UpdateAssetResponse = zod.object({
@@ -1258,6 +1260,7 @@ export const UpdateAssetResponse = zod.object({
   quantity: zod.number().default(1),
   status: zod.string().default("draft"),
   componentDetails: zod.string().nullish(),
+  displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1322,6 +1325,7 @@ export const AiDescribeAssetResponse = zod.object({
   quantity: zod.number().default(1),
   status: zod.string().default("draft"),
   componentDetails: zod.string().nullish(),
+  displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1349,6 +1353,7 @@ export const GenerateAssetImageResponse = zod.object({
   quantity: zod.number().default(1),
   status: zod.string().default("draft"),
   componentDetails: zod.string().nullish(),
+  displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
