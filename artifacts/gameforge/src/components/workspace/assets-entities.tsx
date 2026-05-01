@@ -47,14 +47,14 @@ import { ComponentBOM } from "./component-bom";
 
 type ComponentKind = { id: string; label: string; kind: string; icon: React.ComponentType<{ className?: string }>; promptHint: string };
 const COMPONENT_KINDS: ComponentKind[] = [
-  { id: "card",      label: "Card",          kind: "card",  icon: Layers,   promptHint: "a single illustrated game card with title bar, art frame, and rule text area" },
-  { id: "board",     label: "Board",         kind: "board", icon: Square,   promptHint: "a top-down hex or grid game board with regions and resource icons" },
-  { id: "token",     label: "Token",         kind: "token", icon: Circle,   promptHint: "a small circular wooden or cardboard token with a single icon" },
-  { id: "dice",      label: "Dice tray",     kind: "other", icon: Dice5,    promptHint: "a wooden dice tray with custom-faced dice scattered inside" },
-  { id: "character", label: "Character art", kind: "other", icon: User,     promptHint: "a character portrait, three-quarter view, painted illustration" },
-  { id: "map",       label: "Map",           kind: "board", icon: MapIcon,  promptHint: "a stylized world map with regions and a compass rose" },
-  { id: "box",       label: "Box cover",     kind: "other", icon: Package,  promptHint: "a board game box cover, dramatic key art with logo space" },
-  { id: "logo",      label: "Logo",          kind: "other", icon: Tag,      promptHint: "a game logo / wordmark, vector style, on transparent background" },
+  { id: "card",      label: "Card Deck",    kind: "card",     icon: Layers,   promptHint: "a hand-illustrated card with title bar, central art frame, and rule text area" },
+  { id: "board",     label: "Game Board",   kind: "board",    icon: Square,   promptHint: "a top-down game board with hex or grid regions, paths, and iconography" },
+  { id: "token",     label: "Token Set",    kind: "token",    icon: Circle,   promptHint: "a set of small circular player tokens with distinct icons and colors" },
+  { id: "tile",      label: "Tile Set",     kind: "tile",     icon: MapIcon,  promptHint: "a collection of interlocking hex or square terrain tiles with illustrated surfaces" },
+  { id: "dice",      label: "Dice",         kind: "other",    icon: Dice5,    promptHint: "custom-faced dice with engraved symbols on each face, wooden or resin" },
+  { id: "rulebook",  label: "Rulebook",     kind: "rulebook", icon: BookOpen, promptHint: "a booklet cover with the game logo and thematic art, professional layout" },
+  { id: "character", label: "Character",    kind: "other",    icon: User,     promptHint: "a character portrait, three-quarter view, hand-painted illustration" },
+  { id: "custom",    label: "Custom…",      kind: "other",    icon: Tag,      promptHint: "a custom game component with thematic art and professional finish" },
 ];
 
 const ASSET_KINDS = ["card", "token", "board", "tile", "rulebook", "other"];
@@ -464,10 +464,13 @@ function AssetsView({
   const [generatingTile, setGeneratingTile] = useState<string | null>(null);
   const [freeformPrompt, setFreeformPrompt] = useState("");
   const [generatingFreeform, setGeneratingFreeform] = useState(false);
+  const [genCount, setGenCount] = useState(1);
+  const [genQueue, setGenQueue] = useState<{ done: number; total: number } | null>(null);
   const [generating, setGenerating] = useState<number | null>(null);
   const [imagePromptId, setImagePromptId] = useState<number | null>(null);
   const [imagePrompt, setImagePrompt] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [addFormKind, setAddFormKind] = useState<string>("card");
   const [narrativeOpen, setNarrativeOpen] = useState(false);
   const [groupByType, setGroupByType] = useState(false);
   const [bulkGenerating, setBulkGenerating] = useState(false);
@@ -527,19 +530,28 @@ function AssetsView({
     const txt = freeformPrompt.trim();
     if (!txt) return;
     setGeneratingFreeform(true);
+    const count = Math.max(1, Math.min(10, genCount));
+    if (count > 1) setGenQueue({ done: 0, total: count });
+    let succeeded = 0;
     try {
       const narr = narrative.trim() || projectDescription || "";
       const fullPrompt = narr ? `${txt}. Narrative: ${narr}. Style: hand-painted, professional board-game art.` : txt;
-      const created = await createAsset.mutateAsync({ projectId, data: { name: txt.slice(0, 60), kind: "other", description: `Custom — ${txt}`.slice(0, 240), flavorText: "Custom" } });
-      refresh();
-      const ok = await generateImageDirect(created.id, fullPrompt);
-      refresh();
-      if (ok) { toast({ title: "Asset generated" }); setFreeformPrompt(""); }
-      else toast({ title: "Image generation failed", variant: "destructive" });
+      for (let i = 0; i < count; i++) {
+        const suffix = count > 1 ? ` #${i + 1}` : "";
+        const created = await createAsset.mutateAsync({ projectId, data: { name: (txt.slice(0, 58) + suffix).slice(0, 60), kind: "other", description: `Custom — ${txt}`.slice(0, 240), flavorText: "Custom" } });
+        refresh();
+        const ok = await generateImageDirect(created.id, fullPrompt);
+        if (ok) succeeded++;
+        refresh();
+        if (count > 1) setGenQueue({ done: i + 1, total: count });
+      }
+      toast({ title: count === 1 ? (succeeded ? "Asset generated" : "Image failed — asset created") : `Generated ${succeeded}/${count} assets` });
+      if (succeeded > 0) setFreeformPrompt("");
     } catch (err) {
       toast({ title: "Generation failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
       setGeneratingFreeform(false);
+      setGenQueue(null);
     }
   };
 
@@ -579,6 +591,16 @@ function AssetsView({
     toast({ title: `Generated images for ${done} asset${done === 1 ? "" : "s"}` });
   };
 
+  // Fixed section order for grouped gallery
+  const GALLERY_SECTIONS: { kind: string; label: string }[] = [
+    { kind: "card",     label: "Cards" },
+    { kind: "token",    label: "Tokens" },
+    { kind: "tile",     label: "Tiles" },
+    { kind: "board",    label: "Boards" },
+    { kind: "rulebook", label: "Rulebooks" },
+    { kind: "other",    label: "Other" },
+  ];
+
   // Group assets by kind when groupByType is on
   const groupedAssets = useMemo(() => {
     if (!groupByType || !assets?.length) return null;
@@ -611,6 +633,20 @@ function AssetsView({
                 className="pl-9 bg-input"
               />
             </div>
+            {/* Count selector 1–10 */}
+            <div className="flex items-center gap-1 shrink-0">
+              <label className="text-xs text-muted-foreground sr-only">Count</label>
+              <Select value={String(genCount)} onValueChange={(v) => setGenCount(Number(v))}>
+                <SelectTrigger className="h-10 w-16 text-xs font-mono" data-testid="gen-count">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                    <SelectItem key={n} value={String(n)} className="text-xs font-mono">×{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               onClick={generateFromFreeform}
               disabled={!freeformPrompt.trim() || generatingFreeform}
@@ -621,6 +657,21 @@ function AssetsView({
               Generate
             </Button>
           </div>
+          {/* Generation queue progress */}
+          {genQueue && (
+            <div className="flex items-center gap-3 py-1">
+              <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-primary font-medium">Generating components…</span>
+                  <span className="text-muted-foreground">{genQueue.done} / {genQueue.total}</span>
+                </div>
+                <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary transition-all duration-300" style={{ width: `${(genQueue.done / genQueue.total) * 100}%` }} />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick-generate tiles */}
           <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
@@ -740,7 +791,7 @@ function AssetsView({
               Generate missing images
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setShowAddForm((v) => !v)} className="gap-1.5 text-xs" data-testid="add-asset-button">
+          <Button variant="outline" size="sm" onClick={() => { setAddFormKind("card"); setShowAddForm((v) => !v); }} className="gap-1.5 text-xs" data-testid="add-asset-button">
             <Plus className="h-3.5 w-3.5" /> Manual asset
           </Button>
         </div>
@@ -750,6 +801,7 @@ function AssetsView({
         <AssetForm
           projectId={projectId}
           entities={entities ?? []}
+          initial={{ kind: addFormKind }}
           onSave={async (data) => {
             await createAsset.mutateAsync({ projectId, data });
             refresh(); setShowAddForm(false);
@@ -819,47 +871,50 @@ function AssetsView({
           </div>
         </div>
       ) : groupedAssets ? (
-        /* Grouped by type */
+        /* Grouped by type — fixed section order */
         <div className="space-y-6">
-          {Array.from(groupedAssets.entries()).map(([kind, kindAssets]) => (
-            <div key={kind}>
-              <div className="flex items-center gap-2 mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{kind}</h3>
-                <Badge variant="outline" className="text-[10px]">{kindAssets.length}</Badge>
-                <button
-                  onClick={() => { setShowAddForm(true); }}
-                  className="ml-auto text-[10px] text-primary hover:underline flex items-center gap-0.5"
-                >
-                  <Plus className="h-2.5 w-2.5" /> Add {kind}
-                </button>
+          {GALLERY_SECTIONS.filter((sec) => groupedAssets.has(sec.kind)).map((sec) => {
+            const kindAssets = groupedAssets.get(sec.kind)!;
+            return (
+              <div key={sec.kind}>
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{sec.label}</h3>
+                  <Badge variant="outline" className="text-[10px]">{kindAssets.length}</Badge>
+                  <button
+                    onClick={() => { setAddFormKind(sec.kind); setShowAddForm(true); }}
+                    className="ml-auto text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                  >
+                    <Plus className="h-2.5 w-2.5" /> Add {sec.label.slice(0, -1)}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {kindAssets.map((a) => (
+                    <AssetCard
+                      key={a.id}
+                      asset={a}
+                      entities={entities ?? []}
+                      projectId={projectId}
+                      isGenerating={generating === a.id}
+                      onGenerateImage={() => openImagePrompt(a.id)}
+                      onInspect={() => setInspectorAssetId(a.id)}
+                      onDownload={() => {
+                        if (!a.imageDataUrl) return;
+                        const link = document.createElement("a");
+                        link.href = a.imageDataUrl;
+                        link.download = `${a.name.replace(/[^a-z0-9]+/gi, "_")}.png`;
+                        link.click();
+                      }}
+                      onDelete={async () => { await deleteAsset.mutateAsync({ projectId, assetId: a.id }); refresh(); }}
+                      onUpdated={refresh}
+                      fetchEnhance={() => enhanceAsset.mutateAsync({ projectId, assetId: a.id })}
+                      applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
+                      onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {kindAssets.map((a) => (
-                  <AssetCard
-                    key={a.id}
-                    asset={a}
-                    entities={entities ?? []}
-                    projectId={projectId}
-                    isGenerating={generating === a.id}
-                    onGenerateImage={() => openImagePrompt(a.id)}
-                    onInspect={() => setInspectorAssetId(a.id)}
-                    onDownload={() => {
-                      if (!a.imageDataUrl) return;
-                      const link = document.createElement("a");
-                      link.href = a.imageDataUrl;
-                      link.download = `${a.name.replace(/[^a-z0-9]+/gi, "_")}.png`;
-                      link.click();
-                    }}
-                    onDelete={async () => { await deleteAsset.mutateAsync({ projectId, assetId: a.id }); refresh(); }}
-                    onUpdated={refresh}
-                    fetchEnhance={() => enhanceAsset.mutateAsync({ projectId, assetId: a.id })}
-                    applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
-                    onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         /* Flat grid */
@@ -902,7 +957,7 @@ function AssetsView({
               entities={entities ?? []}
               projectId={projectId}
               isGenerating={generating === inspectorAsset.id}
-              onGenerateImage={() => openImagePrompt(inspectorAsset.id)}
+              onGenerateImage={(prompt) => generateImage(inspectorAsset.id, prompt)}
               onDownload={() => {
                 if (!inspectorAsset.imageDataUrl) return;
                 const link = document.createElement("a");
@@ -1521,7 +1576,7 @@ function ComponentInspector({
   entities: Entity[];
   projectId: number;
   isGenerating: boolean;
-  onGenerateImage: () => void;
+  onGenerateImage: (prompt: string) => void;
   onDownload: () => void;
   onDelete: () => Promise<void>;
   onUpdated: () => void;
@@ -1549,8 +1604,6 @@ function ComponentInspector({
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [showCardPreview, setShowCardPreview] = useState(false);
-
-  const linkedEntity = entities.find((e) => e.id === asset.entityId);
 
   const saveField = async (patch: Partial<Parameters<typeof updateAsset.mutateAsync>[0]["data"]>) => {
     setSaving(true);
@@ -1674,7 +1727,7 @@ function ComponentInspector({
             />
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="ghost" className="text-xs" onClick={() => setImagePromptOpen(false)}>Cancel</Button>
-              <Button size="sm" className="gap-1.5 text-xs" onClick={() => { onGenerateImage(); setImagePromptOpen(false); }} disabled={!imagePrompt.trim()}>
+              <Button size="sm" className="gap-1.5 text-xs" onClick={() => { onGenerateImage(imagePrompt); setImagePromptOpen(false); }} disabled={!imagePrompt.trim()}>
                 <Sparkles className="h-3 w-3" /> Generate
               </Button>
             </div>
