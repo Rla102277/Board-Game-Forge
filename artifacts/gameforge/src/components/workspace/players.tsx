@@ -194,7 +194,6 @@ export function Players({ projectId }: PlayersProps) {
 
   // ── Drag state
   const [draggedId, setDraggedId] = useState<number | null>(null);
-  const [dragOverId, setDragOverId] = useState<number | null>(null);
   // dropTargetId + insertBefore: where the insertion line should appear
   const [dropTargetId, setDropTargetId] = useState<number | null>(null);
   const [insertBefore, setInsertBefore] = useState<boolean>(true);
@@ -331,13 +330,12 @@ export function Players({ projectId }: PlayersProps) {
   const handleDragStart = (id: number) => { setDraggedId(id); document.body.style.cursor = "grabbing"; };
   const handleDragOver = (e: React.DragEvent, id: number) => {
     e.preventDefault();
-    setDragOverId(id);
     setDropTargetId(id);
     // Determine whether to insert before or after based on cursor position in the row
     const rect = e.currentTarget.getBoundingClientRect();
     setInsertBefore(e.clientY < rect.top + rect.height / 2);
   };
-  const clearDragState = () => { setDraggedId(null); setDragOverId(null); setDropTargetId(null); setInsertBefore(true); };
+  const clearDragState = () => { setDraggedId(null); setDropTargetId(null); setInsertBefore(true); };
   const handleDrop = (targetId: number, type: PlayerType) => {
     document.body.style.cursor = "";
     if (!draggedId || draggedId === targetId) { clearDragState(); return; }
