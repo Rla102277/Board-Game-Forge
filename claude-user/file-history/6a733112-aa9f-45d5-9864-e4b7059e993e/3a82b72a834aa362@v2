@@ -7,11 +7,9 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Search, Trash2, ExternalLink, Edit2, Tag, Sparkles, Loader2, X,
-  Lightbulb, Compass, StickyNote, TrendingUp, MessageCircle,
-  Zap, ChevronRight, Heart, AlertCircle, CheckCircle2, ChevronDown, ChevronUp,
-  Users, Clock, BarChart2, FileText,
+  BookOpen, Lightbulb, Compass, StickyNote, Star, TrendingUp, MessageCircle,
+  Zap, ChevronRight, Heart, AlertCircle,
 } from "lucide-react";
-import { apiBase } from "@/lib/workspaces-api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,26 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 /* ── types ───────────────────────────────────────────────────────────── */
 
-type GameData = {
-  overview?: string;
-  coreLoop?: string;
-  keyMechanics?: string[];
-  playerCount?: string;
-  playTime?: string;
-  complexity?: string;
-  designStrengths?: string[];
-  designWeaknesses?: string[];
-  designLessons?: string;
-  tags?: string;
-};
-
-type RefGame = {
-  name: string;
-  borrowing: string;
-  avoiding: string;
-  researchId?: number;
-  gameData?: GameData;
-};
+type RefGame = { name: string; borrowing: string; avoiding: string };
 
 interface CompGame {
   id: string;
@@ -93,195 +72,12 @@ const COMPLEXITY_LABELS: Record<number, string> = { 1: "Pick up & play", 2: "Eas
 
 /* ── sub-components ──────────────────────────────────────────────────── */
 
-function GameCard({
-  game,
-  onRemove,
-  onResearch,
-  researching,
-}: {
-  game: RefGame;
-  onRemove: () => void;
-  onResearch: () => void;
-  researching: boolean;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const hasData = Boolean(game.gameData);
-
-  return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden group">
-      {/* Header row */}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <p className="font-bold text-base leading-tight truncate">{game.name}</p>
-            {hasData && (
-              <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded">
-                <CheckCircle2 className="h-2.5 w-2.5" /> Researched
-              </span>
-            )}
-          </div>
-          <button
-            onClick={onRemove}
-            className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity p-0.5"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {/* Stats row (only when researched) */}
-        {hasData && game.gameData && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {game.gameData.playerCount && (
-              <span className="inline-flex items-center gap-1 text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                <Users className="h-2.5 w-2.5" /> {game.gameData.playerCount}
-              </span>
-            )}
-            {game.gameData.playTime && (
-              <span className="inline-flex items-center gap-1 text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                <Clock className="h-2.5 w-2.5" /> {game.gameData.playTime}
-              </span>
-            )}
-            {game.gameData.complexity && (
-              <span className="inline-flex items-center gap-1 text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                <BarChart2 className="h-2.5 w-2.5" /> {game.gameData.complexity}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Overview snippet */}
-        {hasData && game.gameData?.overview && (
-          <p className="text-xs text-muted-foreground leading-relaxed mb-3 line-clamp-2">
-            {game.gameData.overview}
-          </p>
-        )}
-
-        {/* Borrowing / avoiding always visible */}
-        <div className="space-y-1.5">
-          {game.borrowing && (
-            <p className="text-xs">
-              <span className="text-emerald-400 font-semibold">Borrowing: </span>
-              <span className="text-muted-foreground">{game.borrowing}</span>
-            </p>
-          )}
-          {game.avoiding && (
-            <p className="text-xs">
-              <span className="text-amber-400 font-semibold">Doing differently: </span>
-              <span className="text-muted-foreground">{game.avoiding}</span>
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Action / expand footer */}
-      <div className="border-t border-border px-4 py-2.5 flex items-center gap-2">
-        {!hasData ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 text-xs h-7 border-primary/30 hover:bg-primary/10"
-            onClick={onResearch}
-            disabled={researching}
-          >
-            {researching ? (
-              <><Loader2 className="h-3 w-3 animate-spin" /> Looking it up…</>
-            ) : (
-              <><Sparkles className="h-3 w-3 text-primary" /> Research with AI</>
-            )}
-          </Button>
-        ) : (
-          <button
-            onClick={() => setExpanded((e) => !e)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            {expanded ? "Hide breakdown" : "Show full breakdown"}
-          </button>
-        )}
-        {game.researchId && (
-          <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-            <FileText className="h-3 w-3" /> Saved to notes
-          </span>
-        )}
-      </div>
-
-      {/* Expanded breakdown */}
-      {expanded && hasData && game.gameData && (
-        <div className="border-t border-border bg-muted/20 px-4 py-4 space-y-4">
-          {game.gameData.overview && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-1">Overview</p>
-              <p className="text-sm leading-relaxed">{game.gameData.overview}</p>
-            </div>
-          )}
-
-          {game.gameData.coreLoop && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-1">How it plays</p>
-              <p className="text-sm leading-relaxed text-muted-foreground">{game.gameData.coreLoop}</p>
-            </div>
-          )}
-
-          {game.gameData.keyMechanics?.length ? (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">Key mechanics</p>
-              <div className="flex flex-wrap gap-1.5">
-                {game.gameData.keyMechanics.map((m, i) => (
-                  <span key={i} className="text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded-full">{m}</span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {game.gameData.designStrengths?.length ? (
-              <div>
-                <p className="text-[10px] uppercase tracking-wider font-semibold text-emerald-400 mb-1.5">What makes it great</p>
-                <ul className="space-y-1">
-                  {game.gameData.designStrengths.map((s, i) => (
-                    <li key={i} className="text-xs text-muted-foreground flex gap-1.5">
-                      <span className="text-emerald-400 shrink-0 mt-0.5">✓</span>{s}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            {game.gameData.designWeaknesses?.length ? (
-              <div>
-                <p className="text-[10px] uppercase tracking-wider font-semibold text-amber-400 mb-1.5">Watch out for</p>
-                <ul className="space-y-1">
-                  {game.gameData.designWeaknesses.map((w, i) => (
-                    <li key={i} className="text-xs text-muted-foreground flex gap-1.5">
-                      <span className="text-amber-400 shrink-0 mt-0.5">!</span>{w}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-
-          {game.gameData.designLessons && (
-            <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-primary mb-1">Designer takeaway</p>
-              <p className="text-sm leading-relaxed">{game.gameData.designLessons}</p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function InspirationShelf({ projectId }: { projectId: number }) {
   const { data: project } = useGetProject(projectId);
   const updateProject = useUpdateProject();
-  const qc = useQueryClient();
-  const { toast } = useToast();
   const [refGames, setRefGames] = useState<RefGame[]>([]);
   const [draft, setDraft] = useState<RefGame>({ name: "", borrowing: "", avoiding: "" });
   const [showForm, setShowForm] = useState(false);
-  const [lookingUp, setLookingUp] = useState<number | null>(null);
   const initRef = useRef(false);
 
   useEffect(() => {
@@ -305,32 +101,6 @@ function InspirationShelf({ projectId }: { projectId: number }) {
 
   const removeGame = (i: number) => persist(refGames.filter((_, j) => j !== i));
 
-  const lookUpGame = async (i: number) => {
-    const game = refGames[i];
-    if (!game) return;
-    setLookingUp(i);
-    try {
-      const res = await fetch(`${apiBase()}/api/projects/${projectId}/research/game-lookup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ gameName: game.name, borrowing: game.borrowing, avoiding: game.avoiding }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const { research, gameData } = await res.json() as { research: { id: number }; gameData: GameData };
-      const next = refGames.map((g, j) =>
-        j === i ? { ...g, researchId: research.id, gameData } : g
-      );
-      persist(next);
-      qc.invalidateQueries({ queryKey: getListResearchQueryKey(projectId) });
-      toast({ title: `${game.name} researched`, description: "Full breakdown saved to your notes." });
-    } catch (err) {
-      toast({ title: "Lookup failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
-    } finally {
-      setLookingUp(null);
-    }
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -339,47 +109,63 @@ function InspirationShelf({ projectId }: { projectId: number }) {
             <Heart className="h-4 w-4 text-rose-400" /> Games that shaped your vision
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Add a game, then hit <span className="text-primary font-medium">Research with AI</span> — it'll pull a full design breakdown and save it to your notes.
+            What are you drawing from — and what are you doing differently?
           </p>
         </div>
         {!showForm && (
-          <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => setShowForm(true)}>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowForm(true)}>
             <Plus className="h-3.5 w-3.5" /> Add a game
           </Button>
         )}
       </div>
 
       {refGames.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {refGames.map((rg, i) => (
-            <GameCard
-              key={i}
-              game={rg}
-              onRemove={() => removeGame(i)}
-              onResearch={() => lookUpGame(i)}
-              researching={lookingUp === i}
-            />
+            <div key={i} className="group rounded-xl border border-border bg-card p-4 relative">
+              <button
+                onClick={() => removeGame(i)}
+                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+              <p className="font-semibold text-sm mb-2">{rg.name}</p>
+              {rg.borrowing && (
+                <p className="text-xs text-muted-foreground mb-1">
+                  <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
+                    <ChevronRight className="h-3 w-3" /> Stealing the best part:
+                  </span>{" "}
+                  {rg.borrowing}
+                </p>
+              )}
+              {rg.avoiding && (
+                <p className="text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 text-amber-400 font-medium">
+                    <AlertCircle className="h-3 w-3" /> Doing it differently:
+                  </span>{" "}
+                  {rg.avoiding}
+                </p>
+              )}
+            </div>
           ))}
         </div>
       )}
 
       {showForm && (
         <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add a reference game</p>
           <Input
-            placeholder="Game name (e.g. Wingspan, Catan, Dominion…)"
+            placeholder="Game name (e.g. Wingspan, Catan…)"
             value={draft.name}
             onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
             autoFocus
-            onKeyDown={(e) => e.key === "Enter" && addGame()}
           />
           <Input
-            placeholder="What's the best part you want to borrow? (optional)"
+            placeholder="What's the best part you want to borrow?"
             value={draft.borrowing}
             onChange={(e) => setDraft((d) => ({ ...d, borrowing: e.target.value }))}
           />
           <Input
-            placeholder="What would you do differently? (optional)"
+            placeholder="What would you do differently?"
             value={draft.avoiding}
             onChange={(e) => setDraft((d) => ({ ...d, avoiding: e.target.value }))}
           />
