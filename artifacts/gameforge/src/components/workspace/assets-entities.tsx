@@ -15,7 +15,7 @@ import {
   Plus, Trash2, ImageIcon, Edit2, Sparkles, Download, Loader2, Wand2, Save, BookOpen,
   Layers, Square, Circle, Dice5, User, Map as MapIcon, Package, Tag, Check, X, RefreshCw,
   ChevronDown, ChevronRight, Settings, Pencil, Copy, FileText, Activity, Eye, TableIcon,
-  GitBranch,
+  GitBranch, Zap, LayoutGrid, Library, Images,
 } from "lucide-react";
 import { buildLinks, CoverageGaps, EntityGraph, ComponentBrowser, PropertyDictionary, RuleEntityLinks } from "./component-graph";
 import { ComponentLibraryView } from "./component-library";
@@ -31,6 +31,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import {
   PHYSICAL_TYPES, WORLD_TYPES, ALL_COMPONENT_TYPES, COMPONENT_META, COMPONENT_SUBTYPES,
@@ -201,11 +203,18 @@ export function AssetsEntities({
   const { data: project } = useGetProject(projectId);
   const updateProject = useUpdateProject();
 
-  const [activeView, setActiveView] = useState<"workshop" | "graph" | "library" | "assets" | "manifest">("workshop");
   const [narrative, setNarrative] = useState("");
   const [narrativeDirty, setNarrativeDirty] = useState(false);
   const [savingNarrative, setSavingNarrative] = useState(false);
   const [gammaDialog, setGammaDialog] = useState<{ title: string; prompt: string } | null>(null);
+
+  // Advanced drawer state
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedTab, setAdvancedTab] = useState<"graph" | "library">("graph");
+
+  // Collapsible sections
+  const [workshopOpen, setWorkshopOpen] = useState(true);
+  const [manifestOpen, setManifestOpen] = useState(false);
 
   useEffect(() => {
     if (project && !narrativeDirty) setNarrative(project.narrative ?? "");
@@ -246,124 +255,172 @@ export function AssetsEntities({
     toast({ title: "Sent to AI Chat", description: "Open the chat panel to review and send." });
   };
 
-  const jumpToView = (tab: string) => {
-    if (["workshop", "graph", "library", "assets", "manifest"].includes(tab)) {
-      setActiveView(tab as "workshop" | "graph" | "library" | "assets" | "manifest");
-    }
-  };
-
   return (
     <div className="space-y-5 max-w-6xl">
-      <div>
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Layers className="h-6 w-6 text-primary" /> Workshop
-        </h2>
-        <p className="text-xs text-muted-foreground mt-1">
-          Build and analyze your game components — workshop, graph analysis, type library, digital assets, and component manifest
-        </p>
-      </div>
-
-      {/* Narrative seed */}
-      <Card className="bg-card border-card-border">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-primary" />
-            <Label className="font-semibold">Narrative seed</Label>
-            <span className="text-xs text-muted-foreground">— woven into every asset and component generation</span>
-          </div>
-          <Textarea
-            rows={3}
-            placeholder="A storm-wracked archipelago where rival cartels of weather-shapers race to claim drifting sky-islands…"
-            value={narrative}
-            onChange={(e) => { setNarrative(e.target.value); setNarrativeDirty(true); }}
-          />
-          <div className="flex justify-end">
-            <Button size="sm" onClick={saveNarrative} disabled={!narrativeDirty || savingNarrative} className="gap-2">
-              {savingNarrative ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              {savingNarrative ? "Saving…" : narrativeDirty ? "Save narrative" : "Saved"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* View switcher */}
-      <div className="flex gap-1 p-1 bg-muted/30 rounded-lg border border-border w-fit flex-wrap">
-        {([
-          { id: "workshop",  label: "Workshop",  icon: <Layers className="h-3.5 w-3.5" /> },
-          { id: "graph",     label: "Graph",     icon: <GitBranch className="h-3.5 w-3.5" /> },
-          { id: "library",   label: "Library",   icon: <BookOpen className="h-3.5 w-3.5" /> },
-          { id: "assets",    label: "Assets",    icon: <ImageIcon className="h-3.5 w-3.5" /> },
-          { id: "manifest",  label: "Manifest",  icon: <Package className="h-3.5 w-3.5" /> },
-        ] as const).map((v) => (
-          <button
-            key={v.id}
-            onClick={() => setActiveView(v.id)}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-              activeView === v.id
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {v.icon} {v.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      {activeView === "workshop" ? (
-        <EntitiesView
-          projectId={projectId}
-          narrative={narrative}
-          projectName={project?.name ?? "Untitled"}
-          onGamma={openGamma}
-        />
-      ) : activeView === "graph" ? (
-        <div className="space-y-6 pb-8">
-          <CoverageGaps
-            entities={allEntities ?? []}
-            rules={allRules ?? []}
-            links={links}
-            onJump={jumpToView}
-          />
-          <EntityGraph
-            entities={allEntities ?? []}
-            links={links}
-            onJump={jumpToView}
-          />
-          <ComponentBrowser
-            entities={allEntities ?? []}
-            links={links}
-            propsByEntity={propsByEntity}
-            onJump={jumpToView}
-          />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <PropertyDictionary
-              entities={allEntities ?? []}
-              properties={allProperties ?? []}
-            />
-            <RuleEntityLinks
-              rules={allRules ?? []}
-              entities={allEntities ?? []}
-              links={links}
-            />
-          </div>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Layers className="h-6 w-6 text-primary" /> Component Studio
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Design, generate, and manage every component in your game
+          </p>
         </div>
-      ) : activeView === "library" ? (
-        <ComponentLibraryView />
-      ) : activeView === "assets" ? (
-        <AssetsView
-          projectId={projectId}
-          narrative={narrative}
-          projectName={project?.name ?? "Untitled"}
-          projectDescription={project?.description ?? ""}
-          onGamma={openGamma}
-        />
-      ) : (
-        <ComponentBOM
-          projectId={projectId}
-          projectName={project?.name ?? "Untitled"}
-        />
-      )}
+        <div className="flex gap-1.5 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => { setAdvancedTab("graph"); setAdvancedOpen(true); }}
+          >
+            <GitBranch className="h-3.5 w-3.5" /> Graph
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => { setAdvancedTab("library"); setAdvancedOpen(true); }}
+          >
+            <Library className="h-3.5 w-3.5" /> Library
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Zone 1 & 2: Generation Bar + Component Gallery (Assets) ── */}
+      <AssetsView
+        projectId={projectId}
+        narrative={narrative}
+        setNarrative={setNarrative}
+        setNarrativeDirty={setNarrativeDirty}
+        narrativeDirty={narrativeDirty}
+        savingNarrative={savingNarrative}
+        onSaveNarrative={saveNarrative}
+        projectName={project?.name ?? "Untitled"}
+        projectDescription={project?.description ?? ""}
+        onGamma={openGamma}
+      />
+
+      {/* ── Workshop section (entities) ── collapsible ── */}
+      <Collapsible open={workshopOpen} onOpenChange={setWorkshopOpen}>
+        <div className="flex items-center gap-2 border border-border rounded-lg px-4 py-3 bg-card">
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 flex-1 text-left">
+              {workshopOpen
+                ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+              <Layers className="h-4 w-4 text-primary shrink-0" />
+              <span className="font-semibold text-sm">Component Workshop</span>
+              <span className="text-xs text-muted-foreground ml-1">— design entities, manage cards, dice & tiles</span>
+            </button>
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent>
+          <div className="mt-3">
+            <EntitiesView
+              projectId={projectId}
+              narrative={narrative}
+              projectName={project?.name ?? "Untitled"}
+              onGamma={openGamma}
+            />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* ── Manifest accordion ── */}
+      <Collapsible open={manifestOpen} onOpenChange={setManifestOpen}>
+        <div className="flex items-center gap-2 border border-border rounded-lg px-4 py-3 bg-card">
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 flex-1 text-left">
+              {manifestOpen
+                ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+              <Package className="h-4 w-4 text-primary shrink-0" />
+              <span className="font-semibold text-sm">Manifest (Bill of Materials)</span>
+              <span className="text-xs text-muted-foreground ml-1">— component totals and printable list</span>
+            </button>
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent>
+          <div className="mt-3">
+            <ComponentBOM
+              projectId={projectId}
+              projectName={project?.name ?? "Untitled"}
+            />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* ── Advanced drawer (Graph + Library) ── */}
+      <Sheet open={advancedOpen} onOpenChange={setAdvancedOpen}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-3xl overflow-y-auto bg-background border-l border-border p-0"
+        >
+          <div className="sticky top-0 z-10 bg-background border-b border-border px-6 py-4 flex items-center gap-3">
+            <SheetHeader className="flex-1 space-y-0">
+              <SheetTitle className="text-base font-semibold flex items-center gap-2">
+                <Settings className="h-4 w-4 text-primary" /> Advanced Views
+              </SheetTitle>
+            </SheetHeader>
+            <div className="flex gap-1 p-1 bg-muted/30 rounded-md border border-border">
+              <button
+                onClick={() => setAdvancedTab("graph")}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  advancedTab === "graph" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <GitBranch className="h-3 w-3" /> Graph
+              </button>
+              <button
+                onClick={() => setAdvancedTab("library")}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  advancedTab === "library" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <BookOpen className="h-3 w-3" /> Library
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {advancedTab === "graph" ? (
+              <div className="space-y-6 pb-8">
+                <CoverageGaps
+                  entities={allEntities ?? []}
+                  rules={allRules ?? []}
+                  links={links}
+                  onJump={() => setAdvancedOpen(false)}
+                />
+                <EntityGraph
+                  entities={allEntities ?? []}
+                  links={links}
+                  onJump={() => setAdvancedOpen(false)}
+                />
+                <ComponentBrowser
+                  entities={allEntities ?? []}
+                  links={links}
+                  propsByEntity={propsByEntity}
+                  onJump={() => setAdvancedOpen(false)}
+                />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <PropertyDictionary
+                    entities={allEntities ?? []}
+                    properties={allProperties ?? []}
+                  />
+                  <RuleEntityLinks
+                    rules={allRules ?? []}
+                    entities={allEntities ?? []}
+                    links={links}
+                  />
+                </div>
+              </div>
+            ) : (
+              <ComponentLibraryView />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {gammaDialog && (
         <GammaDialog
@@ -378,13 +435,19 @@ export function AssetsEntities({
   );
 }
 
-// ── Assets view ───────────────────────────────────────────────────────────────
+// ── Assets view (Component Studio — Generation Bar + Gallery + Inspector) ─────
 
 function AssetsView({
-  projectId, narrative, projectName, projectDescription, onGamma,
+  projectId, narrative, setNarrative, setNarrativeDirty, narrativeDirty,
+  savingNarrative, onSaveNarrative, projectName, projectDescription, onGamma,
 }: {
   projectId: number;
   narrative: string;
+  setNarrative: (v: string) => void;
+  setNarrativeDirty: (v: boolean) => void;
+  narrativeDirty: boolean;
+  savingNarrative: boolean;
+  onSaveNarrative: () => void;
   projectName: string;
   projectDescription: string;
   onGamma: (title: string, prompt: string) => void;
@@ -405,6 +468,13 @@ function AssetsView({
   const [imagePromptId, setImagePromptId] = useState<number | null>(null);
   const [imagePrompt, setImagePrompt] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [narrativeOpen, setNarrativeOpen] = useState(false);
+  const [groupByType, setGroupByType] = useState(false);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  // Inspector sheet
+  const [inspectorAssetId, setInspectorAssetId] = useState<number | null>(null);
+  const inspectorAsset = assets?.find((a) => a.id === inspectorAssetId) ?? null;
 
   const refresh = () => qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
 
@@ -434,7 +504,8 @@ function AssetsView({
 
   const generateFromTile = async (tile: ComponentKind) => {
     if (!narrative.trim() && !projectDescription) {
-      toast({ title: "Add a narrative first", variant: "destructive" });
+      toast({ title: "Add a narrative first", description: "Open the context panel and write a story seed.", variant: "destructive" });
+      setNarrativeOpen(true);
       return;
     }
     setGeneratingTile(tile.id);
@@ -490,15 +561,189 @@ function AssetsView({
     setImagePromptId(id);
   };
 
+  const bulkGenerateImages = async () => {
+    const missing = (assets ?? []).filter((a) => !a.imageDataUrl);
+    if (!missing.length) { toast({ title: "All assets already have images" }); return; }
+    setBulkGenerating(true);
+    setBulkProgress({ done: 0, total: missing.length });
+    let done = 0;
+    for (const a of missing) {
+      const prompt = a.imagePrompt || `${a.name} ${a.description || ""}`.trim();
+      try { await generateImageDirect(a.id, prompt); refresh(); } catch { /* continue */ }
+      done++;
+      setBulkProgress({ done, total: missing.length });
+    }
+    setBulkGenerating(false);
+    setBulkProgress(null);
+    refresh();
+    toast({ title: `Generated images for ${done} asset${done === 1 ? "" : "s"}` });
+  };
+
+  // Group assets by kind when groupByType is on
+  const groupedAssets = useMemo(() => {
+    if (!groupByType || !assets?.length) return null;
+    const map = new Map<string, Asset[]>();
+    for (const a of assets) {
+      const k = a.kind ?? "other";
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(a);
+    }
+    return map;
+  }, [assets, groupByType]);
+
+  const missingImageCount = (assets ?? []).filter((a) => !a.imageDataUrl).length;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          {assets?.length ?? 0} assets · click <span className="text-primary font-medium">AI</span> on any card to enhance text · <span className="text-primary font-medium">Gamma</span> to generate a PDF
-        </p>
-        <Button variant="outline" size="sm" onClick={() => setShowAddForm((v) => !v)} className="gap-1.5">
-          <Plus className="h-3.5 w-3.5" /> Manual asset
-        </Button>
+    <div className="space-y-4">
+      {/* ── Zone 1: Generation Bar ── */}
+      <Card className="bg-card border-primary/20">
+        <CardContent className="p-4 space-y-3">
+          {/* Freeform prompt bar */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Zap className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-primary" />
+              <Input
+                data-testid="freeform-prompt"
+                placeholder="Describe a component to generate… e.g. 'Ancient storm-shard relic with weathered runes'"
+                value={freeformPrompt}
+                onChange={(e) => setFreeformPrompt(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !generatingFreeform) generateFromFreeform(); }}
+                className="pl-9 bg-input"
+              />
+            </div>
+            <Button
+              onClick={generateFromFreeform}
+              disabled={!freeformPrompt.trim() || generatingFreeform}
+              data-testid="generate-freeform"
+              className="gap-1.5 shrink-0"
+            >
+              {generatingFreeform ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Generate
+            </Button>
+          </div>
+
+          {/* Quick-generate tiles */}
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+            {COMPONENT_KINDS.map((tile) => {
+              const Icon = tile.icon;
+              const busy = generatingTile === tile.id;
+              return (
+                <button
+                  key={tile.id}
+                  onClick={() => generateFromTile(tile)}
+                  disabled={busy || !!generatingTile || generatingFreeform}
+                  data-testid={`tile-${tile.id}`}
+                  className="group flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-border bg-muted/20 hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={tile.label}
+                >
+                  {busy
+                    ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                    : <Icon className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />}
+                  <span className="text-[10px] font-medium leading-tight text-center">{tile.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Narrative seed — collapsible context panel */}
+          <Collapsible open={narrativeOpen} onOpenChange={setNarrativeOpen}>
+            <CollapsibleTrigger asChild>
+              <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                {narrativeOpen
+                  ? <ChevronDown className="h-3.5 w-3.5" />
+                  : <ChevronRight className="h-3.5 w-3.5" />}
+                <BookOpen className="h-3.5 w-3.5 text-primary" />
+                <span className="font-medium">Context / Narrative seed</span>
+                {narrative.trim()
+                  ? <span className="text-primary ml-1">· set</span>
+                  : <span className="text-muted-foreground/60 ml-1">· not set — AI will use generic prompts</span>}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 space-y-2">
+                <Textarea
+                  data-testid="narrative-seed"
+                  rows={3}
+                  placeholder="A storm-wracked archipelago where rival cartels of weather-shapers race to claim drifting sky-islands…"
+                  value={narrative}
+                  onChange={(e) => { setNarrative(e.target.value); setNarrativeDirty(true); }}
+                  className="bg-input text-sm resize-none"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    onClick={onSaveNarrative}
+                    disabled={!narrativeDirty || savingNarrative}
+                    data-testid="save-narrative"
+                    className="gap-1.5 h-7 text-xs"
+                  >
+                    {savingNarrative ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                    {savingNarrative ? "Saving…" : narrativeDirty ? "Save" : "Saved"}
+                  </Button>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </CardContent>
+      </Card>
+
+      {/* Bulk generation progress bar */}
+      {bulkProgress && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-lg">
+          <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-primary font-medium">Generating images…</span>
+              <span className="text-muted-foreground">{bulkProgress.done} / {bulkProgress.total}</span>
+            </div>
+            <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-300"
+                style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Zone 2: Component Gallery ── */}
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{assets?.length ?? 0}</span> components
+            {missingImageCount > 0 && (
+              <span className="ml-2 text-muted-foreground/70">· {missingImageCount} without image</span>
+            )}
+          </p>
+          <button
+            onClick={() => setGroupByType((v) => !v)}
+            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              groupByType
+                ? "bg-primary/10 border-primary/30 text-primary"
+                : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <LayoutGrid className="h-3 w-3" /> Group by type
+          </button>
+        </div>
+        <div className="flex gap-1.5">
+          {missingImageCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={bulkGenerateImages}
+              disabled={bulkGenerating}
+            >
+              {bulkGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Images className="h-3.5 w-3.5" />}
+              Generate missing images
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setShowAddForm((v) => !v)} className="gap-1.5 text-xs" data-testid="add-asset-button">
+            <Plus className="h-3.5 w-3.5" /> Manual asset
+          </Button>
+        </div>
       </div>
 
       {showAddForm && (
@@ -515,7 +760,7 @@ function AssetsView({
       )}
 
       {imagePromptId !== null && (
-        <Card className="bg-card border-primary/40">
+        <Card className="bg-card border-primary/40" data-testid="image-prompt-panel">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="font-semibold text-sm">Generate image</p>
@@ -534,55 +779,90 @@ function AssetsView({
         </Card>
       )}
 
-      {/* Quick-generate tiles */}
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Quick generate</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {COMPONENT_KINDS.map((tile) => {
-            const Icon = tile.icon;
-            const busy = generatingTile === tile.id;
-            return (
-              <button
-                key={tile.id}
-                onClick={() => generateFromTile(tile)}
-                disabled={busy || !!generatingTile}
-                className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {busy ? <Loader2 className="h-5 w-5 text-primary animate-spin" /> : <Icon className="h-5 w-5 text-primary" />}
-                <span className="text-xs font-medium">{tile.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Freeform */}
-      <Card className="bg-card border-card-border">
-        <CardContent className="p-3">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Describe a custom component…"
-              value={freeformPrompt}
-              onChange={(e) => setFreeformPrompt(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !generatingFreeform) generateFromFreeform(); }}
-            />
-            <Button onClick={generateFromFreeform} disabled={!freeformPrompt.trim() || generatingFreeform} className="gap-1.5 shrink-0">
-              {generatingFreeform ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />} Generate
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Asset grid */}
+      {/* Gallery: loading / empty / grouped / flat */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-80" />)}
+          {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-80" />)}
         </div>
       ) : !assets?.length ? (
-        <div className="text-center py-12 border border-dashed border-border rounded-xl">
-          <p className="text-muted-foreground text-sm">No assets yet — pick a type above to get started.</p>
+        /* Empty state */
+        <div className="py-10 border border-dashed border-border rounded-xl space-y-6">
+          <div className="text-center space-y-2">
+            <ImageIcon className="h-10 w-10 text-muted-foreground opacity-20 mx-auto" />
+            <p className="text-base font-semibold text-foreground/80">What's in your game?</p>
+            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+              Pick a component below to instantly generate AI art for it — or type a description above.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-lg mx-auto px-4">
+            {[
+              { id: "card", label: "Card Deck", kind: "card", icon: Layers, promptHint: "a standard illustrated card deck with a frame and title bar" },
+              { id: "tile", label: "Tile Set", kind: "tile", icon: Square, promptHint: "a set of hex terrain tiles with a patterned back face" },
+              { id: "token", label: "Token Set", kind: "token", icon: Circle, promptHint: "a collection of small round player tokens with unique icons" },
+              { id: "board", label: "Game Board", kind: "board", icon: MapIcon, promptHint: "a top-down game board with zones, regions and iconography" },
+            ].map((tile) => {
+              const Icon = tile.icon;
+              const busy = generatingTile === tile.id;
+              return (
+                <button
+                  key={tile.id}
+                  onClick={() => generateFromTile(tile)}
+                  disabled={busy || !!generatingTile}
+                  className="flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-border bg-card hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50"
+                >
+                  {busy ? <Loader2 className="h-7 w-7 text-primary animate-spin" /> : <Icon className="h-7 w-7 text-primary" />}
+                  <span className="text-sm font-medium">{tile.label}</span>
+                  <span className="text-[10px] text-muted-foreground text-center">One-click generate</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : groupedAssets ? (
+        /* Grouped by type */
+        <div className="space-y-6">
+          {Array.from(groupedAssets.entries()).map(([kind, kindAssets]) => (
+            <div key={kind}>
+              <div className="flex items-center gap-2 mb-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{kind}</h3>
+                <Badge variant="outline" className="text-[10px]">{kindAssets.length}</Badge>
+                <button
+                  onClick={() => { setShowAddForm(true); }}
+                  className="ml-auto text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                >
+                  <Plus className="h-2.5 w-2.5" /> Add {kind}
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {kindAssets.map((a) => (
+                  <AssetCard
+                    key={a.id}
+                    asset={a}
+                    entities={entities ?? []}
+                    projectId={projectId}
+                    isGenerating={generating === a.id}
+                    onGenerateImage={() => openImagePrompt(a.id)}
+                    onInspect={() => setInspectorAssetId(a.id)}
+                    onDownload={() => {
+                      if (!a.imageDataUrl) return;
+                      const link = document.createElement("a");
+                      link.href = a.imageDataUrl;
+                      link.download = `${a.name.replace(/[^a-z0-9]+/gi, "_")}.png`;
+                      link.click();
+                    }}
+                    onDelete={async () => { await deleteAsset.mutateAsync({ projectId, assetId: a.id }); refresh(); }}
+                    onUpdated={refresh}
+                    fetchEnhance={() => enhanceAsset.mutateAsync({ projectId, assetId: a.id })}
+                    applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
+                    onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
+        /* Flat grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {assets.map((a) => (
             <AssetCard
@@ -592,6 +872,7 @@ function AssetsView({
               projectId={projectId}
               isGenerating={generating === a.id}
               onGenerateImage={() => openImagePrompt(a.id)}
+              onInspect={() => setInspectorAssetId(a.id)}
               onDownload={() => {
                 if (!a.imageDataUrl) return;
                 const link = document.createElement("a");
@@ -599,25 +880,53 @@ function AssetsView({
                 link.download = `${a.name.replace(/[^a-z0-9]+/gi, "_")}.png`;
                 link.click();
               }}
-              onDelete={async () => {
-                await deleteAsset.mutateAsync({ projectId, assetId: a.id }); refresh();
-              }}
+              onDelete={async () => { await deleteAsset.mutateAsync({ projectId, assetId: a.id }); refresh(); }}
               onUpdated={refresh}
               fetchEnhance={() => enhanceAsset.mutateAsync({ projectId, assetId: a.id })}
-              applyEnhance={async (fields) => {
-                await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields });
-                refresh();
-              }}
-              onGamma={() =>
-                onGamma(
-                  `Asset PDF — ${a.name}`,
-                  buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative),
-                )
-              }
+              applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
+              onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
             />
           ))}
         </div>
       )}
+
+      {/* ── Zone 3: Component Inspector slide-in sheet ── */}
+      <Sheet open={inspectorAssetId !== null} onOpenChange={(v) => { if (!v) setInspectorAssetId(null); }}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-lg overflow-y-auto bg-background border-l border-border p-0"
+        >
+          {inspectorAsset && (
+            <ComponentInspector
+              asset={inspectorAsset}
+              entities={entities ?? []}
+              projectId={projectId}
+              isGenerating={generating === inspectorAsset.id}
+              onGenerateImage={() => openImagePrompt(inspectorAsset.id)}
+              onDownload={() => {
+                if (!inspectorAsset.imageDataUrl) return;
+                const link = document.createElement("a");
+                link.href = inspectorAsset.imageDataUrl;
+                link.download = `${inspectorAsset.name.replace(/[^a-z0-9]+/gi, "_")}.png`;
+                link.click();
+              }}
+              onDelete={async () => {
+                await deleteAsset.mutateAsync({ projectId, assetId: inspectorAsset.id });
+                setInspectorAssetId(null);
+                refresh();
+              }}
+              onUpdated={refresh}
+              fetchEnhance={() => enhanceAsset.mutateAsync({ projectId, assetId: inspectorAsset.id })}
+              applyEnhance={async (fields) => {
+                await updateAsset.mutateAsync({ projectId, assetId: inspectorAsset.id, data: fields });
+                refresh();
+              }}
+              onGamma={() => onGamma(`Asset PDF — ${inspectorAsset.name}`, buildAssetPrompt(inspectorAsset, entities?.find((e) => e.id === inspectorAsset.entityId), projectName, narrative))}
+              onClose={() => setInspectorAssetId(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -917,7 +1226,7 @@ function CardPreviewDialog({ asset, onClose }: { asset: Asset; onClose: () => vo
 
 function AssetCard({
   asset, entities, projectId, isGenerating,
-  onGenerateImage, onDownload, onDelete, onUpdated, fetchEnhance, applyEnhance, onGamma,
+  onGenerateImage, onDownload, onDelete, onUpdated, fetchEnhance, applyEnhance, onGamma, onInspect,
 }: {
   asset: Asset;
   entities: Entity[];
@@ -930,6 +1239,7 @@ function AssetCard({
   fetchEnhance: () => Promise<AssetEnhanceSuggestion>;
   applyEnhance: (fields: Partial<{ name: string; description: string; flavorText: string }>) => Promise<void>;
   onGamma: () => void;
+  onInspect?: () => void;
 }) {
   const { toast } = useToast();
   const updateAsset = useUpdateAsset();
@@ -1012,13 +1322,24 @@ function AssetCard({
 
   return (
     <Card className="bg-card border-card-border overflow-hidden flex flex-col group">
-      {/* Image area */}
-      <div className="aspect-square bg-muted/30 relative">
+      {/* Image area — click to open inspector */}
+      <div
+        className={`aspect-square bg-muted/30 relative ${onInspect ? "cursor-pointer" : ""}`}
+        onClick={onInspect}
+      >
         {asset.imageDataUrl ? (
           <img src={asset.imageDataUrl} alt={asset.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <ImageIcon className="h-12 w-12 text-muted-foreground opacity-20" />
+          </div>
+        )}
+        {/* Hover overlay — "Open Inspector" */}
+        {onInspect && (
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <span className="text-white text-xs font-semibold bg-black/60 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+              <Eye className="h-3 w-3" /> Open inspector
+            </span>
           </div>
         )}
         <span className="absolute top-2 left-2 text-[10px] uppercase font-bold bg-black/60 text-white px-2 py-0.5 rounded">
@@ -1187,6 +1508,314 @@ function AssetCard({
         </div>
       )}
     </Card>
+  );
+}
+
+// ── Component Inspector (slide-in sheet panel) ────────────────────────────────
+
+function ComponentInspector({
+  asset, entities, projectId, isGenerating,
+  onGenerateImage, onDownload, onDelete, onUpdated, fetchEnhance, applyEnhance, onGamma, onClose,
+}: {
+  asset: Asset;
+  entities: Entity[];
+  projectId: number;
+  isGenerating: boolean;
+  onGenerateImage: () => void;
+  onDownload: () => void;
+  onDelete: () => Promise<void>;
+  onUpdated: () => void;
+  fetchEnhance: () => Promise<AssetEnhanceSuggestion>;
+  applyEnhance: (fields: Partial<{ name: string; description: string; flavorText: string }>) => Promise<void>;
+  onGamma: () => void;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const updateAsset = useUpdateAsset();
+  const qc = useQueryClient();
+  const [editForm, setEditForm] = useState({
+    name: asset.name, kind: asset.kind, description: asset.description ?? "",
+    flavorText: asset.flavorText ?? "", entityId: asset.entityId ? String(asset.entityId) : "",
+    quantity: asset.quantity ?? 1, status: asset.status ?? "draft",
+    componentDetails: asset.componentDetails ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [imagePromptOpen, setImagePromptOpen] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState(asset.imagePrompt || "");
+  const [showEnhance, setShowEnhance] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [suggestion, setSuggestion] = useState<AssetEnhanceSuggestion | null>(null);
+  const [picked, setPicked] = useState({ name: true, description: true, flavorText: true });
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [showCardPreview, setShowCardPreview] = useState(false);
+
+  const linkedEntity = entities.find((e) => e.id === asset.entityId);
+
+  const saveField = async (patch: Partial<Parameters<typeof updateAsset.mutateAsync>[0]["data"]>) => {
+    setSaving(true);
+    try {
+      await updateAsset.mutateAsync({ projectId, assetId: asset.id, data: patch });
+      qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
+      onUpdated();
+    } catch (err) {
+      toast({ title: "Save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveAll = async () => {
+    await saveField({
+      name: editForm.name, kind: editForm.kind, description: editForm.description,
+      flavorText: editForm.flavorText, quantity: editForm.quantity, status: editForm.status,
+      componentDetails: editForm.componentDetails || undefined,
+      ...(editForm.entityId ? { entityId: parseInt(editForm.entityId) } : { entityId: undefined }),
+    });
+    toast({ title: "Component saved" });
+  };
+
+  const runEnhance = async () => {
+    setIsEnhancing(true); setSuggestion(null); setApplied(false); setShowEnhance(true);
+    try {
+      const data = await fetchEnhance();
+      setSuggestion(data);
+      setPicked({
+        name: !!data.name && data.name !== asset.name,
+        description: !!data.description && data.description !== (asset.description ?? ""),
+        flavorText: !!data.flavorText && data.flavorText !== (asset.flavorText ?? ""),
+      });
+    } catch (err) {
+      toast({ title: "AI enhance failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      setShowEnhance(false);
+    } finally { setIsEnhancing(false); }
+  };
+
+  const handleApply = async () => {
+    if (!suggestion) return;
+    const fields: Partial<{ name: string; description: string; flavorText: string }> = {};
+    if (picked.name && suggestion.name) fields.name = suggestion.name;
+    if (picked.description && suggestion.description) fields.description = suggestion.description;
+    if (picked.flavorText && suggestion.flavorText) fields.flavorText = suggestion.flavorText;
+    if (!Object.keys(fields).length) { toast({ title: "Pick at least one field", variant: "destructive" }); return; }
+    setApplying(true);
+    try {
+      await applyEnhance(fields);
+      if (fields.name) setEditForm((f) => ({ ...f, name: fields.name! }));
+      if (fields.description) setEditForm((f) => ({ ...f, description: fields.description! }));
+      if (fields.flavorText) setEditForm((f) => ({ ...f, flavorText: fields.flavorText! }));
+      setApplied(true);
+      toast({ title: "Enhancement applied" });
+      setTimeout(() => { setShowEnhance(false); setSuggestion(null); setApplied(false); }, 1200);
+    } catch (err) {
+      toast({ title: "Apply failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally { setApplying(false); }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-background border-b border-border px-5 py-4 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <SheetTitle className="text-base font-semibold truncate">{asset.name}</SheetTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            <span className="uppercase font-mono">{asset.kind}</span>
+            {asset.status && <span className={`ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${getStatusMeta(asset.status).color}`}>{getStatusMeta(asset.status).label}</span>}
+          </p>
+        </div>
+        <div className="flex gap-1 shrink-0">
+          <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs text-muted-foreground hover:text-primary" onClick={runEnhance} disabled={isEnhancing}>
+            {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />} AI
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs text-muted-foreground hover:text-primary" onClick={onGamma}>
+            <FileText className="h-3 w-3" /> Gamma
+          </Button>
+          {asset.kind === "card" && (
+            <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs text-muted-foreground hover:text-primary" onClick={() => setShowCardPreview(true)}>
+              <Eye className="h-3 w-3" /> Preview
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        {/* Image */}
+        <div className="aspect-video bg-muted/30 rounded-lg overflow-hidden relative">
+          {asset.imageDataUrl ? (
+            <img src={asset.imageDataUrl} alt={asset.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+              <ImageIcon className="h-10 w-10 opacity-20" />
+              <p className="text-xs opacity-60">No image yet</p>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-xs" onClick={() => setImagePromptOpen((v) => !v)} disabled={isGenerating}>
+            <Sparkles className="h-3 w-3" /> {isGenerating ? "Generating…" : asset.imageDataUrl ? "Regen image" : "Generate image"}
+          </Button>
+          {asset.imageDataUrl && (
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={onDownload}>
+              <Download className="h-3 w-3" /> Download
+            </Button>
+          )}
+        </div>
+
+        {imagePromptOpen && (
+          <div className="space-y-2 p-3 bg-muted/10 rounded-lg border border-border">
+            <Label className="text-xs font-semibold">Image prompt</Label>
+            <Textarea
+              rows={3}
+              value={imagePrompt}
+              onChange={(e) => setImagePrompt(e.target.value)}
+              placeholder="A fantasy card with runes and glowing edges…"
+              className="text-xs resize-none"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" className="text-xs" onClick={() => setImagePromptOpen(false)}>Cancel</Button>
+              <Button size="sm" className="gap-1.5 text-xs" onClick={() => { onGenerateImage(); setImagePromptOpen(false); }} disabled={!imagePrompt.trim()}>
+                <Sparkles className="h-3 w-3" /> Generate
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Metadata fields */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Details</p>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Name</Label>
+            <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} onBlur={() => saveField({ name: editForm.name })} className="h-8 text-sm" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Kind</Label>
+              <Select value={editForm.kind} onValueChange={(v) => { setEditForm((f) => ({ ...f, kind: v })); saveField({ kind: v }); }}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{ASSET_KINDS.map((k) => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Status</Label>
+              <Select value={editForm.status} onValueChange={(v) => { setEditForm((f) => ({ ...f, status: v })); saveField({ status: v }); }}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{STATUS_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Quantity</Label>
+              <input
+                type="number" min={1} max={9999} value={editForm.quantity}
+                onChange={(e) => setEditForm((f) => ({ ...f, quantity: Math.max(1, parseInt(e.target.value) || 1) }))}
+                onBlur={() => saveField({ quantity: editForm.quantity })}
+                className="w-full h-8 rounded-md border border-input bg-input px-3 text-sm font-mono"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Linked Entity</Label>
+              <Select value={editForm.entityId || "none"} onValueChange={(v) => { const val = v === "none" ? "" : v; setEditForm((f) => ({ ...f, entityId: val })); saveField({ entityId: val ? parseInt(val) : undefined }); }}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="None" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {entities.map((e) => <SelectItem key={e.id} value={String(e.id)}>{getMeta(e.type).icon} {e.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Description</Label>
+            <Textarea
+              rows={3}
+              value={editForm.description}
+              onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+              onBlur={() => saveField({ description: editForm.description })}
+              placeholder="What does this component do in the game?"
+              className="text-xs resize-none"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Flavor text / Lore</Label>
+            <Textarea
+              rows={2}
+              value={editForm.flavorText}
+              onChange={(e) => setEditForm((f) => ({ ...f, flavorText: e.target.value }))}
+              onBlur={() => saveField({ flavorText: editForm.flavorText })}
+              placeholder="A vivid in-world quote or tag…"
+              className="text-xs resize-none italic"
+            />
+          </div>
+
+          <ComponentDetailsEditor
+            kind={editForm.kind}
+            value={editForm.componentDetails}
+            onChange={(v) => setEditForm((f) => ({ ...f, componentDetails: v }))}
+          />
+        </div>
+
+        {/* AI Enhance */}
+        {showEnhance && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <p className="text-xs font-semibold text-primary flex-1">AI Enhancement</p>
+              <button onClick={() => { setShowEnhance(false); setSuggestion(null); }} className="text-muted-foreground hover:text-white">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {isEnhancing && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> Rewriting copy…
+              </div>
+            )}
+            {suggestion && !isEnhancing && (
+              <div className="space-y-2">
+                <SuggestionField label="Name" current={asset.name} proposed={suggestion.name} checked={picked.name} onToggle={() => setPicked((p) => ({ ...p, name: !p.name }))} />
+                <SuggestionField label="Description" current={asset.description ?? ""} proposed={suggestion.description} checked={picked.description} onToggle={() => setPicked((p) => ({ ...p, description: !p.description }))} />
+                <SuggestionField label="Flavor text" current={asset.flavorText ?? ""} proposed={suggestion.flavorText} checked={picked.flavorText} onToggle={() => setPicked((p) => ({ ...p, flavorText: !p.flavorText }))} />
+                <div className="flex gap-1.5 pt-1 flex-wrap">
+                  <Button size="sm" className="h-7 text-xs gap-1" onClick={handleApply} disabled={applying || applied}>
+                    {applied ? <><Check className="h-3 w-3" /> Applied!</> : applying ? <><Loader2 className="h-3 w-3 animate-spin" /> Applying…</> : <><Wand2 className="h-3 w-3" /> Apply</>}
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={runEnhance} disabled={isEnhancing}>
+                    <RefreshCw className="h-3 w-3" /> Retry
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs ml-auto" onClick={() => { setShowEnhance(false); setSuggestion(null); }}>Dismiss</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="border-t border-border px-5 py-3 flex items-center gap-2">
+        <Button size="sm" className="gap-1.5 flex-1 text-xs" onClick={saveAll} disabled={saving}>
+          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          {saving ? "Saving…" : "Save all"}
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={runEnhance} disabled={isEnhancing}>
+          <Wand2 className="h-3 w-3" /> AI Enhance
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="gap-1.5 text-xs text-destructive hover:bg-destructive/10"
+          onClick={async () => { if (confirm(`Delete "${asset.name}"?`)) { await onDelete(); onClose(); } }}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+
+      {showCardPreview && <CardPreviewDialog asset={asset} onClose={() => setShowCardPreview(false)} />}
+    </div>
   );
 }
 
