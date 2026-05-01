@@ -1,4 +1,5 @@
 {
   "skipDangerousModePermissionPrompt": true,
-  "theme": "dark"
+  "theme": "dark",
+  "effortLevel": "medium"
 }

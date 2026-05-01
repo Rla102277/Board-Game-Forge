@@ -217,7 +217,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       case "research": return (
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
-            <Research projectId={projectId} onPromptSend={setChatPrompt} />
+            <Research projectId={projectId} />
           </Suspense>
         </ErrorBoundary>
       );

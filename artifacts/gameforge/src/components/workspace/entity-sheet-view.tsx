@@ -463,10 +463,10 @@ export function EntitySheetView({ projectId, entities, projectName, onRefresh }:
                                         <td className="px-1 py-0.5"><CellText entityId={card.id} field="name" value={card.name} /></td>
                                         <td className="px-1 py-0.5">
                                           <Select
-                                            value={card.subtype ?? ""}
+                                            value={card.subtype ?? "__none__"}
                                             onValueChange={async v => {
                                               try {
-                                                await updateEntity.mutateAsync({ projectId, entityId: card.id, data: { subtype: v || undefined } });
+                                                await updateEntity.mutateAsync({ projectId, entityId: card.id, data: { subtype: v === "__none__" ? undefined : v } });
                                                 onRefresh();
                                               } catch { toast({ title: "Update failed", variant: "destructive" }); }
                                             }}
@@ -475,7 +475,7 @@ export function EntitySheetView({ projectId, entities, projectName, onRefresh }:
                                               <SelectValue placeholder="—" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                              <SelectItem value="">—</SelectItem>
+                                              <SelectItem value="__none__">—</SelectItem>
                                               {(COMPONENT_SUBTYPES["Card"] ?? []).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                                             </SelectContent>
                                           </Select>

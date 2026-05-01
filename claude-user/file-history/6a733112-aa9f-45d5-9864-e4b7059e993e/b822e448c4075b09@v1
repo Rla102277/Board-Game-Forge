@@ -1,20 +1,17 @@
 import { useParams, Link } from "wouter";
 import { useState, useMemo, lazy, Suspense } from "react";
-import { useGetProject, useGetProjectStats, useDeleteProject, useUpdateProject, getListProjectsQueryKey } from "@workspace/api-client-react";
+import { useGetProject, useGetProjectStats, useDeleteProject, getListProjectsQueryKey } from "@workspace/api-client-react";
 import { useUser, useClerk } from "@clerk/react";
 import {
   Layout, Users, FileText, CheckSquare, ChevronLeft, Gamepad2, Activity, MoreVertical, Trash2,
   BookOpen, Network, Dice5, ImageIcon, MapPin, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
-  MessageSquare, History, Share2, Clock, BarChart3, EyeOff, Grid3X3, TrendingUp, ChevronRight, Pencil,
+  MessageSquare, History, Share2, Clock, BarChart3, EyeOff, Grid3X3, TrendingUp, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useQueryClient } from "@tanstack/react-query";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -128,14 +125,11 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
   const { data: project, isLoading: projectLoading } = useGetProject(projectId);
   const { data: stats } = useGetProjectStats(projectId);
   const deleteProject = useDeleteProject();
-  const updateProject = useUpdateProject();
 
   const [activeSection, setActiveSection] = useState<string>("overview");
   const [chatPrompt, setChatPrompt] = useState<string | undefined>();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
-  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
-  const [renameValue, setRenameValue] = useState("");
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(NAV_GROUPS.map(g => [g.label, g.defaultOpen]))
   );
@@ -152,7 +146,6 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
     escape: () => {
       setIsDeleteDialogOpen(false);
       setIsShareDialogOpen(false);
-      setIsRenameDialogOpen(false);
     },
     nav1: () => setActiveSection("overview"),
     nav2: () => setActiveSection("research"),
@@ -181,18 +174,6 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
     window.location.href = import.meta.env.BASE_URL;
   };
 
-  const openRenameDialog = () => {
-    setRenameValue(project?.name ?? "");
-    setIsRenameDialogOpen(true);
-  };
-
-  const handleRenameProject = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!renameValue.trim()) return;
-    updateProject.mutate({ projectId, data: { name: renameValue.trim() } });
-    setIsRenameDialogOpen(false);
-  };
-
   const getSectionCount = (key: string | null): number | null => {
     if (!key || !stats) return null;
     const v = (stats as unknown as Record<string, unknown>)[key];
@@ -217,7 +198,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       case "research": return (
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
-            <Research projectId={projectId} onPromptSend={setChatPrompt} />
+            <Research projectId={projectId} />
           </Suspense>
         </ErrorBoundary>
       );
@@ -424,9 +405,6 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={openRenameDialog}>
-                  <Pencil className="h-4 w-4 mr-2" /> Rename
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)}>
                   <Share2 className="h-4 w-4 mr-2" /> Share
                 </DropdownMenuItem>
@@ -538,27 +516,6 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
         projectId={projectId}
         projectName={project.name}
       />
-
-      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Rename project</DialogTitle></DialogHeader>
-          <form onSubmit={handleRenameProject} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="rename-project-name">Project name</Label>
-              <Input
-                id="rename-project-name"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsRenameDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={!renameValue.trim()}>Rename</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

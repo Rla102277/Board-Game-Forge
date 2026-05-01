@@ -4,7 +4,7 @@ import { useUser, useClerk } from "@clerk/react";
 import {
   Gamepad2, Plus, Sparkles, ArrowRight, Users, ChevronDown,
   LogOut, Shield, User as UserIcon, Folder, Crown, Trash2,
-  Loader2, Wand2, GraduationCap, BookOpen, MessageSquare, Trophy, Pencil,
+  Loader2, Wand2, GraduationCap, BookOpen, MessageSquare, Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -85,8 +85,6 @@ export default function WorkspaceHome() {
   const [membersOpen, setMembersOpen] = useState(false);
   const [aiProvidersOpen, setAiProvidersOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
-  const [renameWsOpen, setRenameWsOpen] = useState(false);
-  const [renameWsName, setRenameWsName] = useState("");
 
   const slug = params?.workspaceSlug;
 
@@ -182,23 +180,6 @@ export default function WorkspaceHome() {
     }
   };
 
-  const openRenameWs = () => {
-    setRenameWsName(ws?.name ?? "");
-    setRenameWsOpen(true);
-  };
-
-  const renameWorkspace = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!renameWsName.trim()) return;
-    try {
-      await workspacesApi.rename(slug, renameWsName.trim());
-      setRenameWsOpen(false);
-      await Promise.all([reloadWorkspaces(), reloadDetail()]);
-    } catch (err) {
-      toast({ title: "Rename failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
-    }
-  };
-
   const deleteProject = async () => {
     if (!confirmDelete) return;
     try {
@@ -244,9 +225,6 @@ export default function WorkspaceHome() {
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={openRenameWs} data-testid="rename-workspace-button">
-                  <Pencil className="h-4 w-4 mr-2" /> Rename workspace
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setNewWsOpen(true)} data-testid="new-workspace-button">
                   <Plus className="h-4 w-4 mr-2" /> New workspace
                 </DropdownMenuItem>
@@ -503,22 +481,6 @@ export default function WorkspaceHome() {
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setNewWsOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={!newWsName.trim()} data-testid="create-workspace-submit">Create</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={renameWsOpen} onOpenChange={setRenameWsOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Rename workspace</DialogTitle></DialogHeader>
-          <form onSubmit={renameWorkspace} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="rename-ws-name">Workspace name</Label>
-              <Input id="rename-ws-name" value={renameWsName} onChange={(e) => setRenameWsName(e.target.value)} autoFocus data-testid="rename-ws-name" />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setRenameWsOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={!renameWsName.trim()} data-testid="rename-workspace-submit">Rename</Button>
             </DialogFooter>
           </form>
         </DialogContent>
