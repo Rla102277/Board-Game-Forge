@@ -127,7 +127,7 @@ function DraggableGameCard({
   onRemove: () => void;
   onResearch: () => void;
   onReResearch: () => void;
-  onReverseEngineer: () => void;
+  onReverseEngineer: (gameId: string) => void;
   researching: boolean;
   canReverseEngineer: boolean;
 }) {
@@ -280,9 +280,9 @@ function DraggableGameCard({
               <Button
                 size="sm" variant="outline"
                 className="gap-1.5 text-xs h-7 border-violet-500/30 text-violet-400 hover:bg-violet-500/10 ml-auto"
-                onClick={onReverseEngineer}
+                onClick={() => onReverseEngineer(game.id)}
               >
-                <Wand2 className="h-3 w-3" /> Reverse engineer
+                <Wand2 className="h-3 w-3" /> Clone game
               </Button>
             )}
           </>
@@ -604,6 +604,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
   const [showForm, setShowForm] = useState(false);
   const [lookingUp, setLookingUp] = useState<string | null>(null);
   const [showReverseDialog, setShowReverseDialog] = useState(false);
+  const [preselectedGameId, setPreselectedGameId] = useState<string | null>(null);
   const initRef = useRef(false);
 
   useEffect(() => {
@@ -678,10 +679,10 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
               size="sm"
               variant="outline"
               className="gap-1.5 shrink-0 border-violet-500/30 text-violet-400 hover:bg-violet-500/10"
-              onClick={() => setShowReverseDialog(true)}
+              onClick={() => { setPreselectedGameId(null); setShowReverseDialog(true); }}
             >
               <Wand2 className="h-3.5 w-3.5" />
-              Reverse engineer all
+              Clone all as new project
             </Button>
           )}
           {!showForm && (
@@ -736,7 +737,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
               onRemove={() => removeGame(rg.id)}
               onResearch={() => lookUpGame(rg.id)}
               onReResearch={() => lookUpGame(rg.id, true)}
-              onReverseEngineer={() => setShowReverseDialog(true)}
+              onReverseEngineer={(gid) => { setPreselectedGameId(gid); setShowReverseDialog(true); }}
               researching={lookingUp === rg.id}
               canReverseEngineer={Boolean(workspaceSlug && rg.gameData)}
             />

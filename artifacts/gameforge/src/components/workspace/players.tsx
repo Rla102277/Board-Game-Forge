@@ -192,12 +192,11 @@ export function Players({ projectId }: PlayersProps) {
               <div className="w-44 space-y-2 shrink-0">
                 <Label>Type</Label>
                 <Select value={formData.playerType} onValueChange={(v) => setFormData({ ...formData, playerType: v as PlayerType })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select type…" /></SelectTrigger>
                   <SelectContent>
-                    {PLAYER_TYPES.map((t) => {
-                      const m = getTypeMeta(t);
-                      return <SelectItem key={t} value={t}>{m.icon} {t}</SelectItem>;
-                    })}
+                    {PLAYER_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

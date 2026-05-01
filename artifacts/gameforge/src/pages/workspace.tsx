@@ -57,7 +57,6 @@ const NAV_GROUPS = [
     items: [
       { id: "overview",       label: "Overview",        icon: Layout,       statKey: null,             shortcut: "1" },
       { id: "research",       label: "Research",         icon: BookOpen,     statKey: "researchCount",  shortcut: "2" },
-      { id: "players",        label: "Players",          icon: Users,        statKey: "playerCount",    shortcut: "3" },
     ],
   },
   {
@@ -65,6 +64,7 @@ const NAV_GROUPS = [
     defaultOpen: true,
     items: [
       { id: "assets-entities", label: "Components",     icon: ImageIcon,    statKey: "assetCount",     shortcut: "4" },
+      { id: "players",        label: "Players",          icon: Users,        statKey: "playerCount",    shortcut: "3" },
     ],
   },
   {
