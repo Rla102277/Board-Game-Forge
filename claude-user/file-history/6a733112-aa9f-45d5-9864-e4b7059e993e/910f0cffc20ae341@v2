@@ -1,0 +1,331 @@
+import { Router, type IRouter } from "express";
+import { and, eq, desc } from "drizzle-orm";
+import { db, researchItems } from "@workspace/db";
+import { schemas } from "@workspace/api-zod";
+import { complete, tryParseJsonArray, tryParseJsonObject } from "../lib/aiRouter";
+import { logChange } from "../lib/changelog";
+
+const router: IRouter = Router();
+
+router.get("/projects/:projectId/research", async (req, res): Promise<void> => {
+  const params = schemas.ListResearchParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(researchItems)
+    .where(eq(researchItems.projectId, params.data.projectId))
+    .orderBy(desc(researchItems.createdAt));
+  res.json(schemas.ListResearchResponse.parse(rows));
+});
+
+router.post("/projects/:projectId/research", async (req, res): Promise<void> => {
+  const params = schemas.CreateResearchParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = schemas.CreateResearchBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [row] = await db
+    .insert(researchItems)
+    .values({ ...parsed.data, projectId: params.data.projectId })
+    .returning();
+  await logChange(req, params.data.projectId, "create", `Added research: ${row!.title}`, {
+    entityKind: "research",
+    entityRef: String(row!.id),
+  });
+  res.status(201).json(row);
+});
+
+router.patch(
+  "/projects/:projectId/research/:researchId",
+  async (req, res): Promise<void> => {
+    const params = schemas.UpdateResearchParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.UpdateResearchBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [row] = await db
+      .update(researchItems)
+      .set(parsed.data)
+      .where(
+        and(
+          eq(researchItems.id, params.data.researchId),
+          eq(researchItems.projectId, params.data.projectId),
+        ),
+      )
+      .returning();
+    if (!row) {
+      res.status(404).json({ error: "Research not found" });
+      return;
+    }
+    res.json(schemas.UpdateResearchResponse.parse(row));
+  },
+);
+
+router.delete(
+  "/projects/:projectId/research/:researchId",
+  async (req, res): Promise<void> => {
+    const params = schemas.DeleteResearchParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    await db
+      .delete(researchItems)
+      .where(
+        and(
+          eq(researchItems.id, params.data.researchId),
+          eq(researchItems.projectId, params.data.projectId),
+        ),
+      );
+    res.sendStatus(204);
+  },
+);
+
+router.post(
+  "/projects/:projectId/research/ai-generate",
+  async (req, res): Promise<void> => {
+    const params = schemas.AiGenerateResearchParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.AiGenerateResearchBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const count = parsed.data.count ?? 4;
+    try {
+      const text = await complete(req, {
+        prompt: `You are a tabletop game designer's research assistant. Produce ${count} research notes that would help a designer working on this brief: "${parsed.data.prompt}".
+
+Return ONLY a JSON array (no prose, no code fences):
+[{"title":"...","content":"...","tags":"..."}]
+- title <= 70 chars.
+- content is 2-4 sentences of substantive insight (mechanics, themes, comps, history).
+- tags is a comma-separated list of 2-4 short tags.
+Output JUST the JSON array.`,
+        maxTokens: 2048,
+      });
+      const generated = tryParseJsonArray<{ title?: string; content?: string; tags?: string }>(text);
+      if (generated.length === 0) {
+        res.status(502).json({ error: "AI returned no items" });
+        return;
+      }
+      const inserted = await db
+        .insert(researchItems)
+        .values(
+          generated.slice(0, count).map((r) => ({
+            projectId: params.data.projectId,
+            title: String(r.title ?? "Untitled"),
+            content: r.content ? String(r.content) : null,
+            tags: r.tags ? String(r.tags) : null,
+            source: "AI",
+          })),
+        )
+        .returning();
+      res.json(inserted);
+    } catch (err) {
+      req.log.error({ err }, "ai-generate-research failed");
+      res.status(500).json({ error: "AI generation failed" });
+    }
+  },
+);
+
+router.post(
+  "/projects/:projectId/research/:researchId/enhance",
+  async (req, res): Promise<void> => {
+    const params = schemas.AiEnhanceResearchParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [r] = await db
+      .select()
+      .from(researchItems)
+      .where(
+        and(
+          eq(researchItems.id, params.data.researchId),
+          eq(researchItems.projectId, params.data.projectId),
+        ),
+      );
+    if (!r) {
+      res.status(404).json({ error: "Research item not found" });
+      return;
+    }
+    try {
+      const text = await complete(req, {
+        prompt: `Expand this research note for a tabletop game designer. Add concrete examples, comparable games, and a one-line takeaway. Tighten language; keep it punchy.
+
+Existing item:
+title: ${r.title}
+tags: ${r.tags ?? ""}
+content: ${r.content ?? ""}
+
+Return ONLY a JSON object: {"title":"...","content":"...","tags":"..."}.
+- title under 80 chars.
+- content can use markdown, 3-6 short paragraphs / bullets max.
+- tags is a comma-separated list of 2-5 short tags.
+Output JUST the JSON object.`,
+        maxTokens: 1100,
+      });
+      const obj = tryParseJsonObject<{ title?: string; content?: string; tags?: string }>(text);
+      const update: Record<string, string> = {};
+      if (obj?.title) update.title = String(obj.title);
+      if (obj?.content) update.content = String(obj.content);
+      if (obj?.tags) update.tags = String(obj.tags);
+      if (Object.keys(update).length === 0) {
+        res.status(502).json({ error: "AI returned no usable content" });
+        return;
+      }
+      const [updated] = await db
+        .update(researchItems)
+        .set(update)
+        .where(eq(researchItems.id, r.id))
+        .returning();
+      res.json(updated);
+    } catch (err) {
+      req.log.error({ err }, "enhance research failed");
+      res.status(500).json({ error: "Enhance failed" });
+    }
+  },
+);
+
+router.post(
+  "/projects/:projectId/research/game-lookup",
+  async (req, res): Promise<void> => {
+    const params = schemas.CreateResearchParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const { gameName, borrowing, avoiding } = req.body as {
+      gameName?: string;
+      borrowing?: string;
+      avoiding?: string;
+    };
+    if (!gameName?.trim()) {
+      res.status(400).json({ error: "gameName is required" });
+      return;
+    }
+    try {
+      const contextParts = [
+        borrowing ? `The designer wants to borrow: ${borrowing}` : null,
+        avoiding ? `They want to avoid: ${avoiding}` : null,
+      ].filter(Boolean).join(". ");
+
+      const text = await complete(req, {
+        system: "You are an expert tabletop game designer and analyst. Return only valid JSON — no prose, no markdown fences.",
+        prompt: `Write a thorough design breakdown of the board game "${gameName}" for a game designer using it as a reference.${contextParts ? ` Context: ${contextParts}.` : ""}
+
+Return exactly this JSON shape:
+{
+  "overview": "2-3 sentences: what is this game and where does it sit in the hobby?",
+  "coreLoop": "1-2 sentences: what does a player actually DO on their turn?",
+  "keyMechanics": ["mechanic 1", "mechanic 2", "mechanic 3"],
+  "playerCount": "e.g. 2-5 players",
+  "playTime": "e.g. 60-90 min",
+  "complexity": "e.g. Medium (2.8/5)",
+  "designStrengths": ["strength 1", "strength 2", "strength 3"],
+  "designWeaknesses": ["weakness 1", "weakness 2"],
+  "designLessons": "2-3 sentences on what a designer can steal or learn from this game",
+  "tags": "comma-separated short tags e.g. strategy, worker-placement, resource-management"
+}`,
+        maxTokens: 1400,
+        preferFast: true,
+      });
+
+      type GameData = {
+        overview?: string;
+        coreLoop?: string;
+        keyMechanics?: string[];
+        playerCount?: string;
+        playTime?: string;
+        complexity?: string;
+        designStrengths?: string[];
+        designWeaknesses?: string[];
+        designLessons?: string;
+        tags?: string;
+      };
+      const data = tryParseJsonObject<GameData>(text);
+      if (!data) {
+        res.status(502).json({ error: "AI returned no usable content" });
+        return;
+      }
+
+      const md: string[] = [
+        `## ${gameName}`,
+        "",
+        data.overview ?? "",
+        "",
+        [
+          data.playerCount ? `**Players:** ${data.playerCount}` : null,
+          data.playTime ? `**Time:** ${data.playTime}` : null,
+          data.complexity ? `**Complexity:** ${data.complexity}` : null,
+        ].filter(Boolean).join("  ·  "),
+        "",
+        "### How it plays",
+        data.coreLoop ?? "",
+        "",
+      ];
+      if (data.keyMechanics?.length) {
+        md.push("### Key mechanics");
+        data.keyMechanics.forEach((m) => md.push(`- ${m}`));
+        md.push("");
+      }
+      if (data.designStrengths?.length) {
+        md.push("### What makes it great");
+        data.designStrengths.forEach((s) => md.push(`- ${s}`));
+        md.push("");
+      }
+      if (data.designWeaknesses?.length) {
+        md.push("### Watch out for");
+        data.designWeaknesses.forEach((w) => md.push(`- ${w}`));
+        md.push("");
+      }
+      if (data.designLessons) {
+        md.push("### Designer takeaway");
+        md.push(data.designLessons);
+        md.push("");
+      }
+      if (borrowing) md.push(`**Borrowing:** ${borrowing}`);
+      if (avoiding) md.push(`**Avoiding:** ${avoiding}`);
+
+      const [row] = await db
+        .insert(researchItems)
+        .values({
+          projectId: params.data.projectId,
+          title: `${gameName} — Design Breakdown`,
+          content: md.join("\n").trim(),
+          tags: data.tags ?? "reference-game",
+          source: "AI Game Lookup",
+        })
+        .returning();
+
+      await logChange(req, params.data.projectId, "create", `Researched game: ${gameName}`, {
+        entityKind: "research",
+        entityRef: String(row!.id),
+      });
+
+      res.status(201).json({ research: row, gameData: data });
+    } catch (err) {
+      req.log.error({ err }, "game-lookup failed");
+      res.status(500).json({ error: "Game lookup failed" });
+    }
+  },
+);
+
+export default router;
