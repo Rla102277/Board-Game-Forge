@@ -346,13 +346,13 @@ export function Players({ projectId }: PlayersProps) {
     const fromIdx = group.findIndex((p) => p.id === draggedId);
     let toIdx = group.findIndex((p) => p.id === targetId);
     if (fromIdx === -1 || toIdx === -1) { clearDragState(); return; }
-    // Adjust insertion index based on whether we're inserting before or after the target
-    if (!insertBefore && toIdx < group.length - 1) toIdx += 1;
     const reordered = [...group];
     const [moved] = reordered.splice(fromIdx, 1);
-    // Recalculate toIdx after removing the dragged item
-    const adjustedTo = Math.min(insertBefore ? toIdx : toIdx - 1, reordered.length);
-    reordered.splice(Math.max(0, adjustedTo), 0, moved);
+    // After removing fromIdx, all indices > fromIdx shift down by 1
+    const adjustedToIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
+    // insertBefore → insert at adjustedToIdx; insertAfter → insert after it
+    const insertAt = Math.min(insertBefore ? adjustedToIdx : adjustedToIdx + 1, reordered.length);
+    reordered.splice(insertAt, 0, moved);
     clearDragState();
 
     // Optimistic update — immediately reflect the new order in the cache
