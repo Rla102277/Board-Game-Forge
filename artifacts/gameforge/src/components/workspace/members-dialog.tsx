@@ -8,6 +8,30 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Trash2, UserPlus, Mail, Link2, RefreshCw, Copy, Check, AlertCircle } from "lucide-react";
 import { workspacesApi, type WorkspaceMember } from "@/lib/workspaces-api";
 
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import { ScrollArea } from "../ui/scroll-area";
+import { UserPlus, X, Shield, User, Eye } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
+
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import { ScrollArea } from "../ui/scroll-area";
+import { UserPlus, X, Shield, User, Eye } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
+
 interface Props {
   open: boolean;
   onOpenChange: (b: boolean) => void;
@@ -15,6 +39,468 @@ interface Props {
   members: WorkspaceMember[];
   canManage: boolean;
   onChanged: () => void;
+}
+
+interface WorkspaceMember {
+  id: number;
+  userId: string;
+  userName: string;
+  email?: string;
+  role: "owner" | "admin" | "editor" | "viewer";
+  avatarUrl?: string;
+  joinedAt: Date;
+}
+
+const roleIcons: Record<string, React.ReactNode> = {
+  owner: <Shield className="h-4 w-4" />,
+  admin: <Shield className="h-4 w-4" />,
+  editor: <User className="h-4 w-4" />,
+  viewer: <Eye className="h-4 w-4" />,
+};
+
+const roleColors: Record<string, string> = {
+  owner: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  admin: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  editor: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  viewer: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300",
+};
+
+export function MembersDialog({
+  open,
+  onOpenChange,
+  workspaceSlug,
+  members,
+  canManage,
+  onChanged,
+}: Props) {
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "editor" | "viewer">("editor");
+  const [localMembers, setLocalMembers] = useState<WorkspaceMember[]>([]);
+
+  useEffect(() => {
+    setLocalMembers(members);
+  }, [members]);
+
+  const handleAddMember = () => {
+    if (!email.trim()) return;
+
+    const newMember: WorkspaceMember = {
+      id: Date.now(),
+      userId: `user-${Date.now()}`,
+      userName: email.split("@")[0],
+      email: email,
+      role: role,
+      joinedAt: new Date(),
+    };
+
+    setLocalMembers([...localMembers, newMember]);
+    setEmail("");
+
+    toast({
+      title: "Member added",
+      description: `${newMember.userName} has been added as ${role}`,
+    });
+
+    onChanged();
+  };
+
+  const handleRemoveMember = (userId: string) => {
+    setLocalMembers(localMembers.filter((m) => m.userId !== userId));
+    toast({
+      title: "Member removed",
+      description: "Member has been removed from workspace",
+    });
+    onChanged();
+  };
+
+  const handleChangeRole = (userId: string, newRole: "admin" | "editor" | "viewer") => {
+    setLocalMembers(
+      localMembers.map((m) =>
+        m.userId === userId ? { ...m, role: newRole } : m
+      )
+    );
+    toast({
+      title: "Role updated",
+      description: `Member's role has been changed to ${newRole}`,
+    });
+    onChanged();
+  };
+
+  const getRoleBadge = (role: string) => {
+    const colorClass = roleColors[role] || "bg-gray-100 text-gray-800";
+    return (
+      <Badge className={`${colorClass} border-0`} variant="outline">
+        <span className="flex items-center gap-1">
+          {roleIcons[role]}
+          {role.charAt(0).toUpperCase() + role.slice(1)}
+        </span>
+      </Badge>
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[550px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Workspace Members
+          </DialogTitle>
+          <DialogDescription>
+            Manage who has access to "{workspaceSlug}"
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Add member section */}
+          {canManage && (
+            <div className="space-y-2">
+              <Label>Add member</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter email address..."
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAddMember();
+                    }
+                  }}
+                />
+                <Select
+                  value={role}
+                  onValueChange={(v: "admin" | "editor" | "viewer") => setRole(v)}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="editor">Editor</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleAddMember} size="icon">
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Members list */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Members ({localMembers.length})</Label>
+            </div>
+            <ScrollArea className="h-[300px] pr-4">
+              <div className="space-y-2">
+                {localMembers.map((member) => (
+                  <div
+                    key={member.userId}
+                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={member.avatarUrl} />
+                        <AvatarFallback>
+                          {member.userName.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{member.userName}</p>
+                          {getRoleBadge(member.role)}
+                        </div>
+                        {member.email && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {member.email}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {canManage && member.role !== "owner" && (
+                        <>
+                          <Select
+                            value={member.role}
+                            onValueChange={(v: "admin" | "editor" | "viewer") =>
+                              handleChangeRole(member.userId, v)
+                            }
+                          >
+                            <SelectTrigger className="w-[100px] h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="editor">Editor</SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleRemoveMember(member.userId)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Info section */}
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Shield className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">
+                {canManage
+                  ? "You can manage members and their roles"
+                  : "You have view-only access to member management"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface WorkspaceMember {
+  id: number;
+  userId: string;
+  userName: string;
+  email?: string;
+  role: "owner" | "admin" | "editor" | "viewer";
+  avatarUrl?: string;
+  joinedAt: Date;
+}
+
+const roleIcons: Record<string, React.ReactNode> = {
+  owner: <Shield className="h-4 w-4" />,
+  admin: <Shield className="h-4 w-4" />,
+  editor: <User className="h-4 w-4" />,
+  viewer: <Eye className="h-4 w-4" />,
+};
+
+const roleColors: Record<string, string> = {
+  owner: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  admin: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  editor: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  viewer: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300",
+};
+
+export function MembersDialog({
+  open,
+  onOpenChange,
+  workspaceSlug,
+  members,
+  canManage,
+  onChanged,
+}: Props) {
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "editor" | "viewer">("editor");
+  const [localMembers, setLocalMembers] = useState<WorkspaceMember[]>([]);
+
+  useEffect(() => {
+    setLocalMembers(members);
+  }, [members]);
+
+  const handleAddMember = () => {
+    if (!email.trim()) return;
+
+    const newMember: WorkspaceMember = {
+      id: Date.now(),
+      userId: `user-${Date.now()}`,
+      userName: email.split("@")[0],
+      email: email,
+      role: role,
+      joinedAt: new Date(),
+    };
+
+    setLocalMembers([...localMembers, newMember]);
+    setEmail("");
+
+    toast({
+      title: "Member added",
+      description: `${newMember.userName} has been added as ${role}`,
+    });
+
+    onChanged();
+  };
+
+  const handleRemoveMember = (userId: string) => {
+    setLocalMembers(localMembers.filter((m) => m.userId !== userId));
+    toast({
+      title: "Member removed",
+      description: "Member has been removed from workspace",
+    });
+    onChanged();
+  };
+
+  const handleChangeRole = (userId: string, newRole: "admin" | "editor" | "viewer") => {
+    setLocalMembers(
+      localMembers.map((m) =>
+        m.userId === userId ? { ...m, role: newRole } : m
+      )
+    );
+    toast({
+      title: "Role updated",
+      description: `Member's role has been changed to ${newRole}`,
+    });
+    onChanged();
+  };
+
+  const getRoleBadge = (role: string) => {
+    const colorClass = roleColors[role] || "bg-gray-100 text-gray-800";
+    return (
+      <Badge className={`${colorClass} border-0`} variant="outline">
+        <span className="flex items-center gap-1">
+          {roleIcons[role]}
+          {role.charAt(0).toUpperCase() + role.slice(1)}
+        </span>
+      </Badge>
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[550px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Workspace Members
+          </DialogTitle>
+          <DialogDescription>
+            Manage who has access to "{workspaceSlug}"
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Add member section */}
+          {canManage && (
+            <div className="space-y-2">
+              <Label>Add member</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter email address..."
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAddMember();
+                    }
+                  }}
+                />
+                <Select
+                  value={role}
+                  onValueChange={(v: "admin" | "editor" | "viewer") => setRole(v)}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="editor">Editor</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleAddMember} size="icon">
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Members list */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Members ({localMembers.length})</Label>
+            </div>
+            <ScrollArea className="h-[300px] pr-4">
+              <div className="space-y-2">
+                {localMembers.map((member) => (
+                  <div
+                    key={member.userId}
+                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={member.avatarUrl} />
+                        <AvatarFallback>
+                          {member.userName.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{member.userName}</p>
+                          {getRoleBadge(member.role)}
+                        </div>
+                        {member.email && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {member.email}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {canManage && member.role !== "owner" && (
+                        <>
+                          <Select
+                            value={member.role}
+                            onValueChange={(v: "admin" | "editor" | "viewer") =>
+                              handleChangeRole(member.userId, v)
+                            }
+                          >
+                            <SelectTrigger className="w-[100px] h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="editor">Editor</SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleRemoveMember(member.userId)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Info section */}
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Shield className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">
+                {canManage
+                  ? "You can manage members and their roles"
+                  : "You have view-only access to member management"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function MembersDialog({ open, onOpenChange, workspaceSlug, members, canManage, onChanged }: Props) {

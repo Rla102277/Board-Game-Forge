@@ -6,9 +6,183 @@ import { Activity, MessageSquare, Edit, Trash2, CheckCircle, UserPlus } from "lu
 import { collaborationApi, type ActivityFeedItem } from "@/lib/collaboration";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { useEffect, useState } from "react";
+import { useActivityFeed, ActivityEvent } from "../../lib/collaboration";
+import { ScrollArea } from "../ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import { formatDistanceToNow } from "date-fns";
+
+import { useEffect, useState } from "react";
+import { useActivityFeed, ActivityEvent } from "../../lib/collaboration";
+import { ScrollArea } from "../ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import { formatDistanceToNow } from "date-fns";
+
 interface ActivityFeedProps {
   projectId: number;
   limit?: number;
+}
+
+const activityIcons: Record<string, string> = {
+  create: "➕",
+  update: "✏️",
+  delete: "🗑️",
+  comment: "💬",
+  mention: "@",
+  share: "🔗",
+  version: "📝",
+  restore: "↩️",
+};
+
+export function ActivityFeed({ projectId, limit = 20 }: ActivityFeedProps) {
+  const activities = useActivityFeed(projectId);
+  const [displayActivities, setDisplayActivities] = useState<ActivityEvent[]>([]);
+
+  useEffect(() => {
+    setDisplayActivities(activities.slice(0, limit));
+  }, [activities, limit]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Activity Feed</h3>
+        <Badge variant="secondary" className="text-xs">
+          {activities.length} events
+        </Badge>
+      </div>
+      <ScrollArea className="h-[400px] pr-4">
+        {displayActivities.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No recent activity</p>
+            <p className="text-sm">Changes will appear here as they happen</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {displayActivities.map((activity) => (
+              <div
+                key={activity.id}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={`/avatars/${activity.userId}`} />
+                  <AvatarFallback>
+                    {activity.userName?.charAt(0)?.toUpperCase() || "?"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm truncate">
+                      {activity.userName || "Unknown User"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {activityIcons[activity.action] || "•"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {activity.action === "create" && `Created ${activity.target || "an item"}`}
+                    {activity.action === "update" && `Updated ${activity.target || "an item"}`}
+                    {activity.action === "delete" && `Deleted ${activity.target || "an item"}`}
+                    {activity.action === "comment" && `Commented on ${activity.target || "an item"}`}
+                    {activity.action === "mention" && `Mentioned you in ${activity.target || "a comment"}`}
+                    {activity.action === "share" && `Shared ${activity.target || "a project"}`}
+                    {activity.action === "version" && `Created version ${activity.target || ""}`}
+                    {activity.action === "restore" && `Restored version ${activity.target || ""}`}
+                    {!["create", "update", "delete", "comment", "mention", "share", "version", "restore"].includes(activity.action) &&
+                      `${activity.action} ${activity.target || ""}`}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+    </div>
+  );
+}
+
+const activityIcons: Record<string, string> = {
+  create: "➕",
+  update: "✏️",
+  delete: "🗑️",
+  comment: "💬",
+  mention: "@",
+  share: "🔗",
+  version: "📝",
+  restore: "↩️",
+};
+
+export function ActivityFeed({ projectId, limit = 20 }: ActivityFeedProps) {
+  const activities = useActivityFeed(projectId);
+  const [displayActivities, setDisplayActivities] = useState<ActivityEvent[]>([]);
+
+  useEffect(() => {
+    setDisplayActivities(activities.slice(0, limit));
+  }, [activities, limit]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Activity Feed</h3>
+        <Badge variant="secondary" className="text-xs">
+          {activities.length} events
+        </Badge>
+      </div>
+      <ScrollArea className="h-[400px] pr-4">
+        {displayActivities.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No recent activity</p>
+            <p className="text-sm">Changes will appear here as they happen</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {displayActivities.map((activity) => (
+              <div
+                key={activity.id}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={`/avatars/${activity.userId}`} />
+                  <AvatarFallback>
+                    {activity.userName?.charAt(0)?.toUpperCase() || "?"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm truncate">
+                      {activity.userName || "Unknown User"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {activityIcons[activity.action] || "•"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {activity.action === "create" && `Created ${activity.target || "an item"}`}
+                    {activity.action === "update" && `Updated ${activity.target || "an item"}`}
+                    {activity.action === "delete" && `Deleted ${activity.target || "an item"}`}
+                    {activity.action === "comment" && `Commented on ${activity.target || "an item"}`}
+                    {activity.action === "mention" && `Mentioned you in ${activity.target || "a comment"}`}
+                    {activity.action === "share" && `Shared ${activity.target || "a project"}`}
+                    {activity.action === "version" && `Created version ${activity.target || ""}`}
+                    {activity.action === "restore" && `Restored version ${activity.target || ""}`}
+                    {!["create", "update", "delete", "comment", "mention", "share", "version", "restore"].includes(activity.action) &&
+                      `${activity.action} ${activity.target || ""}`}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+    </div>
+  );
 }
 
 const ACTION_ICONS: Record<string, React.ElementType> = {

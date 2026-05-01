@@ -9,10 +9,106 @@ interface EditingUser {
   editingItem: string;
 }
 
+import { useEditingUsers } from "../../lib/collaboration";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+
+import { useEditingUsers } from "../../lib/collaboration";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+
 interface EditingIndicatorProps {
   users: EditingUser[];
   itemName: string;
   itemType: string;
+}
+
+export function EditingIndicator({ users, itemName, itemType }: EditingIndicatorProps) {
+  const editingUsers = useEditingUsers();
+
+  const relevantUsers = editingUsers.filter(
+    (u) => u.itemId === itemName && u.itemType === itemType
+  );
+
+  if (relevantUsers.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+      <div className="flex -space-x-2">
+        {relevantUsers.slice(0, 3).map((user) => (
+          <TooltipProvider key={user.userId}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Avatar className="h-6 w-6 border-2 border-background">
+                  <AvatarImage src={`/avatars/${user.userId}`} />
+                  <AvatarFallback className="text-[10px]">
+                    {user.userName?.charAt(0)?.toUpperCase() || "?"}
+                  </AvatarFallback>
+                </Avatar>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{user.userName || "Unknown"} is editing</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ))}
+      </div>
+      {relevantUsers.length > 3 && (
+        <span className="text-xs text-muted-foreground">
+          +{relevantUsers.length - 3} more
+        </span>
+      )}
+      <span className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">
+        Editing...
+      </span>
+    </div>
+  );
+}
+
+export function EditingIndicator({ users, itemName, itemType }: EditingIndicatorProps) {
+  const editingUsers = useEditingUsers();
+
+  const relevantUsers = editingUsers.filter(
+    (u) => u.itemId === itemName && u.itemType === itemType
+  );
+
+  if (relevantUsers.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+      <div className="flex -space-x-2">
+        {relevantUsers.slice(0, 3).map((user) => (
+          <TooltipProvider key={user.userId}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Avatar className="h-6 w-6 border-2 border-background">
+                  <AvatarImage src={`/avatars/${user.userId}`} />
+                  <AvatarFallback className="text-[10px]">
+                    {user.userName?.charAt(0)?.toUpperCase() || "?"}
+                  </AvatarFallback>
+                </Avatar>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{user.userName || "Unknown"} is editing</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ))}
+      </div>
+      {relevantUsers.length > 3 && (
+        <span className="text-xs text-muted-foreground">
+          +{relevantUsers.length - 3} more
+        </span>
+      )}
+      <span className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">
+        Editing...
+      </span>
+    </div>
+  );
 }
 
 export function EditingIndicator({ users, itemName, itemType }: EditingIndicatorProps) {

@@ -12,8 +12,542 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import * as diff from "diff";
 
+import { useState, useEffect } from "react";
+import { Button } from "../ui/button";
+import { ScrollArea } from "../ui/scroll-area";
+import { Badge } from "../ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { formatDistanceToNow } from "date-fns";
+import { Clock, RotateCcw, GitBranch, GitCommit, GitMerge } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
+
+import { useState, useEffect } from "react";
+import { Button } from "../ui/button";
+import { ScrollArea } from "../ui/scroll-area";
+import { Badge } from "../ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { formatDistanceToNow } from "date-fns";
+import { Clock, RotateCcw, GitBranch, GitCommit, GitMerge } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
+
 interface VersionHistoryProps {
   projectId: number;
+}
+
+interface Version {
+  id: number;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  createdBy: string;
+  createdByName?: string;
+  branch: string;
+  isCurrent: boolean;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  lastCommit: Date;
+}
+
+export function VersionHistory({ projectId }: VersionHistoryProps) {
+  const { toast } = useToast();
+  const [versions, setVersions] = useState<Version[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState("main");
+  const [showBranchDialog, setShowBranchDialog] = useState(false);
+  const [newBranchName, setNewBranchName] = useState("");
+
+  useEffect(() => {
+    // Mock data for demonstration
+    setBranches([
+      { id: "main", name: "main", isDefault: true, lastCommit: new Date() },
+      { id: "feature-1", name: "feature/new-ui", isDefault: false, lastCommit: new Date(Date.now() - 86400000) },
+      { id: "feature-2", name: "feature/analytics", isDefault: false, lastCommit: new Date(Date.now() - 172800000) },
+    ]);
+
+    setVersions([
+      {
+        id: 1,
+        name: "v1.0.0",
+        description: "Initial release",
+        createdAt: new Date(Date.now() - 604800000),
+        createdBy: "user1",
+        createdByName: "Alice Johnson",
+        branch: "main",
+        isCurrent: true,
+      },
+      {
+        id: 2,
+        name: "v1.1.0",
+        description: "Added collaboration features",
+        createdAt: new Date(Date.now() - 259200000),
+        createdBy: "user2",
+        createdByName: "Bob Smith",
+        branch: "main",
+        isCurrent: false,
+      },
+      {
+        id: 3,
+        name: "v2.0.0-beta",
+        description: "Beta version with new UI",
+        createdAt: new Date(Date.now() - 86400000),
+        createdBy: "user1",
+        createdByName: "Alice Johnson",
+        branch: "feature/new-ui",
+        isCurrent: false,
+      },
+    ]);
+  }, [projectId]);
+
+  const handleRestore = (versionId: number) => {
+    toast({
+      title: "Version restored",
+      description: `Version ${versionId} has been restored`,
+    });
+  };
+
+  const handleCreateBranch = () => {
+    if (!newBranchName.trim()) return;
+
+    const newBranch: Branch = {
+      id: `branch-${Date.now()}`,
+      name: newBranchName,
+      isDefault: false,
+      lastCommit: new Date(),
+    };
+
+    setBranches([...branches, newBranch]);
+    setNewBranchName("");
+    setShowBranchDialog(false);
+
+    toast({
+      title: "Branch created",
+      description: `Branch "${newBranchName}" has been created`,
+    });
+  };
+
+  const handleMergeBranch = (fromBranch: string, toBranch: string) => {
+    toast({
+      title: "Branch merged",
+      description: `"${fromBranch}" has been merged into "${toBranch}"`,
+    });
+  };
+
+  const handleDeleteBranch = (branchId: string) => {
+    setBranches(branches.filter((b) => b.id !== branchId));
+    toast({
+      title: "Branch deleted",
+      description: "Branch has been deleted",
+    });
+  };
+
+  const filteredVersions = versions.filter((v) => v.branch === selectedBranch);
+
+  return (
+    <div className="space-y-6">
+      {/* Branch selector */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <GitBranch className="h-5 w-5 text-muted-foreground" />
+          <select
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
+            className="bg-background border border-input rounded-md px-3 py-1.5 text-sm"
+          >
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.name}>
+                {branch.name} {branch.isDefault ? "(default)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowBranchDialog(true)}
+          >
+            <GitBranch className="h-4 w-4 mr-1" />
+            New Branch
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleMergeBranch(selectedBranch, "main")}
+          >
+            <GitMerge className="h-4 w-4 mr-1" />
+            Merge
+          </Button>
+        </div>
+      </div>
+
+      {/* Version list */}
+      <ScrollArea className="h-[400px] pr-4">
+        <div className="space-y-3">
+          {filteredVersions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <GitCommit className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No versions in this branch</p>
+            </div>
+          ) : (
+            filteredVersions.map((version) => (
+              <div
+                key={version.id}
+                className={`p-4 rounded-lg border ${
+                  version.isCurrent
+                    ? "border-primary bg-primary/5"
+                    : "bg-card hover:bg-accent/50"
+                } transition-colors`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-8 w-8 mt-0.5">
+                      <AvatarImage src={`/avatars/${version.createdBy}`} />
+                      <AvatarFallback>
+                        {version.createdByName?.charAt(0)?.toUpperCase() || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{version.name}</span>
+                        {version.isCurrent && (
+                          <Badge variant="default" className="text-[10px]">
+                            Current
+                          </Badge>
+                        )}
+                      </div>
+                      {version.description && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {version.description}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>
+                          {formatDistanceToNow(new Date(version.createdAt), {
+                            addSuffix: true,
+                          })}
+                        </span>
+                        <span>by {version.createdByName || "Unknown"}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {!version.isCurrent && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRestore(version.id)}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-1" />
+                        Restore
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Create branch dialog */}
+      {showBranchDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background rounded-lg p-6 w-[400px] shadow-lg">
+            <h3 className="text-lg font-semibold mb-4">Create New Branch</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Branch name</label>
+                <input
+                  type="text"
+                  value={newBranchName}
+                  onChange={(e) => setNewBranchName(e.target.value)}
+                  placeholder="feature/my-new-feature"
+                  className="w-full mt-1 px-3 py-2 rounded-md border border-input bg-background text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleCreateBranch();
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowBranchDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateBranch}>Create</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface Version {
+  id: number;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  createdBy: string;
+  createdByName?: string;
+  branch: string;
+  isCurrent: boolean;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  lastCommit: Date;
+}
+
+export function VersionHistory({ projectId }: VersionHistoryProps) {
+  const { toast } = useToast();
+  const [versions, setVersions] = useState<Version[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState("main");
+  const [showBranchDialog, setShowBranchDialog] = useState(false);
+  const [newBranchName, setNewBranchName] = useState("");
+
+  useEffect(() => {
+    // Mock data for demonstration
+    setBranches([
+      { id: "main", name: "main", isDefault: true, lastCommit: new Date() },
+      { id: "feature-1", name: "feature/new-ui", isDefault: false, lastCommit: new Date(Date.now() - 86400000) },
+      { id: "feature-2", name: "feature/analytics", isDefault: false, lastCommit: new Date(Date.now() - 172800000) },
+    ]);
+
+    setVersions([
+      {
+        id: 1,
+        name: "v1.0.0",
+        description: "Initial release",
+        createdAt: new Date(Date.now() - 604800000),
+        createdBy: "user1",
+        createdByName: "Alice Johnson",
+        branch: "main",
+        isCurrent: true,
+      },
+      {
+        id: 2,
+        name: "v1.1.0",
+        description: "Added collaboration features",
+        createdAt: new Date(Date.now() - 259200000),
+        createdBy: "user2",
+        createdByName: "Bob Smith",
+        branch: "main",
+        isCurrent: false,
+      },
+      {
+        id: 3,
+        name: "v2.0.0-beta",
+        description: "Beta version with new UI",
+        createdAt: new Date(Date.now() - 86400000),
+        createdBy: "user1",
+        createdByName: "Alice Johnson",
+        branch: "feature/new-ui",
+        isCurrent: false,
+      },
+    ]);
+  }, [projectId]);
+
+  const handleRestore = (versionId: number) => {
+    toast({
+      title: "Version restored",
+      description: `Version ${versionId} has been restored`,
+    });
+  };
+
+  const handleCreateBranch = () => {
+    if (!newBranchName.trim()) return;
+
+    const newBranch: Branch = {
+      id: `branch-${Date.now()}`,
+      name: newBranchName,
+      isDefault: false,
+      lastCommit: new Date(),
+    };
+
+    setBranches([...branches, newBranch]);
+    setNewBranchName("");
+    setShowBranchDialog(false);
+
+    toast({
+      title: "Branch created",
+      description: `Branch "${newBranchName}" has been created`,
+    });
+  };
+
+  const handleMergeBranch = (fromBranch: string, toBranch: string) => {
+    toast({
+      title: "Branch merged",
+      description: `"${fromBranch}" has been merged into "${toBranch}"`,
+    });
+  };
+
+  const handleDeleteBranch = (branchId: string) => {
+    setBranches(branches.filter((b) => b.id !== branchId));
+    toast({
+      title: "Branch deleted",
+      description: "Branch has been deleted",
+    });
+  };
+
+  const filteredVersions = versions.filter((v) => v.branch === selectedBranch);
+
+  return (
+    <div className="space-y-6">
+      {/* Branch selector */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <GitBranch className="h-5 w-5 text-muted-foreground" />
+          <select
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
+            className="bg-background border border-input rounded-md px-3 py-1.5 text-sm"
+          >
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.name}>
+                {branch.name} {branch.isDefault ? "(default)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowBranchDialog(true)}
+          >
+            <GitBranch className="h-4 w-4 mr-1" />
+            New Branch
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleMergeBranch(selectedBranch, "main")}
+          >
+            <GitMerge className="h-4 w-4 mr-1" />
+            Merge
+          </Button>
+        </div>
+      </div>
+
+      {/* Version list */}
+      <ScrollArea className="h-[400px] pr-4">
+        <div className="space-y-3">
+          {filteredVersions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <GitCommit className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No versions in this branch</p>
+            </div>
+          ) : (
+            filteredVersions.map((version) => (
+              <div
+                key={version.id}
+                className={`p-4 rounded-lg border ${
+                  version.isCurrent
+                    ? "border-primary bg-primary/5"
+                    : "bg-card hover:bg-accent/50"
+                } transition-colors`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-8 w-8 mt-0.5">
+                      <AvatarImage src={`/avatars/${version.createdBy}`} />
+                      <AvatarFallback>
+                        {version.createdByName?.charAt(0)?.toUpperCase() || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{version.name}</span>
+                        {version.isCurrent && (
+                          <Badge variant="default" className="text-[10px]">
+                            Current
+                          </Badge>
+                        )}
+                      </div>
+                      {version.description && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {version.description}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>
+                          {formatDistanceToNow(new Date(version.createdAt), {
+                            addSuffix: true,
+                          })}
+                        </span>
+                        <span>by {version.createdByName || "Unknown"}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {!version.isCurrent && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRestore(version.id)}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-1" />
+                        Restore
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Create branch dialog */}
+      {showBranchDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background rounded-lg p-6 w-[400px] shadow-lg">
+            <h3 className="text-lg font-semibold mb-4">Create New Branch</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Branch name</label>
+                <input
+                  type="text"
+                  value={newBranchName}
+                  onChange={(e) => setNewBranchName(e.target.value)}
+                  placeholder="feature/my-new-feature"
+                  className="w-full mt-1 px-3 py-2 rounded-md border border-input bg-background text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleCreateBranch();
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowBranchDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateBranch}>Create</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface DiffViewProps {

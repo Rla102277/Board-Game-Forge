@@ -10,11 +10,101 @@ interface PresenceUser {
   timestamp: string;
 }
 
+import { usePresence } from "../../lib/collaboration";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+
+import { usePresence } from "../../lib/collaboration";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+
 interface ItemPresenceProps {
   itemType: string;
   itemId: string | number;
   users: PresenceUser[];
   className?: string;
+}
+
+export function ItemPresence({ itemType, itemId, users, className = "" }: ItemPresenceProps) {
+  const connectedUsers = usePresence();
+
+  const viewingUsers = connectedUsers.filter(
+    (u) => u.projectId === Number(itemId) || u.workspaceId === Number(itemId)
+  );
+
+  if (viewingUsers.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={`flex items-center gap-1 ${className}`}>
+      <div className="flex -space-x-1.5">
+        {viewingUsers.slice(0, 5).map((user) => (
+          <TooltipProvider key={user.userId}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Avatar className="h-5 w-5 border-2 border-background">
+                  <AvatarImage src={`/avatars/${user.userId}`} />
+                  <AvatarFallback className="text-[8px]">
+                    {user.userName?.charAt(0)?.toUpperCase() || "?"}
+                  </AvatarFallback>
+                </Avatar>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{user.userName || "Unknown"} is viewing</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ))}
+      </div>
+      {viewingUsers.length > 5 && (
+        <span className="text-[10px] text-muted-foreground">
+          +{viewingUsers.length - 5}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function ItemPresence({ itemType, itemId, users, className = "" }: ItemPresenceProps) {
+  const connectedUsers = usePresence();
+
+  const viewingUsers = connectedUsers.filter(
+    (u) => u.projectId === Number(itemId) || u.workspaceId === Number(itemId)
+  );
+
+  if (viewingUsers.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={`flex items-center gap-1 ${className}`}>
+      <div className="flex -space-x-1.5">
+        {viewingUsers.slice(0, 5).map((user) => (
+          <TooltipProvider key={user.userId}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Avatar className="h-5 w-5 border-2 border-background">
+                  <AvatarImage src={`/avatars/${user.userId}`} />
+                  <AvatarFallback className="text-[8px]">
+                    {user.userName?.charAt(0)?.toUpperCase() || "?"}
+                  </AvatarFallback>
+                </Avatar>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{user.userName || "Unknown"} is viewing</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ))}
+      </div>
+      {viewingUsers.length > 5 && (
+        <span className="text-[10px] text-muted-foreground">
+          +{viewingUsers.length - 5}
+        </span>
+      )}
+    </div>
+  );
 }
 
 export function ItemPresence({ itemType, itemId, users, className }: ItemPresenceProps) {

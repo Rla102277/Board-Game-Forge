@@ -10,11 +10,497 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useGetProject } from "@workspace/api-client-react";
 import { workspacesApi, type WorkspaceMember } from "@/lib/workspaces-api";
 
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import { ScrollArea } from "../ui/scroll-area";
+import { Copy, Check, X, UserPlus, Globe, Lock } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
+
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import { ScrollArea } from "../ui/scroll-area";
+import { Copy, Check, X, UserPlus, Globe, Lock } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
+
 interface ShareDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: number;
   projectName: string;
+}
+
+interface SharePermission {
+  userId: string;
+  userName: string;
+  role: "viewer" | "editor" | "admin";
+  avatarUrl?: string;
+}
+
+export function ShareDialog({ open, onOpenChange, projectId, projectName }: ShareDialogProps) {
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"viewer" | "editor" | "admin">("editor");
+  const [permissions, setPermissions] = useState<SharePermission[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [shareLink, setShareLink] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      // Generate share link
+      const baseUrl = window.location.origin;
+      setShareLink(`${baseUrl}/project/${projectId}?share=true`);
+      
+      // Load existing permissions (mock data for now)
+      setPermissions([
+        {
+          userId: "user1",
+          userName: "Alice Johnson",
+          role: "admin",
+          avatarUrl: "/avatars/user1",
+        },
+        {
+          userId: "user2",
+          userName: "Bob Smith",
+          role: "editor",
+          avatarUrl: "/avatars/user2",
+        },
+      ]);
+    }
+  }, [open, projectId]);
+
+  const handleAddPermission = () => {
+    if (!email.trim()) return;
+
+    const newPermission: SharePermission = {
+      userId: `user-${Date.now()}`,
+      userName: email.split("@")[0],
+      role,
+    };
+
+    setPermissions([...permissions, newPermission]);
+    setEmail("");
+
+    toast({
+      title: "Permission added",
+      description: `${newPermission.userName} has been added as ${role}`,
+    });
+  };
+
+  const handleRemovePermission = (userId: string) => {
+    setPermissions(permissions.filter((p) => p.userId !== userId));
+    toast({
+      title: "Permission removed",
+      description: "User has been removed from this project",
+    });
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({
+        title: "Link copied",
+        description: "Share link has been copied to clipboard",
+      });
+    } catch {
+      toast({
+        title: "Failed to copy",
+        description: "Please copy the link manually",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleChangeRole = (userId: string, newRole: "viewer" | "editor" | "admin") => {
+    setPermissions(
+      permissions.map((p) => (p.userId === userId ? { ...p, role: newRole } : p))
+    );
+    toast({
+      title: "Role updated",
+      description: `User's role has been changed to ${newRole}`,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Share "{projectName}"
+          </DialogTitle>
+          <DialogDescription>
+            Invite people to collaborate on this project
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Share link section */}
+          <div className="space-y-2">
+            <Label>Share link</Label>
+            <div className="flex gap-2">
+              <Input value={shareLink} readOnly className="flex-1" />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCopyLink}
+                className="shrink-0"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Add people section */}
+          <div className="space-y-2">
+            <Label>Invite people</Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter email address..."
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleAddPermission();
+                  }
+                }}
+              />
+              <Select value={role} onValueChange={(v: "viewer" | "editor" | "admin") => setRole(v)}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={handleAddPermission} size="icon">
+                <UserPlus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* People with access */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>People with access</Label>
+              <Badge variant="secondary" className="text-xs">
+                {permissions.length} people
+              </Badge>
+            </div>
+            <ScrollArea className="h-[200px] pr-4">
+              <div className="space-y-2">
+                {permissions.map((permission) => (
+                  <div
+                    key={permission.userId}
+                    className="flex items-center justify-between p-2 rounded-lg border bg-card"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={permission.avatarUrl} />
+                        <AvatarFallback>
+                          {permission.userName.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">{permission.userName}</p>
+                        <p className="text-xs text-muted-foreground">{permission.userId}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={permission.role}
+                        onValueChange={(v: "viewer" | "editor" | "admin") =>
+                          handleChangeRole(permission.userId, v)
+                        }
+                      >
+                        <SelectTrigger className="w-[100px] h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="editor">Editor</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => handleRemovePermission(permission.userId)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Access level info */}
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">
+                Only people with access can view or edit this project
+              </span>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface SharePermission {
+  userId: string;
+  userName: string;
+  role: "viewer" | "editor" | "admin";
+  avatarUrl?: string;
+}
+
+export function ShareDialog({ open, onOpenChange, projectId, projectName }: ShareDialogProps) {
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"viewer" | "editor" | "admin">("editor");
+  const [permissions, setPermissions] = useState<SharePermission[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [shareLink, setShareLink] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      // Generate share link
+      const baseUrl = window.location.origin;
+      setShareLink(`${baseUrl}/project/${projectId}?share=true`);
+      
+      // Load existing permissions (mock data for now)
+      setPermissions([
+        {
+          userId: "user1",
+          userName: "Alice Johnson",
+          role: "admin",
+          avatarUrl: "/avatars/user1",
+        },
+        {
+          userId: "user2",
+          userName: "Bob Smith",
+          role: "editor",
+          avatarUrl: "/avatars/user2",
+        },
+      ]);
+    }
+  }, [open, projectId]);
+
+  const handleAddPermission = () => {
+    if (!email.trim()) return;
+
+    const newPermission: SharePermission = {
+      userId: `user-${Date.now()}`,
+      userName: email.split("@")[0],
+      role,
+    };
+
+    setPermissions([...permissions, newPermission]);
+    setEmail("");
+
+    toast({
+      title: "Permission added",
+      description: `${newPermission.userName} has been added as ${role}`,
+    });
+  };
+
+  const handleRemovePermission = (userId: string) => {
+    setPermissions(permissions.filter((p) => p.userId !== userId));
+    toast({
+      title: "Permission removed",
+      description: "User has been removed from this project",
+    });
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({
+        title: "Link copied",
+        description: "Share link has been copied to clipboard",
+      });
+    } catch {
+      toast({
+        title: "Failed to copy",
+        description: "Please copy the link manually",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleChangeRole = (userId: string, newRole: "viewer" | "editor" | "admin") => {
+    setPermissions(
+      permissions.map((p) => (p.userId === userId ? { ...p, role: newRole } : p))
+    );
+    toast({
+      title: "Role updated",
+      description: `User's role has been changed to ${newRole}`,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Share "{projectName}"
+          </DialogTitle>
+          <DialogDescription>
+            Invite people to collaborate on this project
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Share link section */}
+          <div className="space-y-2">
+            <Label>Share link</Label>
+            <div className="flex gap-2">
+              <Input value={shareLink} readOnly className="flex-1" />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCopyLink}
+                className="shrink-0"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Add people section */}
+          <div className="space-y-2">
+            <Label>Invite people</Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter email address..."
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleAddPermission();
+                  }
+                }}
+              />
+              <Select value={role} onValueChange={(v: "viewer" | "editor" | "admin") => setRole(v)}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={handleAddPermission} size="icon">
+                <UserPlus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* People with access */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>People with access</Label>
+              <Badge variant="secondary" className="text-xs">
+                {permissions.length} people
+              </Badge>
+            </div>
+            <ScrollArea className="h-[200px] pr-4">
+              <div className="space-y-2">
+                {permissions.map((permission) => (
+                  <div
+                    key={permission.userId}
+                    className="flex items-center justify-between p-2 rounded-lg border bg-card"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={permission.avatarUrl} />
+                        <AvatarFallback>
+                          {permission.userName.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">{permission.userName}</p>
+                        <p className="text-xs text-muted-foreground">{permission.userId}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={permission.role}
+                        onValueChange={(v: "viewer" | "editor" | "admin") =>
+                          handleChangeRole(permission.userId, v)
+                        }
+                      >
+                        <SelectTrigger className="w-[100px] h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="editor">Editor</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => handleRemovePermission(permission.userId)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Access level info */}
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">
+                Only people with access can view or edit this project
+              </span>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function ShareDialog({ open, onOpenChange, projectId, projectName }: ShareDialogProps) {
