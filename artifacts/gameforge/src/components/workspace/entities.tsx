@@ -21,7 +21,7 @@ import {
 import {
   Plus, Trash2, ChevronDown, ChevronRight, Sparkles, Loader2, Check,
   Wand2, X, Pencil, Copy, Layers, LayoutGrid, List, Search,
-  Tag, Link2, Zap, Palette, LayoutTemplate, ChevronLeft, Dices,
+  Tag, Link2, Zap, Palette, LayoutTemplate, ChevronLeft, Dices, TableIcon,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +33,8 @@ import {
   ENTITY_TEMPLATES, buildStatsForTier, previewStatValue, TIER_LABELS,
   type EntityTemplate,
 } from "@/lib/entity-templates";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { CardStudio } from "./card-studio";
 
 // ─── Color picker presets (#53) ─────────────────────────────────────────────
 
@@ -2396,6 +2398,7 @@ function EntityListRow({
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [showListColorPicker, setShowListColorPicker] = useState(false);
+  const [cardStudioOpen, setCardStudioOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     name: entity.name, type: entity.type, subtype: entity.subtype ?? "",
     description: entity.description ?? "", stats: entity.stats ?? "",
@@ -2764,11 +2767,23 @@ function EntityListRow({
 
           {isDeck && (
             <div className="space-y-2">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <span>🃏</span> Cards in this deck ({childEntities?.length ?? 0})
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <span>🃏</span> Cards in this deck ({childEntities?.length ?? 0})
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => setCardStudioOpen(true)}
+                  data-testid={`open-card-studio-${entity.id}`}
+                >
+                  <TableIcon className="w-3.5 h-3.5" />
+                  Open Card Studio
+                </Button>
+              </div>
               {!childEntities || childEntities.length === 0 ? (
-                <p className="text-xs text-muted-foreground/60">No cards yet. Create a Card and assign it to this deck.</p>
+                <p className="text-xs text-muted-foreground/60">No cards yet. Click <span className="text-primary">Open Card Studio</span> to add cards in a spreadsheet view, or create a Card and assign it to this deck.</p>
               ) : (
                 <div className="rounded-md border border-border divide-y divide-border/50">
                   {childEntities.map((child) => (
@@ -2782,6 +2797,28 @@ function EntityListRow({
                   ))}
                 </div>
               )}
+
+              <Sheet open={cardStudioOpen} onOpenChange={setCardStudioOpen}>
+                <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle className="flex items-center gap-2">
+                      <TableIcon className="w-5 h-5 text-primary" />
+                      Card Studio — {entity.name}
+                    </SheetTitle>
+                    <SheetDescription>
+                      Spreadsheet-style editor for the cards in this deck. Edit names, subtypes, effect text, and flavor text inline. Use AI to generate batches or export to CSV.
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="mt-4">
+                    <CardStudio
+                      projectId={projectId}
+                      deck={entity}
+                      cards={childEntities ?? []}
+                      onRefresh={refresh}
+                    />
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
           )}
 
