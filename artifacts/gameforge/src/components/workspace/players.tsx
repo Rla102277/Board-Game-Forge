@@ -588,7 +588,7 @@ export function Players({ projectId }: PlayersProps) {
   // dropTargetId + insertBefore: where the insertion line should appear
   const [dropTargetId, setDropTargetId] = useState<number | null>(null);
   const [insertBefore, setInsertBefore] = useState<boolean>(true);
-  // Saved nudge: briefly shown checkmark after a successful reorder (#68)
+  // Saved nudge: briefly shown checkmark + ring after a successful reorder (#68)
   const [savedNudgeId, setSavedNudgeId] = useState<number | null>(null);
   const savedNudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1021,6 +1021,7 @@ export function Players({ projectId }: PlayersProps) {
                     {!collapsed && group.map((p) => {
                       const isSelected = p.id === selectedId;
                       const isActive = dropTargetId === p.id && draggedId !== null && draggedId !== p.id;
+                      const isSaved = savedNudgeId === p.id;
                       const showLineAbove = isActive && insertBefore;
                       const showLineBelow = isActive && !insertBefore;
                       return (
@@ -1036,7 +1037,7 @@ export function Players({ projectId }: PlayersProps) {
                             onDrop={() => handleDrop(p.id, type)}
                             onDragEnd={() => { document.body.style.cursor = ""; clearDragState(); }}
                             onClick={() => { setSelectedId(isSelected ? null : p.id); setView("persona"); }}
-                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-all border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${draggedId === p.id ? "opacity-40 cursor-grabbing" : ""} ${isActive && draggedId !== p.id ? "ring-1 ring-primary/60 ring-inset scale-[1.01] bg-primary/5" : ""}`}
+                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-all border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${draggedId === p.id ? "opacity-40 cursor-grabbing" : ""} ${isActive && draggedId !== p.id ? "ring-1 ring-primary/60 ring-inset scale-[1.01] bg-primary/5" : ""} ${isSaved ? "ring-1 ring-green-500/70 ring-inset bg-green-500/5 transition-[box-shadow,background-color]" : ""}`}
                           >
                             <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0 cursor-grab" />
                             <m.Icon className={`h-3.5 w-3.5 shrink-0 ${m.color}`} />
