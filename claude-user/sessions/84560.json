@@ -1,1 +1,1 @@
-{"pid":84560,"sessionId":"b5f2dc80-9506-43cf-968a-344d29627e38","cwd":"/home/runner/workspace","startedAt":1777704629382,"procStart":"1459397","version":"2.1.126","peerProtocol":1,"kind":"interactive","entrypoint":"cli","status":"waiting","updatedAt":1777705463908,"waitingFor":"approve Bash"}
+{"pid":84560,"sessionId":"b5f2dc80-9506-43cf-968a-344d29627e38","cwd":"/home/runner/workspace","startedAt":1777704629382,"procStart":"1459397","version":"2.1.126","peerProtocol":1,"kind":"interactive","entrypoint":"cli","status":"busy","updatedAt":1777705654135}
