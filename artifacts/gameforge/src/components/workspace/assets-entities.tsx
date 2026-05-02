@@ -586,8 +586,12 @@ function AssetsView({
   }, [assets, draggedId]);
 
   // Badge: detect when grouped-mode order diverges from flat-mode order (#55)
+  // Only show when at least one asset has an explicit groupDisplayOrder set.
   const ordersDisagree = useMemo(() => {
     if (!assets?.length || localOrder.length === 0 || localGroupOrder.size === 0) return false;
+    // Require at least one asset with an explicitly set groupDisplayOrder
+    const hasExplicitGroupOrder = assets.some((a) => a.groupDisplayOrder != null);
+    if (!hasExplicitGroupOrder) return false;
     const assetKindMap = new Map(assets.map((a) => [a.id, a.kind ?? "other"]));
     // For each kind, extract the per-kind ordering from the flat list and compare to localGroupOrder
     const flatKindOrder = new Map<string, number[]>();
@@ -604,6 +608,17 @@ function AssetsView({
     }
     return false;
   }, [assets, localOrder, localGroupOrder]);
+
+  // Dismissal state for the order-divergence notice; resets when orders diverge again
+  const [orderNoticeDismissed, setOrderNoticeDismissed] = useState(false);
+  const prevOrdersDisagree = useRef(false);
+  useEffect(() => {
+    if (ordersDisagree && !prevOrdersDisagree.current) {
+      setOrderNoticeDismissed(false);
+    }
+    prevOrdersDisagree.current = ordersDisagree;
+  }, [ordersDisagree]);
+  const showOrderNotice = ordersDisagree && !orderNoticeDismissed;
 
   // Derive sorted asset list from localOrder
   const orderedAssets = useMemo(() => {
@@ -1136,18 +1151,32 @@ function AssetsView({
                 ? "bg-primary/10 border-primary/30 text-primary"
                 : "border-border text-muted-foreground hover:text-foreground"
             }`}
-            title={ordersDisagree ? "Grouped and flat view orders differ" : undefined}
             data-testid="group-by-type-toggle"
           >
             <LayoutGrid className="h-3 w-3" /> Group by type
-            {ordersDisagree && (
+            {showOrderNotice && (
               <span
                 className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-1 ring-background"
-                data-testid="orders-disagree-badge"
-                title="Grouped and flat orders differ"
+                aria-hidden="true"
               />
             )}
           </button>
+          {showOrderNotice && (
+            <span
+              className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-600 dark:text-amber-400"
+              data-testid="orders-disagree-badge"
+            >
+              Grouped order differs from flat order
+              <button
+                onClick={() => setOrderNoticeDismissed(true)}
+                className="ml-0.5 rounded-full hover:bg-amber-400/30 p-0.5 transition-colors"
+                aria-label="Dismiss"
+                data-testid="orders-disagree-dismiss"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          )}
         </div>
         <div className="flex gap-1.5">
           {missingImageCount > 0 && (
