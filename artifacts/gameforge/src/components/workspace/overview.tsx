@@ -1424,9 +1424,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
               nextStep={nextStep}
               onSchedulePlaytest={scrollToPlaytest}
             />
-            <div className="flex justify-end">
-              <DesignAdvisorButton projectId={projectId} />
-            </div>
+            <DesignAdvisorButton projectId={projectId} />
           </div>
 
           {/* Row 3: Where you left off (full width) */}

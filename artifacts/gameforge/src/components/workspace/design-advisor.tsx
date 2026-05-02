@@ -86,16 +86,24 @@ export function DesignAdvisorButton({ projectId }: DesignAdvisorProps) {
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-1.5 text-xs border-primary/30 hover:border-primary/60 hover:bg-primary/5"
+      <button
         onClick={handleOpen}
         data-testid="design-advisor-btn"
+        className="w-full group relative overflow-hidden rounded-lg border border-primary/30 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-3.5 text-left transition-all hover:border-primary/60 hover:shadow-md hover:shadow-primary/10"
       >
-        <Sparkles className="h-3.5 w-3.5 text-primary" />
-        Design Advisor
-      </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary shrink-0">
+            <Sparkles className="h-4.5 w-4.5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">Design Advisor</p>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              AI analyzes your rules, components, balance, and playtests — then gives you a prioritized action plan
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+        </div>
+      </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
