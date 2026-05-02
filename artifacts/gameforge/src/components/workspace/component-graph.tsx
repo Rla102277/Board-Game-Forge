@@ -1291,13 +1291,29 @@ export function EntityGraph({
                         const opacity = alwaysOn && !isHover && !isAdj && !isDragging && !isFocused
                           ? (hoverId != null ? 0.35 : 0.65)
                           : 1;
+                        const dist = Math.hypot(dx, dy);
+                        const showLeader = alwaysOn && dist > 2 * n.r;
+                        const edgeX = showLeader ? (dx / dist) * n.r : 0;
+                        const edgeY = showLeader ? (dy / dist) * n.r : 0;
                         return (
-                          <text x={dx} y={dy} textAnchor={anchor} fontSize={fs}
-                            fill="currentColor"
-                            fillOpacity={opacity}
-                            className="text-foreground font-medium pointer-events-none">
-                            {n.name}
-                          </text>
+                          <>
+                            {showLeader && (
+                              <line
+                                x1={edgeX} y1={edgeY} x2={dx} y2={dy}
+                                stroke="currentColor"
+                                strokeOpacity={0.25}
+                                strokeWidth={0.8}
+                                strokeDasharray="3 2"
+                                className="text-foreground pointer-events-none"
+                              />
+                            )}
+                            <text x={dx} y={dy} textAnchor={anchor} fontSize={fs}
+                              fill="currentColor"
+                              fillOpacity={opacity}
+                              className="text-foreground font-medium pointer-events-none">
+                              {n.name}
+                            </text>
+                          </>
                         );
                       })()}
                       <title>{n.name} ({n.type}) — drag to reposition · click to focus · inspect</title>
