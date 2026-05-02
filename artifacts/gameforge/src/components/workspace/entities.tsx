@@ -986,7 +986,18 @@ function EntityVisualCard({
   const [showChildren, setShowChildren] = useState(false);
   const [isDragTarget, setIsDragTarget] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [hexInput, setHexInput] = useState("");
+  const [hexInput, setHexInput] = useState(entity.color ?? "");
+  const lastSubmittedHexRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (showColorPicker) {
+      setHexInput(entity.color ?? "");
+      lastSubmittedHexRef.current = null;
+    }
+  }, [showColorPicker, entity.color]);
+
+  const isValidHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v);
+  const previewColor = showColorPicker && isValidHex(hexInput) ? hexInput : (entity.color ?? null);
 
   const [editForm, setEditForm] = useState({
     name: entity.name,
@@ -1322,8 +1333,8 @@ function EntityVisualCard({
       data-testid={`entity-card-${entity.id}`}
     >
       {/* Color accent header — custom color when set (#53), else type gradient */}
-      {entity.color ? (
-        <div className="h-1.5 w-full" style={{ background: `linear-gradient(to right, ${entity.color}55, transparent)` }} />
+      {previewColor ? (
+        <div className="h-1.5 w-full" style={{ background: `linear-gradient(to right, ${previewColor}55, transparent)` }} />
       ) : (
         <div className={`h-1.5 w-full bg-gradient-to-r ${accentFrom} to-transparent`} />
       )}
@@ -1515,7 +1526,7 @@ function EntityVisualCard({
 
         {/* Color picker swatches (#53) + hex input (#70) */}
         {showColorPicker && (
-          <div className="pt-2 border-t border-border/40 space-y-2">
+          <div className="pt-2 border-t border-border/40 space-y-2" data-color-picker="true">
             <div className="flex items-center gap-1 flex-wrap">
               {CARD_COLORS.map((c) => (
                 <button
@@ -1554,52 +1565,53 @@ function EntityVisualCard({
                 </button>
               )}
             </div>
-            {/* Hex text input (#70) */}
-            <form
-              className="flex items-center gap-2"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const val = hexInput.trim();
-                const isValid = /^#[0-9a-fA-F]{6}$/.test(val);
-                if (!isValid) return;
-                try {
-                  await updateEntity.mutateAsync({ projectId, entityId: entity.id, data: { color: val } });
-                  refresh();
-                } catch { /* noop */ }
-                setShowColorPicker(false);
-                setHexInput("");
-              }}
-            >
-              <div className="relative flex items-center">
-                {hexInput && /^#[0-9a-fA-F]{6}$/.test(hexInput) && (
-                  <span
-                    className="absolute left-2 w-3 h-3 rounded-full ring-1 ring-white/20 pointer-events-none"
-                    style={{ backgroundColor: hexInput }}
-                  />
-                )}
-                <input
-                  type="text"
-                  placeholder="#a1b2c3"
-                  maxLength={7}
-                  value={hexInput}
-                  onChange={(e) => setHexInput(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  className={`text-[11px] h-6 w-24 rounded border bg-background/60 px-2 font-mono transition-colors focus:outline-none ${
-                    hexInput && !/^#[0-9a-fA-F]{6}$/.test(hexInput)
-                      ? "border-red-500/50 text-red-400"
-                      : "border-border/60 text-foreground"
-                  } ${hexInput && /^#[0-9a-fA-F]{6}$/.test(hexInput) ? "pl-6" : ""}`}
-                  data-testid={`color-hex-input-${entity.id}`}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={!/^#[0-9a-fA-F]{6}$/.test(hexInput.trim())}
-                className="text-[9px] px-2 py-1 rounded border border-border/50 bg-background/40 text-muted-foreground hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                Apply
-              </button>
-            </form>
+            {/* Hex input */}
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="rounded shrink-0 border border-border/60"
+                style={{ width: 18, height: 18, backgroundColor: isValidHex(hexInput) ? hexInput : "transparent" }}
+              />
+              <input
+                data-testid={`hex-input-${entity.id}`}
+                type="text"
+                maxLength={7}
+                placeholder="#rrggbb"
+                value={hexInput}
+                className="flex-1 min-w-0 bg-background/60 border border-border/60 rounded px-2 py-0.5 text-xs text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary/60 font-mono"
+                onChange={(e) => {
+                  let val = e.target.value.trim().toLowerCase();
+                  if (val && !val.startsWith("#")) val = "#" + val;
+                  setHexInput(val);
+                }}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const val = hexInput.trim().toLowerCase();
+                    if (isValidHex(val)) {
+                      lastSubmittedHexRef.current = val;
+                      try {
+                        await updateEntity.mutateAsync({ projectId, entityId: entity.id, data: { color: val } });
+                        refresh();
+                      } catch { /* noop */ }
+                      setShowColorPicker(false);
+                    }
+                  }
+                }}
+                onBlur={async (e) => {
+                  const related = e.relatedTarget as HTMLElement | null;
+                  if (related && related.closest("[data-color-picker]")) return;
+                  const val = hexInput.trim().toLowerCase();
+                  const currentNorm = (entity.color ?? "").toLowerCase();
+                  if (isValidHex(val) && val !== currentNorm && val !== lastSubmittedHexRef.current) {
+                    lastSubmittedHexRef.current = val;
+                    try {
+                      await updateEntity.mutateAsync({ projectId, entityId: entity.id, data: { color: val } });
+                      refresh();
+                    } catch { /* noop */ }
+                  }
+                }}
+              />
+            </div>
           </div>
         )}
       </div>
