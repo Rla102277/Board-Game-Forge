@@ -305,10 +305,42 @@ const RADAR_COLORS = [
   "#60a5fa", "#f87171", "#34d399", "#fbbf24", "#a78bfa", "#22d3ee",
 ];
 
-interface BalanceViewProps { players: Player[]; }
+interface BalanceViewProps { players: Player[]; onReorder: (ids: number[]) => void; }
 
-function BalanceView({ players }: BalanceViewProps) {
+function BalanceView({ players, onReorder }: BalanceViewProps) {
   const [selected, setSelected] = useState<Set<number>>(() => new Set(players.slice(0, 4).map((p) => p.id)));
+
+  // Drag state for player chip reordering
+  const [draggedId, setDraggedId] = useState<number | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<number | null>(null);
+  const [insertBefore, setInsertBefore] = useState<boolean>(true);
+
+  const clearBalanceDragState = () => {
+    setDraggedId(null);
+    setDropTargetId(null);
+    setInsertBefore(true);
+  };
+
+  const handleBalanceDragOver = (e: React.DragEvent, id: number) => {
+    e.preventDefault();
+    setDropTargetId(id);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setInsertBefore(e.clientX < rect.left + rect.width / 2);
+  };
+
+  const handleBalanceDrop = (targetId: number) => {
+    if (!draggedId || draggedId === targetId) { clearBalanceDragState(); return; }
+    const fromIdx = players.findIndex((p) => p.id === draggedId);
+    const toIdx = players.findIndex((p) => p.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) { clearBalanceDragState(); return; }
+    const reordered = [...players];
+    const [moved] = reordered.splice(fromIdx, 1);
+    const adjustedToIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
+    const insertAt = Math.min(insertBefore ? adjustedToIdx : adjustedToIdx + 1, reordered.length);
+    reordered.splice(insertAt, 0, moved);
+    clearBalanceDragState();
+    onReorder(reordered.map((p) => p.id));
+  };
 
   // Auto-add newly created players to the selection
   useEffect(() => {
@@ -367,26 +399,47 @@ function BalanceView({ players }: BalanceViewProps) {
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1 mb-3">Compare Players</h3>
         <div className="flex flex-wrap gap-2">
-          {players.map((p, i) => {
+          {players.map((p) => {
             const m = getMeta(p.playerType);
             const colorIdx = players.indexOf(p) % RADAR_COLORS.length;
             const active = selected.has(p.id);
+            const isDropTarget = dropTargetId === p.id && draggedId !== null && draggedId !== p.id;
             return (
-              <button
+              <div
                 key={p.id}
-                onClick={() => setSelected((s) => {
-                  const n = new Set(s);
-                  n.has(p.id) ? n.delete(p.id) : n.add(p.id);
-                  return n;
-                })}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
-                  active ? "border-current" : "border-border text-muted-foreground opacity-50"
-                }`}
-                style={active ? { color: RADAR_COLORS[colorIdx % RADAR_COLORS.length], borderColor: RADAR_COLORS[colorIdx % RADAR_COLORS.length], backgroundColor: `${RADAR_COLORS[colorIdx % RADAR_COLORS.length]}15` } : {}}
+                className="relative"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/plain", String(p.id));
+                  setDraggedId(p.id);
+                }}
+                onDragOver={(e) => handleBalanceDragOver(e, p.id)}
+                onDrop={() => handleBalanceDrop(p.id)}
+                onDragEnd={clearBalanceDragState}
               >
-                <m.Icon className="h-3 w-3" />
-                {p.name}
-              </button>
+                {/* Insertion line — left */}
+                {isDropTarget && insertBefore && (
+                  <div className="absolute inset-y-0 left-0 w-0.5 bg-primary rounded-full z-10 pointer-events-none" />
+                )}
+                <button
+                  onClick={() => setSelected((s) => {
+                    const n = new Set(s);
+                    n.has(p.id) ? n.delete(p.id) : n.add(p.id);
+                    return n;
+                  })}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all cursor-grab active:cursor-grabbing ${
+                    active ? "border-current" : "border-border text-muted-foreground opacity-50"
+                  } ${draggedId === p.id ? "opacity-40" : ""} ${isDropTarget ? "ring-1 ring-primary/60 ring-inset scale-[1.02]" : ""}`}
+                  style={active ? { color: RADAR_COLORS[colorIdx % RADAR_COLORS.length], borderColor: RADAR_COLORS[colorIdx % RADAR_COLORS.length], backgroundColor: `${RADAR_COLORS[colorIdx % RADAR_COLORS.length]}15` } : {}}
+                >
+                  <m.Icon className="h-3 w-3" />
+                  {p.name}
+                </button>
+                {/* Insertion line — right */}
+                {isDropTarget && !insertBefore && (
+                  <div className="absolute inset-y-0 right-0 w-0.5 bg-primary rounded-full z-10 pointer-events-none" />
+                )}
+              </div>
             );
           })}
         </div>
@@ -860,6 +913,29 @@ export function Players({ projectId }: PlayersProps) {
     );
   };
 
+  // ── Balance view reorder (flat, cross-group)
+  const handleBalanceReorder = (orderedIds: number[]) => {
+    const queryKey = getListPlayersQueryKey(projectId);
+    const previous = qc.getQueryData<Player[]>(queryKey);
+    if (previous) {
+      const orderMap = new Map(orderedIds.map((id, idx) => [id, idx]));
+      const updated = previous.map((p) =>
+        orderMap.has(p.id) ? { ...p, displayOrder: orderMap.get(p.id)! } : p
+      );
+      qc.setQueryData(queryKey, updated);
+    }
+    reorderPlayers.mutate(
+      { projectId, data: { playerIds: orderedIds } },
+      {
+        onSuccess: (rows) => { qc.setQueryData(getListPlayersQueryKey(projectId), rows); },
+        onError: (err) => {
+          if (previous) qc.setQueryData(queryKey, previous);
+          toast({ title: "Reorder failed", description: String(err), variant: "destructive" });
+        },
+      },
+    );
+  };
+
   // ── Relationship helpers
   const addRelationship = () => {
     const targetId = parseInt(addingRelTarget, 10);
@@ -1124,7 +1200,7 @@ export function Players({ projectId }: PlayersProps) {
             {noPlayers ? (
               <EmptyCastState onAdd={() => setQuickAddOpen(true)} />
             ) : view === "balance" ? (
-              <BalanceView players={players ?? []} />
+              <BalanceView players={players ?? []} onReorder={handleBalanceReorder} />
             ) : !selectedPlayer ? (
               <NoSelectionState players={players ?? []} onSelect={(id) => { setSelectedId(id); setView("persona"); }} onAdd={() => setQuickAddOpen(true)} />
             ) : (
