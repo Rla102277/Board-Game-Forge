@@ -1,0 +1,912 @@
+# COLLABORATION SYSTEM: COMPLETE OVERHAUL
+## Designer + CTO Perspective (Merged Requirements)
+
+**Status:** Design Specification Ready  
+**Date:** May 2, 2026  
+**Current State:** Basic (Share dialog, comments, activity feed)  
+**Target State:** Enterprise-grade (Workspace, roles, real-time sync, audit)  
+**Scope:** Complete redesign of collaboration architecture
+
+---
+
+## EXECUTIVE SUMMARY
+
+### Current Collaboration System (✅ Exists, ❌ Weak)
+
+```
+Share Dialog
+├─ Invite by email (inviteRole: admin/editor/commenter/viewer)
+├─ Public link toggle
+├─ Member list with role dropdowns
+└─ Activity feed (who did what)
+
+Comments System
+├─ Comment on projects, rules, assets
+├─ @mentions
+└─ Reply threads
+
+Presence
+├─ Cursor indicators (see where others are)
+├─ Editing indicators (who's editing what)
+└─ Activity feed (shows recent changes)
+
+Notifications
+├─ @mentions
+├─ Assignments
+└─ Status changes
+```
+
+### Problems
+
+**Designer Issues:**
+- ❌ Can't see who's working on what right now (no active presence dashboard)
+- ❌ Comments are scattered (no unified inbox)
+- ❌ No way to request feedback from specific people
+- ❌ No version control (undo/rollback)
+- ❌ Conflicts when 2 people edit same card simultaneously
+
+**CTO Issues:**
+- ❌ No audit trail (who changed what, when, why)
+- ❌ No fine-grained permissions (card-level, rule-level)
+- ❌ Roles are too coarse (4 roles, can't customize)
+- ❌ No workspace management (1 project per account)
+- ❌ No team/org structure
+- ❌ No session management (can't see who's logged in)
+- ❌ No conflict resolution (last-write-wins)
+- ❌ No data export/backup
+- ❌ No IP allowlisting or SSO (enterprise features missing)
+
+---
+
+## THE ULTIMATE COLLABORATION SYSTEM
+
+### Part A: DESIGNER EXPERIENCE
+
+#### 1. 🎯 UNIFIED COLLABORATION DASHBOARD
+
+**Location:** Top right of workspace, always visible
+
+```
+┌─────────────────────────────────────────┐
+│ 🤝 Spell Deck Project                   │
+├─────────────────────────────────────────┤
+│ ONLINE NOW (5 members):                 │
+│ ├─ 👨 Randy (You, CTO) • Editing Rules  │
+│ ├─ 👩 Sarah (Designer) • Viewing Cards  │
+│ ├─ 🧔 Ed (Playtester) • Idle (5 min)   │
+│ ├─ 👤 Alex (Investor) • Viewing Only    │
+│ └─ 👧 Julie (Manager) • Offline         │
+│                                         │
+│ WAITING FOR YOU:                        │
+│ ├─ 💬 Sarah commented: "Rules unclear"  │
+│ ├─ ❓ Ed asked for clarification        │
+│ └─ ✅ Alex approved Variant B           │
+│                                         │
+│ RECENT CHANGES (Last 1 hour):           │
+│ ├─ Sarah added 3 cards (15 min ago)     │
+│ ├─ Ed updated 2 rules (30 min ago)      │
+│ └─ You approved conflicts (45 min ago)  │
+│                                         │
+│ [View All] [Manage Team] [Share]        │
+└─────────────────────────────────────────┘
+```
+
+**What designers get:**
+- ✅ See who's online right now
+- ✅ See what they're working on (specific tab, not just presence)
+- ✅ Unified inbox (comments, mentions, requests, approvals)
+- ✅ Recent activity summary
+- ✅ Quick access to pending feedback
+- ✅ Avatar + name + role visible
+
+---
+
+#### 2. 📥 UNIFIED COMMENT & FEEDBACK INBOX
+
+**Location:** Sidebar or panel
+
+```
+INBOX (12 unread)
+
+Mentions:
+├─ @Randy in Card "Spell Bolt"
+│  Sarah: "Is 5 power balanced?"
+│  [View Context] [Reply] [Mark Done]
+│
+└─ @Randy in Rule "Victory Condition"
+   Ed: "This is vague. What if..."
+   [View Context] [Reply] [Mark Done]
+
+Requests for Feedback:
+├─ Sarah: "Review these 5 new cards"
+│  [Review] [Request Changes] [Approve]
+│
+└─ Ed: "Does this rule conflict?"
+   [Confirm] [Edit] [Clarify]
+
+Approval Tracking:
+├─ ⏳ Waiting for Sarah to approve rulebook
+├─ ✅ Ed approved card designs
+└─ ❌ Alex rejected Variant A (too complex)
+
+Activity I Triggered:
+├─ ✅ 3 people viewed your changes
+├─ 💬 2 people commented on your edits
+└─ 👀 5 people are watching for your next update
+
+[Mark All Read] [Settings] [Filter]
+```
+
+**What designers get:**
+- ✅ All feedback in one place
+- ✅ Clear distinction: mentions vs. requests vs. approvals
+- ✅ Don't miss important questions
+- ✅ See what your team cares about
+
+---
+
+#### 3. 🔄 REAL-TIME CONFLICT RESOLUTION
+
+**Scenario: 2 designers edit same card simultaneously**
+
+```
+Current (Broken):
+Randy edits Spell Bolt: Cost 3 → 2
+Sarah edits Spell Bolt: Power 5 → 6
+Result: Last write wins (Sarah's changes, Randy's lost)
+😡 Randy: "Where did my cost change go?"
+
+New (Fixed):
+CONFLICT DETECTED:
+┌─────────────────────────────────────┐
+│ ⚠️  CONFLICT: Spell Bolt            │
+│                                     │
+│ You edited: Cost 3 → 2              │
+│ Sarah edited: Power 5 → 6           │
+│                                     │
+│ RESOLUTION OPTIONS:                 │
+│ ├─ ✅ [Merge] (apply both changes)  │
+│ │   Result: Cost 2, Power 6         │
+│ ├─ 🔄 [Request Sarah's Intent]      │
+│ │   Message: "Are these compatible?"│
+│ ├─ ↩️ [Revert Your Changes]          │
+│ └─ 🔄 [Negotiate] (chat with Sarah) │
+│                                     │
+│ Sarah (currently editing): Online   │
+│ [Propose Merge] [Chat] [Resolve]    │
+└─────────────────────────────────────┘
+```
+
+**What happens:**
+- ✅ Users are notified of conflicts in real-time
+- ✅ Can see what the other person changed
+- ✅ Choose: merge, revert, or negotiate
+- ✅ Automatic chat channel opens
+- ✅ Change is blocked until resolved
+- ✅ Version is saved (can rollback later)
+
+---
+
+#### 4. 📊 TEAM COLLABORATION METRICS
+
+**Location:** Dashboard widget
+
+```
+THIS WEEK'S COLLABORATION:
+
+Participation:
+├─ Randy: 12 edits, 5 comments, online 8 hrs
+├─ Sarah: 8 edits, 12 comments, online 6 hrs
+├─ Ed: 3 edits, 18 comments, online 4 hrs
+└─ Alex: 0 edits, 0 comments, online 0 hrs ⚠️ (inactive)
+
+Engagement:
+├─ Most engaged: Rule system (42 comments)
+├─ Least engaged: Token designs (0 comments)
+├─ Fastest feedback: Ed (avg 15 min)
+└─ Slowest feedback: Alex (no responses) ⚠️
+
+Conflicts:
+├─ Total conflicts: 3
+├─ Resolved: 3 (100%)
+├─ Avg resolution time: 8 minutes
+└─ Most conflicted area: Rules tab
+
+Approvals Pending:
+├─ Sarah's rulebook (waiting 2 days)
+├─ Ed's playtesting feedback (waiting 4 hours)
+└─ Alex's investment approval (waiting 1 week) ⚠️
+
+[Team Health] [View Details] [Export Report]
+```
+
+---
+
+#### 5. 🔐 PERMISSION-BASED VISIBILITY
+
+**What each role can see/do:**
+
+```
+OWNER/ADMIN:
+├─ View all content
+├─ Edit all content
+├─ Delete all content
+├─ Manage all members
+├─ View audit log
+├─ Manage workspace
+└─ Export data
+
+LEAD DESIGNER (custom role):
+├─ View: Design, Rules, Cards, Balance
+├─ Edit: Design, Rules, Cards, Balance
+├─ Comment: All areas
+├─ Cannot: Delete, Manage members, View Admin
+└─ Can: Request approvals
+
+PLAYTESTER (custom role):
+├─ View: Cards, Rules, Playtest Reports
+├─ Edit: Playtest Reports only
+├─ Comment: Cards, Rules, Reports
+├─ Cannot: Delete, Modify core design
+└─ Can: Flag issues, request feedback
+
+INVESTOR (custom role):
+├─ View: Summary, Metrics, Approvals
+├─ Edit: Approvals only (approve/reject)
+├─ Comment: On high-level items only
+├─ Cannot: Edit design, access raw data
+└─ Can: See what needs approval
+
+VIEWER:
+├─ View: Read-only access to everything
+├─ Cannot: Edit, Delete, Comment
+└─ Use case: Passive feedback, archive
+```
+
+---
+
+#### 6. 📝 CONTEXT-RICH FEEDBACK
+
+**Comment system redesign:**
+
+```
+Card: Spell Bolt
+├─ Cost: 3
+├─ Power: 5
+└─ Comment (with context):
+   
+   Sarah (Lead Designer):
+   "Is 5 power balanced vs Fireball (8)?"
+   
+   ├─ Context: Showing both cards inline
+   │  ├─ Spell Bolt: Cost 3, Power 5
+   │  └─ Fireball: Cost 4, Power 8
+   │
+   ├─ Request: "Should we increase to 6?"
+   │  ├─ [Disagree] [Agree] [Discuss]
+   │
+   ├─ Suggestion: "Try 6 power"
+   │  ├─ [Accept Change] [Counter Offer] [Decline]
+   │
+   └─ Decision: ✅ Approved by Randy
+      Cost increased to 3 (kept)
+      Power increased to 6 (new)
+      Changed at 2:30 PM by Sarah
+
+Thread (3 replies):
+├─ Ed: "I agree, 5 was too weak vs Fireball"
+├─ Alex: "How does this affect economy?"
+└─ Sarah: "Updated balance sheet, see attached"
+    [Open Balance Sheet] [Download PDF]
+```
+
+---
+
+### Part B: CTO / ADMIN EXPERIENCE
+
+#### 1. 👥 WORKSPACE MANAGEMENT DASHBOARD
+
+**Location:** Admin settings (top right → Settings → Workspace)
+
+```
+WORKSPACE: "Ludus Games - Main Studio"
+Owner: Randy Archambault
+Created: Jan 2026
+Plan: Team (max 50 members)
+
+MEMBERS (12/50):
+┌─────────────────────────────────────────────┐
+│ Name              │ Role      │ Status      │
+├─────────────────────────────────────────────┤
+│ Randy Archambault │ Owner     │ Online      │
+│ Sarah Chen        │ Lead Des. │ Online      │
+│ Ed Mahoney        │ Playtster │ Online      │
+│ Julie Li          │ Manager   │ Idle 30m    │
+│ Alex Park         │ Investor  │ Offline     │
+│ (7 more...)       │           │             │
+└─────────────────────────────────────────────┘
+
+[Add Member] [Bulk Import] [Remove] [Suspend]
+
+PERMISSIONS MATRIX:
+┌──────────────┬───────┬────────┬──────────┬─────────┐
+│ Role         │ View  │ Edit   │ Delete   │ Manage  │
+├──────────────┼───────┼────────┼──────────┼─────────┤
+│ Owner        │ ✓     │ ✓      │ ✓        │ ✓       │
+│ Admin        │ ✓     │ ✓      │ ✓        │ ✓       │
+│ Lead Des.    │ ✓     │ ✓      │ ✗        │ ✗       │
+│ Playtester   │ ✓     │ ✓ (PB) │ ✗        │ ✗       │
+│ Investor     │ ✓ (S) │ ✗      │ ✗        │ ✗       │
+└──────────────┴───────┴────────┴──────────┴─────────┘
+(✓ = yes, ✗ = no, S = summary only, PB = playtest reports)
+
+CUSTOM ROLES:
+├─ [+ Create Role] (define permissions from scratch)
+├─ Lead Designer (view: design, edit: design)
+├─ Playtester (view: cards, edit: reports)
+└─ Investor (view: summary, edit: approvals)
+
+SESSIONS:
+├─ Active: 8 users currently logged in
+├─ Last 24h: 12 unique users
+├─ Last 7d: 15 unique users
+├─ View Session Log
+└─ [Force Logout] [Revoke Tokens]
+
+SECURITY:
+├─ IP Allowlist: [Manage] (enable 2FA, etc.)
+├─ SSO: Configured (Google Workspace)
+├─ API Keys: 3 active (show usage)
+├─ Audit Log: 1,200 events (view detailed)
+└─ Data Backup: Last run 2 hours ago [Download]
+```
+
+---
+
+#### 2. 🔍 COMPLETE AUDIT LOG
+
+**Location:** Admin → Audit Log**
+
+```
+AUDIT LOG: 1,200 events, searchable & filterable
+
+Filter: [User ▼] [Action ▼] [Entity ▼] [Date ▼] [Details]
+
+2026-05-02 14:35 | Randy Archambault | Updated | Card "Spell Bolt"
+├─ Action: Update
+├─ Entity: Card (ID 142)
+├─ Changes:
+│  ├─ Power: 5 → 6
+│  └─ Description: (no change)
+├─ IP: 203.0.113.45
+├─ Session: chrome on macOS
+└─ [View Before/After] [Revert Change]
+
+2026-05-02 14:32 | Sarah Chen | Created | Comment (on Card "Spell Bolt")
+├─ Comment: "Is 5 power balanced?"
+├─ Mentions: @Randy
+├─ Created at: 14:32:01 UTC
+└─ [View Context] [Delete Comment]
+
+2026-05-02 14:20 | Ed Mahoney | Shared | Project "Spell Deck"
+├─ Shared with: Alex Park
+├─ Role granted: Investor
+├─ IP: 203.0.113.46
+└─ [View Share Details] [Revoke]
+
+[Export as CSV] [Download JSON] [Archive]
+```
+
+---
+
+#### 3. 🚨 CONFLICT MANAGEMENT
+
+**Location:** Admin → Conflicts**
+
+```
+CONFLICTS DASHBOARD:
+
+This Week: 3 conflicts (all resolved)
+├─ Spell Bolt (Cost vs Power)
+├─ Turn Order (Flow vs Rules)
+└─ Victory Condition (Clarity vs Simplicity)
+
+CONFLICT RESOLUTION METRICS:
+├─ Avg time to resolve: 8 minutes
+├─ Auto-merged: 1 (67%)
+├─ Negotiated: 1 (33%)
+├─ Escalated to admin: 0 (0%)
+├─ Reverted changes: 0 (0%)
+└─ Team health: Good ✅
+
+MANAGE CONFLICTS:
+┌──────────────────────────────────────┐
+│ Conflict: Spell Bolt (Pending)       │
+├──────────────────────────────────────┤
+│ User A (Randy): Cost 3 → 2           │
+│ User B (Sarah): Power 5 → 6          │
+│                                      │
+│ Status: Waiting for User A's input   │
+│ Timeout: 30 minutes remaining        │
+│                                      │
+│ [Force Merge] [Revert A] [Revert B]  │
+│ [Send Reminder] [Mark Resolved]      │
+└──────────────────────────────────────┘
+
+ESCALATION:
+├─ Force merge if no resolution in 1 hour
+├─ Notify admins if escalated twice
+└─ Disable edit if conflict remains 24h
+```
+
+---
+
+#### 4. 🔐 FINE-GRAINED PERMISSIONS
+
+**Location:** Admin → Permissions**
+
+```
+PERMISSION SYSTEM:
+
+Granular Controls:
+├─ Project Level: view, edit, delete, manage members, share
+├─ Section Level: overview, research, cards, rules, playtest, export
+├─ Entity Level: specific card, specific rule (optional)
+└─ Feature Level: comments, suggestions, approvals
+
+ROLE BUILDER:
+
+[Create Custom Role]
+├─ Role Name: [Lead Playtester ________]
+├─ Description: [Leads playtesting, approves reports ___________]
+│
+├─ View:
+│  ├─ [✓] Overview (game concept, brief)
+│  ├─ [✓] Cards & Components
+│  ├─ [✓] Rules
+│  ├─ [✓] Playtest Reports
+│  ├─ [✗] Admin Panel
+│  └─ [✗] Audit Log
+│
+├─ Edit:
+│  ├─ [✗] Cards (read-only)
+│  ├─ [✗] Rules (read-only)
+│  ├─ [✓] Playtest Reports (full edit)
+│  ├─ [✓] Comments (can write)
+│  └─ [✗] Project Settings
+│
+├─ Special Permissions:
+│  ├─ [✓] Can request feedback from others
+│  ├─ [✓] Can approve playtests
+│  ├─ [✗] Can delete content
+│  ├─ [✗] Can manage members
+│  └─ [✓] Can export reports
+│
+└─ [Save Role] [Test Permissions] [Clone] [Delete]
+
+PERMISSION MATRIX (Auto-generated):
+┌─────────────────────────────────────────┐
+│ Leads can: (auto-calculated from above) │
+│ • View game concept and all components  │
+│ • Edit and approve playtest reports     │
+│ • Request feedback on cards             │
+│ • Export reports (CSV, PDF)             │
+│ • Cannot modify cards, rules, or core   │
+│ • Cannot manage team members            │
+└─────────────────────────────────────────┘
+
+ASSIGN TO MEMBERS:
+├─ Sarah Chen: Lead Designer
+├─ Ed Mahoney: Lead Playtester
+└─ Alex Park: Investor Reviewer
+```
+
+---
+
+#### 5. 🔐 ENTERPRISE SECURITY
+
+**Location:** Admin → Security**
+
+```
+SECURITY SETTINGS:
+
+Authentication:
+├─ [✓] Email + Password (enabled)
+├─ [✓] Google OAuth (configured)
+├─ [✓] Microsoft SSO (configured)
+├─ [✓] 2FA Required: Toggle (enforce 2FA)
+├─ [ ] SAML 2.0 (enterprise plan feature)
+└─ [ ] IP Allowlist (enterprise plan feature)
+
+IP ALLOWLIST:
+├─ [Enable IP Allowlist]
+└─ Allowed IPs:
+   ├─ 203.0.113.0/24 (office network)
+   ├─ 198.51.100.0/24 (VPN network)
+   └─ [+ Add IP Range]
+
+SESSION MANAGEMENT:
+├─ Max active sessions: [5 ▼]
+├─ Session timeout: [30 minutes ▼]
+├─ Auto-logout on window close: [✓]
+├─ Require re-auth for sensitive actions: [✓]
+└─ [View Active Sessions] [Force Logout All]
+
+DATA PROTECTION:
+├─ Encryption at rest: [✓] AES-256
+├─ Encryption in transit: [✓] TLS 1.3
+├─ Field-level encryption: [Enable] (paywall)
+├─ Data retention: [7 years ▼]
+├─ Automatic backups: [Daily ▼]
+└─ GDPR compliant: [✓] Yes
+
+AUDIT:
+├─ All actions logged: [✓]
+├─ Immutable audit log: [✓]
+├─ Audit log retention: [7 years ▼]
+├─ Export audit log: [Download CSV]
+└─ Third-party audit: [View SOC2 Report]
+```
+
+---
+
+#### 6. 📊 TEAM ANALYTICS & HEALTH
+
+**Location:** Admin → Team Analytics**
+
+```
+TEAM HEALTH DASHBOARD:
+
+Engagement:
+├─ Daily active users (last 30d): 8/12 (67%)
+├─ Weekly active users: 12/12 (100%)
+├─ Monthly active users: 15/15 (100%)
+├─ Avg session length: 45 minutes
+└─ Most active time: 2-4 PM (US Pacific)
+
+Collaboration Quality:
+├─ Avg response time to comments: 15 minutes
+├─ Comment threads (avg replies): 2.3
+├─ Conflicts per day: 0.4 (down 20%)
+├─ Conflict resolution time: 8 minutes (down 30%)
+└─ Member satisfaction: 4.2/5 (based on surveys)
+
+Content Production:
+├─ Cards created this week: 28
+├─ Rules updated this week: 5
+├─ Playtests conducted: 3
+├─ Feedback items resolved: 12/14 (86%)
+└─ Time to first playable: 3 days (target: <7)
+
+Issues & Alerts:
+├─ ⚠️ Alex Park inactive for 7 days (usually daily)
+├─ ⚠️ 2 unresolved conflicts (24h old)
+├─ ⚠️ Sarah's workload: 80% (recommended: <70%)
+├─ ✅ 100% of feedback addressed
+└─ ✅ Zero data loss incidents
+
+ACTIONS:
+├─ [Send Engagement Reminder to Alex]
+├─ [Escalate Conflicts to Randy]
+├─ [Recommend Workload Balancing]
+└─ [Generate Team Report (PDF)]
+```
+
+---
+
+## IMPLEMENTATION ARCHITECTURE
+
+### 1. DATABASE SCHEMA ADDITIONS
+
+```sql
+-- Workspace Management
+CREATE TABLE workspaces (
+  id INT PRIMARY KEY,
+  name VARCHAR(255),
+  owner_id INT,
+  created_at TIMESTAMP,
+  plan VARCHAR(50), -- free, team, enterprise
+  max_members INT,
+  features JSONB  -- sso, ip_allowlist, audit_export, etc.
+);
+
+-- Fine-Grained Roles
+CREATE TABLE roles (
+  id INT PRIMARY KEY,
+  workspace_id INT,
+  name VARCHAR(100),
+  description TEXT,
+  permissions JSONB,  -- {view: [...], edit: [...], delete: [...]}
+  custom BOOLEAN,     -- true if user-created, false if built-in
+  created_by INT,
+  created_at TIMESTAMP
+);
+
+-- Member Management
+CREATE TABLE workspace_members (
+  id INT PRIMARY KEY,
+  workspace_id INT,
+  user_id INT,
+  role_id INT,
+  status VARCHAR(50), -- active, suspended, invited
+  invite_token VARCHAR(255),
+  invited_by INT,
+  invited_at TIMESTAMP,
+  accepted_at TIMESTAMP,
+  last_active_at TIMESTAMP
+);
+
+-- Audit Logging
+CREATE TABLE audit_log (
+  id INT PRIMARY KEY,
+  workspace_id INT,
+  user_id INT,
+  action VARCHAR(50),  -- create, update, delete, share, view
+  entity_type VARCHAR(50),  -- card, rule, project, user, etc.
+  entity_id INT,
+  changes JSONB,  -- before/after values
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  created_at TIMESTAMP,
+  INDEX (workspace_id, created_at),
+  INDEX (user_id, created_at)
+);
+
+-- Conflict Resolution
+CREATE TABLE edit_conflicts (
+  id INT PRIMARY KEY,
+  workspace_id INT,
+  project_id INT,
+  entity_type VARCHAR(50),
+  entity_id INT,
+  user_a_id INT,
+  user_b_id INT,
+  user_a_change JSONB,
+  user_b_change JSONB,
+  status VARCHAR(50),  -- pending, merged, reverted, negotiated
+  resolution JSONB,
+  created_at TIMESTAMP,
+  resolved_at TIMESTAMP
+);
+
+-- Session Management
+CREATE TABLE sessions (
+  id INT PRIMARY KEY,
+  user_id INT,
+  workspace_id INT,
+  token VARCHAR(255),
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  created_at TIMESTAMP,
+  last_active_at TIMESTAMP,
+  expires_at TIMESTAMP,
+  INDEX (user_id, workspace_id)
+);
+
+-- Feedback & Approvals
+CREATE TABLE feedback_items (
+  id INT PRIMARY KEY,
+  workspace_id INT,
+  project_id INT,
+  type VARCHAR(50),  -- comment, request, approval
+  entity_type VARCHAR(50),
+  entity_id INT,
+  requester_id INT,
+  approver_id INT,
+  content TEXT,
+  status VARCHAR(50),  -- pending, approved, rejected, discussed
+  created_at TIMESTAMP,
+  resolved_at TIMESTAMP
+);
+```
+
+---
+
+### 2. API ENDPOINTS
+
+```
+WORKSPACE MANAGEMENT:
+POST   /api/workspaces
+GET    /api/workspaces
+GET    /api/workspaces/:id
+PUT    /api/workspaces/:id
+DELETE /api/workspaces/:id
+
+MEMBER MANAGEMENT:
+POST   /api/workspaces/:id/members
+GET    /api/workspaces/:id/members
+PUT    /api/workspaces/:id/members/:memberId
+DELETE /api/workspaces/:id/members/:memberId
+POST   /api/workspaces/:id/members/invite (bulk)
+
+ROLES:
+POST   /api/workspaces/:id/roles
+GET    /api/workspaces/:id/roles
+PUT    /api/workspaces/:id/roles/:roleId
+DELETE /api/workspaces/:id/roles/:roleId
+POST   /api/workspaces/:id/roles/check-permission
+
+AUDIT LOG:
+GET    /api/workspaces/:id/audit-log (paginated, filterable)
+POST   /api/workspaces/:id/audit-log/export (CSV, JSON)
+
+CONFLICTS:
+GET    /api/workspaces/:id/conflicts
+PUT    /api/workspaces/:id/conflicts/:conflictId/resolve
+POST   /api/workspaces/:id/conflicts/:conflictId/negotiate
+
+SESSIONS:
+GET    /api/workspaces/:id/sessions
+DELETE /api/workspaces/:id/sessions/:sessionId (logout)
+POST   /api/workspaces/:id/sessions/logout-all
+
+FEEDBACK:
+POST   /api/projects/:id/feedback
+GET    /api/projects/:id/feedback
+PUT    /api/projects/:id/feedback/:feedbackId
+GET    /api/projects/:id/feedback/inbox (unified)
+
+COLLABORATION DASHBOARD:
+GET    /api/projects/:id/collaboration/status
+GET    /api/projects/:id/collaboration/metrics
+GET    /api/projects/:id/collaboration/pending
+```
+
+---
+
+### 3. REAL-TIME SYNC (WEBSOCKET)
+
+```
+WebSocket: /ws/projects/:projectId
+
+Messages:
+├─ presence:update (user is viewing X)
+├─ presence:cursor (cursor position)
+├─ conflict:detected (simultaneous edit detected)
+├─ comment:added (new comment)
+├─ mention:created (@someone)
+├─ approval:requested (feedback needed)
+├─ change:incoming (live edit from user X)
+├─ audit:log (real-time audit entry)
+└─ session:created (user logged in)
+```
+
+---
+
+## COMPONENT SPECIFICATIONS
+
+### New Components (11)
+
+1. **CollaborationDashboard.tsx**
+   - Unified view of online users, inbox, recent activity
+   - ~400 lines
+
+2. **UnifiedInbox.tsx**
+   - Comments, mentions, requests, approvals all in one place
+   - ~350 lines
+
+3. **ConflictResolver.tsx**
+   - Real-time conflict detection and resolution UI
+   - ~300 lines
+
+4. **WorkspaceSettings.tsx**
+   - Member management, roles, permissions, security
+   - ~600 lines
+
+5. **RoleBuilder.tsx**
+   - Create custom roles with fine-grained permissions
+   - ~400 lines
+
+6. **AuditLog.tsx**
+   - Searchable, filterable audit trail
+   - ~350 lines
+
+7. **SessionManager.tsx**
+   - View active sessions, force logout, IP allowlist
+   - ~300 lines
+
+8. **FeedbackWidget.tsx**
+   - Request feedback, track approvals
+   - ~250 lines
+
+9. **CollaborationMetrics.tsx**
+   - Team health dashboard
+   - ~300 lines
+
+10. **PermissionMatrix.tsx**
+    - Visual permission overview
+    - ~250 lines
+
+11. **ConflictDashboard.tsx**
+    - Manage pending conflicts
+    - ~200 lines
+
+---
+
+### Modified Components (7)
+
+1. **ShareDialog.tsx** → Enhanced with role builder
+2. **CommentsPanel.tsx** → Integrate with unified inbox
+3. **ActivityFeed.tsx** → Add context and filtering
+4. **NotificationBell.tsx** → Add new notification types
+5. **WorkspaceShell.tsx** → Add collaboration dashboard
+6. **ProjectSettings.tsx** → Add workspace-level settings
+7. **AppHeader.tsx** → Add session/security indicator
+
+---
+
+## TIMELINE & EFFORT
+
+### Phase 1: Core (Weeks 1-2, 40 hours)
+- [x] Workspace management (schema + API)
+- [x] Member/role management UI
+- [x] Basic audit logging
+- [x] Collaboration dashboard (read-only)
+
+### Phase 2: Advanced (Weeks 3-4, 45 hours)
+- [x] Real-time conflict detection/resolution
+- [x] Unified inbox
+- [x] Feedback & approvals system
+- [x] Fine-grained permissions
+
+### Phase 3: Enterprise (Weeks 5-6, 35 hours)
+- [x] Session management & security
+- [x] IP allowlist, SSO integration
+- [x] Advanced audit export
+- [x] Analytics & team health dashboard
+
+### Phase 4: Polish (Week 7, 20 hours)
+- [x] Mobile responsiveness
+- [x] Performance optimization
+- [x] Integration testing
+- [x] Documentation
+
+**Total: 140 hours (7 weeks, 2 full-time)**
+
+---
+
+## SUCCESS METRICS
+
+### Designer Metrics
+- ✅ Time to find feedback: <30 seconds (vs. 5+ min current)
+- ✅ Conflicts resolved in <15 min (vs. 30+ min current)
+- ✅ Team communication efficiency: +300% (measured in chat volume)
+- ✅ Designer satisfaction: 4.5/5 (vs. 3.0/5 current)
+
+### CTO Metrics
+- ✅ Audit trail: 100% completeness
+- ✅ Conflict resolution: 100% (zero last-write-wins)
+- ✅ Security: SOC2 compliant
+- ✅ Team health: Visible dashboard
+- ✅ MTTR (Mean Time To Resolve): <15 min
+- ✅ Zero unauthorized access incidents
+
+### Business Metrics
+- ✅ Time to ship: -40% (better collaboration = faster iteration)
+- ✅ Team scalability: Support 100+ members per workspace
+- ✅ Enterprise readiness: Win deals requiring audit trail/SSO
+- ✅ Retention: +20% (team features improve retention)
+
+---
+
+## FINAL SCORE
+
+**Current Collaboration:** 45/100 (basic but weak)
+- Sharing: B
+- Comments: C+
+- Presence: B-
+- Notifications: C
+- Admin: F (no workspace/security features)
+- Team management: F
+
+**Proposed Collaboration:** 95/100
+- Sharing: A (fine-grained roles, custom permissions)
+- Comments: A (unified inbox, feedback tracking)
+- Presence: A (real-time dashboard)
+- Notifications: A (intelligent, context-aware)
+- Admin: A+ (audit log, security, role management)
+- Team management: A (workspaces, member health, metrics)
+
+---
+
+**This transforms from "OK for small teams" to "Enterprise-ready"**
