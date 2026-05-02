@@ -376,6 +376,7 @@ export function EntityGraph({
   const [activeTypes, setActiveTypes] = useState<Set<string>>(() => new Set(ALL_COMPONENT_TYPES));
   const [focusedNodeId, setFocusedNodeId] = useState<number | null>(null);
   const [showNeighborsOnly, setShowNeighborsOnly] = useState(false);
+  const [neighborDepth, setNeighborDepth] = useState(1);
   const [minWeight, setMinWeight] = useState(2);
 
   const allActive = presentTypes.every((t) => activeTypes.has(t));
@@ -431,16 +432,48 @@ export function EntityGraph({
     [preFilterEdges, minWeight],
   );
 
-  // Apply neighbor filter — only if a node is focused and neighbor mode is on.
+  // Adjacency map built from the rendered pre-filter edges — used by BFS below.
+  const adjacencyMap = useMemo(() => {
+    const map = new Map<number, number[]>();
+    for (const e of renderedPreFilterEdges) {
+      if (!map.has(e.a)) map.set(e.a, []);
+      if (!map.has(e.b)) map.set(e.b, []);
+      map.get(e.a)!.push(e.b);
+      map.get(e.b)!.push(e.a);
+    }
+    return map;
+  }, [renderedPreFilterEdges]);
+
+  // Apply neighbor filter — BFS up to neighborDepth hops, capped at GRAPH_NODE_CAP.
+  // The focused node is always retained even when the cap is reached.
   const finalEntities = useMemo(() => {
     if (!showNeighborsOnly || !focusedNodeId) return typeFilteredEntities;
-    const neighborSet = new Set<number>([focusedNodeId]);
-    for (const e of renderedPreFilterEdges) {
-      if (e.a === focusedNodeId) neighborSet.add(e.b);
-      if (e.b === focusedNodeId) neighborSet.add(e.a);
+    const visited = new Set<number>([focusedNodeId]);
+    let frontier = new Set<number>([focusedNodeId]);
+    outer: for (let hop = 0; hop < neighborDepth; hop++) {
+      const next = new Set<number>();
+      for (const nodeId of frontier) {
+        for (const neighborId of (adjacencyMap.get(nodeId) ?? [])) {
+          if (!visited.has(neighborId)) {
+            visited.add(neighborId);
+            next.add(neighborId);
+            if (visited.size >= GRAPH_NODE_CAP) break outer;
+          }
+        }
+      }
+      frontier = next;
+      if (frontier.size === 0) break;
     }
-    return typeFilteredEntities.filter((e) => neighborSet.has(e.id));
-  }, [typeFilteredEntities, renderedPreFilterEdges, showNeighborsOnly, focusedNodeId]);
+    // Always include focused node; filter preserves typeFilteredEntities order.
+    const inVisited = typeFilteredEntities.filter((e) => visited.has(e.id));
+    if (inVisited.length > GRAPH_NODE_CAP) {
+      // Guarantee focused node is first so it survives the slice
+      const rest = inVisited.filter((e) => e.id !== focusedNodeId);
+      const focused = inVisited.find((e) => e.id === focusedNodeId);
+      return focused ? [focused, ...rest.slice(0, GRAPH_NODE_CAP - 1)] : rest.slice(0, GRAPH_NODE_CAP);
+    }
+    return inVisited;
+  }, [typeFilteredEntities, adjacencyMap, showNeighborsOnly, focusedNodeId, neighborDepth]);
 
   // Build the final base graph (before position overrides).
   const baseGraph = useMemo(
@@ -816,7 +849,13 @@ export function EntityGraph({
               {focusedEntity.type}
             </span>
             <span className="font-medium text-white">{focusedEntity.name}</span>
-            <span className="text-muted-foreground/70">· {focusedNeighborCount} neighbor{focusedNeighborCount !== 1 ? "s" : ""}</span>
+            {showNeighborsOnly ? (
+              <span className="text-muted-foreground/70">
+                · {finalEntities.length - 1} node{finalEntities.length - 1 !== 1 ? "s" : ""} within {neighborDepth} hop{neighborDepth !== 1 ? "s" : ""}
+              </span>
+            ) : (
+              <span className="text-muted-foreground/70">· {focusedNeighborCount} neighbor{focusedNeighborCount !== 1 ? "s" : ""}</span>
+            )}
             <button
               onClick={() => setShowNeighborsOnly((v) => !v)}
               className={`ml-1 px-2 py-0.5 rounded border text-[10px] transition-colors ${
@@ -828,8 +867,27 @@ export function EntityGraph({
             >
               {showNeighborsOnly ? "Showing neighbors only" : "Show neighbors only"}
             </button>
+            {showNeighborsOnly && (
+              <span className="flex items-center gap-1 ml-1" data-testid="graph-depth-stepper">
+                <span className="text-[10px] text-muted-foreground shrink-0">Depth:</span>
+                {([1, 2, 3] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setNeighborDepth(d)}
+                    className={`w-6 h-5 rounded text-[10px] font-bold border transition-colors ${
+                      neighborDepth === d
+                        ? "bg-primary/30 border-primary/60 text-primary"
+                        : "border-border/50 bg-background/40 text-muted-foreground hover:text-white"
+                    }`}
+                    data-testid={`graph-depth-${d}`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </span>
+            )}
             <button
-              onClick={() => { setFocusedNodeId(null); setShowNeighborsOnly(false); }}
+              onClick={() => { setFocusedNodeId(null); setShowNeighborsOnly(false); setNeighborDepth(1); }}
               className="ml-auto text-muted-foreground/60 hover:text-white transition-colors"
               data-testid="graph-focus-clear"
             >
