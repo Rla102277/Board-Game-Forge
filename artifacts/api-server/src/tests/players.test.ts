@@ -238,3 +238,119 @@ describe("Player profile fields — save and load", () => {
     expect(p2.displayOrder).toBeLessThan(p1.displayOrder);
   });
 });
+
+// ── Edge-case and regression tests ───────────────────────────────────────────
+
+describe("Player profile fields — edge cases", () => {
+  const app = createTestApp();
+  const agent = supertest(app);
+
+  it("PATCH on a non-existent playerId returns 404", async () => {
+    const res = await agent
+      .patch(`/projects/${testProjectId}/players/999999999`)
+      .send({ faction: "Ghost Faction" });
+    expect(res.status).toBe(404);
+  });
+
+  it("PATCH does not wipe unrelated profile fields (partial update isolation)", async () => {
+    // Create a fresh player with all profile fields set
+    const create = await agent
+      .post(`/projects/${testProjectId}/players`)
+      .send({
+        name: "Isolation Test Player",
+        faction: "Iron Circle",
+        motivation: "Control the southern ports",
+        flaw: "Paranoid about betrayal",
+        arc: "From tyrant to reluctant hero",
+      });
+    expect(create.status).toBe(201);
+    const id = create.body.id as number;
+
+    // Update only faction — other narrative fields must be unchanged
+    const patch = await agent
+      .patch(`/projects/${testProjectId}/players/${id}`)
+      .send({ faction: "Golden Vale" });
+    expect(patch.status).toBe(200);
+    expect(patch.body.faction).toBe("Golden Vale");
+    expect(patch.body.motivation).toBe("Control the southern ports");
+    expect(patch.body.flaw).toBe("Paranoid about betrayal");
+    expect(patch.body.arc).toBe("From tyrant to reluctant hero");
+  });
+
+  it("GET returns players sorted by displayOrder ascending", async () => {
+    // Create two players with known displayOrder values
+    const a = await agent
+      .post(`/projects/${testProjectId}/players`)
+      .send({ name: "Order A", displayOrder: 100 });
+    const b = await agent
+      .post(`/projects/${testProjectId}/players`)
+      .send({ name: "Order B", displayOrder: 50 });
+    expect(a.status).toBe(201);
+    expect(b.status).toBe(201);
+
+    const list = (await agent.get(`/projects/${testProjectId}/players`)).body as Array<{ id: number; displayOrder: number }>;
+    const orders = list.map((p) => p.displayOrder);
+    for (let i = 1; i < orders.length; i++) {
+      expect(orders[i]).toBeGreaterThanOrEqual(orders[i - 1]!);
+    }
+  });
+
+  it("Reorder with duplicate IDs returns 400", async () => {
+    const create = await agent
+      .post(`/projects/${testProjectId}/players`)
+      .send({ name: "Dup Reorder Player" });
+    expect(create.status).toBe(201);
+    const id = create.body.id as number;
+
+    const res = await agent
+      .patch(`/projects/${testProjectId}/players/reorder`)
+      .send({ playerIds: [id, id] });
+    expect(res.status).toBe(400);
+  });
+
+  it("Reorder assigns sequential displayOrder values starting from 0", async () => {
+    // Gather all current player IDs for this project
+    const list = (await agent.get(`/projects/${testProjectId}/players`)).body as Array<{ id: number }>;
+    const ids = list.map((p) => p.id);
+
+    const reorder = await agent
+      .patch(`/projects/${testProjectId}/players/reorder`)
+      .send({ playerIds: ids });
+    expect(reorder.status).toBe(200);
+
+    const updated = reorder.body as Array<{ id: number; displayOrder: number }>;
+    // Every player that was reordered should have displayOrder equal to its
+    // position index in the submitted array
+    for (let i = 0; i < ids.length; i++) {
+      const found = updated.find((p) => p.id === ids[i])!;
+      expect(found.displayOrder).toBe(i);
+    }
+  });
+
+  it("behaviorProfile JSONB survives a full round-trip without data loss", async () => {
+    const profile = {
+      riskTolerance: 0.3,
+      aggression: 0.7,
+      decisionStyle: "calculated",
+      customTag: "experimental",
+      nestedMeta: { tier: 2, flags: ["alpha", "beta"] },
+    };
+
+    const create = await agent
+      .post(`/projects/${testProjectId}/players`)
+      .send({ name: "JSONB Round-Trip", behaviorProfile: profile });
+    expect(create.status).toBe(201);
+    const created = create.body as { id: number; behaviorProfile: unknown };
+    expect(created.behaviorProfile).toMatchObject(profile);
+
+    // Now PATCH it with a different profile and verify the old one is replaced
+    const updated = { riskTolerance: 0.99, decisionStyle: "random" };
+    const patch = await agent
+      .patch(`/projects/${testProjectId}/players/${created.id}`)
+      .send({ behaviorProfile: updated });
+    expect(patch.status).toBe(200);
+    expect(patch.body.behaviorProfile).toMatchObject(updated);
+    // Old keys that weren't in the new object must be gone
+    expect((patch.body.behaviorProfile as Record<string, unknown>).customTag).toBeUndefined();
+  });
+});
