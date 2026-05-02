@@ -1731,6 +1731,13 @@ function EntityVisualCard({
 
 // ─── List Row (list mode) ──────────────────────────────────────────────────────
 
+const TYPE_DOT_COLOR: Record<string, string> = {
+  Card: "#a78bfa", Deck: "#818cf8", Token: "#fbbf24", Die: "#f87171",
+  Tile: "#34d399", Meeple: "#60a5fa", Board: "#94a3b8", Zone: "#a3e635",
+  Location: "#22d3ee", Faction: "#c084fc", Event: "#fb923c",
+  Resource: "#2dd4bf", Ability: "#f472b6",
+};
+
 function EntityListRow({
   entity, projectId, isExpanded, onToggle, childEntities, isDeck, deckOptions, onUpdated,
 }: {
@@ -1757,6 +1764,7 @@ function EntityListRow({
   const [selectedProps, setSelectedProps] = useState<Set<number>>(new Set());
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [showListColorPicker, setShowListColorPicker] = useState(false);
   const [editForm, setEditForm] = useState({
     name: entity.name, type: entity.type, subtype: entity.subtype ?? "",
     description: entity.description ?? "", stats: entity.stats ?? "",
@@ -1769,6 +1777,8 @@ function EntityListRow({
   const relatedList = parseRelatedTo(entity.relatedTo);
   const statsList = parseStats(entity.stats);
   const errMsg = (err: unknown) => err instanceof Error ? err.message : String(err);
+
+  const dotFallbackColor = TYPE_DOT_COLOR[entity.type] ?? "#6b7280";
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey(projectId) });
@@ -1903,7 +1913,57 @@ function EntityListRow({
             />
           )}
           <span className="text-sm shrink-0">{meta.icon}</span>
-          <span className={`text-sm font-semibold truncate ${meta.color}`}>{entity.name}</span>
+          {/* Color dot — custom when set, type-based fallback */}
+          <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+            <button
+              title="Card color"
+              data-testid={`list-color-dot-${entity.id}`}
+              className="w-2.5 h-2.5 rounded-full border border-white/20 hover:scale-125 transition-transform focus:outline-none"
+              style={{ backgroundColor: entity.color || dotFallbackColor, opacity: entity.color ? 1 : 0.6 }}
+              onClick={() => setShowListColorPicker((v) => !v)}
+            />
+            {showListColorPicker && (
+              <div className="absolute left-0 top-4 z-50 bg-popover border border-border rounded-lg p-2 shadow-xl w-max">
+                <div className="flex items-center gap-1 flex-wrap" style={{ maxWidth: 132 }}>
+                  {CARD_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      title={c}
+                      data-testid={`list-color-swatch-${entity.id}-${c.slice(1)}`}
+                      className="rounded-full transition-transform hover:scale-110 shrink-0 focus:outline-none"
+                      style={{
+                        width: 18, height: 18, backgroundColor: c,
+                        outline: entity.color === c ? "2px solid white" : "none",
+                        outlineOffset: 2,
+                      }}
+                      onClick={async () => {
+                        try {
+                          await updateEntity.mutateAsync({ projectId, entityId: entity.id, data: { color: c } });
+                          refresh();
+                        } catch { /* silent */ }
+                        setShowListColorPicker(false);
+                      }}
+                    />
+                  ))}
+                </div>
+                {entity.color && (
+                  <button
+                    className="text-[9px] text-muted-foreground hover:text-white px-1.5 py-0.5 rounded border border-border/50 hover:border-border transition-colors mt-1.5 w-full text-left"
+                    onClick={async () => {
+                      try {
+                        await updateEntity.mutateAsync({ projectId, entityId: entity.id, data: { color: "" } });
+                        refresh();
+                      } catch { /* silent */ }
+                      setShowListColorPicker(false);
+                    }}
+                  >
+                    Reset color
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <span className={`text-sm font-semibold truncate ${entity.color ? "" : meta.color}`} style={entity.color ? { color: entity.color } : undefined}>{entity.name}</span>
           {entity.subtype && (
             <Badge variant="outline" className={`text-[10px] shrink-0 ${meta.badge}`}>{entity.subtype}</Badge>
           )}
