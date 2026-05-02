@@ -197,6 +197,23 @@ export interface RestoreSnapshotResponse {
   ok: boolean;
 }
 
+export interface SnapshotRule {
+  title: string;
+  content: string;
+  category?: string | null;
+  section?: string | null;
+  displayOrder: number;
+  designNotes?: string | null;
+  edgeCases?: string | null;
+}
+
+export interface SnapshotRulesResponse {
+  snapshotId: number;
+  snapshotName: string;
+  capturedAt?: string | null;
+  rules: SnapshotRule[];
+}
+
 export type ComplexityScoreBreakdownItem = {
   factor: string;
   value: number;

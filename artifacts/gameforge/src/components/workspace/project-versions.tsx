@@ -33,7 +33,9 @@ import {
   GitFork,
   Trash2,
   Sparkles,
+  GitCompare,
 } from "lucide-react";
+import { SnapshotRulesDiffDialog } from "./snapshot-rules-diff-dialog";
 
 interface ProjectVersionsProps {
   projectId: number;
@@ -66,6 +68,7 @@ export function ProjectVersions({ projectId }: ProjectVersionsProps) {
   const [newName, setNewName] = useState("");
   const [restoreTarget, setRestoreTarget] = useState<{ id: number; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [diffTarget, setDiffTarget] = useState<{ id: number; name: string } | null>(null);
   const [duplicating, setDuplicating] = useState(false);
 
   const refreshList = () =>
@@ -264,6 +267,15 @@ export function ProjectVersions({ projectId }: ProjectVersionsProps) {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => setDiffTarget({ id: snap.id, name: snap.name })}
+                    data-testid={`diff-version-${snap.id}`}
+                    title="Compare rules in this version against another version or the live project"
+                  >
+                    <GitCompare className="h-3.5 w-3.5 mr-1.5" /> Diff rules
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setRestoreTarget({ id: snap.id, name: snap.name })}
                     disabled={restoreSnapshot.isPending}
                     data-testid={`restore-version-${snap.id}`}
@@ -317,6 +329,19 @@ export function ProjectVersions({ projectId }: ProjectVersionsProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rules diff dialog */}
+      {diffTarget && (
+        <SnapshotRulesDiffDialog
+          projectId={projectId}
+          baseSnapshotId={diffTarget.id}
+          baseSnapshotName={diffTarget.name}
+          open={!!diffTarget}
+          onOpenChange={(open) => {
+            if (!open) setDiffTarget(null);
+          }}
+        />
+      )}
 
       {/* Delete confirmation */}
       <AlertDialog

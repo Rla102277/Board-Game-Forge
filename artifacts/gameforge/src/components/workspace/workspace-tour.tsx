@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Layout, Gamepad2, BookOpen, CheckSquare, FileText, ClipboardList,
-  ImageIcon, Users, Activity, Clock, Dice5,
-  Scale, EyeOff, Download, MessageSquare,
+  Layout,
+  ImageIcon, Users, Activity,
+  Download,
   X, ChevronRight, ChevronLeft, Sparkles, GraduationCap, Rocket,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,165 +17,64 @@ interface TourStep {
   color: string;
 }
 
+// Focused 7-step tour: a 60-second orientation, not a feature inventory.
+// Every other tab is one click away from the sidebar; the tour just shows
+// the spine of the design loop.
 const TOUR_STEPS: TourStep[] = [
   {
     id: "welcome",
     group: "Welcome",
     title: "Welcome to your Game Studio",
-    description: "This is your workspace — everything you need to design, test, and publish a board game. Let me show you around.",
+    description: "This is your workspace for designing, testing, and publishing a board game. A quick 60-second tour — then you're off.",
     icon: Rocket,
     color: "text-primary",
   },
   {
     id: "overview",
-    group: "Foundation",
+    group: "Start here",
     title: "Game Dashboard",
-    description: "Your command center. See project health, balance scores, design phase progress, and get AI-powered design advice — all at a glance.",
+    description: "Your command center. Project health, balance score, design-phase progress, and AI-powered design advice in one place.",
     icon: Layout,
     color: "text-blue-400",
   },
   {
-    id: "identity",
-    group: "Foundation",
-    title: "Game Identity",
-    description: "Define what your game is: player count, play time, complexity, theme, mechanics, and your elevator pitch. This shapes everything else.",
-    icon: Gamepad2,
-    color: "text-violet-400",
-  },
-  {
-    id: "research",
-    group: "Foundation",
-    title: "Research",
-    description: "Study reference games. Track what to borrow, what to avoid, and collect inspiration for your design.",
-    icon: BookOpen,
-    color: "text-amber-400",
-  },
-  {
-    id: "tasks",
-    group: "Tasks & Tracking",
-    title: "Tasks",
-    description: "Full project management — assign tasks, set priorities, track dependencies, and manage your design workflow like a pro.",
-    icon: CheckSquare,
-    color: "text-rose-400",
-  },
-  {
-    id: "notes",
-    group: "Tasks & Tracking",
-    title: "Notes",
-    description: "Freeform design notes for ideas, brainstorms, and anything that doesn't fit elsewhere. AI can help you refine your writing.",
-    icon: FileText,
-    color: "text-amber-400",
-  },
-  {
-    id: "playtest-reports",
-    group: "Tasks & Tracking",
-    title: "Playtest Reports",
-    description: "Log structured playtest results — who attended, what worked, what broke. Action items convert directly into tasks.",
-    icon: ClipboardList,
-    color: "text-emerald-400",
-  },
-  {
-    id: "rules",
-    group: "Rules & Flow",
-    title: "Rules",
-    description: "Write and organize your game rules by category. AI can enhance rules with edge cases and design notes.",
-    icon: Activity,
-    color: "text-violet-400",
-  },
-  {
-    id: "rulebook",
-    group: "Rules & Flow",
-    title: "Rulebook",
-    description: "Auto-generate a structured rulebook from your rules, components, and players. Edit and refine it into a publishable document.",
-    icon: BookOpen,
-    color: "text-violet-400",
-  },
-  {
-    id: "turn-structure",
-    group: "Rules & Flow",
-    title: "Turn Structure",
-    description: "Visually design your turn flow — phases, steps, and timing. See how a round plays out from start to finish.",
-    icon: Clock,
-    color: "text-violet-400",
-  },
-  {
     id: "assets-entities",
-    group: "Workshop",
+    group: "Build",
     title: "Components",
-    description: "The heart of your game. Create cards, dice, tokens, tiles, and more. Use Card Studio for decks, Die Face Designer for custom dice, and AI to generate batches.",
+    description: "Cards, dice, tokens, tiles, boards. Card Studio for decks, Die Face Designer for custom dice, AI to generate batches.",
     icon: ImageIcon,
     color: "text-blue-400",
   },
   {
-    id: "players",
-    group: "Workshop",
-    title: "Players",
-    description: "Define player archetypes — their roles, strategies, motivations, and relationships. See how players interact on the relationship graph.",
-    icon: Users,
-    color: "text-emerald-400",
-  },
-  {
-    id: "simulator",
-    group: "Simulation",
-    title: "Simulator",
-    description: "Run Monte Carlo simulations to stress-test your economy. AI Playthroughs narrate full games between your player archetypes.",
-    icon: Dice5,
-    color: "text-sky-400",
-  },
-  {
-    id: "balance",
-    group: "Simulation",
-    title: "Balance",
-    description: "See your balance score, stat distributions, and find overpowered or underpowered components. AI generates a full balance report.",
-    icon: Scale,
-    color: "text-sky-400",
+    id: "rules",
+    group: "Build",
+    title: "Rules & Rulebook",
+    description: "Write your rules by category. The Rulebook tab auto-assembles them — with components and players — into a publishable document.",
+    icon: Activity,
+    color: "text-violet-400",
   },
   {
     id: "playtesting",
-    group: "Playtesting",
+    group: "Test",
     title: "Playtesting",
-    description: "Log playtest sessions and share a public feedback link with testers. Collect fun, balance, and clarity scores from real players.",
+    description: "Log sessions, share a public feedback link, run blind playtests, and view structured reports. Real players → real fixes.",
     icon: Users,
-    color: "text-green-400",
-  },
-  {
-    id: "blind-playtest",
-    group: "Playtesting",
-    title: "Blind Test",
-    description: "Run blind playtests — where testers play without you. Set up comprehension checks and friction logs to find clarity issues.",
-    icon: EyeOff,
     color: "text-green-400",
   },
   {
     id: "export",
-    group: "Publish",
-    title: "Exports",
+    group: "Ship",
+    title: "Exports & Publish",
     description: "Export to Tabletop Simulator, generate rulebook PDFs, Kickstarter campaigns, sell sheets, and print-ready card sheets.",
     icon: Download,
     color: "text-orange-400",
   },
   {
-    id: "team",
-    group: "Team",
-    title: "Comments, Activity & Members",
-    description: "Collaborate with your team. Leave comments on any element, track all changes in the activity feed, and manage project members.",
-    icon: MessageSquare,
-    color: "text-pink-400",
-  },
-  {
-    id: "chat",
-    group: "AI",
-    title: "AI Co-Designer",
-    description: "The chat panel on the right is your AI partner. It adapts to whatever tab you're on — ask it about rules, balance, components, or anything else.",
-    icon: Sparkles,
-    color: "text-primary",
-  },
-  {
     id: "finish",
     group: "Ready!",
-    title: "You're all set!",
-    description: "Start with the Dashboard, define your Game Identity, then build out components and rules. The AI is always here to help. You can revisit this tour anytime from the sidebar.",
-    icon: GraduationCap,
+    title: "AI is on the right — always",
+    description: "The chat panel adapts to whatever tab you're on. Ask it about rules, balance, components, or anything else. Re-open this tour from the sidebar anytime.",
+    icon: Sparkles,
     color: "text-primary",
   },
 ];
@@ -186,10 +85,11 @@ interface WorkspaceTourProps {
   onDismiss: () => void;
 }
 
-const NAV_IDS = new Set(["overview","identity","research","tasks","notes","playtest-reports","assets-entities","players","rules","rulebook","turn-structure","simulator","balance","playtesting","blind-playtest","export","comments","activity","members"]);
+// Sidebar section ids that the tour navigates to. Steps without an entry
+// here (welcome, finish) don't change the active tab.
+const NAV_IDS = new Set(["overview","assets-entities","rules","playtesting","export"]);
 
 function navigateForStep(s: TourStep, onNavigate: (id: string) => void) {
-  if (s.id === "team") { onNavigate("comments"); return; }
   if (NAV_IDS.has(s.id)) onNavigate(s.id);
 }
 

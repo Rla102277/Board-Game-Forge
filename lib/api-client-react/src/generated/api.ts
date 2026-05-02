@@ -94,6 +94,7 @@ import type {
   ShareLink,
   SimulatorResult,
   SimulatorRunBody,
+  SnapshotRulesResponse,
   StoryboardNode,
   SubmitFeedbackBody,
   Task,
@@ -2305,6 +2306,112 @@ export const useDeleteSnapshot = <
 > => {
   return useMutation(getDeleteSnapshotMutationOptions(options));
 };
+
+/**
+ * @summary Extract just the rules from a saved version (for diffing)
+ */
+export const getGetSnapshotRulesUrl = (
+  projectId: number,
+  snapshotId: number,
+) => {
+  return `/api/projects/${projectId}/snapshots/${snapshotId}/rules`;
+};
+
+export const getSnapshotRules = async (
+  projectId: number,
+  snapshotId: number,
+  options?: RequestInit,
+): Promise<SnapshotRulesResponse> => {
+  return customFetch<SnapshotRulesResponse>(
+    getGetSnapshotRulesUrl(projectId, snapshotId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSnapshotRulesQueryKey = (
+  projectId: number,
+  snapshotId: number,
+) => {
+  return [`/api/projects/${projectId}/snapshots/${snapshotId}/rules`] as const;
+};
+
+export const getGetSnapshotRulesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSnapshotRules>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  snapshotId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSnapshotRules>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetSnapshotRulesQueryKey(projectId, snapshotId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSnapshotRules>>
+  > = ({ signal }) =>
+    getSnapshotRules(projectId, snapshotId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(projectId && snapshotId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSnapshotRules>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSnapshotRulesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSnapshotRules>>
+>;
+export type GetSnapshotRulesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Extract just the rules from a saved version (for diffing)
+ */
+
+export function useGetSnapshotRules<
+  TData = Awaited<ReturnType<typeof getSnapshotRules>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  snapshotId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSnapshotRules>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSnapshotRulesQueryOptions(
+    projectId,
+    snapshotId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Restore the project to a saved version (auto-saves current state first)

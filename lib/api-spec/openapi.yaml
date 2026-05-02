@@ -485,6 +485,26 @@ paths:
         "204":
           description: Deleted
 
+  /projects/{projectId}/snapshots/{snapshotId}/rules:
+    get:
+      operationId: getSnapshotRules
+      tags: [projects]
+      summary: Extract just the rules from a saved version (for diffing)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rules captured in this version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotRulesResponse"
+
   /projects/{projectId}/snapshots/{snapshotId}/restore:
     post:
       operationId: restoreSnapshot
@@ -2504,6 +2524,52 @@ components:
           type: boolean
       required:
         - ok
+
+    SnapshotRule:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+          nullable: true
+        section:
+          type: string
+          nullable: true
+        displayOrder:
+          type: integer
+        designNotes:
+          type: string
+          nullable: true
+        edgeCases:
+          type: string
+          nullable: true
+      required:
+        - title
+        - content
+        - displayOrder
+
+    SnapshotRulesResponse:
+      type: object
+      properties:
+        snapshotId:
+          type: integer
+        snapshotName:
+          type: string
+        capturedAt:
+          type: string
+          format: date-time
+          nullable: true
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/SnapshotRule"
+      required:
+        - snapshotId
+        - snapshotName
+        - rules
 
     ComplexityScore:
       type: object

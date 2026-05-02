@@ -112,6 +112,8 @@ export * from "./shareLink";
 export * from "./simulatorResult";
 export * from "./simulatorResultTurnsItem";
 export * from "./simulatorRunBody";
+export * from "./snapshotRule";
+export * from "./snapshotRulesResponse";
 export * from "./storyboardNode";
 export * from "./submitFeedbackBody";
 export * from "./tabParameter";

@@ -467,6 +467,31 @@ export const DeleteSnapshotParams = zod.object({
 });
 
 /**
+ * @summary Extract just the rules from a saved version (for diffing)
+ */
+export const GetSnapshotRulesParams = zod.object({
+  projectId: zod.coerce.number(),
+  snapshotId: zod.coerce.number(),
+});
+
+export const GetSnapshotRulesResponse = zod.object({
+  snapshotId: zod.number(),
+  snapshotName: zod.string(),
+  capturedAt: zod.coerce.date().nullish(),
+  rules: zod.array(
+    zod.object({
+      title: zod.string(),
+      content: zod.string(),
+      category: zod.string().nullish(),
+      section: zod.string().nullish(),
+      displayOrder: zod.number(),
+      designNotes: zod.string().nullish(),
+      edgeCases: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
  * @summary Restore the project to a saved version (auto-saves current state first)
  */
 export const RestoreSnapshotParams = zod.object({

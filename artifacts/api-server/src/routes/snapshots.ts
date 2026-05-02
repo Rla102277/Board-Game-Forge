@@ -149,6 +149,58 @@ router.delete(
   },
 );
 
+// Extract just the rules from a snapshot — used by the rulebook diff UI.
+// Returns the rules subset of the JSONB payload in a stable, serializable shape
+// so the frontend can do a structured by-title diff against another snapshot
+// or the live project.
+router.get(
+  "/projects/:projectId/snapshots/:snapshotId/rules",
+  async (req, res): Promise<void> => {
+    const params = schemas.GetSnapshotRulesParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [snap] = await db
+      .select()
+      .from(projectSnapshots)
+      .where(
+        and(
+          eq(projectSnapshots.id, params.data.snapshotId),
+          eq(projectSnapshots.projectId, params.data.projectId),
+        ),
+      );
+    if (!snap) {
+      res.status(404).json({ error: "Snapshot not found" });
+      return;
+    }
+    const payload = snap.payload as unknown as Partial<SnapshotPayload> | null;
+    const rawRules = Array.isArray(payload?.rules) ? payload!.rules : [];
+    const rules = rawRules.map((r) => ({
+      title: String(r?.title ?? ""),
+      content: String(r?.content ?? ""),
+      category: r?.category ?? null,
+      section: r?.section ?? null,
+      displayOrder: typeof r?.displayOrder === "number" ? r.displayOrder : 0,
+      designNotes: r?.designNotes ?? null,
+      edgeCases: r?.edgeCases ?? null,
+    }));
+    res.json(
+      schemas.GetSnapshotRulesResponse.parse({
+        snapshotId: snap.id,
+        snapshotName: snap.name,
+        capturedAt:
+          typeof payload?.capturedAt === "string"
+            ? payload.capturedAt
+            : snap.createdAt instanceof Date
+              ? snap.createdAt.toISOString()
+              : null,
+        rules,
+      }),
+    );
+  },
+);
+
 // Restore a snapshot in place (auto-snapshots current state first)
 router.post(
   "/projects/:projectId/snapshots/:snapshotId/restore",
