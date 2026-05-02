@@ -536,11 +536,12 @@ export function EntityGraph({
     const set = new Set<string>();
     const visited = new Set<number>([focusedNodeId]);
     let frontier = new Set<number>([focusedNodeId]);
-    for (let hop = 0; hop < neighborDepth; hop++) {
+    outer: for (let hop = 0; hop < neighborDepth; hop++) {
       const next = new Set<number>();
       for (const nodeId of frontier) {
         for (const neighborId of (adjacencyMap.get(nodeId) ?? [])) {
           if (!visited.has(neighborId)) {
+            if (visited.size >= GRAPH_NODE_CAP) break outer;
             visited.add(neighborId);
             next.add(neighborId);
             set.add(edgeKey(nodeId, neighborId));
@@ -1111,20 +1112,34 @@ export function EntityGraph({
             {showNeighborsOnly && (
               <span className="flex items-center gap-1 ml-1" data-testid="graph-depth-stepper">
                 <span className="text-[10px] text-muted-foreground shrink-0">Depth:</span>
-                {[1, 2, 3, 4, 5, 6].map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setNeighborDepth(d)}
-                    className={`w-6 h-5 rounded text-[10px] font-bold border transition-colors ${
-                      neighborDepth === d
-                        ? "bg-primary/30 border-primary/60 text-primary"
-                        : "border-border/50 bg-background/40 text-muted-foreground hover:text-white"
-                    }`}
-                    data-testid={`graph-depth-${d}`}
-                  >
-                    {d}
-                  </button>
-                ))}
+                <button
+                  onClick={() => setNeighborDepth((v) => Math.max(1, v - 1))}
+                  className="w-5 h-5 rounded border border-border/50 bg-background/40 text-muted-foreground hover:text-white text-[11px] font-bold transition-colors flex items-center justify-center"
+                  data-testid="graph-depth-dec"
+                  aria-label="Decrease depth"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={neighborDepth}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!isNaN(v) && v >= 1) setNeighborDepth(Math.min(v, 20));
+                  }}
+                  className="w-9 h-5 rounded border border-primary/40 bg-background/60 text-primary text-[11px] font-bold text-center focus:outline-none focus:ring-1 focus:ring-primary/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  data-testid="graph-depth-input"
+                />
+                <button
+                  onClick={() => setNeighborDepth((v) => Math.min(20, v + 1))}
+                  className="w-5 h-5 rounded border border-border/50 bg-background/40 text-muted-foreground hover:text-white text-[11px] font-bold transition-colors flex items-center justify-center"
+                  data-testid="graph-depth-inc"
+                  aria-label="Increase depth"
+                >
+                  +
+                </button>
               </span>
             )}
             <button
