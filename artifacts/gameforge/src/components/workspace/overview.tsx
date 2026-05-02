@@ -155,6 +155,29 @@ function castFingerprint(raw: Record<string, unknown> | null | undefined): Mecha
   };
 }
 
+type SaveStatus = "idle" | "saving" | "saved";
+type SectionKey = "hero" | "fingerprint" | "problems" | "decisions" | "playtest" | "bible" | "phase";
+
+function SaveIndicator({ status }: { status: SaveStatus | undefined }) {
+  const visible = status && status !== "idle";
+  return (
+    <span
+      className="flex items-center gap-1 text-[10px] shrink-0 transition-opacity duration-300"
+      style={{ opacity: visible ? 1 : 0 }}
+    >
+      {status === "saving" ? (
+        <span className="flex items-center gap-1 text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+        </span>
+      ) : status === "saved" ? (
+        <span className="flex items-center gap-1 text-green-500">
+          <Check className="h-3 w-3" /> Saved
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewProps) {
   const { data: project, isLoading: projectLoading } = useGetProject(projectId);
   const { data: stats, isLoading: statsLoading } = useGetProjectStats(projectId);
@@ -175,12 +198,15 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   const [turnPhaseInput, setTurnPhaseInput] = useState("");
   const [turnPhases, setTurnPhases] = useState<string[]>([]);
   const [narrative, setNarrative] = useState("");
-  const [narrativeSaveStatus, setNarrativeSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [narrativeSaveStatus, setNarrativeSaveStatus] = useState<SaveStatus>("idle");
   const narrativeSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const narrativeSaveSeqRef = useRef(0);
-  // Shared save status for all non-narrative fields (#56/#63)
-  const [fieldsSaveStatus, setFieldsSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const fieldsSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* Per-section save statuses */
+  const [sectionSaveStatus, setSectionSaveStatus] = useState<Record<SectionKey, SaveStatus>>({
+    hero: "idle", fingerprint: "idle", problems: "idle",
+    decisions: "idle", playtest: "idle", bible: "idle", phase: "idle",
+  });
+  const sectionTimers = useRef<Partial<Record<SectionKey, ReturnType<typeof setTimeout>>>>({});
 
   /* ── Per-column jsonb state ────────────────────────────────────── */
   const [heroMeta,     setHeroMeta]     = useState<HeroMeta>({});
@@ -196,7 +222,8 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   const [newAttendee,        setNewAttendee]        = useState("");
 
   const initRef = useRef(false);
-  const savedFormRef        = useRef("");
+  const savedHeroFormRef    = useRef("");
+  const savedBibleFormRef   = useRef("");
   const savedHeroMetaRef    = useRef("");
   const savedProblemsRef    = useRef("");
   const savedPlaytestRef    = useRef("");
@@ -214,7 +241,9 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
       winCondition: project.winCondition || "", eliminationRule: project.eliminationRule || "",
       designPhase: project.designPhase || "concept",
     };
-    setForm(f); savedFormRef.current = JSON.stringify(f);
+    setForm(f);
+    savedHeroFormRef.current = JSON.stringify({ playerCount: f.playerCount, targetDuration: f.targetDuration });
+    savedBibleFormRef.current = JSON.stringify({ name: f.name, description: f.description, gameType: f.gameType, genre: f.genre, winCondition: f.winCondition, eliminationRule: f.eliminationRule });
     setTurnPhases(phases);
     const narr = project.narrative ?? "";
     setNarrative(narr); savedNarrativeRef.current = narr;
@@ -231,19 +260,22 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
     initRef.current = true;
   }, [project]);
 
-  const save = (patch: Parameters<typeof updateProject.mutate>[0]["data"]) => {
-    setFieldsSaveStatus("saving");
-    if (fieldsSaveTimerRef.current) clearTimeout(fieldsSaveTimerRef.current);
+  const save = (patch: Parameters<typeof updateProject.mutate>[0]["data"], section: SectionKey) => {
+    setSectionSaveStatus((s) => ({ ...s, [section]: "saving" }));
+    if (sectionTimers.current[section]) clearTimeout(sectionTimers.current[section]);
     updateProject.mutate(
       { projectId, data: patch },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
-          setFieldsSaveStatus("saved");
-          fieldsSaveTimerRef.current = setTimeout(() => setFieldsSaveStatus("idle"), 2000);
+          setSectionSaveStatus((s) => ({ ...s, [section]: "saved" }));
+          sectionTimers.current[section] = setTimeout(
+            () => setSectionSaveStatus((s) => ({ ...s, [section]: "idle" })),
+            2000,
+          );
         },
         onError: () => {
-          setFieldsSaveStatus("idle");
+          setSectionSaveStatus((s) => ({ ...s, [section]: "idle" }));
         },
       },
     );
@@ -267,15 +299,27 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   const dbDecision    = useDebounce(decisionLog, 1500);
   const dbFingerprint = useDebounce(fingerprint, 1500);
 
+  /* hero card: playerCount + targetDuration */
   useEffect(() => {
     if (!initRef.current) return;
-    const serialized = JSON.stringify(db);
-    if (serialized !== savedFormRef.current && db.name) {
-      save({ name: db.name, description: db.description, gameType: db.gameType, genre: db.genre, playerCount: db.playerCount, targetDuration: db.targetDuration, winCondition: db.winCondition, eliminationRule: db.eliminationRule });
-      savedFormRef.current = serialized;
+    const s = JSON.stringify({ playerCount: db.playerCount, targetDuration: db.targetDuration });
+    if (s !== savedHeroFormRef.current) {
+      save({ playerCount: db.playerCount, targetDuration: db.targetDuration }, "hero");
+      savedHeroFormRef.current = s;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db.name, db.description, db.gameType, db.genre, db.playerCount, db.targetDuration, db.winCondition, db.eliminationRule]);
+  }, [db.playerCount, db.targetDuration]);
+
+  /* game bible: name, description, gameType, genre, winCondition, eliminationRule */
+  useEffect(() => {
+    if (!initRef.current) return;
+    const s = JSON.stringify({ name: db.name, description: db.description, gameType: db.gameType, genre: db.genre, winCondition: db.winCondition, eliminationRule: db.eliminationRule });
+    if (s !== savedBibleFormRef.current && db.name) {
+      save({ name: db.name, description: db.description, gameType: db.gameType, genre: db.genre, winCondition: db.winCondition, eliminationRule: db.eliminationRule }, "bible");
+      savedBibleFormRef.current = s;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db.name, db.description, db.gameType, db.genre, db.winCondition, db.eliminationRule]);
 
   useEffect(() => {
     if (!initRef.current) return;
@@ -319,48 +363,48 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   useEffect(() => {
     return () => {
       if (narrativeSaveTimerRef.current) clearTimeout(narrativeSaveTimerRef.current);
-      if (fieldsSaveTimerRef.current) clearTimeout(fieldsSaveTimerRef.current);
+      Object.values(sectionTimers.current).forEach((t) => { if (t) clearTimeout(t); });
     };
   }, []);
 
   useEffect(() => {
     if (!initRef.current) return;
     const s = JSON.stringify(dbHeroMeta);
-    if (s !== savedHeroMetaRef.current) { save({ overviewMeta: dbHeroMeta as Record<string, unknown> }); savedHeroMetaRef.current = s; }
+    if (s !== savedHeroMetaRef.current) { save({ overviewMeta: dbHeroMeta as Record<string, unknown> }, "hero"); savedHeroMetaRef.current = s; }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbHeroMeta]);
 
   useEffect(() => {
     if (!initRef.current) return;
     const s = JSON.stringify(dbProblems);
-    if (s !== savedProblemsRef.current) { save({ designProblems: dbProblems as unknown as Record<string, unknown>[] }); savedProblemsRef.current = s; }
+    if (s !== savedProblemsRef.current) { save({ designProblems: dbProblems as unknown as Record<string, unknown>[] }, "problems"); savedProblemsRef.current = s; }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbProblems]);
 
   useEffect(() => {
     if (!initRef.current) return;
     const s = JSON.stringify(dbPlaytest);
-    if (s !== savedPlaytestRef.current) { save({ nextPlaytest: dbPlaytest as Record<string, unknown> }); savedPlaytestRef.current = s; }
+    if (s !== savedPlaytestRef.current) { save({ nextPlaytest: dbPlaytest as Record<string, unknown> }, "playtest"); savedPlaytestRef.current = s; }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbPlaytest]);
 
   useEffect(() => {
     if (!initRef.current) return;
     const s = JSON.stringify(dbDecision);
-    if (s !== savedDecisionRef.current) { save({ decisionLog: dbDecision as unknown as Record<string, unknown>[] }); savedDecisionRef.current = s; }
+    if (s !== savedDecisionRef.current) { save({ decisionLog: dbDecision as unknown as Record<string, unknown>[] }, "decisions"); savedDecisionRef.current = s; }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbDecision]);
 
   useEffect(() => {
     if (!initRef.current) return;
     const s = JSON.stringify(dbFingerprint);
-    if (s !== savedFingerprintRef.current) { save({ mechanicFingerprint: dbFingerprint as unknown as Record<string, unknown> }); savedFingerprintRef.current = s; }
+    if (s !== savedFingerprintRef.current) { save({ mechanicFingerprint: dbFingerprint as unknown as Record<string, unknown> }, "fingerprint"); savedFingerprintRef.current = s; }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbFingerprint]);
 
   /* ── Helpers ───────────────────────────────────────────────────── */
-  const saveTurnPhases  = (phases: string[]) => { setTurnPhases(phases); save({ turnPhases: JSON.stringify(phases) }); };
-  const saveDesignPhase = (phase: string)    => { setForm((f) => ({ ...f, designPhase: phase })); save({ designPhase: phase }); };
+  const saveTurnPhases  = (phases: string[]) => { setTurnPhases(phases); save({ turnPhases: JSON.stringify(phases) }, "bible"); };
+  const saveDesignPhase = (phase: string)    => { setForm((f) => ({ ...f, designPhase: phase })); save({ designPhase: phase }, "phase"); };
 
   const addProblem = () => {
     if (!newProblemText.trim()) return;
@@ -428,27 +472,14 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   return (
     <div className="space-y-6 pb-10">
 
-      {/* ── Save status indicator (#56/#63) ─────────────────────────── */}
-      <div className="flex justify-end -mb-4" style={{ minHeight: 20 }}>
-        <span
-          className="flex items-center gap-1 text-[10px] shrink-0 transition-opacity duration-300"
-          style={{ opacity: fieldsSaveStatus === "idle" ? 0 : 1 }}
-          data-testid="overview-save-status"
-        >
-          {fieldsSaveStatus === "saving" ? (
-            <span className="flex items-center gap-1 text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" /> Saving…
-            </span>
-          ) : fieldsSaveStatus === "saved" ? (
-            <span className="flex items-center gap-1 text-green-500">
-              <Check className="h-3 w-3" /> Saved
-            </span>
-          ) : null}
-        </span>
-      </div>
-
       {/* ── Game Identity Hero ───────────────────────────────────────── */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardHeader className="py-3 px-5 border-b border-border/50">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Game Identity</CardTitle>
+            <SaveIndicator status={sectionSaveStatus.hero} />
+          </div>
+        </CardHeader>
         <CardContent className="pt-5 pb-5 space-y-4">
           <div className="space-y-3">
             <div>
@@ -573,9 +604,12 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
                     <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{totalActive} open</Badge>
                   )}
                 </CardTitle>
-                {resolvedCount > 0 && (
-                  <span className="text-[10px] text-muted-foreground">{resolvedCount} resolved</span>
-                )}
+                <div className="flex items-center gap-2">
+                  {resolvedCount > 0 && (
+                    <span className="text-[10px] text-muted-foreground">{resolvedCount} resolved</span>
+                  )}
+                  <SaveIndicator status={sectionSaveStatus.problems} />
+                </div>
               </div>
             </CardHeader>
             <CardContent className="px-5 py-4 space-y-3">
@@ -649,11 +683,14 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
           {/* ── Decision Log ─────────────────────────────────────────── */}
           <Card>
             <CardHeader className="py-4 px-5 border-b border-border">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Pencil className="h-4 w-4 text-primary" />
-                Decision Log
-                <span className="text-xs font-normal text-muted-foreground ml-1">Why did you make this choice?</span>
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Pencil className="h-4 w-4 text-primary" />
+                  Decision Log
+                  <span className="text-xs font-normal text-muted-foreground ml-1">Why did you make this choice?</span>
+                </CardTitle>
+                <SaveIndicator status={sectionSaveStatus.decisions} />
+              </div>
             </CardHeader>
             <CardContent className="px-5 py-4 space-y-3">
               <div className="flex gap-2 items-end">
@@ -704,6 +741,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
               <div className="flex-1 min-w-0">
                 <CardTitle className="text-sm font-semibold">Design Phase</CardTitle>
               </div>
+              <SaveIndicator status={sectionSaveStatus.phase} />
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${currentPhase?.color}`}>
                 {currentPhase?.label}
               </span>
@@ -735,7 +773,10 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
           {/* Mechanic Fingerprint */}
           <Card>
             <CardHeader className="py-3 px-4 border-b border-border">
-              <CardTitle className="text-sm font-semibold">Mechanic Fingerprint</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold">Mechanic Fingerprint</CardTitle>
+                <SaveIndicator status={sectionSaveStatus.fingerprint} />
+              </div>
             </CardHeader>
             <CardContent className="px-4 py-3">
               <ResponsiveContainer width="100%" height={160}>
@@ -771,11 +812,14 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Calendar className="h-3.5 w-3.5 text-primary" /> Next Playtest
                 </CardTitle>
-                {daysAway !== null && (
-                  <span className={`text-xs font-semibold ${daysAway <= 1 ? "text-red-400" : daysAway <= 3 ? "text-amber-400" : "text-emerald-400"}`}>
-                    {daysAway === 0 ? "Today!" : daysAway < 0 ? "Past" : `${daysAway}d away`}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {daysAway !== null && (
+                    <span className={`text-xs font-semibold ${daysAway <= 1 ? "text-red-400" : daysAway <= 3 ? "text-amber-400" : "text-emerald-400"}`}>
+                      {daysAway === 0 ? "Today!" : daysAway < 0 ? "Past" : `${daysAway}d away`}
+                    </span>
+                  )}
+                  <SaveIndicator status={sectionSaveStatus.playtest} />
+                </div>
               </div>
             </CardHeader>
             <CardContent className="px-4 py-3 space-y-3">
@@ -848,10 +892,11 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
       <Accordion type="single" collapsible className="border border-border rounded-lg overflow-hidden">
         <AccordionItem value="game-bible" className="border-0">
           <AccordionTrigger className="px-5 py-4 text-sm font-semibold hover:no-underline bg-card">
-            <div className="flex items-center gap-2">
-              <Settings className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Settings className="h-4 w-4 text-muted-foreground shrink-0" />
               Game Bible
               <span className="text-xs font-normal text-muted-foreground">Metadata, core loop, turn phases, versions</span>
+              <SaveIndicator status={sectionSaveStatus.bible} />
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-5 py-5 bg-background/60 space-y-6">
