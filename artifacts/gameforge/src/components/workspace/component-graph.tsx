@@ -839,6 +839,84 @@ export function EntityGraph({
   }, [nodes]);
 
   const entityById = new Map(entities.map((e) => [e.id, e]));
+
+  // ── Collision-free label positions (computed when always-on labels are shown) ──
+  const labelPositions = useMemo(() => {
+    if (!fewNodes && !alwaysShowLabels) return new Map<number, { dx: number; dy: number; anchor: "middle"; fontSize: number }>();
+
+    const cx = width / 2;
+    const cy = height / 2;
+    // Font size scales down slightly for denser graphs
+    const fontSize = nodes.length <= 10 ? 11 : nodes.length <= 15 ? 10 : 9;
+    const charW = fontSize * 0.62;   // approximate character width
+    const labelH = fontSize + 4;     // approximate label bounding-box height
+    const OFFSET = 8;                // gap between node edge and label
+    const ITERATIONS = 40;
+    const PUSH = 3;
+
+    // Absolute SVG coords for each label (center of bounding box)
+    const pos = nodes.map((n) => {
+      const dx = n.x - cx;
+      const dy = n.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const ux = dx / dist;
+      const uy = dy / dist;
+      const r = n.r + OFFSET;
+      return {
+        id: n.id,
+        x: n.x + ux * r,
+        y: n.y + uy * r,
+        w: Math.max(n.name.length * charW, 20),
+        h: labelH,
+        nodeX: n.x,
+        nodeY: n.y,
+      };
+    });
+
+    // Simple iterative AABB repulsion pass
+    for (let iter = 0; iter < ITERATIONS; iter++) {
+      for (let i = 0; i < pos.length; i++) {
+        for (let j = i + 1; j < pos.length; j++) {
+          const a = pos[i];
+          const b = pos[j];
+          const halfWA = a.w / 2 + 1;
+          const halfWB = b.w / 2 + 1;
+          const halfHA = a.h / 2 + 1;
+          const halfHB = b.h / 2 + 1;
+          const overlapX = halfWA + halfWB - Math.abs(a.x - b.x);
+          const overlapY = halfHA + halfHB - Math.abs(a.y - b.y);
+          if (overlapX > 0 && overlapY > 0) {
+            const ddx = a.x - b.x || 0.1;
+            const ddy = a.y - b.y || 0.1;
+            const d = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+            const ratioX = overlapX / (overlapX + overlapY);
+            const ratioY = overlapY / (overlapX + overlapY);
+            const pushX = (ddx / d) * PUSH * ratioX;
+            const pushY = (ddy / d) * PUSH * ratioY;
+            a.x += pushX;
+            a.y += pushY;
+            b.x -= pushX;
+            b.y -= pushY;
+          }
+        }
+      }
+    }
+
+    // Clamp labels to stay within SVG bounds (padding so text doesn't clip at edges)
+    const PAD = 4;
+    for (const p of pos) {
+      p.x = Math.max(p.w / 2 + PAD, Math.min(width - p.w / 2 - PAD, p.x));
+      p.y = Math.max(p.h / 2 + PAD, Math.min(height - p.h / 2 - PAD, p.y));
+    }
+
+    // textAnchor is always "middle" so the rendered bounding box exactly matches
+    // the collision box (centered at p.x, p.y ± w/2).
+    const result = new Map<number, { dx: number; dy: number; anchor: "middle"; fontSize: number }>();
+    for (const p of pos) {
+      result.set(p.id, { dx: p.x - p.nodeX, dy: p.y - p.nodeY, anchor: "middle", fontSize });
+    }
+    return result;
+  }, [nodes, fewNodes, alwaysShowLabels, width, height]);
   const assetById = useMemo(() => new Map((assets ?? []).map((a) => [a.id, a])), [assets]);
   const explicitEdges = edges.filter((e) => e.kind === "explicit");
   // Apply min-weight filter to inferred edges
@@ -1189,13 +1267,19 @@ export function EntityGraph({
                           className="text-primary" />
                       )}
                       {(alwaysShowLabels || fewNodes || isHover || isAdj || isDragging || isFocused) && (() => {
-                        const side = nodeLabelSides.get(n.id) ?? 1;
-                        const labelY = side === 1 ? -(n.r + 10) : (n.r + 18);
-                        const quietLabel = (alwaysShowLabels || fewNodes) && !isHover && !isAdj && !isDragging && !isFocused;
+                        const lp = labelPositions.get(n.id);
+                        const alwaysOn = (alwaysShowLabels || fewNodes) && lp != null;
+                        const dx = alwaysOn ? lp!.dx : 0;
+                        const dy = alwaysOn ? lp!.dy : -(n.r + 8);
+                        const anchor = alwaysOn ? lp!.anchor : "middle";
+                        const fs = alwaysOn ? lp!.fontSize : 11;
+                        const opacity = alwaysOn && !isHover && !isAdj && !isDragging && !isFocused
+                          ? (hoverId != null ? 0.35 : 0.65)
+                          : 1;
                         return (
-                          <text y={labelY} textAnchor="middle" fontSize="11"
+                          <text x={dx} y={dy} textAnchor={anchor} fontSize={fs}
                             fill="currentColor"
-                            fillOpacity={quietLabel ? (hoverId != null ? 0.35 : 0.65) : 1}
+                            fillOpacity={opacity}
                             className="text-foreground font-medium pointer-events-none">
                             {n.name}
                           </text>
