@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { useQueryClient } from "@tanstack/react-query";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { DesignBriefHeader } from "@/components/workspace/design-brief-header";
 
 // Lazy load workspace components for code splitting
 const Overview = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.Overview })));
@@ -530,6 +531,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
             </Suspense>
           </div>
         </div>
+        <DesignBriefHeader project={project} />
         <div className="flex-1 p-6 overflow-y-auto">
           {renderSection()}
         </div>

@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetProject, useUpdateProject, useGetProjectStats,
   useListEntities, useListRules, useListPlayers, useListNotes,
+  useGetBalanceReport,
   getGetProjectQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import {
   Flag, Trophy, Swords, Plus, X, Target, Layers, Clock,
   ImageIcon, AlertTriangle, AlertCircle, Eye, Send, Calendar, UserPlus,
   Settings, LayoutDashboard, Pencil, Loader2, Check,
+  Gauge, TrendingUp, ArrowRight, FlaskConical, ShieldAlert,
 } from "lucide-react";
 
 interface OverviewProps {
@@ -216,6 +218,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
   const { data: rules }    = useListRules(projectId);
   const { data: players }  = useListPlayers(projectId);
   const { data: notes }    = useListNotes(projectId);
+  const { data: balanceReport } = useGetBalanceReport(projectId);
 
   /* ── Base project fields ───────────────────────────────────────── */
   const [form, setForm] = useState({
@@ -254,6 +257,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
   const [newAttendee,        setNewAttendee]        = useState("");
 
   const initRef = useRef(false);
+  const playtestCardRef = useRef<HTMLDivElement>(null);
   const savedHeroFormRef    = useRef("");
   const savedBibleFormRef   = useRef("");
   const savedHeroMetaRef    = useRef("");

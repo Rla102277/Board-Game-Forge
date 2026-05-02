@@ -1,0 +1,474 @@
+import { useState, useEffect, useRef } from "react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Calendar as CalendarIcon,
+  Clock,
+  Tag,
+  Trash2,
+  Plus,
+  X,
+  Loader2,
+  GripVertical,
+  RotateCcw,
+  GitBranch,
+  AlertTriangle,
+} from "lucide-react";
+import { CommentsPanel } from "@/components/collaboration/comments-panel";
+import { TaskDependencies, type TaskDependency } from "./task-dependencies";
+import { useToast } from "@/hooks/use-toast";
+import {
+  useUpdateRichTask,
+  useDeleteRichTask,
+  useListSubtasks,
+  useCreateSubtask,
+  useToggleSubtask,
+  useDeleteSubtask,
+  useListProjectUsers,
+  useListRichTasks,
+  useListTaskDependencies,
+  useAddTaskDependency,
+  useRemoveTaskDependency,
+  getListRichTasksQueryKey,
+} from "@/hooks/use-collaboration";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  PRIORITY_COLORS,
+  STATUS_COLORS,
+  STATUS_LABELS,
+  ROLE_LABELS,
+  type RichTask,
+  type TaskStatus,
+  type TaskPriority,
+  type CollaboratorUser,
+} from "@/lib/collaboration-types";
+import { format, parseISO } from "date-fns";
+
+interface TaskDetailDrawerProps {
+  task: RichTask | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  projectId: number;
+  onTaskDeleted?: () => void;
+}
+
+export function TaskDetailDrawer({
+  task,
+  open,
+  onOpenChange,
+  projectId,
+  onTaskDeleted,
+}: TaskDetailDrawerProps) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { data: users } = useListProjectUsers(projectId);
+  const { data: subtasks } = useListSubtasks(task?.id ?? 0, projectId);
+
+  const updateTask = useUpdateRichTask();
+  const deleteTask = useDeleteRichTask();
+  const createSubtask = useCreateSubtask();
+  const toggleSubtask = useToggleSubtask();
+  const removeSubtask = useDeleteSubtask();
+
+  const [subtaskInput, setSubtaskInput] = useState("");
+  const [showSubtaskAdd, setShowSubtaskAdd] = useState(false);
+
+  const snapshotRef = useRef<Pick<RichTask, "status" | "priority" | "description"> | null>(null);
+  const [revertPending, setRevertPending] = useState(false);
+
+  useEffect(() => {
+    if (task) {
+      snapshotRef.current = {
+        status: task.status,
+        priority: task.priority,
+        description: task.description,
+      };
+    }
+  }, [task?.id]);
+
+  const { data: allTasks } = useListRichTasks(projectId);
+  const { data: rawDeps } = useListTaskDependencies(projectId, task?.id ?? 0);
+  const addDep = useAddTaskDependency();
+  const removeDep = useRemoveTaskDependency();
+
+  const statusOptions: TaskStatus[] = ["backlog", "in_progress", "review", "blocked", "done"];
+  const priorityOptions: TaskPriority[] = ["low", "medium", "high", "urgent"];
+
+  if (!task) return null;
+
+  const snapshot = snapshotRef.current;
+  const fieldChanges: string[] = [];
+  if (snapshot) {
+    if (task.status !== snapshot.status) fieldChanges.push(`Status: ${snapshot.status.replace("_", " ")} → ${task.status.replace("_", " ")}`);
+    if (task.priority !== snapshot.priority) fieldChanges.push(`Priority: ${snapshot.priority} → ${task.priority}`);
+    if ((task.description ?? "") !== (snapshot.description ?? "")) fieldChanges.push("Description updated");
+  }
+
+  const depData: TaskDependency[] = (rawDeps ?? []).map((d) => ({
+    taskId: d.dependsOnTaskId,
+    taskTitle: d.dependsOnTitle ?? `Task ${d.dependsOnTaskId}`,
+    type: d.type as TaskDependency["type"],
+  }));
+  const hasBlocker = depData.some((d) => d.type === "blocks");
+
+  const handleAddDep = (dep: TaskDependency) => {
+    addDep.mutate({ projectId, taskId: task.id, dependsOnTaskId: dep.taskId, type: dep.type });
+  };
+
+  const handleRemoveDep = (depTaskId: number) => {
+    const found = (rawDeps ?? []).find((d) => d.dependsOnTaskId === depTaskId);
+    if (found) removeDep.mutate({ projectId, taskId: task.id, depId: found.id });
+  };
+
+  const handleRevert = async () => {
+    if (!snapshot) return;
+    setRevertPending(true);
+    try {
+      await handleUpdate({ status: snapshot.status, priority: snapshot.priority, description: snapshot.description });
+      snapshotRef.current = { ...snapshot };
+    } finally {
+      setRevertPending(false);
+    }
+  };
+
+  const handleUpdate = async (data: Partial<RichTask>) => {
+    await updateTask.mutateAsync({ projectId, taskId: task.id, data });
+    qc.invalidateQueries({ queryKey: getListRichTasksQueryKey(projectId) });
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+    await deleteTask.mutateAsync({ projectId, taskId: task.id });
+    qc.invalidateQueries({ queryKey: getListRichTasksQueryKey(projectId) });
+    onOpenChange(false);
+    onTaskDeleted?.();
+    toast({ title: "Task deleted" });
+  };
+
+  const handleAddSubtask = async () => {
+    if (!subtaskInput.trim() || !task) return;
+    await createSubtask.mutateAsync({ taskId: task.id, title: subtaskInput.trim(), projectId });
+    setSubtaskInput("");
+    setShowSubtaskAdd(false);
+  };
+
+  const handleToggleSubtask = async (subtaskId: number) => {
+    if (!task) return;
+    await toggleSubtask.mutateAsync({ subtaskId, taskId: task.id, projectId });
+  };
+
+  const handleRemoveSubtask = async (subtaskId: number) => {
+    if (!task) return;
+    await removeSubtask.mutateAsync({ subtaskId, taskId: task.id, projectId });
+  };
+
+  const assignedUsers = (users ?? []).filter((u) => task.assigneeIds.includes(u.id));
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-xl overflow-hidden flex flex-col p-0">
+        <SheetHeader className="px-6 py-4 border-b">
+          <div className="flex items-center gap-2">
+            <Select value={task.status} onValueChange={(v) => handleUpdate({ status: v as TaskStatus })}>
+              <SelectTrigger className={`w-auto text-xs h-7 px-2 ${STATUS_COLORS[task.status]}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((s) => (
+                  <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive ml-auto"
+              onClick={handleDelete}
+              disabled={deleteTask.isPending}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+          <SheetTitle className="text-left font-semibold text-lg mt-2">
+            {task.title}
+          </SheetTitle>
+          {hasBlocker && (
+            <div className="flex items-center gap-1.5 mt-1 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded px-2 py-1">
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              This task is blocked by a dependency
+            </div>
+          )}
+        </SheetHeader>
+
+        <ScrollArea className="flex-1 px-6 py-4">
+          <div className="space-y-6">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">Description</Label>
+              <Textarea
+                value={task.description ?? ""}
+                onChange={(e) => handleUpdate({ description: e.target.value })}
+                placeholder="Add a description..."
+                rows={4}
+                className="resize-none text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">Priority</Label>
+                <Select value={task.priority} onValueChange={(v) => handleUpdate({ priority: v as TaskPriority })}>
+                  <SelectTrigger className={`text-xs ${PRIORITY_COLORS[task.priority]}`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priorityOptions.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">Due Date</Label>
+                <div className="relative">
+                  <CalendarIcon className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={task.dueDate ? format(parseISO(task.dueDate), "yyyy-MM-dd") : ""}
+                    onChange={(e) => handleUpdate({ dueDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                    className="pl-9 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">Estimate (hours)</Label>
+                <div className="relative">
+                  <Clock className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={task.estimatedHours ?? ""}
+                    onChange={(e) => handleUpdate({ estimatedHours: e.target.value ? parseFloat(e.target.value) : null })}
+                    className="pl-9 text-xs"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">Actual (hours)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={task.actualHours ?? ""}
+                  onChange={(e) => handleUpdate({ actualHours: e.target.value ? parseFloat(e.target.value) : null })}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">Assignees</Label>
+              <div className="flex flex-wrap gap-2">
+                {(users ?? []).map((u) => {
+                  const isAssigned = task.assigneeIds.includes(u.id);
+                  const initial = (u.firstName?.[0] ?? u.email?.[0] ?? "?").toUpperCase();
+                  return (
+                    <button
+                      key={u.id}
+                      onClick={() => {
+                        const next = isAssigned
+                          ? task.assigneeIds.filter((id) => id !== u.id)
+                          : [...task.assigneeIds, u.id];
+                        handleUpdate({ assigneeIds: next });
+                      }}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs transition-colors ${
+                        isAssigned
+                          ? "bg-primary/10 border-primary/30 text-primary"
+                          : "bg-muted/50 border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Avatar className="h-5 w-5">
+                        {u.imageUrl && <AvatarImage src={u.imageUrl} alt="" />}
+                        <AvatarFallback className="text-[9px]">{initial}</AvatarFallback>
+                      </Avatar>
+                      {[u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || "User"}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">Tags</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {task.tags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="text-xs gap-1 pr-1">
+                    <Tag className="h-3 w-3" />
+                    {tag}
+                    <button
+                      onClick={() => handleUpdate({ tags: task.tags.filter((t) => t !== tag) })}
+                      className="ml-0.5 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const input = (e.target as HTMLFormElement).elements.namedItem("new-tag") as HTMLInputElement;
+                    const val = input.value.trim().toLowerCase();
+                    if (val && !task.tags.includes(val)) {
+                      handleUpdate({ tags: [...task.tags, val] });
+                      input.value = "";
+                    }
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  <Input name="new-tag" placeholder="Add tag..." className="h-7 text-xs w-28 px-2" />
+                  <Button type="submit" size="icon" variant="ghost" className="h-7 w-7">
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </form>
+              </div>
+            </div>
+
+            {fieldChanges.length > 0 && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-amber-400">
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Changes since opened
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                    onClick={handleRevert}
+                    disabled={revertPending}
+                  >
+                    {revertPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Revert"}
+                  </Button>
+                </div>
+                <ul className="space-y-0.5">
+                  {fieldChanges.map((c) => (
+                    <li key={c} className="text-xs text-amber-300/80">• {c}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <Separator />
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Subtasks</Label>
+                <span className="text-xs text-muted-foreground">
+                  {subtasks?.filter((s) => s.completed).length ?? 0}/{subtasks?.length ?? 0} completed
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {subtasks?.map((sub) => (
+                  <div key={sub.id} className="flex items-center gap-2 group">
+                    <Checkbox
+                      checked={sub.completed}
+                      onCheckedChange={() => handleToggleSubtask(sub.id)}
+                      className="h-4 w-4"
+                    />
+                    <span className={`text-sm flex-1 ${sub.completed ? "line-through text-muted-foreground" : ""}`}>
+                      {sub.title}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleRemoveSubtask(sub.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              {showSubtaskAdd ? (
+                <div className="flex items-center gap-2 mt-2">
+                  <Input
+                    autoFocus
+                    value={subtaskInput}
+                    onChange={(e) => setSubtaskInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddSubtask();
+                      if (e.key === "Escape") setShowSubtaskAdd(false);
+                    }}
+                    placeholder="New subtask..."
+                    className="h-8 text-sm"
+                  />
+                  <Button size="sm" onClick={handleAddSubtask} disabled={!subtaskInput.trim()}>
+                    Add
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowSubtaskAdd(true)}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add subtask
+                </Button>
+              )}
+            </div>
+
+            <Separator />
+
+            <div>
+              <div className="flex items-center gap-1.5 mb-3">
+                <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Links &amp; Dependencies</Label>
+              </div>
+              <TaskDependencies
+                taskId={task.id}
+                dependencies={depData}
+                allTasks={(allTasks ?? []).map((t) => ({ id: t.id, title: t.title }))}
+                onAddDependency={handleAddDep}
+                onRemoveDependency={handleRemoveDep}
+              />
+            </div>
+
+            <Separator />
+
+            <div>
+              <CommentsPanel
+                projectId={projectId}
+                entityType="task"
+                entityId={task.id}
+              />
+            </div>
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
+}
