@@ -1,0 +1,1097 @@
+# WORKFLOW REDESIGN SPECIFICATION
+## Process-Based Navigation with Advanced Mode Toggle
+
+**Status:** Design Requirements Document  
+**Date:** May 2, 2026  
+**Purpose:** Transform navigation from category-based to process-based, with optional advanced mode
+
+---
+
+## 1. NAVIGATION REDESIGN OVERVIEW
+
+### Current Structure (Category-Based) ❌
+```
+Foundation
+├─ Overview
+├─ Identity
+└─ Research
+
+Tasks & Tracking
+├─ Tasks
+├─ Notes
+└─ Playtest Reports
+
+Workshop
+├─ Components
+└─ Players
+
+Rules & Flow
+├─ Rules
+├─ Rulebook
+├─ Turn Structure
+└─ Layout
+
+Simulation
+├─ Simulator
+├─ Scaling
+├─ Scoring Curve
+└─ Balance
+
+Playtesting
+├─ Sessions
+├─ Calendar
+├─ Feedback
+└─ Reports
+
+Exports
+Learning
+Collaboration
+```
+
+### New Structure (Process-Based) ✅
+```
+╔════════════════════════════════════════════════════════╗
+║  GAME: Spell Collector (2-4p, 45 min) | 35% Complete  ║
+║                                                        ║
+║  🎯 NEXT STEP: Define core entities                   ║
+╚════════════════════════════════════════════════════════╝
+
+STAGE 1: CONCEPTUALIZE (You Are Here)
+├─ 📋 Overview
+│  ├─ Game dashboard (health, blockers, next steps)
+│  └─ [Show design brief sticky at top]
+├─ 🎮 Game Brief
+│  ├─ Name, description, players, duration
+│  ├─ Mechanic fingerprint
+│  └─ Narrative
+├─ 🔍 Research
+│  ├─ Reference games
+│  ├─ Competitive analysis
+│  └─ [Show "Apply Mechanic" buttons]
+└─ ✅ READY FOR STAGE 2? (70% complete)
+
+STAGE 2: BUILD COMPONENTS
+├─ 🎮 Game Pieces
+│  ├─ Entities (cards, tokens, tokens, etc.)
+│  └─ [Card Studio prominently featured]
+├─ 👥 Players
+│  ├─ Archetypes
+│  └─ Behavior profiles
+├─ 📊 Properties
+│  ├─ Card stats
+│  ├─ Component relationships
+│  └─ Component graph
+└─ ✅ READY FOR STAGE 3? (70% complete)
+
+STAGE 3: DEFINE RULES & FLOW
+├─ 📜 Rules
+│  ├─ Categorized (Core, Advanced, Variant)
+│  ├─ Conflict detection
+│  └─ Missing rules checklist
+├─ 📖 Rulebook
+├─ ⏱️ Turn Structure
+├─ 📐 Layout
+└─ ✅ READY FOR STAGE 4? (70% complete)
+
+STAGE 4: TEST & BALANCE
+├─ 🎲 Simulator
+│  ├─ Quick Check (5 min AI playthrough)
+│  ├─ Monte Carlo (full analysis)
+│  └─ AI suggestions
+├─ ⚖️ Balance
+│  ├─ Score + verdict
+│  └─ Interactive fixes
+├─ 📈 Scaling
+├─ 📊 Scoring Curve
+└─ ✅ READY FOR STAGE 5? (70% complete)
+
+STAGE 5: PLAYTEST & GATHER FEEDBACK
+├─ 🧪 Playtest Kit
+│  ├─ Schedule playtest
+│  ├─ Create blind test
+│  └─ Gather feedback
+├─ 📅 Calendar
+├─ 📊 Reports
+└─ ✅ READY FOR STAGE 6? (70% complete)
+
+STAGE 6: PUBLISH & SHARE
+├─ 📦 Exports
+│  ├─ Playtest Kit (early)
+│  ├─ Player Aids (mid)
+│  ├─ Kickstarter (late)
+│  └─ PDFs via Gamma
+├─ 👥 Collaboration
+├─ 📤 Share
+└─ ✅ GAME COMPLETE! 🎉
+
+─────────────────────────────────────────
+[Advanced Mode] [Help] [Design Advisor]
+```
+
+---
+
+## 2. COMPONENT SPECIFICATIONS
+
+### 2.1 Header Bar (Always Visible)
+
+**Location:** Top of workspace, above stage content
+
+**Contents:**
+```
+┌────────────────────────────────────────────────────────┐
+│ 🎮 Game: Spell Collector (2-4p, 45m) | Cooperative    │
+│                                       │ 35% Complete   │
+│ [Sticky] [Collapse ▼]                 │ [Advanced Mode]│
+└────────────────────────────────────────────────────────┘
+```
+
+**Behaviors:**
+- [ ] Sticky (always visible)
+- [ ] Shows game name, player count, duration, type
+- [ ] Shows completion percentage (calculated from stages)
+- [ ] Collapse button hides to single-line header
+- [ ] Click game name to edit identity
+- [ ] Click completion % to see checklist
+
+**Advanced Mode Toggle:**
+- [ ] In header, right side
+- [ ] When OFF (default): Show only current stage + next 2 stages
+- [ ] When ON: Show all 6 stages, all tabs visible
+- [ ] Toggle state persists in localStorage
+
+---
+
+### 2.2 Progress Bar (Below Header)
+
+**Visual:**
+```
+PROGRESS: Conceptualize → Build → Define → Test → Playtest → Publish
+          [████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 35%
+```
+
+**Details:**
+- [ ] Shows all 6 stages as colored segments
+- [ ] Current stage highlighted
+- [ ] Segment filled by stage completion %
+- [ ] Click stage name to jump (if stage unlocked)
+- [ ] Hover shows "N% complete, X tasks remaining"
+
+---
+
+### 2.3 Current Stage Panel (Main Content)
+
+**Layout:**
+```
+┌─ STAGE 1: CONCEPTUALIZE (35% complete) ────────┐
+│                                                  │
+│ What You'll Do:                                  │
+│ Define your game concept, research inspiration, │
+│ and establish core identity.                     │
+│                                                  │
+│ Estimated Time: 30 minutes                       │
+│                                                  │
+│ ┌─ STEP 1: Game Overview ────────────────────┐ │
+│ │ ✅ Name your game                          │ │
+│ │ ⏳ Choose players (2-4)                    │ │
+│ │ ⏳ Set duration (45 min)                   │ │
+│ │ ⏳ Pick genre (Cooperative)                │ │
+│ │                                            │ │
+│ │ [Next Step ▶] [Or browse all tabs]         │ │
+│ └────────────────────────────────────────────┘ │
+│                                                  │
+│ ┌─ STEP 2: Research & Inspiration ──────────┐ │
+│ │ Find games you love, note what to borrow   │ │
+│ │ or avoid.                                   │ │
+│ │                                            │ │
+│ │ [Add Reference Game +]                     │ │
+│ │ • Dominion (worker placement mechanics)    │ │
+│ │ • Gloomhaven (modular boards)              │ │
+│ └────────────────────────────────────────────┘ │
+│                                                  │
+│ ┌─ STEP 3: Define Mechanic Fingerprint ─────┐ │
+│ │ Rate your game across 5 dimensions:        │ │
+│ │                                            │ │
+│ │ Luck        ◉─────○ Strategy              │ │
+│ │ Interaction ◉─────○ Solo-Play             │ │
+│ │ etc.                                       │ │
+│ │                                            │ │
+│ │ [Save] [Get Design Advisor Analysis]      │ │
+│ └────────────────────────────────────────────┘ │
+│                                                  │
+│ ✅ You're Ready! Jump to Stage 2 ▶              │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Key Features:**
+- [ ] Show stage name and completion %
+- [ ] Explain what you'll do in this stage
+- [ ] Show estimated time (30-45 min per stage)
+- [ ] Break stage into 3-4 steps
+- [ ] Show next recommended step (highlighted)
+- [ ] Allow skipping steps ("Or browse all tabs")
+- [ ] Show completion checklist (✅ ⏳ ❌)
+- [ ] "Ready for next stage?" button when 70%+ complete
+
+---
+
+### 2.4 Sidebar (Left, Collapsible)
+
+**Normal Mode (Basic):**
+```
+STAGE 1: CONCEPTUALIZE (35%)
+├─ 📋 Overview [current]
+├─ 🎮 Game Brief
+├─ 🔍 Research
+└─ ✅ Ready for Stage 2?
+
+STAGE 2: BUILD COMPONENTS
+├─ 🎮 Game Pieces [locked]
+├─ 👥 Players [locked]
+└─ 🔄 Unlock when Stage 1 = 70%
+
+STAGE 3: DEFINE RULES
+├─ 📜 Rules [locked]
+├─ 📖 Rulebook [locked]
+└─ 🔄 Unlock when Stage 2 = 70%
+
+[Advanced Mode] [Help] [Advisor]
+```
+
+**Advanced Mode:**
+```
+STAGE 1: CONCEPTUALIZE (35%)
+├─ 📋 Overview
+├─ 🎮 Game Brief
+├─ 🔍 Research
+└─ ✅ Checklist
+
+STAGE 2: BUILD COMPONENTS (0%)
+├─ 🎮 Game Pieces
+├─ 👥 Players
+├─ 📊 Properties
+└─ Component Graph
+
+STAGE 3: DEFINE RULES (0%)
+├─ 📜 Rules
+├─ 📖 Rulebook
+├─ ⏱️ Turn Structure
+└─ 📐 Layout
+
+STAGE 4: TEST & BALANCE (0%)
+├─ 🎲 Simulator
+├─ ⚖️ Balance
+├─ 📈 Scaling
+└─ 📊 Scoring Curve
+
+STAGE 5: PLAYTEST (0%)
+├─ 🧪 Playtest Kit
+├─ 📅 Calendar
+├─ 📊 Reports
+
+STAGE 6: PUBLISH (0%)
+├─ 📦 Exports
+├─ 👥 Collaboration
+└─ 📤 Share
+
+[Normal Mode] [Help] [Advisor]
+```
+
+**Behaviors:**
+- [ ] Collapse to icons on mobile/small screens
+- [ ] Highlight current stage (bg color)
+- [ ] Show lock icon on unavailable stages
+- [ ] Show % complete next to stage name
+- [ ] Click tab to jump to that section
+- [ ] Show tooltip on locked: "Complete 70% of Stage 1 to unlock"
+- [ ] Sticky (follows scroll in main content)
+
+---
+
+### 2.5 Right Sidebar (AI Advisor)
+
+**Always Visible in Normal Mode:**
+
+```
+┌─ DESIGN ADVISOR ─────────┐
+│                          │
+│ 🤖 What You're Doing:    │
+│                          │
+│ Your game has good       │
+│ clarity but needs more   │
+│ depth. Add 3-5 more      │
+│ component types.         │
+│                          │
+│ ✅ Strengths:            │
+│ • Clear win condition    │
+│ • Good player balance    │
+│                          │
+│ ⚠️ Issues:               │
+│ • Only 2 entity types    │
+│ • Turn structure vague   │
+│                          │
+│ 💡 Next:                 │
+│ Add Core Components      │
+│ (est. 15 min)            │
+│                          │
+│ [Get Full Analysis]      │
+└──────────────────────────┘
+
+┌─ CHAT CO-DESIGNER ───────┐
+│                          │
+│ "How can I make my game  │
+│  less luck-dependent?"   │
+│                          │
+│ Claude:                  │
+│ Try adding a resource    │
+│ management layer. This   │
+│ gives players agency...  │
+│                          │
+│ [Ask Claude] [✏️ Edit]   │
+└──────────────────────────┘
+```
+
+**Behaviors:**
+- [ ] Show Design Advisor auto-running on current stage
+- [ ] Show strengths/issues/next steps
+- [ ] "Get Full Analysis" button opens modal with detailed report
+- [ ] Chat co-designer always available
+- [ ] Context-aware suggestions per stage
+- [ ] Can be collapsed (hamburger menu on mobile)
+
+---
+
+## 3. STAGE SPECIFICATIONS
+
+### Stage 1: CONCEPTUALIZE (Tabs)
+
+**Overview Tab:**
+- [ ] Game dashboard (health radar, blockers, next steps)
+- [ ] Quick stats (name, players, duration, type)
+- [ ] Design Advisor widget (auto-running)
+- [ ] Progress checklist
+
+**Game Brief Tab:**
+- [ ] All game identity fields (name, type, genre, players, duration, narrative, mechanic fingerprint)
+- [ ] Sticky header shows this game info always
+
+**Research Tab:**
+- [ ] Reference games
+- [ ] Competitive analysis
+- [ ] **NEW: "Apply Mechanic" button** on each reference
+  - Clicking creates draft rule in Stage 3
+  - Creates linked task
+
+**Checklist (Shows Only in Normal Mode):**
+- [ ] ✅ Name your game
+- [ ] ✅ Choose players
+- [ ] ✅ Set duration
+- [ ] ⏳ Pick genre
+- [ ] ⏳ Add reference games (optional)
+- [ ] ⏳ Define mechanic fingerprint
+
+---
+
+### Stage 2: BUILD COMPONENTS
+
+**Game Pieces Tab (Formerly "Assets-Entities"):**
+- [ ] Entities list (13 types)
+- [ ] **Card Studio FIRST** (not buried)
+  - Batch generation from template
+  - AI generation
+- [ ] Die Designer
+- [ ] Variant Manager
+- [ ] Component BOM
+
+**Players Tab:**
+- [ ] Archetypes (role, strategy, faction, motivation, flaw, arc)
+- [ ] Behavior profiles
+- [ ] Player Relationship Graph
+
+**Properties Tab (NEW):**
+- [ ] Property management (numeric, text, boolean)
+- [ ] Min/max/unit/default settings
+- [ ] Bulk import/export
+
+**Component Graph Tab:**
+- [ ] Radial visualization
+- [ ] Explicit/inferred links
+- [ ] Multi-hop highlighting
+
+**Checklist:**
+- [ ] ✅ Add 5+ core entities
+- [ ] ✅ Define entity properties
+- [ ] ⏳ Create deck (Card Studio)
+- [ ] ⏳ Define player roles
+- [ ] ⏳ Create relationships
+
+---
+
+### Stage 3: DEFINE RULES & FLOW
+
+**Rules Tab:**
+- [ ] **NEW: Auto-categorize into Core/Advanced/Variant**
+- [ ] **NEW: Missing rules checklist**
+  - [ ] Victory condition
+  - [ ] Turn order
+  - [ ] Resource economy
+  - [ ] Conflict resolution
+  - [ ] Special abilities
+- [ ] **NEW: Conflict detection** ("Rules #3 and #5 contradict")
+- [ ] AI enhancement button per rule
+- [ ] Rule templates ("Victory Condition", "Turn Order", etc.)
+
+**Rulebook Tab:**
+- [ ] Multi-section structured editor
+- [ ] Auto-sync from project
+
+**Turn Structure Tab:**
+- [ ] Phase/step editor
+- [ ] Visual flow visualization
+
+**Layout Tab:**
+- [ ] Component positioning on boards
+
+**Checklist:**
+- [ ] ✅ Define victory condition
+- [ ] ✅ Define turn order
+- [ ] ⏳ Add resource economy rules
+- [ ] ⏳ Define special abilities
+- [ ] ⏳ Complete rulebook
+
+---
+
+### Stage 4: TEST & BALANCE
+
+**Simulator Tab:**
+- [ ] **Quick Check** (default): 5-minute AI playthrough
+  - 6-8 turn narrated game
+  - AI suggests issues
+- [ ] Monte Carlo (expert mode): 1000-5000 iterations
+  - Economy modeling
+  - Variance analysis
+
+**Balance Tab:**
+- [ ] Balance score (0-100)
+- [ ] **NEW: Interactive feedback** (not just score)
+  - Issue: "Damage variance too high (5-15 is 3x)"
+  - Suggestion: "Rebalance to 8-13"
+  - [Apply Fix #1] [Custom] [Ignore]
+
+**Scaling Tab:**
+- [ ] Multi-player-count balance
+
+**Scoring Curve Tab:**
+- [ ] Point distribution visualization
+
+**Checklist:**
+- [ ] ✅ Run Quick Check
+- [ ] ⏳ Run Monte Carlo
+- [ ] ⏳ Address balance issues
+- [ ] ⏳ Test with 2-4 players
+
+---
+
+### Stage 5: PLAYTEST & GATHER FEEDBACK
+
+**Playtest Kit Tab:**
+- [ ] **NEW: Auto-create blind playtest protocol** from rules
+- [ ] Comprehension checks
+- [ ] Friction logging template
+- [ ] Feedback questions
+
+**Calendar Tab:**
+- [ ] Schedule playtest
+- [ ] Auto-snapshot game before playtest
+- [ ] Invite players
+
+**Reports Tab:**
+- [ ] Structured report form
+- [ ] Auto-convert action items to tasks
+
+**Checklist:**
+- [ ] ⏳ Create playtest protocol
+- [ ] ⏳ Schedule playtest
+- [ ] ⏳ Gather feedback
+- [ ] ⏳ Update based on feedback
+
+---
+
+### Stage 6: PUBLISH & SHARE
+
+**Exports Tab:**
+- [ ] **Stage-aware exports:**
+  - Week 1-2: Playtest Kit (rules + components)
+  - Week 3-4: Player Aids + Rulebook PDF
+  - Week 5+: Kickstarter copy + Press Kit
+- [ ] Playtest Kit (PDF)
+- [ ] Player Aids (reference card)
+- [ ] Rulebook (Gamma PDF)
+- [ ] Kickstarter (AI-generated)
+- [ ] Press Kit (AI-generated)
+- [ ] TTS JSON
+- [ ] Cost Estimator
+- [ ] Print & Play (preview)
+
+**Collaboration Tab:**
+- [ ] Share project
+- [ ] Manage members
+- [ ] Permissions (admin/editor/commenter/viewer)
+- [ ] Activity feed
+- [ ] Comments
+
+**Checklist:**
+- [ ] ✅ Export playtest kit
+- [ ] ⏳ Generate Kickstarter copy
+- [ ] ⏳ Create press kit
+- [ ] ⏳ Publish
+
+---
+
+## 4. STAGE UNLOCK LOGIC
+
+### Completion Calculation
+
+```
+Stage Completion % = (Completed Checklist Items / Total Items) * 100
+
+Stage 1 Checklist:
+  ✅ Name game (1)
+  ✅ Choose players (1)
+  ✅ Set duration (1)
+  ⏳ Pick genre (1)
+  ⏳ Research (optional - doesn't count)
+  
+  Completed: 3/4 = 75% → Can unlock Stage 2
+
+Unlock Rule:
+  - Show "Ready for Stage 2?" button when ≥ 70%
+  - Allow jump to Stage 2 when unlocked
+  - Show warning if jumping early
+```
+
+### Lock/Unlock Behaviors
+
+- [ ] Stage 1 always unlocked (starting stage)
+- [ ] Stage N unlocked when Stage N-1 ≥ 70%
+- [ ] Can override lock in Advanced Mode (show warning)
+- [ ] Can return to any previous stage
+- [ ] Can pause a stage and come back
+
+---
+
+## 5. GUIDANCE SYSTEM
+
+### "Next Step" Prompts
+
+**On Page Load for Current Stage:**
+```
+🎯 NEXT STEP:
+Define your core entities (estimated 15 min)
+Go to Game Pieces tab and add 5+ entity types
+
+[Take Me There] [Show Tips] [I Know What To Do]
+```
+
+**After Completing Each Tab:**
+```
+✅ Great! You've completed Game Overview.
+Next recommended: Choose players (5 min)
+
+[Continue] [Skip to Next Section]
+```
+
+**At 70% Stage Completion:**
+```
+🎉 You're ready to advance! Stage 1 is 70% complete.
+
+Want to move to Stage 2: Build Components?
+This stage will cover creating your game pieces, 
+setting up cards, tokens, and player roles.
+
+[Go to Stage 2] [Review Checklist First]
+```
+
+### Help System
+
+- [ ] Question mark icon on every section
+- [ ] Hover shows brief tooltip
+- [ ] Click opens detailed help modal
+- [ ] "Learn" mode: 8-chapter Bible with examples
+- [ ] "AI Tutor": Ask questions about current stage
+
+---
+
+## 6. ADVANCED MODE SPECIFICATION
+
+### Toggle Location & Behavior
+
+```
+Header: [Normal Mode] [Advanced Mode ▼]
+```
+
+**When Normal Mode (Default):**
+- [ ] Show only current stage + 2 next stages
+- [ ] Hide all tabs except current stage tabs
+- [ ] Show checklists and guidance
+- [ ] Show "Next Step" prompts
+- [ ] Sidebar collapses on mobile
+- [ ] Right sidebar shows Design Advisor
+
+**When Advanced Mode:**
+- [ ] Show all 6 stages in sidebar
+- [ ] Show all tabs under each stage
+- [ ] Hide checklists and guidance
+- [ ] Hide "Next Step" prompts
+- [ ] Sidebar expanded
+- [ ] Right sidebar shows Design Advisor + Chat only
+- [ ] Allow jumping to any stage (no locks)
+
+**Toggle State:**
+- [ ] Persists in localStorage
+- [ ] User preference remembered
+- [ ] Show "first-time" tooltip when mode switches
+
+---
+
+## 7. MOBILE RESPONSIVENESS
+
+### Layout Rules
+
+**Small Screens (<768px):**
+- [ ] Header: Single line, game name + %, Advanced toggle
+- [ ] Sidebar: Icon-only (left hamburger menu)
+- [ ] Stage panel: Full width
+- [ ] Right sidebar: Bottom drawer or hidden
+- [ ] Progress bar: Horizontal scroll or collapsed
+
+**Medium Screens (768px - 1024px):**
+- [ ] Header: Full
+- [ ] Sidebar: Collapsed by default, expandable
+- [ ] Stage panel: 70% width
+- [ ] Right sidebar: Hidden by default, toggleable
+- [ ] Progress bar: Full
+
+**Large Screens (>1024px):**
+- [ ] Header: Full
+- [ ] Sidebar: Always visible
+- [ ] Stage panel: 60% width
+- [ ] Right sidebar: Always visible
+- [ ] Progress bar: Full
+
+---
+
+## 8. INTERACTION SPECIFICATIONS
+
+### Navigation Actions
+
+| Action | Normal Mode | Advanced Mode |
+|--------|------------|----------------|
+| Click stage name | Jump to stage (if unlocked) | Jump to stage |
+| Click tab | Show tab content | Show tab content |
+| Collapse header | Minimize to 1-line | N/A |
+| Expand right panel | Always visible | Toggle |
+| Back button | Return to current stage | Return to current tab |
+| Keyboard shortcuts | Alt+N = next step | Alt+# = stage # |
+
+### Tab Transitions
+
+- [ ] Sticky header remains visible
+- [ ] Game brief context preserved
+- [ ] Design Advisor updates for new tab
+- [ ] Save form data before leaving tab
+- [ ] Show "Unsaved changes" warning if navigating away
+
+---
+
+## 9. DATA & STATE MANAGEMENT
+
+### What Gets Saved
+
+```
+Navigation State:
+├─ currentStage (1-6)
+├─ currentTab (per stage)
+├─ isAdvancedMode (boolean)
+├─ sidebarCollapsed (boolean)
+└─ rightPanelCollapsed (boolean)
+
+Game State:
+├─ All game data (as before)
+├─ Stage completion (calculated %)
+├─ Unlock status per stage
+└─ Design Advisor results
+
+User Preferences:
+├─ advancedMode toggle
+├─ sidebarWidth
+└─ theme
+```
+
+### Persistence
+
+- [ ] Navigation state in localStorage
+- [ ] Game data in database (no change)
+- [ ] Design Advisor results cached (24 hr)
+- [ ] Playtest snapshots per stage
+
+---
+
+## 10. CONVERSION: NORMAL → ADVANCED
+
+### When User Switches to Advanced Mode
+
+```
+┌─ ADVANCED MODE ────────────┐
+│                            │
+│ You're switching to        │
+│ Advanced Mode. This        │
+│ removes guidance and       │
+│ allows skipping stages.    │
+│                            │
+│ You can switch back        │
+│ anytime from the header.   │
+│                            │
+│ [Continue to Advanced]     │
+│ [Stay in Normal Mode]      │
+└────────────────────────────┘
+```
+
+**Changes on Switch:**
+- [ ] Sidebar expands to show all 6 stages
+- [ ] All tabs become visible (no locks)
+- [ ] Checklists hide
+- [ ] Guidance prompts disappear
+- [ ] "Next Step" prompts hide
+- [ ] Right sidebar simplifies
+
+**Reverse Switching:**
+- [ ] Can switch back to Normal Mode anytime
+- [ ] No data loss
+- [ ] Same game state preserved
+- [ ] User stays on current tab
+
+---
+
+## 11. DESIGN TOKENS & COLORS
+
+### Stage Colors
+
+```
+Stage 1 (Conceptualize): Blue (#3B82F6)
+Stage 2 (Build):         Purple (#A855F7)
+Stage 3 (Define):        Orange (#F59E0B)
+Stage 4 (Test):          Red (#EF4444)
+Stage 5 (Playtest):      Green (#10B981)
+Stage 6 (Publish):       Indigo (#6366F1)
+
+Current Stage:  Bright (full saturation)
+Previous:       Medium (80% saturation)
+Locked:         Gray (40% saturation)
+```
+
+### Typography
+
+```
+Header:           Large (24px, bold)
+Stage Title:      Medium (18px, bold)
+Tab Title:        Regular (16px, semibold)
+Step Title:       Regular (14px, semibold)
+Body Text:        Regular (14px)
+Helper Text:      Small (12px, gray)
+```
+
+---
+
+## 12. IMPLEMENTATION TIMELINE
+
+### Week 1: Foundation
+- [ ] Update sidebar component (process-based structure)
+- [ ] Add stage completion calculator
+- [ ] Add Advanced Mode toggle
+- [ ] Update header with game brief info
+
+### Week 2: Guidance
+- [ ] Add "Next Step" prompt system
+- [ ] Add stage checklists
+- [ ] Add unlock logic
+- [ ] Add tooltips and help icons
+
+### Week 3: Polish
+- [ ] Mobile responsive refinement
+- [ ] Keyboard shortcut support
+- [ ] State persistence testing
+- [ ] Design Advisor integration
+
+### Week 4: QA & Launch
+- [ ] User testing (5-10 users)
+- [ ] Bug fixes
+- [ ] Performance optimization
+- [ ] Documentation
+
+---
+
+## 13. SUCCESS METRICS
+
+### Adoption
+- [ ] 80% of new users stay in Normal Mode (first month)
+- [ ] Time to first playable: <60 min (from 120+ min)
+- [ ] Stage completion rate: 80%+ (from 30%)
+
+### Guidance Effectiveness
+- [ ] "Next Step" clarity: 8/10 (user survey)
+- [ ] Checklist usefulness: 8/10
+- [ ] Onboarding completion: 90%+
+
+### Advanced Mode
+- [ ] 20% of power users enable Advanced Mode
+- [ ] No increased support tickets
+- [ ] Time to "advanced" features: <2 weeks
+
+---
+
+## 14. WIREFRAMES & LAYOUTS
+
+### Wireframe 1: Overview (Normal Mode)
+```
+┌─────────────────────────────────────────────────────────┐
+│ 🎮 Spell Collector (2-4p, 45m) | 35% | [Normal Mode ▼] │
+├──── PROGRESS ──────────────────────────────────────────┤
+│ Conceptualize → Build → Define → Test → Playtest → Pub │
+│ [████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 35%  │
+├──────────────┬──────────────────────────┬──────────────┤
+│              │                          │              │
+│ STAGE 1      │ STAGE 1: CONCEPTUALIZE   │  ADVISOR     │
+│ CONCEPTUALIZE│ (35% complete)           │  ────────    │
+│ (35%)        │                          │  Strengths:  │
+│              │ What You'll Do:           │  • Clear     │
+│ ├─ Overview  │ Define game concept      │              │
+│ ├─ Brief     │                          │  Issues:     │
+│ ├─ Research  │ STEP 1: Game Overview    │  • Few types │
+│ └─ ✅ Ready? │ ✅ Name game             │              │
+│              │ ⏳ Choose players        │  [Full Info] │
+│ [Advanced]   │ ⏳ Set duration          │              │
+│              │ [Next Step ▶]           │              │
+│              │                          │              │
+└──────────────┴──────────────────────────┴──────────────┘
+```
+
+### Wireframe 2: Overview (Advanced Mode)
+```
+┌─────────────────────────────────────────────────────────┐
+│ 🎮 Spell Collector (2-4p, 45m) | 35% | [Advanced ▼]    │
+├──── PROGRESS ──────────────────────────────────────────┤
+│ Conceptualize → Build → Define → Test → Playtest → Pub │
+│ [████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 35%  │
+├──────────────┬──────────────────────────┬──────────────┤
+│              │                          │              │
+│ STAGE 1      │ STAGE 1: CONCEPTUALIZE   │  ADVISOR     │
+│ ├─ Overview  │                          │  ────────    │
+│ ├─ Brief     │ [Show all tabs]          │  Strengths.. │
+│ └─ Research  │ └─ Overview              │              │
+│              │ └─ Brief                 │  [Chat]      │
+│ STAGE 2      │ └─ Research              │              │
+│ ├─ Pieces    │                          │              │
+│ ├─ Players   │ [Tab content here]       │              │
+│ └─ Graph     │                          │              │
+│              │                          │              │
+│ STAGE 3      │                          │              │
+│ ├─ Rules     │                          │              │
+│ ├─ Rulebook  │                          │              │
+│ ├─ Turn      │                          │              │
+│ └─ Layout    │                          │              │
+│ [...]        │                          │              │
+│              │                          │              │
+│ [Normal]     │                          │              │
+└──────────────┴──────────────────────────┴──────────────┘
+```
+
+---
+
+## 15. CONTENT SPECIFICATION
+
+### Stage 1: Conceptualize - Help Text
+
+**Game Overview Step:**
+```
+GAME OVERVIEW
+Define what your game is about.
+
+YOUR GAME'S NAME
+Choose a memorable name. You can change it anytime.
+Example: "Spell Collector", "Tide Pools", "The Last Station"
+
+PLAYERS
+How many people will play?
+2-4 is good for starting. You can test different counts later.
+
+DURATION
+How long does a game take?
+45 minutes is a good starting point. Balance games often take longer.
+
+GENRE
+What's the feel of your game?
+Cooperative = Players work together
+Competitive = Players compete
+Hybrid = Mix of both
+```
+
+**Game Brief Step:**
+```
+MECHANIC FINGERPRINT
+Rate your game across 5 dimensions.
+
+LUCK (Random vs. Deterministic)
+High luck games: Dice rolling, card draws
+Low luck: Pure strategy (like chess)
+
+STRATEGY (Simple vs. Complex)
+High strategy: Many decisions, branching paths
+Low strategy: Limited choices
+
+INTERACTION (Solitary vs. Engaging)
+High interaction: Players affect each other
+Low interaction: Parallel play (everyone does their own thing)
+
+COMPLEXITY (Easy vs. Deep)
+High complexity: Long rules, high learning curve
+Low complexity: Pick up in 5 minutes
+
+THEME (Immersive vs. Abstract)
+High theme: Story, flavor, narrative
+Low theme: Abstract mechanics (numbers on cards)
+```
+
+---
+
+## 16. ERROR STATES & EDGE CASES
+
+### Lock Warning
+
+**When trying to jump to locked stage:**
+```
+⚠️ STAGE LOCKED
+
+You need to complete 70% of Stage 1 
+before moving to Stage 2.
+
+Current Progress: 35%
+Missing:
+- [ ] Set game duration (5 min)
+- [ ] Pick genre (2 min)
+- [ ] Add reference games (optional)
+
+[Go Back to Stage 1] [Force Open (Advanced)]
+```
+
+### Incomplete Stage Navigation
+
+**When leaving stage with <70% complete:**
+```
+⚠️ YOU'RE LEAVING EARLY
+
+You're 35% through Stage 1.
+If you leave now, you can return anytime.
+
+Remaining Steps:
+- [ ] Set duration
+- [ ] Pick genre
+
+[Continue Anyway] [Go Back]
+```
+
+### Mobile Hamburger Menu
+
+**On small screens, sidebar becomes:**
+```
+┌─ MENU ─────────────────┐
+│ STAGE 1: CONCEPTUALIZE │
+│ ├─ Overview            │
+│ ├─ Brief               │
+│ └─ Research            │
+│                        │
+│ STAGE 2: BUILD BLOCKED │
+│ (70% of Stage 1)       │
+│                        │
+│ ─────────────────────  │
+│ [Advanced Mode]        │
+│ [Help]                 │
+│ [Settings]             │
+└────────────────────────┘
+```
+
+---
+
+## 17. ACCESSIBILITY REQUIREMENTS
+
+### Keyboard Navigation
+
+```
+Tab:         Move between elements
+Shift+Tab:   Move back
+Enter:       Activate button/tab
+Space:       Toggle checkbox
+Alt+N:       Next step
+Alt+1-6:     Jump to stage 1-6
+Esc:         Close modal/menu
+```
+
+### Screen Reader Support
+
+- [ ] Stage headers: `<h2>`
+- [ ] Tabs: `role="tablist"`
+- [ ] Locked stages: `aria-disabled="true"`
+- [ ] Progress: `aria-label="35% complete"`
+- [ ] Buttons: Clear labels (not "Click here")
+
+### Color Accessibility
+
+- [ ] Stage colors have sufficient contrast (WCAG AA)
+- [ ] Don't rely on color alone (use icons + labels)
+- [ ] Lock icon for locked stages (not just color)
+
+---
+
+## 18. TESTING REQUIREMENTS
+
+### Unit Tests
+
+- [ ] Stage completion calculator
+- [ ] Lock/unlock logic
+- [ ] Mode toggle (Normal ↔ Advanced)
+- [ ] Progress calculation
+
+### Integration Tests
+
+- [ ] Navigation between stages
+- [ ] Data persistence across tabs
+- [ ] Design Advisor updates on tab change
+- [ ] Mobile menu behavior
+
+### User Testing
+
+- [ ] 5 new users, Normal Mode (first 60 min)
+- [ ] 5 experienced users, Advanced Mode
+- [ ] Mobile usability (iOS + Android)
+- [ ] Completion rate per stage
+
+### Success Criteria
+
+- [ ] 100% completion of Stage 1 test users
+- [ ] 80%+ find "Next Step" helpful
+- [ ] <5 min to first saved component
+- [ ] No confusion between tabs
+
+---
+
+## SUMMARY
+
+This specification transforms Board-Game-Forge from a category-based tool (30 tabs, overwhelming) into a **process-based workflow** where:
+
+1. **Normal Mode (Default):** Guided 6-stage process, checklists, "next steps" prompts
+2. **Advanced Mode:** All tabs visible, no locks, no guidance
+3. **Progression:** Clear path from concept → playable in 60 min
+4. **Context:** Game brief always visible (sticky header)
+5. **Guidance:** Design Advisor central, not hidden
+
+**Key Metric:** Time to first playable game: 120+ min → 60 min
