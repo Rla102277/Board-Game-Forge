@@ -726,22 +726,82 @@ export function Players({ projectId }: PlayersProps) {
   }, [players]);
 
   // ── Drag-to-reorder (HTML5, within type group)
-  const handleDragStart = (e: React.DragEvent, id: number, playerName: string) => {
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: number, player: Player) => {
     setDraggedId(id);
     document.body.style.cursor = "grabbing";
-    // Styled drag ghost (#66)
-    const ghost = document.createElement("div");
-    ghost.style.cssText = [
-      "position:fixed", "top:-200px", "left:-200px",
-      "padding:5px 12px", "border-radius:6px",
-      "background:rgba(124,58,237,0.25)", "border:1px solid rgba(124,58,237,0.55)",
-      "color:white", "font-size:11px", "font-family:inherit",
-      "backdrop-filter:blur(4px)", "white-space:nowrap", "pointer-events:none",
+    // Required for Firefox: drag-and-drop only fires if dataTransfer has data
+    e.dataTransfer.setData("text/plain", String(id));
+
+    // Build a compact card preview that the browser will show under the cursor
+    const TYPE_COLORS: Record<string, string> = {
+      Character: "#60a5fa",
+      NPC: "#4ade80",
+      Enemy: "#f87171",
+      Boss: "#fb923c",
+      Creature: "#c084fc",
+      Ally: "#22d3ee",
+    };
+    const accentColor = TYPE_COLORS[player.playerType ?? "Character"] ?? "#60a5fa";
+
+    const card = document.createElement("div");
+    card.style.cssText = [
+      "position:fixed",
+      "top:-9999px",
+      "left:-9999px",
+      "width:200px",
+      "padding:8px 12px",
+      "background:#1c1c22",
+      "border:1px solid #2e2e38",
+      `border-left:3px solid ${accentColor}`,
+      "border-radius:8px",
+      "box-shadow:0 8px 24px rgba(0,0,0,0.5),0 2px 8px rgba(0,0,0,0.3)",
+      "display:flex",
+      "align-items:center",
+      "gap:8px",
+      "pointer-events:none",
+      "z-index:9999",
+      "font-family:inherit",
     ].join(";");
-    ghost.textContent = `↕ ${playerName}`;
-    document.body.appendChild(ghost);
-    e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2);
-    requestAnimationFrame(() => ghost.remove());
+
+    const dot = document.createElement("div");
+    dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${accentColor};flex-shrink:0`;
+
+    const text = document.createElement("div");
+    text.style.cssText = "flex:1;min-width:0;overflow:hidden";
+
+    const name = document.createElement("p");
+    name.textContent = player.name ?? "Unnamed";
+    name.style.cssText = "margin:0;font-size:12px;font-weight:600;color:#e5e5e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+
+    const sub = document.createElement("p");
+    sub.textContent = player.archetype ? player.archetype : (player.playerType ?? "Character");
+    sub.style.cssText = `margin:0;font-size:10px;color:${accentColor};white-space:nowrap;overflow:hidden;text-overflow:ellipsis`;
+
+    const grip = document.createElement("div");
+    grip.style.cssText = "display:flex;flex-direction:column;gap:2px;flex-shrink:0;opacity:0.5";
+    for (let i = 0; i < 3; i++) {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;gap:2px";
+      for (let j = 0; j < 2; j++) {
+        const dot2 = document.createElement("div");
+        dot2.style.cssText = "width:2px;height:2px;border-radius:50%;background:#888";
+        row.appendChild(dot2);
+      }
+      grip.appendChild(row);
+    }
+
+    text.appendChild(name);
+    text.appendChild(sub);
+    card.appendChild(grip);
+    card.appendChild(dot);
+    card.appendChild(text);
+    document.body.appendChild(card);
+
+    // Position the drag image so the cursor is in the top-left area of the card
+    e.dataTransfer.setDragImage(card, 20, card.offsetHeight / 2 || 20);
+
+    // Clean up after the browser has captured the drag image
+    setTimeout(() => { card.remove(); }, 0);
   };
   const handleDragOver = (e: React.DragEvent, id: number) => {
     e.preventDefault();
@@ -971,7 +1031,7 @@ export function Players({ projectId }: PlayersProps) {
                           )}
                           <div
                             draggable
-                            onDragStart={(e) => handleDragStart(e, p.id, p.name)}
+                            onDragStart={(e) => handleDragStart(e, p.id, p)}
                             onDragOver={(e) => handleDragOver(e, p.id)}
                             onDrop={() => handleDrop(p.id, type)}
                             onDragEnd={() => { document.body.style.cursor = ""; clearDragState(); }}
