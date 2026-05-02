@@ -620,6 +620,37 @@ function AssetsView({
   }, [ordersDisagree]);
   const showOrderNotice = ordersDisagree && !orderNoticeDismissed;
 
+  const [isSyncingOrders, setIsSyncingOrders] = useState(false);
+
+  const handleSyncOrders = async () => {
+    if (!assets?.length || isSyncingOrders) return;
+    const assetKindMap = new Map(assets.map((a) => [a.id, a.kind ?? "other"]));
+    const flatKindOrder = new Map<string, number[]>();
+    for (const id of localOrder) {
+      const kind = assetKindMap.get(id);
+      if (!kind) continue;
+      if (!flatKindOrder.has(kind)) flatKindOrder.set(kind, []);
+      flatKindOrder.get(kind)!.push(id);
+    }
+    setIsSyncingOrders(true);
+    try {
+      const updates: Promise<unknown>[] = [];
+      for (const [, ids] of flatKindOrder.entries()) {
+        ids.forEach((id, index) => {
+          updates.push(updateAsset.mutateAsync({ projectId, assetId: id, data: { groupDisplayOrder: index } }));
+        });
+      }
+      await Promise.all(updates);
+      setOrderNoticeDismissed(true);
+      refresh();
+    } catch {
+      toast({ title: "Failed to sync orders", variant: "destructive" });
+      refresh();
+    } finally {
+      setIsSyncingOrders(false);
+    }
+  };
+
   // Derive sorted asset list from localOrder
   const orderedAssets = useMemo(() => {
     if (!assets?.length) return assets ?? [];
@@ -1168,8 +1199,17 @@ function AssetsView({
             >
               Grouped order differs from flat order
               <button
+                onClick={handleSyncOrders}
+                disabled={isSyncingOrders}
+                className="ml-0.5 flex items-center gap-0.5 rounded-full hover:bg-amber-400/30 px-1.5 py-0.5 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Sync grouped order to match flat order"
+                data-testid="orders-sync-button"
+              >
+                {isSyncingOrders ? "Syncing…" : "Sync"}
+              </button>
+              <button
                 onClick={() => setOrderNoticeDismissed(true)}
-                className="ml-0.5 rounded-full hover:bg-amber-400/30 p-0.5 transition-colors"
+                className="rounded-full hover:bg-amber-400/30 p-0.5 transition-colors"
                 aria-label="Dismiss"
                 data-testid="orders-disagree-dismiss"
               >
