@@ -20,7 +20,7 @@ import {
 import {
   Plus, Trash2, ChevronDown, ChevronRight, Sparkles, Loader2, Check,
   Wand2, X, Pencil, Copy, Layers, LayoutGrid, List, Search,
-  Tag, Link2, Zap,
+  Tag, Link2, Zap, Palette,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +28,14 @@ import {
   PHYSICAL_TYPES, WORLD_TYPES, COMPONENT_SUBTYPES, getMeta, getStatusMeta, STATUS_OPTIONS,
   type ComponentType,
 } from "@/lib/game-component-types";
+
+// ─── Color picker presets (#53) ─────────────────────────────────────────────
+
+const CARD_COLORS = [
+  "#6366f1", "#8b5cf6", "#a855f7", "#ec4899",
+  "#ef4444", "#f97316", "#eab308", "#22c55e",
+  "#14b8a6", "#06b6d4", "#3b82f6", "#64748b",
+];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -977,6 +985,7 @@ function EntityVisualCard({
   const [statPairs, setStatPairs] = useState<{ key: string; val: string }[]>([]);
   const [showChildren, setShowChildren] = useState(false);
   const [isDragTarget, setIsDragTarget] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
   const [editForm, setEditForm] = useState({
     name: entity.name,
@@ -1311,8 +1320,12 @@ function EntityVisualCard({
       ].join(" ")}
       data-testid={`entity-card-${entity.id}`}
     >
-      {/* Color accent header */}
-      <div className={`h-1.5 w-full bg-gradient-to-r ${accentFrom} to-transparent`} />
+      {/* Color accent header — custom color when set (#53), else type gradient */}
+      {entity.color ? (
+        <div className="h-1.5 w-full" style={{ background: `linear-gradient(to right, ${entity.color}55, transparent)` }} />
+      ) : (
+        <div className={`h-1.5 w-full bg-gradient-to-r ${accentFrom} to-transparent`} />
+      )}
       {isDragTarget && (
         <div className="absolute inset-x-0 top-1.5 flex items-center justify-center pointer-events-none z-10">
           <span className="text-[10px] font-semibold bg-indigo-500/90 text-white px-2 py-0.5 rounded-full shadow-sm">
@@ -1498,6 +1511,50 @@ function EntityVisualCard({
             ))}
           </div>
         )}
+
+        {/* Color picker swatches (#53) */}
+        {showColorPicker && (
+          <div className="pt-2 border-t border-border/40">
+            <div className="flex items-center gap-1 flex-wrap">
+              {CARD_COLORS.map((c) => (
+                <button
+                  key={c}
+                  title={c}
+                  data-testid={`color-swatch-${entity.id}-${c.slice(1)}`}
+                  className="rounded-full transition-transform hover:scale-110 shrink-0"
+                  style={{
+                    width: 18, height: 18, backgroundColor: c,
+                    outline: entity.color === c ? "2px solid white" : "none",
+                    outlineOffset: 2,
+                  }}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      await updateEntity.mutateAsync({ projectId, entityId: entity.id, data: { color: c } });
+                      refresh();
+                    } catch { /* noop */ }
+                    setShowColorPicker(false);
+                  }}
+                />
+              ))}
+              {entity.color && (
+                <button
+                  className="text-[9px] text-muted-foreground hover:text-white px-1.5 py-0.5 rounded border border-border/50 hover:border-border transition-colors ml-auto"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      await updateEntity.mutateAsync({ projectId, entityId: entity.id, data: { color: "" } });
+                      refresh();
+                    } catch { /* noop */ }
+                    setShowColorPicker(false);
+                  }}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* AI Enhance panel */}
@@ -1569,6 +1626,20 @@ function EntityVisualCard({
           data-testid={`enhance-entity-${entity.id}`}
         >
           <Wand2 className="w-3 h-3" /> AI
+        </Button>
+        {/* Color picker toggle (#53) */}
+        <Button
+          variant="ghost" size="icon"
+          className={`h-7 w-7 ${showColorPicker ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
+          onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); }}
+          data-testid={`color-picker-toggle-${entity.id}`}
+          title="Card color"
+        >
+          {entity.color ? (
+            <span className="w-3 h-3 rounded-full border border-white/30" style={{ backgroundColor: entity.color, display: "inline-block" }} />
+          ) : (
+            <Palette className="w-3 h-3" />
+          )}
         </Button>
         <Button
           variant="ghost" size="icon"

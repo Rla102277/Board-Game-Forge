@@ -609,6 +609,13 @@ export function EntityGraph({
     offsetY: number;
   } | null>(null);
   const didDragRef = useRef(false);
+  // Ref copy of positions for use inside debounce closures (#57)
+  const positionsRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  // Debounce handle for real-time layout sync during drag (#57)
+  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Stable ref to the mutate function so debounce closures stay fresh (#57)
+  const updateGraphLayoutRef = useRef(updateGraphLayout);
+  useEffect(() => { updateGraphLayoutRef.current = updateGraphLayout; }, [updateGraphLayout]);
 
   const clientToSvg = useCallback((clientX: number, clientY: number): { x: number; y: number } => {
     const svg = svgRef.current;
@@ -645,14 +652,31 @@ export function EntityGraph({
       setNodePositions((prev) => {
         const next = new Map(prev);
         next.set(drag.nodeId, { x: newX, y: newY });
+        positionsRef.current = next; // keep ref in sync for debounce closure (#57)
         return next;
       });
+      // Debounced server save during drag so layout syncs in real time (#57)
+      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+      saveDebounceRef.current = setTimeout(() => {
+        const curr = positionsRef.current;
+        saveLocalPositions(projectId, curr);
+        const posRecord = positionsToRecord(curr);
+        updateGraphLayoutRef.current.mutate(
+          { projectId, data: { positions: posRecord } },
+          { onSuccess: (data) => {
+            appliedServerFingerprintRef.current = JSON.stringify(data.positions);
+            qc.setQueryData(getGetGraphLayoutQueryKey(projectId), data);
+          }},
+        );
+      }, 800);
     },
-    [clientToSvg, width, height],
+    [clientToSvg, width, height, projectId, qc],
   );
 
   const endDrag = useCallback(() => {
     if (!dragRef.current) return;
+    // Cancel any in-flight debounced save; endDrag does an immediate final save (#57)
+    if (saveDebounceRef.current) { clearTimeout(saveDebounceRef.current); saveDebounceRef.current = null; }
     dragRef.current = null;
     setNodePositions((prev) => {
       // Save to localStorage immediately (fast)
