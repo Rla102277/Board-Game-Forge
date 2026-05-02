@@ -1,5 +1,9 @@
 import { Link, useLocation } from "wouter";
-import { Plus, LayoutDashboard, Activity, Gamepad2, Folder, Trash2, Settings, MoreVertical, User as UserIcon, LogOut, Shield, RotateCcw, AlertTriangle } from "lucide-react";
+import { Plus, LayoutDashboard, Activity, Gamepad2, Folder, Trash2, Settings, MoreVertical, User as UserIcon, LogOut, Shield, RotateCcw, AlertTriangle, Wand2 } from "lucide-react";
+import { QuickStartWizard } from "@/components/wizard/quick-start-wizard";
+// NOTE: This page is currently orphaned (no route mounts it). The real signed-in
+// landing is workspace-home.tsx. We keep the wizard wiring here for parity if/when
+// this page is reintroduced.
 import { useUser, useClerk } from "@clerk/react";
 import { useState } from "react";
 import { useListProjects, useGetDashboardSummary, useGetRecentActivity, useCreateProject, useDeleteProject, useListTrashedProjects, useRestoreProject, usePurgeProject, getListProjectsQueryKey, getGetDashboardSummaryQueryKey, getGetRecentActivityQueryKey, getListTrashedProjectsQueryKey } from "@workspace/api-client-react";
@@ -30,6 +34,7 @@ export default function Home() {
   const purgeProject = usePurgeProject();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [createData, setCreateData] = useState({ name: "", description: "", gameType: "", genre: "", playerCount: "", targetDuration: "" });
 
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
@@ -109,6 +114,9 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <Button variant="outline" size="lg" className="gap-2" onClick={() => setIsTrashOpen(true)}>
               <Trash2 className="h-5 w-5" /> Recycle Bin
+            </Button>
+            <Button size="lg" variant="outline" className="gap-2 border-primary/50 text-primary hover:bg-primary/10" onClick={() => setIsWizardOpen(true)} data-testid="open-quick-start">
+              <Wand2 className="h-5 w-5" /> Quick Start
             </Button>
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
@@ -440,6 +448,8 @@ export default function Home() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <QuickStartWizard open={isWizardOpen} onOpenChange={setIsWizardOpen} />
     </div>
   );
 }

@@ -32,6 +32,7 @@ import {
 } from "@/lib/workspaces-api";
 import { MembersDialog } from "@/components/workspace/members-dialog";
 import { AiProvidersDialog } from "@/components/workspace/ai-providers-dialog";
+import { QuickStartWizard } from "@/components/wizard/quick-start-wizard";
 import { format } from "date-fns";
 
 type TemplateCategory = "All" | "Strategy" | "Cards" | "Social" | "Adventure" | "Casual";
@@ -292,6 +293,7 @@ export default function WorkspaceHome() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [newWsOpen, setNewWsOpen] = useState(false);
   const [newWsName, setNewWsName] = useState("");
   const [membersOpen, setMembersOpen] = useState(false);
@@ -544,6 +546,14 @@ export default function WorkspaceHome() {
             />
             <div className="flex items-center justify-between pt-2">
               <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="gap-2 text-primary hover:text-primary hover:bg-primary/10"
+                  onClick={() => setWizardOpen(true)}
+                  data-testid="open-quick-start"
+                >
+                  <Wand2 className="h-4 w-4" /> Quick Start
+                </Button>
                 <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                   <DialogTrigger asChild>
                     <Button variant="ghost" className="gap-2 text-muted-foreground" data-testid="open-blank-project">
@@ -728,6 +738,13 @@ export default function WorkspaceHome() {
           </div>
         </section>
       </main>
+
+      <QuickStartWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        workspaceSlug={slug}
+        onCreated={reloadDetail}
+      />
 
       <AiProvidersDialog
         open={aiProvidersOpen}
