@@ -1,5 +1,6 @@
 import { useParams, Link } from "wouter";
 import { useState, useMemo, lazy, Suspense } from "react";
+import { AnimatePresence } from "framer-motion";
 import { useGetProject, useGetProjectStats, useDeleteProject, useUpdateProject, getListProjectsQueryKey } from "@workspace/api-client-react";
 import { useUser, useClerk } from "@clerk/react";
 import {
@@ -19,6 +20,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { DesignBriefHeader } from "@/components/workspace/design-brief-header";
+import { WorkspaceTour, TourTriggerButton } from "@/components/workspace/workspace-tour";
+import { useWorkspaceTour } from "@/hooks/use-workspace-tour";
 
 // Lazy load workspace components for code splitting
 const Overview = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.Overview })));
@@ -147,6 +150,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  const { showTour, startTour, completeTour, dismissTour } = useWorkspaceTour(projectId);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(NAV_GROUPS.map(g => [g.label, g.defaultOpen]))
   );
@@ -508,12 +512,13 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           ))}
         </nav>
 
-        <div className="p-3 border-t border-border text-xs text-muted-foreground">
-          <div className="flex items-center gap-1 mb-2">
+        <div className="p-3 border-t border-border text-xs text-muted-foreground space-y-1">
+          <TourTriggerButton onClick={startTour} />
+          <div className="flex items-center gap-1 px-3 pt-1">
             <kbd className="px-1.5 py-0.5 bg-sidebar-accent rounded text-[10px] font-mono">⌘K</kbd>
             <span>Quick actions</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 px-3">
             <kbd className="px-1.5 py-0.5 bg-sidebar-accent rounded text-[10px] font-mono">⌘/</kbd>
             <span>Search</span>
           </div>
@@ -587,6 +592,20 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       <Suspense fallback={null}>
         <CursorIndicators projectId={projectId} />
       </Suspense>
+
+      <AnimatePresence>
+        {showTour && (
+          <WorkspaceTour
+            onNavigate={(sectionId) => {
+              setActiveSection(sectionId);
+              const group = NAV_GROUPS.find(g => g.items.some(i => i.id === sectionId));
+              if (group) setOpenGroups(prev => ({ ...prev, [group.label]: true }));
+            }}
+            onComplete={() => completeTour(projectId)}
+            onDismiss={dismissTour}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

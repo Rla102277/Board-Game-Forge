@@ -29,6 +29,7 @@
     "rename-conversation": 11,
     "custom-commands": 11
   },
+  "promptQueueUseCount": 1,
   "btwUseCount": 1,
   "cachedGrowthBookFeatures": {
     "tengu_amber_sentinel": true,
