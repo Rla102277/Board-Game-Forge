@@ -5,7 +5,6 @@ import {
   Gamepad2, Plus, Sparkles, ArrowRight, Users, ChevronDown,
   LogOut, Shield, User as UserIcon, Folder, Crown, Trash2,
   Loader2, Wand2, GraduationCap, BookOpen, MessageSquare, Trophy, Pencil,
-  Clock, UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,233 +33,23 @@ import { MembersDialog } from "@/components/workspace/members-dialog";
 import { AiProvidersDialog } from "@/components/workspace/ai-providers-dialog";
 import { format } from "date-fns";
 
-type TemplateCategory = "All" | "Strategy" | "Cards" | "Social" | "Adventure" | "Casual";
-type Complexity = "Light" | "Medium" | "Heavy";
-
 interface Template {
   key: string;
   title: string;
   desc: string;
   emoji: string;
-  category: Exclude<TemplateCategory, "All">;
-  players: string;
-  time: string;
-  complexity: Complexity;
-  tags: string[];
 }
 
-const COMPLEXITY_COLOR: Record<Complexity, string> = {
-  Light:  "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  Medium: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  Heavy:  "bg-red-500/15 text-red-400 border-red-500/30",
-};
-
-const TEMPLATE_CATEGORIES: TemplateCategory[] = ["All", "Strategy", "Cards", "Social", "Adventure", "Casual"];
-
 const TEMPLATES: Template[] = [
-  // Strategy
-  {
-    key: "strategy",
-    title: "Engine Builder",
-    desc: "Build interconnected systems that generate compounding advantages",
-    emoji: "♟️",
-    category: "Strategy",
-    players: "2–4",
-    time: "60–120m",
-    complexity: "Heavy",
-    tags: ["engine-building", "long-term planning"],
-  },
-  {
-    key: "worker-placement",
-    title: "Worker Placement",
-    desc: "Claim action spaces, manage your workers, block opponents",
-    emoji: "🏗️",
-    category: "Strategy",
-    players: "2–5",
-    time: "60–90m",
-    complexity: "Medium",
-    tags: ["resource management", "blocking"],
-  },
-  {
-    key: "area-control",
-    title: "Area Control",
-    desc: "Dominate territories through tactical troop placement",
-    emoji: "🗺️",
-    category: "Strategy",
-    players: "3–5",
-    time: "60–120m",
-    complexity: "Heavy",
-    tags: ["territory", "conflict"],
-  },
-  {
-    key: "tile-laying",
-    title: "Tile Laying",
-    desc: "Build the board as you play with spatial puzzles and patterns",
-    emoji: "🧩",
-    category: "Strategy",
-    players: "2–5",
-    time: "30–60m",
-    complexity: "Medium",
-    tags: ["spatial", "pattern-building"],
-  },
-  // Cards
-  {
-    key: "deck-builder",
-    title: "Deck Builder",
-    desc: "Start small, buy upgrades, craft a powerful custom engine",
-    emoji: "🃏",
-    category: "Cards",
-    players: "2–4",
-    time: "30–60m",
-    complexity: "Medium",
-    tags: ["card synergy", "economy"],
-  },
-  {
-    key: "drafting",
-    title: "Drafting",
-    desc: "Pass packs, pick cards, deny opponents — build the best hand",
-    emoji: "🎴",
-    category: "Cards",
-    players: "3–8",
-    time: "20–45m",
-    complexity: "Light",
-    tags: ["card selection", "denial"],
-  },
-  {
-    key: "hand-management",
-    title: "Hand Management",
-    desc: "Play the right cards in the right order — timing is everything",
-    emoji: "🖐️",
-    category: "Cards",
-    players: "2–6",
-    time: "30–60m",
-    complexity: "Medium",
-    tags: ["timing", "sequencing"],
-  },
-  {
-    key: "auction",
-    title: "Auction / Bidding",
-    desc: "Spend your limited currency wisely to win what matters most",
-    emoji: "🔨",
-    category: "Cards",
-    players: "3–6",
-    time: "45–90m",
-    complexity: "Medium",
-    tags: ["bidding", "valuation"],
-  },
-  // Social
-  {
-    key: "party",
-    title: "Party Game",
-    desc: "Loud, fast, hilarious — perfect for any crowd in 20 minutes",
-    emoji: "🎉",
-    category: "Social",
-    players: "4–10",
-    time: "15–30m",
-    complexity: "Light",
-    tags: ["filler", "no setup"],
-  },
-  {
-    key: "social-deduction",
-    title: "Social Deduction",
-    desc: "Hidden roles, shifting alliances, and masterful bluffing",
-    emoji: "🎭",
-    category: "Social",
-    players: "5–12",
-    time: "30–60m",
-    complexity: "Light",
-    tags: ["hidden information", "bluffing"],
-  },
-  {
-    key: "negotiation",
-    title: "Negotiation",
-    desc: "Trade resources, make deals, then betray at the perfect moment",
-    emoji: "🤝",
-    category: "Social",
-    players: "3–6",
-    time: "45–90m",
-    complexity: "Medium",
-    tags: ["trading", "alliances"],
-  },
-  {
-    key: "trivia",
-    title: "Trivia / Quiz",
-    desc: "Knowledge categories, clever scoring, and exciting catch-up mechanics",
-    emoji: "🧠",
-    category: "Social",
-    players: "2–8",
-    time: "30–60m",
-    complexity: "Light",
-    tags: ["knowledge", "categories"],
-  },
-  // Adventure
-  {
-    key: "cooperative",
-    title: "Cooperative",
-    desc: "All players unite against a shared threat — win or lose together",
-    emoji: "🛡️",
-    category: "Adventure",
-    players: "2–5",
-    time: "60–90m",
-    complexity: "Medium",
-    tags: ["teamwork", "shared threat"],
-  },
-  {
-    key: "dungeon-crawler",
-    title: "Dungeon Crawler",
-    desc: "Heroes explore, fight monsters, and level up through perilous rooms",
-    emoji: "🐉",
-    category: "Adventure",
-    players: "1–4",
-    time: "90–180m",
-    complexity: "Heavy",
-    tags: ["RPG elements", "exploration", "loot"],
-  },
-  {
-    key: "legacy",
-    title: "Legacy / Campaign",
-    desc: "Permanent decisions shape a world that evolves across sessions",
-    emoji: "📖",
-    category: "Adventure",
-    players: "2–5",
-    time: "60–120m",
-    complexity: "Heavy",
-    tags: ["persistent world", "story"],
-  },
-  // Casual
-  {
-    key: "roll-and-write",
-    title: "Roll & Write",
-    desc: "Share the dice roll, mark your personal sheet, race to complete goals",
-    emoji: "🎲",
-    category: "Casual",
-    players: "1–8",
-    time: "20–45m",
-    complexity: "Light",
-    tags: ["solo-friendly", "simultaneous"],
-  },
-  {
-    key: "push-your-luck",
-    title: "Push Your Luck",
-    desc: "Roll again to earn more — but one bad result wipes your gains",
-    emoji: "🍀",
-    category: "Casual",
-    players: "2–6",
-    time: "15–30m",
-    complexity: "Light",
-    tags: ["risk-reward", "press your luck"],
-  },
-  {
-    key: "abstract",
-    title: "Abstract Strategy",
-    desc: "Pure skill — no luck, no theme, just perfect information and wit",
-    emoji: "⬡",
-    category: "Casual",
-    players: "2",
-    time: "15–60m",
-    complexity: "Medium",
-    tags: ["pure strategy", "two-player"],
-  },
+  { key: "strategy",        title: "Strategy",         desc: "Engine-building, deep decisions",  emoji: "♟️" },
+  { key: "party",           title: "Party",            desc: "Loud, social, 20 minutes",         emoji: "🎉" },
+  { key: "cooperative",     title: "Cooperative",      desc: "All vs the game",                  emoji: "🤝" },
+  { key: "deck-builder",    title: "Deck-builder",     desc: "Craft a custom card engine",       emoji: "🃏" },
+  { key: "roll-and-write",  title: "Roll-and-write",   desc: "Shared dice, personal sheets",     emoji: "🎲" },
+  { key: "worker-placement",title: "Worker placement", desc: "Pick spots, gather, build",        emoji: "🏗️" },
+  { key: "tile-laying",     title: "Tile-laying",      desc: "Spatial puzzles, patterns",        emoji: "🧩" },
+  { key: "social-deduction",title: "Social deduction", desc: "Hidden roles, social bluffing",    emoji: "🎭" },
+  { key: "monopoly",        title: "Monopoly",         desc: "Classic property trading game",     emoji: "🎩" },
 ];
 
 function useWorkspacesList() {
@@ -299,7 +88,6 @@ export default function WorkspaceHome() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
   const [renameWsOpen, setRenameWsOpen] = useState(false);
   const [renameWsName, setRenameWsName] = useState("");
-  const [templateCategory, setTemplateCategory] = useState<TemplateCategory>("All");
 
   const slug = params?.workspaceSlug;
 
@@ -583,7 +371,7 @@ export default function WorkspaceHome() {
         </section>
 
         {/* Templates */}
-        <section className="space-y-4">
+        <section className="space-y-3">
           <div className="flex items-end justify-between">
             <div>
               <h2 className="text-2xl font-semibold">Start from a template</h2>
@@ -591,33 +379,8 @@ export default function WorkspaceHome() {
             </div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Wand2 className="h-3.5 w-3.5" /> Powered by GameForge AI</div>
           </div>
-
-          {/* Category filter */}
-          <div className="flex flex-wrap gap-2">
-            {TEMPLATE_CATEGORIES.map((cat) => {
-              const count = cat === "All" ? TEMPLATES.length : TEMPLATES.filter((t) => t.category === cat).length;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setTemplateCategory(cat)}
-                  className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-                    templateCategory === cat
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
-                  }`}
-                >
-                  {cat}
-                  <span className={`ml-1.5 ${templateCategory === cat ? "opacity-80" : "opacity-50"}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Template grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {TEMPLATES.filter((t) => templateCategory === "All" || t.category === templateCategory).map((t) => (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {TEMPLATES.map((t) => (
               <button
                 key={t.key}
                 onClick={() => generateFrom(t.key)}
@@ -626,26 +389,15 @@ export default function WorkspaceHome() {
                 className="text-left rounded-xl border bg-card hover:border-primary/60 hover:bg-card/80 p-4 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
               >
                 <div className="flex items-start justify-between">
-                  <div className="text-2xl">{t.emoji}</div>
+                  <div className="text-3xl">{t.emoji}</div>
                   {generating === t.key ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   ) : (
-                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors opacity-0 group-hover:opacity-100" />
+                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   )}
                 </div>
-                <div className="font-semibold mt-2 text-sm leading-tight">{t.title}</div>
-                <div className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-snug">{t.desc}</div>
-                <div className="flex flex-wrap gap-1 mt-3">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${COMPLEXITY_COLOR[t.complexity]}`}>
-                    {t.complexity}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded border bg-secondary/50 text-muted-foreground border-border flex items-center gap-0.5">
-                    <UserRound className="h-2.5 w-2.5" />{t.players}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded border bg-secondary/50 text-muted-foreground border-border flex items-center gap-0.5">
-                    <Clock className="h-2.5 w-2.5" />{t.time}
-                  </span>
-                </div>
+                <div className="font-medium mt-3">{t.title}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t.desc}</div>
               </button>
             ))}
           </div>
