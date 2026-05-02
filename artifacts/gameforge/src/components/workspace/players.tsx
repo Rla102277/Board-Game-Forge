@@ -21,6 +21,7 @@ import {
   Target, Sword, Package, Trophy, Wand2, Gamepad2, List, GitGraph, Check,
 } from "lucide-react";
 import { PlayerRelationshipGraph } from "./player-relationship-graph";
+import { PLAYER_TYPE_COLORS } from "@/lib/player-colors";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -37,15 +38,6 @@ const PLAYSTYLE_TAGS = ["Solo", "Team", "Asymmetric", "Cooperative", "Competitiv
 type PlaystyleTag = typeof PLAYSTYLE_TAGS[number];
 
 const COMMON_ARCHETYPES = ["Hero", "Villain", "Trickster", "Mentor", "Guardian", "Wanderer", "Ruler", "Rebel", "Sage", "Innocent"] as const;
-
-const PLAYER_TYPE_COLORS: Record<string, string> = {
-  Character: "#60a5fa",
-  NPC: "#4ade80",
-  Enemy: "#f87171",
-  Boss: "#fb923c",
-  Creature: "#c084fc",
-  Ally: "#22d3ee",
-};
 
 function playerCompleteness(p: Player): number {
   const fields = [p.archetype, p.role, p.faction, p.motivation, p.flaw, p.strategy, p.specialAbility, p.description];
@@ -1482,6 +1474,25 @@ function PersonaCard({
           </div>
 
           <div className="flex-1 min-w-0">
+            {/* P6: Field completeness % indicator */}
+            {(() => {
+              const pct = playerCompleteness({ ...player, ...sheet } as Player);
+              const color = pct >= 75 ? "#4ade80" : pct >= 40 ? "#fbbf24" : "#f87171";
+              return (
+                <div className="flex items-center gap-2 mb-1.5" data-testid={`persona-completeness-${player.id}`}>
+                  <svg width="14" height="14" viewBox="0 0 12 12" className="shrink-0">
+                    <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth="2" className="text-foreground" />
+                    <circle cx="6" cy="6" r="5" fill="none" stroke={color} strokeWidth="2"
+                      strokeDasharray={`${(pct / 100) * 31.4} 31.4`}
+                      strokeLinecap="round"
+                      transform="rotate(-90 6 6)" />
+                  </svg>
+                  <span className="text-[10px] font-medium tracking-wide text-muted-foreground">
+                    Profile <span style={{ color }}>{pct}%</span> complete
+                  </span>
+                </div>
+              );
+            })()}
             {/* Name */}
             <Input
               value={sheet.name}

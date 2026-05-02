@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo } from "react";
 import * as d3 from "d3-force";
 import { type Player } from "@workspace/api-client-react";
+import { PLAYER_TYPE_COLORS } from "@/lib/player-colors";
 
 interface Relationship { targetPlayerId: number; relationshipType: string; }
 
@@ -12,15 +13,6 @@ function castRelationships(raw: unknown): Relationship[] {
     return typeof x["targetPlayerId"] === "number" && typeof x["relationshipType"] === "string";
   }).map((r) => r as Relationship);
 }
-
-const PLAYER_TYPE_COLORS: Record<string, string> = {
-  Character: "#60a5fa",
-  NPC: "#4ade80",
-  Enemy: "#f87171",
-  Boss: "#fb923c",
-  Creature: "#c084fc",
-  Ally: "#22d3ee",
-};
 
 const REL_COLORS: Record<string, string> = {
   Allied: "#4ade80",

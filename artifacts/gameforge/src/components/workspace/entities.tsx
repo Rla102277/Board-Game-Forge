@@ -4,6 +4,7 @@ import {
   useAiGenerateEntities, useAiEnhanceEntity,
   useListEntityProperties, useCreateEntityProperty, useUpdateEntityProperty, useDeleteEntityProperty,
   getListEntitiesQueryKey, getListEntityPropertiesQueryKey,
+  useGetProject,
   type Entity, type EntityProperty,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -82,6 +83,7 @@ interface EntitiesProps {
 export function Entities({ projectId }: EntitiesProps) {
   const queryClient = useQueryClient();
   const { data: entities, isLoading } = useListEntities(projectId);
+  const { data: project } = useGetProject(projectId);
   const createEntity = useCreateEntity();
   const updateEntity = useUpdateEntity();
   const aiGenerate = useAiGenerateEntities();
@@ -502,6 +504,15 @@ export function Entities({ projectId }: EntitiesProps) {
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
+          {/* N2: Narrative seed preview snippet */}
+          {project?.narrative && (
+            <div className="rounded-md bg-violet-500/10 border border-violet-500/20 px-3 py-2 text-xs text-violet-300 flex gap-2 items-start">
+              <Sparkles className="h-3 w-3 mt-0.5 shrink-0 text-violet-400" />
+              <span className="line-clamp-2 italic">
+                {project.narrative.length > 120 ? project.narrative.slice(0, 120) + "…" : project.narrative}
+              </span>
+            </div>
+          )}
           <div className="flex gap-2">
             <Textarea
               value={aiPrompt}
