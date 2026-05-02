@@ -731,6 +731,14 @@ function AssetsView({
 
   // Card element refs for focus restoration after keyboard move (#38)
   const cardElemRefs = useRef<Map<number, HTMLElement>>(new Map());
+  // Restores focus to a card after refresh() causes a re-render that replaces DOM nodes
+  const pendingFocusId = useRef<number | null>(null);
+  useEffect(() => {
+    if (pendingFocusId.current === null) return;
+    const id = pendingFocusId.current;
+    pendingFocusId.current = null;
+    requestAnimationFrame(() => cardElemRefs.current.get(id)?.focus());
+  }, [assets]);
 
   const moveAsset = async (id: number, delta: -1 | 1) => {
     const currentOrder = localOrderRef.current;
@@ -749,9 +757,11 @@ function AssetsView({
           updateAsset.mutateAsync({ projectId, assetId: aid, data: { displayOrder: index } })
         )
       );
+      pendingFocusId.current = id;
       refresh();
     } catch {
       toast({ title: "Failed to save order", variant: "destructive" });
+      pendingFocusId.current = id;
       refresh();
     }
   };
@@ -771,15 +781,18 @@ function AssetsView({
       next.set(kind, finalKindIds);
       return next;
     });
+    requestAnimationFrame(() => cardElemRefs.current.get(id)?.focus());
     try {
       await Promise.all(
         finalKindIds.map((aid, index) =>
           updateAsset.mutateAsync({ projectId, assetId: aid, data: { groupDisplayOrder: index } })
         )
       );
+      pendingFocusId.current = id;
       refresh();
     } catch {
       toast({ title: "Failed to save order", variant: "destructive" });
+      pendingFocusId.current = id;
       refresh();
     }
   };
