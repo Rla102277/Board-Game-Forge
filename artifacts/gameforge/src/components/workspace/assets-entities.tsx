@@ -670,6 +670,7 @@ function AssetsView({
     setDraggedId(id);
     setDraggedKind(kind);
     dragOverIdRef.current = null;
+    document.body.style.cursor = "grabbing";
   };
 
   const handleGroupedDragOver = (e: React.DragEvent, targetId: number, targetKind: string) => {
@@ -696,6 +697,7 @@ function AssetsView({
 
   const handleGroupedDrop = async (e: React.DragEvent) => {
     e.preventDefault();
+    document.body.style.cursor = "";
     if (draggedId === null || draggedKind === null || isSavingOrder.current) return;
     isSavingOrder.current = true;
     const kind = draggedKind;
@@ -720,6 +722,7 @@ function AssetsView({
   };
 
   const handleGroupedDragEnd = () => {
+    document.body.style.cursor = "";
     setDraggedId(null);
     setDraggedKind(null);
     setDropTargetId(null);

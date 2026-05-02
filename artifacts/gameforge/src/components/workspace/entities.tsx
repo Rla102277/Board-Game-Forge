@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   useListEntities, useCreateEntity, useUpdateEntity, useDeleteEntity,
   useAiGenerateEntities, useAiEnhanceEntity,
@@ -104,6 +104,11 @@ export function Entities({ projectId }: EntitiesProps) {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [showHierarchy, setShowHierarchy] = useState(false);
+
+  // Drag-to-reorder state (local session order, no server persistence)
+  const [draggedEntityId, setDraggedEntityId] = useState<number | null>(null);
+  const [localEntityOrder, setLocalEntityOrder] = useState<number[]>([]);
+  const dragOverEntityIdRef = useRef<number | null>(null);
 
   const errMsg = (err: unknown) => err instanceof Error ? err.message : String(err);
   const refresh = () => queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey(projectId) });
@@ -231,6 +236,61 @@ export function Entities({ projectId }: EntitiesProps) {
     });
     return map;
   }, [filtered, filterType]);
+
+  // Sync local order from filtered when not dragging
+  useEffect(() => {
+    if (draggedEntityId === null) {
+      setLocalEntityOrder(filtered.map((e) => e.id));
+    }
+  }, [filtered, draggedEntityId]);
+
+  // Apply local drag order to filtered list
+  const orderedFiltered = useMemo(() => {
+    if (localEntityOrder.length === 0) return filtered;
+    const orderMap = new Map(localEntityOrder.map((id, i) => [id, i]));
+    return [...filtered].sort((a, b) => {
+      const ia = orderMap.has(a.id) ? orderMap.get(a.id)! : Infinity;
+      const ib = orderMap.has(b.id) ? orderMap.get(b.id)! : Infinity;
+      return ia - ib;
+    });
+  }, [filtered, localEntityOrder]);
+
+  const handleEntityDragStart = (id: number, e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = "move";
+    setDraggedEntityId(id);
+    dragOverEntityIdRef.current = null;
+    document.body.style.cursor = "grabbing";
+  };
+
+  const handleEntityDragOver = (e: React.DragEvent, targetId: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (draggedEntityId === null || draggedEntityId === targetId) return;
+    if (dragOverEntityIdRef.current === targetId) return;
+    dragOverEntityIdRef.current = targetId;
+    setLocalEntityOrder((prev) => {
+      const from = prev.indexOf(draggedEntityId);
+      const to = prev.indexOf(targetId);
+      if (from === -1 || to === -1) return prev;
+      const next = [...prev];
+      next.splice(from, 1);
+      next.splice(to, 0, draggedEntityId);
+      return next;
+    });
+  };
+
+  const handleEntityDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    document.body.style.cursor = "";
+    setDraggedEntityId(null);
+    dragOverEntityIdRef.current = null;
+  };
+
+  const handleEntityDragEnd = () => {
+    document.body.style.cursor = "";
+    setDraggedEntityId(null);
+    dragOverEntityIdRef.current = null;
+  };
 
   const deckOptions = useMemo(() => (entities ?? []).filter((e) => e.type === "Deck"), [entities]);
   const total = entities?.length ?? 0;
@@ -681,35 +741,53 @@ export function Entities({ projectId }: EntitiesProps) {
             })}
           </div>
         ) : (
-          // Single-type view
+          // Single-type view (drag-to-reorder enabled)
           viewMode === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filtered.map((entity) => (
-                <EntityVisualCard
+              {orderedFiltered.map((entity) => (
+                <div
                   key={entity.id}
-                  entity={entity}
-                  projectId={projectId}
-                  childEntities={childrenByParent[entity.id]}
-                  isDeck={decks.has(entity.id)}
-                  deckOptions={deckOptions}
-                  onUpdated={refresh}
-                />
+                  draggable
+                  onDragStart={(e) => handleEntityDragStart(entity.id, e)}
+                  onDragOver={(e) => handleEntityDragOver(e, entity.id)}
+                  onDrop={handleEntityDrop}
+                  onDragEnd={handleEntityDragEnd}
+                  className={draggedEntityId === entity.id ? "opacity-40 cursor-grabbing" : "cursor-grab"}
+                >
+                  <EntityVisualCard
+                    entity={entity}
+                    projectId={projectId}
+                    childEntities={childrenByParent[entity.id]}
+                    isDeck={decks.has(entity.id)}
+                    deckOptions={deckOptions}
+                    onUpdated={refresh}
+                  />
+                </div>
               ))}
             </div>
           ) : (
             <div className="space-y-1 rounded-lg border border-border overflow-hidden divide-y divide-border/50">
-              {filtered.map((entity) => (
-                <EntityListRow
+              {orderedFiltered.map((entity) => (
+                <div
                   key={entity.id}
-                  entity={entity}
-                  projectId={projectId}
-                  isExpanded={expandedIds.has(entity.id)}
-                  onToggle={() => toggleExpand(entity.id)}
-                  childEntities={childrenByParent[entity.id]}
-                  isDeck={decks.has(entity.id)}
-                  deckOptions={deckOptions}
-                  onUpdated={refresh}
-                />
+                  draggable
+                  onDragStart={(e) => handleEntityDragStart(entity.id, e)}
+                  onDragOver={(e) => handleEntityDragOver(e, entity.id)}
+                  onDrop={handleEntityDrop}
+                  onDragEnd={handleEntityDragEnd}
+                  className={draggedEntityId === entity.id ? "opacity-40 cursor-grabbing" : "cursor-grab"}
+                >
+                  <EntityListRow
+                    entity={entity}
+                    projectId={projectId}
+                    isExpanded={expandedIds.has(entity.id)}
+                    onToggle={() => toggleExpand(entity.id)}
+                    childEntities={childrenByParent[entity.id]}
+                    isDeck={decks.has(entity.id)}
+                    deckOptions={deckOptions}
+                    onUpdated={refresh}
+                  />
+                </div>
               ))}
             </div>
           )

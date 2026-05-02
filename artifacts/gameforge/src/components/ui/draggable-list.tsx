@@ -14,6 +14,7 @@ export function DraggableList<T>({ items, renderItem, onReorder, itemHeight = 60
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
+    document.body.style.cursor = "grabbing";
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -23,6 +24,7 @@ export function DraggableList<T>({ items, renderItem, onReorder, itemHeight = 60
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
+    document.body.style.cursor = "";
     if (draggedIndex !== null && draggedIndex !== dropIndex) {
       onReorder(draggedIndex, dropIndex);
     }
@@ -30,6 +32,7 @@ export function DraggableList<T>({ items, renderItem, onReorder, itemHeight = 60
   };
 
   const handleDragEnd = () => {
+    document.body.style.cursor = "";
     setDraggedIndex(null);
   };
 
