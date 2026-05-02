@@ -15,6 +15,9 @@ export interface Rule {
   category?: string | null;
   priority: number;
   /** @nullable */
+  section?: string | null;
+  displayOrder: number;
+  /** @nullable */
   designNotes?: string | null;
   /** @nullable */
   edgeCases?: string | null;

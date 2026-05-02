@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  useListRules, useCreateRule, useUpdateRule, useDeleteRule,
+  useListRules, useCreateRule, useUpdateRule, useDeleteRule, useReorderRules,
   useAiGenerateRules, useAiEnhanceRule, useConflictCheckRules, getListRulesQueryKey,
   useListRuleEntities, useGetProject,
   type Rule,
@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Edit2, Trash2, Wand2, FileText, Sparkles, Loader2, Copy,
   ChevronDown, ChevronRight, Search, Check, X, Info, AlertTriangle,
-  Lightbulb, RefreshCw, ShieldAlert,
+  Lightbulb, RefreshCw, ShieldAlert, GripVertical, Folder,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -121,7 +121,16 @@ export function Rules({ projectId }: RulesProps) {
     conflicts: Array<{ ruleIds: number[]; severity: string; description: string; suggestion?: string }>;
   } | null>(null);
   const [editRuleId, setEditRuleId] = useState<number | null>(null);
-  const [formData, setFormData] = useState({ title: "", content: "", category: "", priority: 0 });
+  const [formData, setFormData] = useState({ title: "", content: "", category: "", priority: 0, section: "" });
+
+  // Drag-and-drop reorder state
+  const reorderRules = useReorderRules();
+  const [draggedId, setDraggedId] = useState<number | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<number | null>(null);
+  const [insertBefore, setInsertBefore] = useState<boolean>(true);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  // Track most recent drop intent so we can also patch section on cross-section drag
+  const dropSectionRef = useRef<string | null>(null);
 
   const errMsg = (err: unknown) => err instanceof Error ? err.message : String(err);
 
@@ -131,9 +140,14 @@ export function Rules({ projectId }: RulesProps) {
   const handleCreate = async () => {
     if (!formData.title || !formData.content) return;
     try {
-      await createRule.mutateAsync({ projectId, data: formData });
+      // Always send the trimmed section (including ""); the server normalizes empty
+      // strings to NULL so that users can clear a section back to "Unsectioned".
+      await createRule.mutateAsync({
+        projectId,
+        data: { ...formData, section: formData.section.trim() },
+      });
       setIsCreateOpen(false);
-      setFormData({ title: "", content: "", category: "", priority: 0 });
+      setFormData({ title: "", content: "", category: "", priority: 0, section: "" });
       refresh();
       toast({ title: "Rule created" });
     } catch (err) {
@@ -144,9 +158,13 @@ export function Rules({ projectId }: RulesProps) {
   const handleUpdate = async () => {
     if (!editRuleId || !formData.title || !formData.content) return;
     try {
-      await updateRule.mutateAsync({ projectId, ruleId: editRuleId, data: formData });
+      await updateRule.mutateAsync({
+        projectId,
+        ruleId: editRuleId,
+        data: { ...formData, section: formData.section.trim() },
+      });
       setEditRuleId(null);
-      setFormData({ title: "", content: "", category: "", priority: 0 });
+      setFormData({ title: "", content: "", category: "", priority: 0, section: "" });
       refresh();
       toast({ title: "Rule updated" });
     } catch (err) {
@@ -191,13 +209,13 @@ export function Rules({ projectId }: RulesProps) {
     setIsAiOpen(false);
     setIsCreateOpen(false);
     setEditRuleId(null);
-    setFormData({ title: "", content: "", category: "", priority: 0 });
+    setFormData({ title: "", content: "", category: "", priority: 0, section: "" });
   };
 
   const openCreate = () => {
     setEditRuleId(null);
     setIsAiOpen(false);
-    setFormData({ title: "", content: "", category: "movement", priority: 1 });
+    setFormData({ title: "", content: "", category: "movement", priority: 1, section: "" });
     setIsCreateOpen(true);
   };
 
@@ -250,6 +268,7 @@ export function Rules({ projectId }: RulesProps) {
       content: rule.content,
       category: rule.category || "",
       priority: rule.priority || 0,
+      section: rule.section || "",
     });
     setEditRuleId(rule.id);
   };
@@ -277,9 +296,16 @@ export function Rules({ projectId }: RulesProps) {
     return out;
   }, [rules]);
 
+  // Server returns rules ordered by display_order ASC, so we preserve that here
+  // and only apply user filters. Drag-to-reorder is the source of truth for ordering.
   const sortedRules = useMemo(() => {
     if (!rules) return [];
-    let list = [...rules];
+    let list = [...rules].sort((a, b) => {
+      const ao = a.displayOrder ?? 0;
+      const bo = b.displayOrder ?? 0;
+      if (ao !== bo) return ao - bo;
+      return a.id - b.id;
+    });
     if (categoryFilter !== "all") {
       list = list.filter((r) => (r.category ?? "").toLowerCase().replace(/\s+/g, "_") === categoryFilter);
     }
@@ -290,13 +316,153 @@ export function Rules({ projectId }: RulesProps) {
         (r.content || "").toLowerCase().includes(q),
       );
     }
-    return list.sort((a, b) => {
-      if ((a.priority ?? 0) !== (b.priority ?? 0)) return (b.priority ?? 0) - (a.priority ?? 0);
-      return (a.category || "").localeCompare(b.category || "");
-    });
+    return list;
   }, [rules, filter, categoryFilter]);
 
+  // Group rules by section. If no rule has a section, returns a single "" group
+  // and the UI renders flat (no group headers).
+  const groupedRules = useMemo(() => {
+    const groups = new Map<string, Rule[]>();
+    for (const r of sortedRules) {
+      const key = (r.section ?? "").trim();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(r);
+    }
+    // Sort: named sections alphabetically first, "" (unsectioned) last
+    return [...groups.entries()].sort(([a], [b]) => {
+      if (a === b) return 0;
+      if (a === "") return 1;
+      if (b === "") return -1;
+      return a.localeCompare(b);
+    });
+  }, [sortedRules]);
+
+  const hasAnySection = useMemo(
+    () => (rules ?? []).some((r) => r.section && r.section.trim() !== ""),
+    [rules],
+  );
+
   const totalRules = rules?.length ?? 0;
+
+  // Existing section names (for the section autocomplete in the form)
+  const existingSections = useMemo(() => {
+    const set = new Set<string>();
+    (rules ?? []).forEach((r) => { if (r.section) set.add(r.section.trim()); });
+    return [...set].sort();
+  }, [rules]);
+
+  const toggleSection = (key: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  // Map of ruleId -> rule for the auto-linker
+  const ruleById = useMemo(() => {
+    const m = new Map<number, Rule>();
+    (rules ?? []).forEach((r) => m.set(r.id, r));
+    return m;
+  }, [rules]);
+
+  // Scroll a target rule into view + expand it (used by auto-linker)
+  const focusRule = useCallback((id: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    // Defer scroll until expansion has rendered
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`[data-rule-id="${id}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
+        }, 1500);
+      }
+    });
+  }, []);
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Drag-and-drop reorder
+  // ──────────────────────────────────────────────────────────────────────────
+  const handleDragStart = (e: React.DragEvent, ruleId: number) => {
+    setDraggedId(ruleId);
+    e.dataTransfer.effectAllowed = "move";
+    // Some browsers require setData for drag to start
+    try { e.dataTransfer.setData("text/plain", String(ruleId)); } catch { /* noop */ }
+  };
+
+  const handleDragOver = (e: React.DragEvent, overId: number, sectionKey: string) => {
+    if (draggedId === null || draggedId === overId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const before = e.clientY - rect.top < rect.height / 2;
+    setDropTargetId(overId);
+    setInsertBefore(before);
+    dropSectionRef.current = sectionKey;
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDropTargetId(null);
+    dropSectionRef.current = null;
+  };
+
+  const handleDrop = async () => {
+    const dragged = draggedId;
+    const target = dropTargetId;
+    const before = insertBefore;
+    const targetSection = dropSectionRef.current;
+    handleDragEnd();
+    if (dragged === null || target === null || dragged === target || !rules) return;
+
+    const ordered = [...rules].sort((a, b) => {
+      const ao = a.displayOrder ?? 0;
+      const bo = b.displayOrder ?? 0;
+      if (ao !== bo) return ao - bo;
+      return a.id - b.id;
+    });
+    const fromIdx = ordered.findIndex((r) => r.id === dragged);
+    const toIdx = ordered.findIndex((r) => r.id === target);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const [moved] = ordered.splice(fromIdx, 1);
+    let insertAt = ordered.findIndex((r) => r.id === target);
+    if (!before) insertAt += 1;
+    ordered.splice(insertAt, 0, moved);
+
+    const ruleIds = ordered.map((r) => r.id);
+    const draggedRule = rules.find((r) => r.id === dragged);
+    const sectionChanged =
+      draggedRule != null &&
+      targetSection != null &&
+      (draggedRule.section ?? "") !== targetSection;
+
+    try {
+      // If dropped into a different section, patch the rule's section first
+      // (empty string -> NULL via server-side normalization).
+      // Note: this is two sequential mutations; if reorder fails after the section
+      // patch succeeds, the section change persists but order does not. We refresh
+      // either way so the UI re-syncs to server truth.
+      if (sectionChanged) {
+        await updateRule.mutateAsync({
+          projectId,
+          ruleId: dragged,
+          data: { section: targetSection ?? "" },
+        });
+      }
+      await reorderRules.mutateAsync({ projectId, data: { ruleIds } });
+      refresh();
+    } catch (err) {
+      toast({ title: "Could not reorder", description: errMsg(err), variant: "destructive" });
+      refresh();
+    }
+  };
 
   return (
     <div className="space-y-5 pb-8">
@@ -395,7 +561,7 @@ export function Rules({ projectId }: RulesProps) {
           <CardContent className="space-y-4">
             <div className="space-y-2"><Label>Title *</Label><Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} autoFocus /></div>
             <div className="space-y-2"><Label>Content *</Label><Textarea value={formData.content} onChange={(e) => setFormData({ ...formData, content: e.target.value })} className="min-h-[120px]" /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-2">
                 <Label>Category</Label>
                 <Select value={(formData.category || "movement").toLowerCase()} onValueChange={(v) => setFormData({ ...formData, category: v })}>
@@ -406,6 +572,22 @@ export function Rules({ projectId }: RulesProps) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Section</Label>
+                <Input
+                  list="rules-section-suggestions"
+                  placeholder="e.g. Combat Phase"
+                  value={formData.section}
+                  onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                  data-testid="rules-form-section"
+                />
+                <datalist id="rules-section-suggestions">
+                  {existingSections.map((s) => <option key={s} value={s} />)}
+                </datalist>
+                <p className="text-[10px] text-muted-foreground">
+                  Group thematically related rules. Leave blank for unsectioned.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Priority (0–5)</Label>
@@ -482,26 +664,70 @@ export function Rules({ projectId }: RulesProps) {
           <p className="text-muted-foreground text-sm">No rules match your filter.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {sortedRules.map((rule) => (
-            <RuleCard
-              key={rule.id}
-              rule={rule}
-              projectId={projectId}
-              isExpanded={expandedIds.has(rule.id)}
-              onToggle={() => toggleExpand(rule.id)}
-              onEdit={() => openEdit(rule)}
-              onDuplicate={() => handleDuplicate(rule)}
-              onDelete={() => handleDelete(rule.id)}
-              isDuplicating={duplicatingId === rule.id}
-              onUpdated={refresh}
-              isNarrativeGrounded={narrativeRuleIds.has(rule.id)}
-              onNarrativeEnhanced={(id) =>
-                setNarrativeEnhanceRuleIds((prev) => new Set([...prev, id]))
-              }
-              isNarrativeEnhanced={narrativeEnhanceRuleIds.has(rule.id)}
-            />
-          ))}
+        <div className="space-y-4">
+          {groupedRules.map(([sectionKey, rulesInSection]) => {
+            const isUnsectioned = sectionKey === "";
+            const collapsed = collapsedSections.has(sectionKey);
+            const showHeader = hasAnySection;
+            return (
+              <div key={sectionKey || "__none__"} className="space-y-2">
+                {showHeader && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(sectionKey)}
+                    className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-md hover:bg-card/60 transition-colors group"
+                    data-testid={`section-header-${sectionKey || "unsectioned"}`}
+                  >
+                    {collapsed
+                      ? <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    <Folder className="h-4 w-4 text-primary/70" />
+                    <span className="text-sm font-semibold text-foreground/90">
+                      {isUnsectioned ? "Unsectioned" : sectionKey}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      ({rulesInSection.length})
+                    </span>
+                  </button>
+                )}
+                {!collapsed && (
+                  <div className="space-y-3">
+                    {rulesInSection.map((rule) => (
+                      <RuleCard
+                        key={rule.id}
+                        rule={rule}
+                        projectId={projectId}
+                        isExpanded={expandedIds.has(rule.id)}
+                        onToggle={() => toggleExpand(rule.id)}
+                        onEdit={() => openEdit(rule)}
+                        onDuplicate={() => handleDuplicate(rule)}
+                        onDelete={() => handleDelete(rule.id)}
+                        isDuplicating={duplicatingId === rule.id}
+                        onUpdated={refresh}
+                        isNarrativeGrounded={narrativeRuleIds.has(rule.id)}
+                        onNarrativeEnhanced={(id) =>
+                          setNarrativeEnhanceRuleIds((prev) => new Set([...prev, id]))
+                        }
+                        isNarrativeEnhanced={narrativeEnhanceRuleIds.has(rule.id)}
+                        ruleById={ruleById}
+                        onRuleLinkClick={focusRule}
+                        isDragging={draggedId === rule.id}
+                        dropIndicator={
+                          dropTargetId === rule.id
+                            ? insertBefore ? "before" : "after"
+                            : null
+                        }
+                        onDragStart={(e) => handleDragStart(e, rule.id)}
+                        onDragOver={(e) => handleDragOver(e, rule.id, sectionKey)}
+                        onDrop={() => { void handleDrop(); }}
+                        onDragEnd={handleDragEnd}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -512,7 +738,11 @@ export function Rules({ projectId }: RulesProps) {
             <DialogTitle className="flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-amber-400" /> Rule conflicts
             </DialogTitle>
-            <DialogDescription>The AI scans every rule for contradictions, ambiguities, and overlaps.</DialogDescription>
+            <DialogDescription>
+              Real semantic analysis: an LLM reads every rule together with your game's narrative
+              and flags genuine contradictions, ambiguities, and overlaps. This is not keyword
+              matching — empty results mean the AI found no semantic conflicts.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto" data-testid="conflicts-report">
             {conflictCheck.isPending || !conflictReport ? (
@@ -615,6 +845,8 @@ function LinkedEntitiesBar({ projectId, ruleId }: { projectId: number; ruleId: n
 function RuleCard({
   rule, projectId, isExpanded, onToggle, onEdit, onDuplicate, onDelete, isDuplicating, onUpdated,
   isNarrativeGrounded, isNarrativeEnhanced, onNarrativeEnhanced,
+  ruleById, onRuleLinkClick,
+  isDragging, dropIndicator, onDragStart, onDragOver, onDrop, onDragEnd,
 }: {
   rule: Rule;
   projectId: number;
@@ -628,6 +860,14 @@ function RuleCard({
   isNarrativeGrounded?: boolean;
   isNarrativeEnhanced?: boolean;
   onNarrativeEnhanced?: (ruleId: number) => void;
+  ruleById: Map<number, Rule>;
+  onRuleLinkClick: (id: number) => void;
+  isDragging: boolean;
+  dropIndicator: "before" | "after" | null;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
 }) {
   const queryClient = useQueryClient();
   const updateRule = useUpdateRule();
@@ -744,14 +984,37 @@ function RuleCard({
   };
 
   return (
+    <div
+      data-rule-id={rule.id}
+      onDragOver={onDragOver}
+      onDrop={(e) => { e.preventDefault(); onDrop(); }}
+      className="relative"
+    >
+      {dropIndicator === "before" && (
+        <div className="absolute left-0 right-0 -top-1.5 h-0.5 bg-primary rounded pointer-events-none z-10" />
+      )}
+      {dropIndicator === "after" && (
+        <div className="absolute left-0 right-0 -bottom-1.5 h-0.5 bg-primary rounded pointer-events-none z-10" />
+      )}
     <Card
-      className="bg-card border-border overflow-hidden transition-shadow hover:shadow-md hover:shadow-black/20 group"
+      className={`bg-card border-border overflow-hidden transition-all hover:shadow-md hover:shadow-black/20 group ${isDragging ? "opacity-40" : ""}`}
       data-testid={`rule-card-${rule.id}`}
     >
       {/* colored top accent stripe */}
       <div className={`h-0.5 w-full ${meta.dot} opacity-70`} />
 
       <div className="px-4 pt-4 pb-2 flex items-start justify-between gap-3">
+        <div
+          draggable
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          className="flex items-center text-muted-foreground/60 hover:text-foreground cursor-grab active:cursor-grabbing self-stretch -ml-1 px-0.5 py-1 rounded hover:bg-card/80 transition-colors"
+          title="Drag to reorder"
+          data-testid={`drag-handle-${rule.id}`}
+          aria-label="Drag to reorder rule"
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
         <button
           className="flex-1 min-w-0 text-left"
           onClick={onToggle}
@@ -824,7 +1087,9 @@ function RuleCard({
       </div>
 
       <CardContent className="pt-0 pb-3 pl-9">
-        <div className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{display}</div>
+        <div className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+          {renderRuleContentWithLinks(display, ruleById, onRuleLinkClick, rule.id)}
+        </div>
         {isLong && (
           <button
             onClick={onToggle}
@@ -1018,5 +1283,48 @@ function RuleCard({
         </div>
       )}
     </Card>
+    </div>
   );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Auto-link "Rule #N" / "Rule N" / "rule N" references inside content.
+// Only links when the referenced rule actually exists in this project.
+// ────────────────────────────────────────────────────────────────────────────
+const RULE_REF_REGEX = /\b(Rule|rule|RULE)\s*#?\s*(\d+)\b/g;
+
+function renderRuleContentWithLinks(
+  content: string,
+  ruleById: Map<number, Rule>,
+  onClick: (id: number) => void,
+  selfId: number,
+): React.ReactNode[] {
+  if (!content) return [content];
+  const out: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  RULE_REF_REGEX.lastIndex = 0;
+  let key = 0;
+  while ((match = RULE_REF_REGEX.exec(content)) !== null) {
+    const id = parseInt(match[2], 10);
+    const target = ruleById.get(id);
+    // Only link if target exists and isn't the same rule (no self-loops)
+    if (!target || id === selfId) continue;
+    if (match.index > lastIndex) out.push(content.slice(lastIndex, match.index));
+    out.push(
+      <button
+        key={`rl-${key++}-${match.index}`}
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClick(id); }}
+        className="inline-flex items-center gap-0.5 text-primary hover:text-primary/80 hover:underline font-medium px-0.5 py-0 rounded"
+        title={target.title}
+        data-testid={`rule-link-${id}`}
+      >
+        {match[0]}
+      </button>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < content.length) out.push(content.slice(lastIndex));
+  return out.length > 0 ? out : [content];
 }

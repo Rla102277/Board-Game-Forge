@@ -70,11 +70,6 @@ interface HeroMeta {
   playsLike?: string;
   ageRange?: string;
   complexityTier?: string;
-  theme?: string;
-  mechanicTypes?: string[];
-  targetAudience?: string;
-  designerName?: string;
-  publisherNotes?: string;
 }
 
 const COMPLEXITY_TIERS = [
@@ -83,21 +78,6 @@ const COMPLEXITY_TIERS = [
   { value: "medium",  label: "Medium",  desc: "60-120 min, moderate depth" },
   { value: "heavy",   label: "Heavy",   desc: "2+ hrs, complex systems" },
   { value: "expert",  label: "Expert",  desc: "Highly complex, long learning curve" },
-] as const;
-
-const GAME_THEMES = [
-  "Fantasy", "Sci-Fi", "Historical", "Modern", "Mythological",
-  "Abstract", "Horror", "Adventure", "Western", "Cyberpunk",
-] as const;
-
-const MECHANIC_TYPES = [
-  "Deck Building", "Worker Placement", "Area Control", "Drafting",
-  "Auction / Bidding", "Engine Building", "Push Your Luck", "Cooperative",
-  "Hidden Role", "Legacy / Campaign", "Hand Management", "Tile Placement",
-] as const;
-
-const AUDIENCE_TAGS = [
-  "Kids", "Family", "Gateway", "Casual", "Strategy", "Expert", "Party",
 ] as const;
 
 const DESIGN_PHASES = [

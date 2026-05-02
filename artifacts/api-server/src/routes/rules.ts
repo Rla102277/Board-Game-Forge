@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, asc, inArray } from "drizzle-orm";
+import { and, eq, asc, inArray, sql } from "drizzle-orm";
 import { db, rules, entityRules, entities, projects } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import { complete, tryParseJsonArray, tryParseJsonObject } from "../lib/aiRouter";
@@ -16,9 +16,73 @@ router.get("/projects/:projectId/rules", async (req, res): Promise<void> => {
     .select()
     .from(rules)
     .where(eq(rules.projectId, params.data.projectId))
-    .orderBy(asc(rules.priority), asc(rules.createdAt));
+    .orderBy(asc(rules.displayOrder), asc(rules.priority), asc(rules.createdAt));
   res.json(schemas.ListRulesResponse.parse(rows));
 });
+
+router.patch(
+  "/projects/:projectId/rules/reorder",
+  async (req, res): Promise<void> => {
+    const params = schemas.ReorderRulesParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.ReorderRulesBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const { ruleIds } = parsed.data;
+    const { projectId } = params.data;
+
+    if (new Set(ruleIds).size !== ruleIds.length) {
+      res.status(400).json({ error: "ruleIds must not contain duplicates" });
+      return;
+    }
+
+    const existing = await db
+      .select({ id: rules.id })
+      .from(rules)
+      .where(eq(rules.projectId, projectId));
+    const existingIds = new Set(existing.map((r) => r.id));
+    const foreign = ruleIds.filter((id) => !existingIds.has(id));
+    if (foreign.length > 0) {
+      res
+        .status(400)
+        .json({ error: `ruleIds contain IDs not in this project: ${foreign.join(", ")}` });
+      return;
+    }
+    // Strict: ruleIds must be the COMPLETE set of project rule IDs (no omissions),
+    // otherwise omitted rules keep their old display_order and we end up with
+    // duplicates / unstable ordering.
+    const submitted = new Set(ruleIds);
+    const missing = [...existingIds].filter((id) => !submitted.has(id));
+    if (missing.length > 0) {
+      res.status(400).json({
+        error: `ruleIds must include every rule in the project; missing: ${missing.join(", ")}`,
+      });
+      return;
+    }
+
+    const rows = await db.transaction(async (tx) => {
+      await Promise.all(
+        ruleIds.map((id, idx) =>
+          tx
+            .update(rules)
+            .set({ displayOrder: idx })
+            .where(and(eq(rules.id, id), eq(rules.projectId, projectId))),
+        ),
+      );
+      return tx
+        .select()
+        .from(rules)
+        .where(eq(rules.projectId, projectId))
+        .orderBy(asc(rules.displayOrder), asc(rules.priority), asc(rules.createdAt));
+    });
+    res.json(schemas.ReorderRulesResponse.parse(rows));
+  },
+);
 
 router.post("/projects/:projectId/rules", async (req, res): Promise<void> => {
   const params = schemas.CreateRuleParams.safeParse(req.params);
@@ -31,9 +95,24 @@ router.post("/projects/:projectId/rules", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const [{ maxOrder }] = await db
+    .select({ maxOrder: sql<number>`COALESCE(MAX(${rules.displayOrder}), -1)` })
+    .from(rules)
+    .where(eq(rules.projectId, params.data.projectId));
+  // Normalize empty-string section -> null (consistent with PATCH semantics)
+  const sectionRaw = parsed.data.section;
+  const sectionNormalized: string | null =
+    typeof sectionRaw === "string"
+      ? sectionRaw.trim() === "" ? null : sectionRaw.trim()
+      : null;
   const [row] = await db
     .insert(rules)
-    .values({ ...parsed.data, projectId: params.data.projectId })
+    .values({
+      ...parsed.data,
+      section: sectionNormalized,
+      projectId: params.data.projectId,
+      displayOrder: Number(maxOrder ?? -1) + 1,
+    })
     .returning();
   res.status(201).json(row);
 });
@@ -49,9 +128,18 @@ router.patch("/projects/:projectId/rules/:ruleId", async (req, res): Promise<voi
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  // Normalize: empty-string section means "clear it" (write NULL).
+  // Without this, users have no way to remove a rule from a section.
+  const sectionRaw = parsed.data.section;
+  const updateData: Omit<typeof parsed.data, "section"> & { section?: string | null } = {
+    ...parsed.data,
+  };
+  if (typeof sectionRaw === "string") {
+    updateData.section = sectionRaw.trim() === "" ? null : sectionRaw.trim();
+  }
   const [row] = await db
     .update(rules)
-    .set(parsed.data)
+    .set(updateData)
     .where(
       and(
         eq(rules.id, params.data.ruleId),
@@ -99,23 +187,30 @@ router.post("/projects/:projectId/rules/ai-generate", async (req, res): Promise<
   const narrativeLine = project?.narrative?.trim()
     ? `\nGame narrative: ${project.narrative.trim()}\n`
     : "";
+  // Determine current max display_order so AI-generated rules append in order
+  const [{ maxOrder: maxOrderRaw }] = await db
+    .select({ maxOrder: sql<number>`COALESCE(MAX(${rules.displayOrder}), -1)` })
+    .from(rules)
+    .where(eq(rules.projectId, params.data.projectId));
+  const baseOrder = Number(maxOrderRaw ?? -1) + 1;
   try {
     const text = await complete(req, {
       prompt: `You are codifying the rulebook for a tabletop board game.${narrativeLine}
 Generate exactly ${count} concise game rules based on this brief: "${parsed.data.prompt}"
 
 Return ONLY a JSON array (no prose, no code fences). Emit each rule's keys in EXACTLY this order so the most important fields are produced first:
-[{"title":"...","content":"...","category":"...","priority":0,"designNotes":"...","edgeCases":"..."}]
+[{"title":"...","content":"...","category":"...","priority":0,"section":"...","designNotes":"...","edgeCases":"..."}]
 - title under 60 chars.
 - content is 1-3 sentences (<= 400 chars).
 - category is one of: "movement","combat","economy","turn_structure","variant".
 - priority 0 (highest) to 4 (lowest).
+- section: a short thematic group name (e.g. "Setup", "Combat Phase", "Movement Phase", "End Game"). Use the SAME section name for thematically related rules so they group together. <= 30 chars.
 - designNotes: 1-2 sentences (<= 200 chars) explaining the DESIGN INTENT — why this rule exists, what tension it creates, how it shapes player decisions.
 - edgeCases: 1-3 short bullet points separated by ' • ' (<= 200 chars) describing tricky cases, exceptions, or common rule-lawyering attempts.
 Output JUST the JSON array.`,
       maxTokens: 4000,
     });
-    const generated = tryParseJsonArray<{ title?: string; content?: string; category?: string; priority?: number; designNotes?: string; edgeCases?: string }>(text);
+    const generated = tryParseJsonArray<{ title?: string; content?: string; category?: string; priority?: number; section?: string; designNotes?: string; edgeCases?: string }>(text);
     if (generated.length === 0) {
       res.status(502).json({ error: "AI returned no rules" });
       return;
@@ -123,12 +218,14 @@ Output JUST the JSON array.`,
     const inserted = await db
       .insert(rules)
       .values(
-        generated.slice(0, count).map((r) => ({
+        generated.slice(0, count).map((r, idx) => ({
           projectId: params.data.projectId,
           title: String(r.title ?? "Untitled rule"),
           content: String(r.content ?? ""),
           category: r.category ? String(r.category) : null,
           priority: typeof r.priority === "number" ? r.priority : 1,
+          section: typeof r.section === "string" && r.section.trim() ? r.section.trim().slice(0, 80) : null,
+          displayOrder: baseOrder + idx,
           designNotes: typeof r.designNotes === "string" && r.designNotes.trim() ? r.designNotes : null,
           edgeCases: typeof r.edgeCases === "string" && r.edgeCases.trim() ? r.edgeCases : null,
         })),

@@ -1011,6 +1011,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/Rule"
 
+  /projects/{projectId}/rules/reorder:
+    patch:
+      operationId: reorderRules
+      tags: [rules]
+      summary: Reorder rules by providing an ordered array of rule IDs
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderRulesBody"
+      responses:
+        "200":
+          description: Reordered rule list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rule"
+
   /projects/{projectId}/rules/{ruleId}:
     patch:
       operationId: updateRule
@@ -2598,6 +2621,10 @@ components:
           type: [string, "null"]
         priority:
           type: integer
+        section:
+          type: [string, "null"]
+        displayOrder:
+          type: integer
         designNotes:
           type: [string, "null"]
         edgeCases:
@@ -2608,7 +2635,7 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, projectId, title, content, priority, createdAt, updatedAt]
+      required: [id, projectId, title, content, priority, displayOrder, createdAt, updatedAt]
 
     CreateRuleBody:
       type: object
@@ -2621,6 +2648,8 @@ components:
           type: string
         priority:
           type: integer
+        section:
+          type: string
         designNotes:
           type: string
         edgeCases:
@@ -2638,10 +2667,22 @@ components:
           type: string
         priority:
           type: integer
+        section:
+          type: string
         designNotes:
           type: string
         edgeCases:
           type: string
+
+    ReorderRulesBody:
+      type: object
+      required: [ruleIds]
+      properties:
+        ruleIds:
+          type: array
+          items:
+            type: integer
+          description: Ordered list of rule IDs reflecting the desired display order
 
     ConflictReport:
       type: object

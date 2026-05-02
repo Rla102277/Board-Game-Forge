@@ -89,6 +89,7 @@ export * from "./publicFeedbackProject";
 export * from "./referenceGame";
 export * from "./referenceGameGameData";
 export * from "./reorderPlayersBody";
+export * from "./reorderRulesBody";
 export * from "./researchItem";
 export * from "./restoreSnapshotResponse";
 export * from "./rule";

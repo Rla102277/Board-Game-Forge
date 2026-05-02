@@ -11,6 +11,7 @@ export interface CreateRuleBody {
   content: string;
   category?: string;
   priority?: number;
+  section?: string;
   designNotes?: string;
   edgeCases?: string;
 }

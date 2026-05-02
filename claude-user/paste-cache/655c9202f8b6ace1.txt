@@ -1,0 +1,52 @@
+OVERVIEW TAB (Game Description)
+What it does: You describe your game in one place
+Code Location: artifacts/board-game-factory/src/components/overview-tab.tsx (35KB)
+What Works ✅
+When you first create a game, you can:
+- Type game name, description, genre
+- Set player count range (2-4 players, 1-5 players, etc.)
+- Set target duration (30 min, 90 min, etc.)
+- Calculate complexity score automatically (0-100)
+How Complexity Score Works:
+
+Code counts: how many rules you have + how many components + how many player abilities
+More rules = higher complexity (makes sense!)
+Score updates as you add stuff (real-time)
+
+Extra Features ✅
+
+Upload a PDF or text document (game rules, reference)
+Paste a URL (game mechanic research)
+AI reads the document/URL and suggests game structure
+
+What Needs Rework ⚠️
+
+Complexity calculation is TOO SIMPLE
+
+Only counts quantity (number of rules), not actual complexity
+A 20-word rule = same complexity as a 500-word rule (should be different!)
+No weight for difficult mechanics (co-op penalty, asymmetric penalty, hidden info penalty)
+Designer Impact: Might say your game is "complexity 40" when it's really complexity 65
+Fix: Weight rules by reading their content, penalize hard mechanics
+
+
+AI Game Architect is generic
+
+Reads your document but gives generic game structure
+Doesn't understand your specific mechanic or theme
+Designer Impact: You get a template, not a real analysis
+Fix: Let you feed more game details for smarter suggestions
+
+
+Metadata is basic
+
+No fields for:
+
+Game theme (fantasy, sci-fi, historical, etc.)
+Mechanic type (deck building, worker placement, area control, etc.)
+Target audience (family, strategy, kids, etc.)
+Designer name, publisher notes, etc.
+
+
+Designer Impact: Hard to organize multiple games later
+Fix: Add more metadata fields

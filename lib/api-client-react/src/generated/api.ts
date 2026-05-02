@@ -77,6 +77,7 @@ import type {
   PublicFeedbackProject,
   ReferenceGame,
   ReorderPlayersBody,
+  ReorderRulesBody,
   ResearchItem,
   RestoreSnapshotResponse,
   Rule,
@@ -5029,6 +5030,93 @@ export const useCreateRule = <
   TContext
 > => {
   return useMutation(getCreateRuleMutationOptions(options));
+};
+
+/**
+ * @summary Reorder rules by providing an ordered array of rule IDs
+ */
+export const getReorderRulesUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/rules/reorder`;
+};
+
+export const reorderRules = async (
+  projectId: number,
+  reorderRulesBody: ReorderRulesBody,
+  options?: RequestInit,
+): Promise<Rule[]> => {
+  return customFetch<Rule[]>(getReorderRulesUrl(projectId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderRulesBody),
+  });
+};
+
+export const getReorderRulesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderRules>>,
+    TError,
+    { projectId: number; data: BodyType<ReorderRulesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reorderRules>>,
+  TError,
+  { projectId: number; data: BodyType<ReorderRulesBody> },
+  TContext
+> => {
+  const mutationKey = ["reorderRules"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reorderRules>>,
+    { projectId: number; data: BodyType<ReorderRulesBody> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return reorderRules(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReorderRulesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reorderRules>>
+>;
+export type ReorderRulesMutationBody = BodyType<ReorderRulesBody>;
+export type ReorderRulesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reorder rules by providing an ordered array of rule IDs
+ */
+export const useReorderRules = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderRules>>,
+    TError,
+    { projectId: number; data: BodyType<ReorderRulesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reorderRules>>,
+  TError,
+  { projectId: number; data: BodyType<ReorderRulesBody> },
+  TContext
+> => {
+  return useMutation(getReorderRulesMutationOptions(options));
 };
 
 export const getUpdateRuleUrl = (projectId: number, ruleId: number) => {

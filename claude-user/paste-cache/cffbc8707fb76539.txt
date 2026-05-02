@@ -1,0 +1,49 @@
+PLAYERS TAB (Characters / Archetypes)
+What It Does: Define player types and their starting resources.
+Grade: B
+What Works ✅
+
+Create player types (Warrior, Mage, Rogue, etc.)
+Define starting resources (gold: 10, health: 20, cards: 5)
+Set victory condition
+Define special ability
+Set playstyle
+AI can auto-generate archetypes
+
+What Needs Rework ⚠️
+
+No resource progression
+
+Only starting values
+Can't say "warrior gains 5 health per turn"
+Designer Impact: Only works for static games
+Fix: Add progression (turn 1, turn 2, turn 3)
+
+
+No asymmetry validation
+
+Warrior starts with 25 health, Mage with 15
+No check if this is balanced
+Designer Impact: Might unknowingly break balance
+Fix: Show comparative power levels
+
+
+Special abilities are just text
+
+You type "can attack twice per turn"
+No mechanical linking
+Can't simulate or test
+Designer Impact: Hard to verify it's different
+Fix: Link to actual game mechanics
+
+
+No resource naming validation
+
+You can type "xp" or "experience points" inconsistently
+Breaks later calculations
+Designer Impact: Game balance checker might fail
+Fix: Validate resource names match other data
+
+
+
+Designer Verdict: Good for basic setup, lacks balance checking.

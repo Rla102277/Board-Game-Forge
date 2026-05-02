@@ -101,6 +101,10 @@ const MIGRATIONS = [
   // 0019 – soft-delete column + index for project list filtering
   `ALTER TABLE projects ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,
   `CREATE INDEX IF NOT EXISTS projects_deleted_at_idx ON projects (deleted_at) WHERE deleted_at IS NULL`,
+  // 0020 – rule hierarchy (free-form section) + drag-to-reorder display_order
+  `ALTER TABLE rules ADD COLUMN IF NOT EXISTS section text`,
+  `ALTER TABLE rules ADD COLUMN IF NOT EXISTS display_order integer NOT NULL DEFAULT 0`,
+  `CREATE INDEX IF NOT EXISTS rules_project_order_idx ON rules (project_id, display_order)`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {

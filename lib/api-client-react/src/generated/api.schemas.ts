@@ -383,6 +383,9 @@ export interface Rule {
   category?: string | null;
   priority: number;
   /** @nullable */
+  section?: string | null;
+  displayOrder: number;
+  /** @nullable */
   designNotes?: string | null;
   /** @nullable */
   edgeCases?: string | null;
@@ -395,6 +398,7 @@ export interface CreateRuleBody {
   content: string;
   category?: string;
   priority?: number;
+  section?: string;
   designNotes?: string;
   edgeCases?: string;
 }
@@ -404,8 +408,14 @@ export interface UpdateRuleBody {
   content?: string;
   category?: string;
   priority?: number;
+  section?: string;
   designNotes?: string;
   edgeCases?: string;
+}
+
+export interface ReorderRulesBody {
+  /** Ordered list of rule IDs reflecting the desired display order */
+  ruleIds: number[];
 }
 
 export type ConflictReportConflictsItem = {

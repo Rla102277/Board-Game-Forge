@@ -11,6 +11,7 @@ export interface UpdateRuleBody {
   content?: string;
   category?: string;
   priority?: number;
+  section?: string;
   designNotes?: string;
   edgeCases?: string;
 }

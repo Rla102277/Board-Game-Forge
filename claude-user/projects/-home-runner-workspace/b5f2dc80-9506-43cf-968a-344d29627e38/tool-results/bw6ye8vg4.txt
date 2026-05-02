@@ -1,0 +1,281 @@
+/home/runner/workspace/artifacts/gameforge/src/components/ui/avatar.tsx:const AvatarImage = React.forwardRef<
+/home/runner/workspace/artifacts/gameforge/src/components/ui/avatar.tsx:  React.ElementRef<typeof AvatarPrimitive.Image>,
+/home/runner/workspace/artifacts/gameforge/src/components/ui/avatar.tsx:  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
+/home/runner/workspace/artifacts/gameforge/src/components/ui/avatar.tsx:  <AvatarPrimitive.Image
+/home/runner/workspace/artifacts/gameforge/src/components/ui/avatar.tsx:AvatarImage.displayName = AvatarPrimitive.Image.displayName
+/home/runner/workspace/artifacts/gameforge/src/components/ui/avatar.tsx:export { Avatar, AvatarImage, AvatarFallback }
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/component-graph.tsx:import { AlertTriangle, Sparkles, Box, Activity, GitBranch, Search, ArrowRight, Link as LinkIcon, Unlink, Layers, Table as TableIcon, ImageIcon, X, ChevronRight, Plus, RotateCcw, Filter, SlidersHorizontal } from "lucide-react";
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/component-graph.tsx:            <ImageIcon className="h-3 w-3" /> Linked assets
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/component-graph.tsx:                          {a.imageDataUrl ? (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/component-graph.tsx:                            <img src={a.imageDataUrl} alt={a.name} className="w-6 h-6 rounded object-cover shrink-0" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/component-graph.tsx:                              <ImageIcon className="h-3 w-3" style={{ color: assetKindHex(a.kind) }} />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/component-graph.tsx:                {a.imageDataUrl ? (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/component-graph.tsx:                    src={a.imageDataUrl}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/component-graph.tsx:                    <ImageIcon className="h-3.5 w-3.5" style={{ color: assetKindHex(a.kind) }} />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/component-graph.tsx:            <ImageIcon className="h-3 w-3" /> No assets linked to this component yet.
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:const COMMON_ARCHETYPES = ["Hero", "Villain", "Trickster", "Mentor", "Guardian", "Wanderer", "Ruler", "Rebel", "Sage", "Innocent"] as const;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:  const fields = [p.archetype, p.role, p.faction, p.motivation, p.flaw, p.strategy, p.specialAbility, p.description];
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:  archetype: string;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:    name: "", playerType: type ?? "Character", role: "", archetype: "",
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:    archetype: p.archetype ?? "",
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:    archetype: s.archetype || undefined,
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:  onCreate: (type: PlayerType, name: string, archetype?: string) => Promise<unknown>;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:  const [archetype, setArchetype] = useState("");
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:      await onCreate(type, name.trim(), archetype);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:      setName(""); setType("Character"); setArchetype("");
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:          <Label className="text-xs text-muted-foreground">Archetype (optional)</Label>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:            {COMMON_ARCHETYPES.map((a) => (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:                onClick={() => setArchetype(archetype === a ? "" : a)}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:                  archetype === a
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:            value={archetype}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:            onChange={(e) => setArchetype(e.target.value)}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:            placeholder="Custom archetype…"
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:          const fields = [p.archetype, p.strategy, p.startingResources, p.victoryCondition, p.specialAbility, p.playstyle, p.description, p.motivation];
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:    { label: "Archetype", key: "archetype", icon: User },
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:  const handleCreate = async (type: PlayerType, name: string, archetype?: string) => {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:        data: { name: name.trim(), playerType: type, archetype: archetype || undefined, displayOrder: existingCount },
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:    const subParts = [player.archetype || (player.playerType ?? "Character")];
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:    // Position the drag image so the cursor is in the top-left area of the card
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:    e.dataTransfer.setDragImage(card, 20, card.offsetHeight / 2 || 20);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:    // Clean up after the browser has captured the drag image
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:                                {p.archetype ? p.archetype : <span className={m.color}>{p.playerType}</span>}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:          Build rich player personas with archetypes, strategies, and victory conditions. Use the Balance view to compare players side-by-side.
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:                    {p.archetype || p.playerType}{p.role ? ` · ${p.role}` : ""}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:              {sheet.archetype && (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:                <span className="text-xs text-muted-foreground">· {sheet.archetype}</span>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:                <Field label="Archetype">
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:                    <Input value={sheet.archetype} onChange={(e) => set("archetype", e.target.value)} placeholder="e.g. Hero, Trickster…" className="h-8 text-sm pr-8" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:                    {!sheet.archetype && (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:                      <Select onValueChange={(v) => set("archetype", v)}>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/players.tsx:                          {COMMON_ARCHETYPES.map((a) => <SelectItem key={a} value={a} className="text-xs">{a}</SelectItem>)}
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/presence-avatars.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/presence-avatars.tsx:                  {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.userName} />}
+/home/runner/workspace/artifacts/gameforge/src/lib/mock-collaboration-api.ts:  imageUrl: null,
+/home/runner/workspace/artifacts/gameforge/src/lib/mock-collaboration-api.ts:  { id: 2, email: "alice@example.com", firstName: "Alice", lastName: "Designer", imageUrl: null },
+/home/runner/workspace/artifacts/gameforge/src/lib/mock-collaboration-api.ts:  { id: 3, email: "bob@example.com", firstName: "Bob", lastName: "Dev", imageUrl: null },
+/home/runner/workspace/artifacts/gameforge/src/lib/mock-collaboration-api.ts:  { id: 4, email: "charlie@example.com", firstName: "Charlie", lastName: "PM", imageUrl: null },
+/home/runner/workspace/artifacts/gameforge/src/App.tsx:    logoImageUrl: `${typeof window !== "undefined" ? window.location.origin : ""}${basePath}/logo.svg`,
+/home/runner/workspace/artifacts/gameforge/src/App.tsx:    logoImage: "h-10 w-10",
+/home/runner/workspace/artifacts/gameforge/src/components/ui/item.tsx:        image:
+/home/runner/workspace/artifacts/gameforge/src/components/ui/empty-state.tsx:import { Plus, Sparkles, FileText, Users, Activity, Dice5, ImageIcon, MapPin, Scale, Download, CheckSquare } from "lucide-react";
+/home/runner/workspace/artifacts/gameforge/src/components/ui/empty-state.tsx:  assets: <ImageIcon className="w-8 h-8 text-primary" />,
+/home/runner/workspace/artifacts/gameforge/src/components/ui/empty-state.tsx:      description: "Define player roles, archetypes, and abilities to create engaging gameplay experiences.",
+/home/runner/workspace/artifacts/gameforge/src/components/ui/empty-state.tsx:      description: "Upload images, cards, boards, and other visual assets to bring your game to life.",
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:  ImageIcon,
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:  const generateImageDirect = async (assetId: number, prompt: string): Promise<boolean> => {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:    const res = await fetch(`${base}/api/projects/${projectId}/assets/${assetId}/generate-image`, {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:      const ok = await generateImageDirect(created.id, composed.prompt);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:      else toast({ title: "Image generation failed", description: "Asset created without image — try regenerating.", variant: "destructive" });
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:      const ok = await generateImageDirect(created.id, fullPrompt);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:        toast({ title: "Image generation failed", variant: "destructive" });
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:  const [imagePromptId, setImagePromptId] = useState<number | null>(null);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:  const [imagePrompt, setImagePrompt] = useState("");
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:  const generateImage = async (assetId: number, prompt: string) => {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:      const ok = await generateImageDirect(assetId, prompt);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:      toast({ title: "Image generated" });
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:  const openImagePrompt = (id: number) => {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:    setImagePrompt(a?.imagePrompt || `${a?.name} ${a?.description || ""}`.trim());
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:    setImagePromptId(id);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:  const closeImagePrompt = () => {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:    setImagePromptId(null);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:    setImagePrompt("");
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:  const downloadImage = (a: { name: string; imageDataUrl?: string | null }) => {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:    if (!a.imageDataUrl) return;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:    link.href = a.imageDataUrl;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:          <h2 className="text-2xl font-bold flex items-center gap-2"><ImageIcon className="h-6 w-6 text-primary" /> Asset Library</h2>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:      {imagePromptId !== null && (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:        <Card className="bg-card border-primary/40" data-testid="image-prompt-panel">
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:              <div className="font-semibold">Generate image</div>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeImagePrompt}><X className="h-4 w-4" /></Button>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:              <Label>Image prompt</Label>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:              <Textarea rows={5} value={imagePrompt} onChange={e => setImagePrompt(e.target.value)} placeholder="A fantasy card showing..." autoFocus />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:              <Button variant="outline" onClick={closeImagePrompt}>Cancel</Button>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:              <Button onClick={() => { if (imagePromptId) { generateImage(imagePromptId, imagePrompt); closeImagePrompt(); } }} disabled={!imagePrompt.trim()} className="gap-2">
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:              onGenerateImage={() => openImagePrompt(a.id)}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:              onDownload={() => downloadImage(a)}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:// AssetCard — image, action row, and inline AI Enhancement preview panel
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:  onGenerateImage,
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:  onGenerateImage: () => void;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:        {asset.imageDataUrl ? (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:          <img src={asset.imageDataUrl} alt={asset.name} className="w-full h-full object-cover" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:            <ImageIcon className="h-12 w-12 opacity-30" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:          <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={onGenerateImage} disabled={isGenerating}>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:            <Sparkles className="h-3.5 w-3.5" /> {isGenerating ? "Generating..." : asset.imageDataUrl ? "Regenerate" : "Generate"}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets.tsx:          {asset.imageDataUrl && <Button size="sm" variant="outline" onClick={onDownload}><Download className="h-3.5 w-3.5" /></Button>}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/members-dialog.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/members-dialog.tsx:                    {m.user?.imageUrl && (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/members-dialog.tsx:                      <AvatarImage src={m.user.imageUrl} alt="" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/rulebook-editor.tsx:            lines.push("**Win conditions by archetype:**");
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/rulebook-editor.tsx:      // Turn order — from project + player archetypes
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/rulebook-editor.tsx:        if (players.some(p => p.archetype)) {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/rulebook-editor.tsx:          lines.push("\n**Player archetypes:**");
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/rulebook-editor.tsx:            lines.push(`- **${p.name}**${p.archetype ? ` (${p.archetype})` : ""}${p.playstyle ? ` — ${p.playstyle}` : ""}`);
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/share-dialog.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/share-dialog.tsx:                          {share.user!.imageUrl && <AvatarImage src={share.user!.imageUrl} alt="" />}
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/comments-panel.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/comments-panel.tsx:                avatarUrl: u.imageUrl ?? undefined,
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/comments-panel.tsx:          {comment.author.imageUrl && <AvatarImage src={comment.author.imageUrl} alt="" />}
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/comments-panel.tsx:                {reply.author.imageUrl && <AvatarImage src={reply.author.imageUrl} alt="" />}
+/home/runner/workspace/artifacts/gameforge/src/lib/collaboration-api.ts:    author: raw.author ?? { id: raw.authorId, email: null, firstName: null, lastName: null, imageUrl: null },
+/home/runner/workspace/artifacts/gameforge/src/lib/collaboration-api.ts:    user: a.user ?? { id: a.userId, email: null, firstName: null, lastName: null, imageUrl: null },
+/home/runner/workspace/artifacts/gameforge/src/lib/collaboration-api.ts:    invitedBy: raw.invitedBy ?? { id: 0, email: null, firstName: null, lastName: null, imageUrl: null },
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/component-bom.tsx:            { label: "Digital assets", value: assetRows.length, sub: "images & mockups" },
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/task-card.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/task-card.tsx:                  {user?.imageUrl && <AvatarImage src={user.imageUrl} alt="" />}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/members-directory.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/members-directory.tsx:                      {user.imageUrl && <AvatarImage src={user.imageUrl} alt="" />}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/collaboration-dashboard.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/collaboration-dashboard.tsx:                        {entry.user.imageUrl && <AvatarImage src={entry.user.imageUrl} alt="" />}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/collaboration-dashboard.tsx:                    {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.userName} />}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/task-detail-drawer.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/task-detail-drawer.tsx:                        {u.imageUrl && <AvatarImage src={u.imageUrl} alt="" />}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  Plus, Trash2, ImageIcon, Edit2, Sparkles, Download, Loader2, Wand2, Save, BookOpen,
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  GitBranch, Zap, LayoutGrid, Library, Images,
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  const [imagePromptId, setImagePromptId] = useState<number | null>(null);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  const [imagePrompt, setImagePrompt] = useState("");
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  const generateImageDirect = async (assetId: number, prompt: string) => {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:    const res = await fetch(`${base}/api/projects/${projectId}/assets/${assetId}/generate-image`, {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:      const ok = await generateImageDirect(created.id, c.prompt);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:      toast({ title: ok ? `${tile.label} generated` : "Image failed — asset created", variant: ok ? "default" : "destructive" });
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:        const ok = await generateImageDirect(created.id, fullPrompt);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:      toast({ title: count === 1 ? (succeeded ? "Asset generated" : "Image failed — asset created") : `Generated ${succeeded}/${count} assets` });
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  const generateImage = async (assetId: number, prompt: string) => {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:      if (!await generateImageDirect(assetId, prompt)) throw new Error("gen failed");
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:      refresh(); toast({ title: "Image generated" });
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  const openImagePrompt = (id: number) => {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:    setImagePrompt(a?.imagePrompt || `${a?.name} ${a?.description || ""}`.trim());
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:    setImagePromptId(id);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  const bulkGenerateImages = async () => {
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:    const missing = (assets ?? []).filter((a) => !a.imageDataUrl);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:    if (!missing.length) { toast({ title: "All assets already have images" }); return; }
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:      const prompt = a.imagePrompt || `${a.name} ${a.description || ""}`.trim();
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:      try { await generateImageDirect(a.id, prompt); refresh(); } catch { /* continue */ }
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:    toast({ title: `Generated images for ${done} asset${done === 1 ? "" : "s"}` });
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  const missingImageCount = (assets ?? []).filter((a) => !a.imageDataUrl).length;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <span className="text-primary font-medium">Generating images…</span>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:            {missingImageCount > 0 && (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <span className="ml-2 text-muted-foreground/70">· {missingImageCount} without image</span>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:          {missingImageCount > 0 && (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              onClick={bulkGenerateImages}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              {bulkGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Images className="h-3.5 w-3.5" />}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              Generate missing images
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:      {imagePromptId !== null && (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:        <Card className="bg-card border-primary/40" data-testid="image-prompt-panel">
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <p className="font-semibold text-sm">Generate image</p>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setImagePromptId(null); setImagePrompt(""); }}>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:            <Textarea rows={4} value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} autoFocus />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <Button variant="outline" size="sm" onClick={() => { setImagePromptId(null); setImagePrompt(""); }}>Cancel</Button>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <Button size="sm" className="gap-1.5" onClick={() => { generateImage(imagePromptId!, imagePrompt); setImagePromptId(null); setImagePrompt(""); }} disabled={!imagePrompt.trim()}>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:            <ImageIcon className="h-10 w-10 text-muted-foreground opacity-20 mx-auto" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                        onGenerateImage={() => openImagePrompt(a.id)}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                          if (!a.imageDataUrl) return;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                          link.href = a.imageDataUrl;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                onGenerateImage={() => openImagePrompt(a.id)}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                  if (!a.imageDataUrl) return;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                  link.href = a.imageDataUrl;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              onGenerateImage={(prompt) => generateImage(inspectorAsset.id, prompt)}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                if (!inspectorAsset.imageDataUrl) return;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                link.href = inspectorAsset.imageDataUrl;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:            {asset.imageDataUrl ? (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <img src={asset.imageDataUrl} alt={asset.name} className="w-full h-full object-cover" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                <ImageIcon className="h-8 w-8 opacity-30" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  onGenerateImage, onDownload, onDelete, onUpdated, fetchEnhance, applyEnhance, onGamma, onInspect,
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  onGenerateImage: () => void;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:      {/* Image area — click to open inspector */}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:        {asset.imageDataUrl ? (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:          <img src={asset.imageDataUrl} alt={asset.name} className="w-full h-full object-cover" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:            <ImageIcon className="h-12 w-12 text-muted-foreground opacity-20" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1" onClick={onGenerateImage} disabled={isGenerating}>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                <Sparkles className="h-3 w-3" /> {isGenerating ? "Generating…" : asset.imageDataUrl ? "Regen" : "Generate"}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              {asset.imageDataUrl && (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  onGenerateImage, onDownload, onDelete, onUpdated, fetchEnhance, applyEnhance, onGamma, onClose,
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  onGenerateImage: (prompt: string) => void;
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  const [imagePromptOpen, setImagePromptOpen] = useState(false);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:  const [imagePrompt, setImagePrompt] = useState(asset.imagePrompt || "");
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:        {/* Image */}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:          {asset.imageDataUrl ? (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:            <img src={asset.imageDataUrl} alt={asset.name} className="w-full h-full object-cover" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <ImageIcon className="h-10 w-10 opacity-20" />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <p className="text-xs opacity-60">No image yet</p>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:          <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-xs" onClick={() => setImagePromptOpen((v) => !v)} disabled={isGenerating}>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:            <Sparkles className="h-3 w-3" /> {isGenerating ? "Generating…" : asset.imageDataUrl ? "Regen image" : "Generate image"}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <span><ImageIcon className="h-3 w-3" /> Upload</span>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              accept="image/*"
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                  await saveField({ imageDataUrl: dataUrl } as Parameters<typeof saveField>[0]);
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:                  toast({ title: "Image uploaded" });
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:          {asset.imageDataUrl && (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:        {imagePromptOpen && (
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:            <Label className="text-xs font-semibold">Image prompt</Label>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              value={imagePrompt}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              onChange={(e) => setImagePrompt(e.target.value)}
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <Button size="sm" variant="ghost" className="text-xs" onClick={() => setImagePromptOpen(false)}>Cancel</Button>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/assets-entities.tsx:              <Button size="sm" className="gap-1.5 text-xs" onClick={() => { onGenerateImage(imagePrompt); setImagePromptOpen(false); }} disabled={!imagePrompt.trim()}>
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/layout-editor.tsx:            <div className="absolute inset-0 border border-dashed border-border rounded" style={{ backgroundSize: `${state.gridSize*zoom}px ${state.gridSize*zoom}px`, backgroundImage: state.showGrid ? `linear-gradient(to right, hsl(var(--border)/.3) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border)/.3) 1px, transparent 1px)` : "none" }} />
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/overview.tsx:  ImageIcon, AlertTriangle, AlertCircle, Eye, Send, Calendar, UserPlus,
+/home/runner/workspace/artifacts/gameforge/src/components/workspace/overview.tsx:      ...(entities || []).map((e) => ({ id: `e-${e.id}`, name: e.name,  section: "Components", Icon: ImageIcon,    updatedAt: e.updatedAt })),
+/home/runner/workspace/artifacts/gameforge/src/components/learn/design-101.tsx:          "When the component will be the first thing photographed and shared on social media. The components that appear in the first unboxing photos and setup shots shape the game's public image before anyone plays it.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/design-101.tsx:          "A theme's visualizability matters. Can the key premise of your game be captured in a single compelling image — the kind you'd put on a box cover? A game about negotiating political alliances might be difficult to visualize; a game about building a fantastical city is easier. Strong box art is often a proxy for a visualizable theme, and box art is frequently what gets someone to pick a game up in a store.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:  ScrollText, Users, Network, FileText, CheckSquare, MessageSquare, Image,
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "What makes an entity truly useful in GameForge is giving it properties. Properties are the numbers and descriptions that define what an entity actually does — its cost, its power, its rarity, its duration, whatever dimensions matter in your game. A Sword entity with no properties is just a name floating in space. A Sword entity with a damage value of 3, a cost of 2 gold, and a rarity of 'uncommon' is something the AI can compare, the Simulator can compute, and the Balance tab can chart. Properties turn ideas into mechanics.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Imagine a game where players are knights competing to control territories. You might start by defining four entities: Knight (the player role), Castle (a location), Sword (an item), and Peasant (a resource). You'd give each one properties — a Knight might have a movement range of 2 and starting gold of 10; a Sword might have a damage value of 3 and a cost of 4 gold.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Then you'd write rules like 'a Knight may move to any adjacent Castle on their turn' and 'a Knight carrying a Sword deals double damage in combat.' Your ontology automatically connects Knight to Castle through the first rule, and Knight to Sword through the second. If the Peasant entity appears in your list but no rule mentions it, the Ontology tab will highlight it as unconnected — a useful prompt that you've defined something you haven't used yet.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Properties are the numbers and descriptions that turn an entity from a name into a game piece. A property can be a number — a damage value, a cost in coins, a movement range — or it can be text — a rarity label, a category tag, a flavor note. You can add as many properties as an entity needs, though simpler is usually better.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Effect — what does the entity do, expressed as a number where possible? A weapon that deals 3 damage is more useful to the Simulator than one whose description says 'deals a moderate amount of damage.'",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Constraints — who can use it, under what conditions, and how often? A constraint property can be text: 'warriors only,' 'once per round,' 'requires adjacent castle.'",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "If two entities differ only in a single number — say 'Basic Sword' with damage 2 and 'Sharp Sword' with damage 3 — consider making them one entity with a quality or tier property instead. This simplifies your list and often makes the design easier to balance, since you're tuning one entity rather than two.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:    icon: Image,
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:    blurb: "Generate visual mockups of your game's components — cards, boards, tokens, character art, box covers — using AI image generation. Useful for making your prototype feel real during playtests and for building a pitch deck.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "At the top of the Assets tab, you'll set a visual style description that applies to everything you generate. Think of it as a shared art direction note: a description of the look and feel you want all your components to share. You set it once, and every image generated from this project uses it as a starting point.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "The more specific and evocative your visual style description, the more consistent and usable your results will be. Vague descriptions like 'fantasy' or 'dark and moody' produce generic results. Specific ones — 'hand-painted watercolor, muted earth tones, 1920s expedition aesthetic with aged paper textures' — give the AI a concrete visual vocabulary to work within, and your generated images will look like they belong to the same game.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "When you generate images across multiple sessions, re-read your visual style description before starting. It's easy for it to drift slightly in your mind over time, and regenerating components with a slightly different mental picture in mind produces a visual inconsistency that can be hard to trace.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "The Assets tab offers preset component types — Card, Board, Token, Dice, Character, Map, Box Cover, Logo — each tailored to its specific shape and context. Clicking any preset generates an image appropriate to that component type using your visual style description and the context of whichever entity you've selected.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Generated images attach to the entity they were created for, so if you generate card art for a Merchant entity, you can find that art by opening the Merchant entity later. This keeps your asset library organized as it grows.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Describe the framing of the image the way a photographer or illustrator would. 'Centered subject, head and shoulders, three-quarter angle, simple muted background' tells the AI exactly how to compose the shot. Without framing guidance, AI-generated art often produces unexpected angles and compositions that don't work on a card layout.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Never include readable text in your image prompts. AI image generators consistently produce garbled, illegible text — letters and words that look plausible from a distance but are nonsense up close. Design the text layer of your cards separately and overlay it on the generated image.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Generate several variants of each concept and compare them before deciding which to keep. Selecting the most consistent image from a set of five is much faster than trying to get a single perfect result on the first attempt.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Before using any AI-generated image commercially, check the terms of service of the image generation tool you're using. Licensing rules vary between providers and change over time, and what's acceptable for personal use during development may have different rules for commercial publication.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:      "Letting your visual style description drift from session to session. If you add details or change emphasis over time, later-generated images will look slightly different from earlier ones. Re-read and reaffirm the description at the start of each assets session to keep everything cohesive.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:      "Treating AI-generated images as final production art. Build them into your workflow as prototype and pitch assets — they're the sketch, not the painting. Budget for human illustration if you plan to publish.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:      "Keep only the best one or two images per concept and delete the rest. A bloated asset library where you've saved every variant makes it slow and confusing to find the images you actually want to use.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:      "Can I use AI-generated images in a commercially published game?",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "The Balance tab generates charts based on your entities' numeric properties — specifically the relationship between what an entity costs and what effect it produces. For a weapon, that might be the relationship between its gold cost and its damage value. For a spell card, it might be between its energy cost and the points it generates.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "The chart places each entity on a grid with cost on one axis and power on the other — where 'power' is whatever numeric effect property you've defined (damage, points generated, resource produced). A well-balanced game produces a roughly diagonal line from bottom-left to top-right: things that cost more are roughly more powerful.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:          "Print-and-play layout files that combine your generated asset images with your entity data into sheets players can print, cut, and use at the table. These won't be publication-quality but are more than sufficient for prototype testing.",
+/home/runner/workspace/artifacts/gameforge/src/components/learn/bible.tsx:      "Maintain one export that you think of as your pitch packet: the hook paragraph, the one-page summary, and a table setup image from your assets. Keep it updated and immediately shareable, so you're never caught unprepared when an opportunity to pitch comes up.",
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/activity-feed.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/activity-feed.tsx:        {entry.user.imageUrl && <AvatarImage src={entry.user.imageUrl} alt="" />}
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/mention-input.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/mention-input.tsx:                  {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.userName} />}
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/notification-bell.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/components/collaboration/notification-bell.tsx:            {notification.actor.imageUrl && <AvatarImage src={notification.actor.imageUrl} alt="" />}
+/home/runner/workspace/artifacts/gameforge/src/lib/workspaces-api.ts:    imageUrl: string | null;
+/home/runner/workspace/artifacts/gameforge/src/lib/game-component-types.ts:  Token:    ["Resource", "Currency", "Health", "Status", "Marker", "Victory Point", "Damage"],
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:      { name: "defense", type: "number", note: "Damage mitigation when played defensively" },
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:      { name: "effect_type", type: "enum", note: "buff / debuff / damage / heal / draw / discard" },
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:      "Health / Hit Points — Damage tracker per unit",
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:      "Combat Die — Determines hit and damage in battles",
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:      { name: "attack", type: "number", note: "Damage dealt per combat exchange" },
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:      { name: "defense", type: "number", note: "Damage reduced per incoming hit" },
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:      { name: "effect_type", type: "enum", note: "buff / debuff / damage / heal / draw / move / summon" },
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:    description: "The offensive stat used in combat — damage dealt when attacking another unit or player.",
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:    example: "attack: 5 — deals 5 damage before the defender's defense is applied.",
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:    description: "Damage reduction or protection value. Subtracted from incoming attack before health loss is applied.",
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:    example: "defense: 2 — reduces all incoming damage by 2.",
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:    rulesInteraction: "Depleted by attack damage, event severity, or ability effects. Restored by heal actions. Rules should address what happens when health reaches exactly 0 vs. goes negative.",
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:    description: "The category of gameplay effect produced: buff, debuff, damage, heal, draw, discard, move, or summon.",
+/home/runner/workspace/artifacts/gameforge/src/lib/component-docs.ts:    rulesInteraction: "Used to limit combinations: 'You may play at most 1 damage card per turn.' Also drives UI categorization and priority ordering when effects resolve simultaneously.",
+/home/runner/workspace/artifacts/gameforge/src/lib/collaboration-types.ts:  imageUrl: string | null;
+/home/runner/workspace/artifacts/gameforge/src/pages/landing.tsx:import { Gamepad2, Sparkles, Users, BarChart3, FileText, ImageIcon, ArrowRight } from "lucide-react";
+/home/runner/workspace/artifacts/gameforge/src/pages/landing.tsx:  { icon: ImageIcon, title: "Asset Generation", desc: "Generate cards, tokens, and board art with built-in image generation." },
+/home/runner/workspace/artifacts/gameforge/src/pages/account.tsx:                    {user?.imageUrl && <img src={user.imageUrl} alt="" className="h-14 w-14 rounded-full" />}
+/home/runner/workspace/artifacts/gameforge/src/pages/account.tsx:                Image generation always uses the best model for the job. Image and PDF kickstarter exports use Gamma separately.
+/home/runner/workspace/artifacts/gameforge/src/pages/workspace-home.tsx:import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+/home/runner/workspace/artifacts/gameforge/src/pages/workspace-home.tsx:                  {user?.imageUrl ? (
+/home/runner/workspace/artifacts/gameforge/src/pages/workspace-home.tsx:                    <img src={user.imageUrl} alt="" className="h-9 w-9 rounded-full" />
+/home/runner/workspace/artifacts/gameforge/src/pages/workspace-home.tsx:                    {m.user?.imageUrl && <AvatarImage src={m.user.imageUrl} alt="" />}
+/home/runner/workspace/artifacts/gameforge/src/pages/home.tsx:                  {user?.imageUrl ? (
+/home/runner/workspace/artifacts/gameforge/src/pages/home.tsx:                    <img src={user.imageUrl} alt="" className="h-10 w-10 rounded-full" />
+/home/runner/workspace/artifacts/gameforge/src/pages/workspace.tsx:  BookOpen, Network, Dice5, ImageIcon, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
+/home/runner/workspace/artifacts/gameforge/src/pages/workspace.tsx:      { id: "assets-entities", label: "Components",     icon: ImageIcon,    statKey: "assetCount",     shortcut: "4" },
+/home/runner/workspace/artifacts/gameforge/src/pages/workspace.tsx:                {user?.imageUrl ? (
+/home/runner/workspace/artifacts/gameforge/src/pages/workspace.tsx:                  <img src={user.imageUrl} alt="" className="h-7 w-7 rounded-full" />

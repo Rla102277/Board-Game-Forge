@@ -28,45 +28,13 @@ router.post(
       db.select().from(rules).where(eq(rules.projectId, projectId)),
       db.select().from(players).where(eq(players.projectId, projectId)),
     ]);
-
-    // Rule depth: average word count per rule rewards detailed, complex rules
-    const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
-    const avgRuleWords = rs.length > 0
-      ? rs.reduce((sum, r) => sum + wordCount(r.content ?? ""), 0) / rs.length
-      : 0;
-
-    // Mechanic complexity: penalty points for hard mechanics found in game text
-    const corpus = [
-      project.description ?? "",
-      project.gameType ?? "",
-      project.genre ?? "",
-      ...rs.map((r) => r.content ?? ""),
-    ].join(" ").toLowerCase();
-    const mechPenalties: Record<string, number> = {
-      asymmetric: 5, asymmetry: 5,
-      cooperative: 4, "co-op": 4,
-      "hidden information": 3, "secret information": 3, "fog of war": 3, hidden: 2,
-      simultaneous: 3, "real-time": 3,
-      legacy: 4, campaign: 3,
-      "deck building": 2, "deck-building": 2,
-      "worker placement": 2, "area control": 2,
-      "engine building": 2, "hidden role": 3,
-    };
-    let mechScore = 0;
-    for (const [term, pts] of Object.entries(mechPenalties)) {
-      if (corpus.includes(term)) mechScore += pts;
-    }
-    mechScore = Math.min(15, mechScore);
-
     const breakdown = [
-      { factor: "Rule count",    value: Math.min(20, rs.length * 2) },
-      { factor: "Rule depth",    value: Math.min(20, Math.floor(avgRuleWords / 5)) },
-      { factor: "Hard mechanics",value: mechScore },
-      { factor: "Entities",      value: Math.min(20, es.length * 2) },
-      { factor: "Player variety",value: Math.min(10, ps.length * 2) },
+      { factor: "Entities", value: Math.min(30, es.length * 2) },
+      { factor: "Rules", value: Math.min(35, rs.length * 3) },
+      { factor: "Player archetypes", value: Math.min(15, ps.length * 3) },
       {
         factor: "Description depth",
-        value: Math.min(15, Math.floor((project.description?.length ?? 0) / 50)),
+        value: Math.min(20, Math.floor((project.description?.length ?? 0) / 40)),
       },
     ];
     const score = Math.min(
@@ -110,36 +78,16 @@ router.post(
 
     const system = `You are GameForge's AI Game Architect. Output a complete tabletop game blueprint as well-structured markdown. Use these section headings exactly: ## Concept, ## Core Loop, ## Components, ## Player Roles, ## Turn Structure, ## Victory Conditions, ## Balance Hooks, ## Variants, ## Production Notes. Be specific with numbers, components, and mechanics — no vague advice.`;
 
-    const heroMeta = (project.overviewMeta ?? {}) as Record<string, unknown>;
-    const fingerprint = (project.mechanicFingerprint ?? {}) as Record<string, unknown>;
-
-    const metaLines = [
-      heroMeta["theme"]           ? `Theme: ${heroMeta["theme"]}` : null,
-      heroMeta["mechanicTypes"]   ? `Mechanic types: ${(heroMeta["mechanicTypes"] as string[]).join(", ")}` : null,
-      heroMeta["targetAudience"]  ? `Target audience: ${heroMeta["targetAudience"]}` : null,
-      heroMeta["ageRange"]        ? `Age range: ${heroMeta["ageRange"]}` : null,
-      heroMeta["complexityTier"]  ? `Complexity tier: ${heroMeta["complexityTier"]}` : null,
-      heroMeta["playsLike"]       ? `Plays like: ${heroMeta["playsLike"]}` : null,
-      heroMeta["elevatorPitch"]   ? `Elevator pitch: ${heroMeta["elevatorPitch"]}` : null,
-    ].filter(Boolean).join("\n");
-
-    const fpLine = Object.keys(fingerprint).length > 0
-      ? `Mechanic fingerprint: ${Object.entries(fingerprint).map(([k, v]) => `${k}=${v}/5`).join(", ")}`
-      : null;
-
     const userMsg = `Project: ${project.name}
 Game type: ${project.gameType ?? "—"}
 Genre: ${project.genre ?? "—"}
 Players: ${project.playerCount ?? "—"}
 Duration: ${project.targetDuration ?? "—"}
-${metaLines}
-${fpLine ?? ""}
-Narrative seed: ${project.narrative ?? "—"}
 Description: ${project.description ?? "—"}
 
 Designer brief: ${parsed.data.prompt}
 
-Use the mechanic fingerprint, theme, narrative seed, and specific mechanic types above to tailor every section. Avoid generic advice — ground all recommendations in the specific game described. Produce the complete blueprint now.`;
+Produce the complete blueprint now.`;
 
     let full = "";
     try {

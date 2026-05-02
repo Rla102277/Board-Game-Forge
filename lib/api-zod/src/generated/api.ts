@@ -974,6 +974,8 @@ export const ListRulesResponseItem = zod.object({
   content: zod.string(),
   category: zod.string().nullish(),
   priority: zod.number(),
+  section: zod.string().nullish(),
+  displayOrder: zod.number(),
   designNotes: zod.string().nullish(),
   edgeCases: zod.string().nullish(),
   createdAt: zod.coerce.date(),
@@ -990,9 +992,39 @@ export const CreateRuleBody = zod.object({
   content: zod.string(),
   category: zod.string().optional(),
   priority: zod.number().optional(),
+  section: zod.string().optional(),
   designNotes: zod.string().optional(),
   edgeCases: zod.string().optional(),
 });
+
+/**
+ * @summary Reorder rules by providing an ordered array of rule IDs
+ */
+export const ReorderRulesParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ReorderRulesBody = zod.object({
+  ruleIds: zod
+    .array(zod.number())
+    .describe("Ordered list of rule IDs reflecting the desired display order"),
+});
+
+export const ReorderRulesResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  title: zod.string(),
+  content: zod.string(),
+  category: zod.string().nullish(),
+  priority: zod.number(),
+  section: zod.string().nullish(),
+  displayOrder: zod.number(),
+  designNotes: zod.string().nullish(),
+  edgeCases: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ReorderRulesResponse = zod.array(ReorderRulesResponseItem);
 
 export const UpdateRuleParams = zod.object({
   projectId: zod.coerce.number(),
@@ -1004,6 +1036,7 @@ export const UpdateRuleBody = zod.object({
   content: zod.string().optional(),
   category: zod.string().optional(),
   priority: zod.number().optional(),
+  section: zod.string().optional(),
   designNotes: zod.string().optional(),
   edgeCases: zod.string().optional(),
 });
@@ -1015,6 +1048,8 @@ export const UpdateRuleResponse = zod.object({
   content: zod.string(),
   category: zod.string().nullish(),
   priority: zod.number(),
+  section: zod.string().nullish(),
+  displayOrder: zod.number(),
   designNotes: zod.string().nullish(),
   edgeCases: zod.string().nullish(),
   createdAt: zod.coerce.date(),
@@ -1058,6 +1093,8 @@ export const AiGenerateRulesResponse = zod.object({
       content: zod.string(),
       category: zod.string().nullish(),
       priority: zod.number(),
+      section: zod.string().nullish(),
+      displayOrder: zod.number(),
       designNotes: zod.string().nullish(),
       edgeCases: zod.string().nullish(),
       createdAt: zod.coerce.date(),

@@ -19,7 +19,6 @@ import {
   Shield, MessageCircle, Zap, Star, Leaf, Heart,
   Search, GripVertical, GripHorizontal, Users, UserPlus, BarChart3, User,
   Target, Sword, Package, Trophy, Wand2, Gamepad2, List, GitGraph, Check,
-  AlertTriangle, TrendingUp,
 } from "lucide-react";
 import { PlayerRelationshipGraph } from "./player-relationship-graph";
 import { PLAYER_TYPE_COLORS } from "@/lib/player-colors";
@@ -40,35 +39,12 @@ type PlaystyleTag = typeof PLAYSTYLE_TAGS[number];
 
 const COMMON_ARCHETYPES = ["Hero", "Villain", "Trickster", "Mentor", "Guardian", "Wanderer", "Ruler", "Rebel", "Sage", "Innocent"] as const;
 
-const ABILITY_TAGS = [
-  "Extra Action", "Resource Gain", "Resource Drain", "Damage Boost",
-  "Defense Bonus", "Movement", "Card Draw", "Reroll", "Bypass Rule", "Summon",
-] as const;
-
-function parseResourceScore(resources: string): number {
-  const nums = resources.match(/\d+/g);
-  return nums ? nums.reduce((s, n) => s + parseInt(n, 10), 0) : 0;
-}
-
-function extractResourceNames(resources: string): string[] {
-  return resources.split(",").flatMap((part) => {
-    const m = part.trim().match(/^\d+\s+(.+)$/);
-    return m ? [m[1].trim().toLowerCase()] : [];
-  });
-}
-
 function playerCompleteness(p: Player): number {
   const fields = [p.archetype, p.role, p.faction, p.motivation, p.flaw, p.strategy, p.specialAbility, p.description];
   return Math.round((fields.filter(Boolean).length / fields.length) * 100);
 }
 
-interface BehaviorProfile {
-  riskTolerance: number;
-  aggression: number;
-  decisionStyle: string;
-  resourceProgression: Array<{ turn: number; delta: string }>;
-  abilityTags: string[];
-}
+interface BehaviorProfile { riskTolerance: number; aggression: number; decisionStyle: string; }
 interface Relationship { targetPlayerId: number; relationshipType: string; }
 
 const TYPE_META: Record<PlayerType, {
@@ -119,20 +95,13 @@ function getMeta(type: string | undefined) {
 // ─── JSONB cast helpers ────────────────────────────────────────────────────────
 
 function castBehavior(raw: Record<string, unknown> | null | undefined): BehaviorProfile {
-  const defaults: BehaviorProfile = {
-    riskTolerance: 50, aggression: 50, decisionStyle: "Optimiser",
-    resourceProgression: [], abilityTags: [],
-  };
+  const defaults: BehaviorProfile = { riskTolerance: 50, aggression: 50, decisionStyle: "Optimiser" };
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return defaults;
   const r = raw as Record<string, unknown>;
   return {
     riskTolerance: typeof r["riskTolerance"] === "number" ? Math.max(0, Math.min(100, r["riskTolerance"])) : 50,
     aggression: typeof r["aggression"] === "number" ? Math.max(0, Math.min(100, r["aggression"])) : 50,
     decisionStyle: typeof r["decisionStyle"] === "string" ? r["decisionStyle"] : "Optimiser",
-    resourceProgression: Array.isArray(r["resourceProgression"])
-      ? (r["resourceProgression"] as Array<{ turn: number; delta: string }>)
-      : [],
-    abilityTags: Array.isArray(r["abilityTags"]) ? (r["abilityTags"] as string[]) : [],
   };
 }
 
@@ -168,8 +137,6 @@ interface SheetState {
   aggression: number;
   decisionStyle: string;
   relationships: Relationship[];
-  resourceProgression: Array<{ turn: number; delta: string }>;
-  abilityTags: string[];
 }
 
 function emptySheet(type?: PlayerType): SheetState {
@@ -178,7 +145,7 @@ function emptySheet(type?: PlayerType): SheetState {
     faction: "", motivation: "", flaw: "", arc: "", description: "",
     strategy: "", startingResources: "", victoryCondition: "", specialAbility: "", playstyle: "",
     riskTolerance: 50, aggression: 50, decisionStyle: "Optimiser",
-    relationships: [], resourceProgression: [], abilityTags: [],
+    relationships: [],
   };
 }
 
@@ -203,8 +170,6 @@ function playerToSheet(p: Player): SheetState {
     aggression: b.aggression,
     decisionStyle: b.decisionStyle,
     relationships: castRelationships(p.relationships as Record<string, unknown>[] | null | undefined),
-    resourceProgression: b.resourceProgression,
-    abilityTags: b.abilityTags,
   };
 }
 
@@ -224,13 +189,7 @@ function sheetToBody(s: SheetState): Record<string, unknown> {
     victoryCondition: s.victoryCondition || undefined,
     specialAbility: s.specialAbility || undefined,
     playstyle: s.playstyle || undefined,
-    behaviorProfile: {
-      riskTolerance: s.riskTolerance,
-      aggression: s.aggression,
-      decisionStyle: s.decisionStyle,
-      resourceProgression: s.resourceProgression,
-      abilityTags: s.abilityTags,
-    },
+    behaviorProfile: { riskTolerance: s.riskTolerance, aggression: s.aggression, decisionStyle: s.decisionStyle },
     relationships: s.relationships,
   };
 }
@@ -434,19 +393,6 @@ function BalanceView({ players, onReorder }: BalanceViewProps) {
     { label: "Playstyle", key: "playstyle", icon: Gamepad2 },
   ];
 
-  const powerScores = useMemo(() =>
-    visiblePlayers.map((p) => ({
-      id: p.id,
-      name: p.name,
-      score: parseResourceScore(p.startingResources ?? ""),
-    })),
-    [visiblePlayers],
-  );
-  const maxPower = Math.max(...powerScores.map((s) => s.score), 1);
-  const minPower = Math.min(...powerScores.map((s) => s.score));
-  const powerGapPct = maxPower > 0 ? Math.round(((maxPower - minPower) / maxPower) * 100) : 0;
-  const showAsymmetryWarning = visiblePlayers.length >= 2 && powerGapPct > 40;
-
   if (players.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center gap-3 p-8">
@@ -575,16 +521,6 @@ function BalanceView({ players, onReorder }: BalanceViewProps) {
             </div>
           </div>
 
-          {/* Asymmetry warning */}
-          {showAsymmetryWarning && (
-            <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span>
-                <span className="font-semibold">Power imbalance detected</span> — resource totals vary by {powerGapPct}% across selected players. Review starting resources to ensure fair balance.
-              </span>
-            </div>
-          )}
-
           {/* Comparison table */}
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1 mb-3">Side-by-Side Comparison</h3>
@@ -614,27 +550,6 @@ function BalanceView({ players, onReorder }: BalanceViewProps) {
                       return (
                         <td key={p.id} className="py-2 px-3">
                           <Badge variant="outline" className={`text-[10px] ${m.badge}`}>{p.playerType}</Badge>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  <tr className="border-t border-border/40">
-                    <td className="py-2 pr-4 text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <TrendingUp className="h-3 w-3 shrink-0" /> Power Score
-                      </div>
-                    </td>
-                    {powerScores.map((ps) => {
-                      const pct = maxPower > 0 ? Math.round((ps.score / maxPower) * 100) : 0;
-                      const color = pct >= 80 ? "#4ade80" : pct >= 50 ? "#fbbf24" : "#f87171";
-                      return (
-                        <td key={ps.id} className="py-2 px-3">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
-                            </div>
-                            <span className="text-[10px] text-muted-foreground w-6 shrink-0">{ps.score}</span>
-                          </div>
                         </td>
                       );
                     })}
@@ -1486,103 +1401,6 @@ function NoSelectionState({ players, onSelect, onAdd }: { players: Player[]; onS
   );
 }
 
-// ─── Resource Progression Editor ──────────────────────────────────────────────
-
-interface ResourceProgressionEditorProps {
-  startingResources: string;
-  progression: Array<{ turn: number; delta: string }>;
-  onChange: (p: Array<{ turn: number; delta: string }>) => void;
-}
-
-function ResourceProgressionEditor({ startingResources, progression, onChange }: ResourceProgressionEditorProps) {
-  const [open, setOpen] = useState(progression.length > 0);
-
-  useEffect(() => {
-    if (progression.length > 0) setOpen(true);
-  }, [progression.length]);
-
-  const addTurn = () => {
-    const nextTurn = progression.length > 0 ? Math.max(...progression.map((r) => r.turn)) + 1 : 2;
-    onChange([...progression, { turn: nextTurn, delta: "" }]);
-    setOpen(true);
-  };
-
-  const update = (idx: number, field: "turn" | "delta", val: string | number) => {
-    const next = [...progression];
-    next[idx] = { ...next[idx], [field]: val };
-    onChange(next);
-  };
-
-  const remove = (idx: number) => {
-    const next = progression.filter((_, i) => i !== idx);
-    onChange(next);
-    if (next.length === 0) setOpen(false);
-  };
-
-  return (
-    <div className="mt-2 space-y-1.5">
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          Resource Progression
-          {progression.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[9px] font-medium">
-              {progression.length} {progression.length === 1 ? "turn" : "turns"}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={addTurn}
-          className="ml-auto flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-primary transition-colors"
-        >
-          <Plus className="h-3 w-3" /> Add Turn
-        </button>
-      </div>
-
-      {open && (
-        <div className="rounded-lg border border-border bg-muted/20 overflow-hidden text-xs">
-          {startingResources && (
-            <div className="grid grid-cols-[60px_1fr] px-2.5 py-1.5 border-b border-border/50 bg-muted/30">
-              <span className="text-muted-foreground font-medium">Turn 1</span>
-              <span className="text-foreground/70 truncate">{startingResources}</span>
-            </div>
-          )}
-          {!startingResources && progression.length === 0 && (
-            <p className="px-2.5 py-2 text-[10px] text-muted-foreground italic">
-              Fill in Starting Resources above, then add turn progressions here.
-            </p>
-          )}
-          {progression.map((row, idx) => (
-            <div key={idx} className="grid grid-cols-[60px_1fr_20px] items-center gap-1.5 px-2.5 py-1.5 border-b border-border/30 last:border-0">
-              <input
-                type="number"
-                min={2}
-                value={row.turn}
-                onChange={(e) => update(idx, "turn", parseInt(e.target.value, 10) || 2)}
-                className="w-full h-6 text-xs bg-background/60 border border-border rounded px-1.5 text-center"
-                aria-label="Turn number"
-              />
-              <input
-                value={row.delta}
-                onChange={(e) => update(idx, "delta", e.target.value)}
-                placeholder="e.g. +2 gold, -1 health…"
-                className="w-full h-6 text-xs bg-background/60 border border-border rounded px-2 placeholder:text-muted-foreground/50"
-                aria-label="Resource changes"
-              />
-              <button onClick={() => remove(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Persona Card ──────────────────────────────────────────────────────────────
 
 interface PersonaCardProps {
@@ -1623,19 +1441,6 @@ function PersonaCard({
     allPlayers.forEach((p) => map.set(p.id, p));
     return map;
   }, [allPlayers]);
-
-  const knownResourceNames = useMemo(() => {
-    const names = new Set<string>();
-    allPlayers.forEach((p) => {
-      if (p.startingResources) extractResourceNames(p.startingResources).forEach((n) => names.add(n));
-    });
-    return names;
-  }, [allPlayers]);
-
-  const resourceNameWarnings = useMemo(() => {
-    if (!sheet.startingResources || knownResourceNames.size === 0) return [];
-    return extractResourceNames(sheet.startingResources).filter((n) => !knownResourceNames.has(n));
-  }, [sheet.startingResources, knownResourceNames]);
 
   const initials = sheet.name
     .split(/\s+/)
@@ -1831,37 +1636,12 @@ function PersonaCard({
                 <Field label="Special Ability">
                   <div className="flex items-start gap-2">
                     <Wand2 className="h-3.5 w-3.5 text-muted-foreground mt-2 shrink-0" />
-                    <div className="flex-1 space-y-2">
-                      <Textarea
-                        value={sheet.specialAbility}
-                        onChange={(e) => set("specialAbility", e.target.value)}
-                        placeholder="Unique power or rule exception this player has…"
-                        className="text-sm min-h-[60px] resize-none"
-                      />
-                      <div className="flex flex-wrap gap-1">
-                        {ABILITY_TAGS.map((tag) => {
-                          const active = sheet.abilityTags.includes(tag);
-                          return (
-                            <button
-                              key={tag}
-                              onClick={() => {
-                                const next = active
-                                  ? sheet.abilityTags.filter((t) => t !== tag)
-                                  : [...sheet.abilityTags, tag];
-                                set("abilityTags", next);
-                              }}
-                              className={`text-[10px] px-2 py-0.5 rounded-full border transition-all font-medium ${
-                                active
-                                  ? "bg-violet-500/15 border-violet-500/40 text-violet-300"
-                                  : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
-                              }`}
-                            >
-                              {tag}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <Textarea
+                      value={sheet.specialAbility}
+                      onChange={(e) => set("specialAbility", e.target.value)}
+                      placeholder="Unique power or rule exception this player has…"
+                      className="text-sm min-h-[60px] resize-none flex-1"
+                    />
                   </div>
                 </Field>
               </div>
@@ -1908,27 +1688,12 @@ function PersonaCard({
               <Field label="Starting Resources">
                 <div className="flex items-start gap-2">
                   <Package className="h-3.5 w-3.5 text-muted-foreground mt-2 shrink-0" />
-                  <div className="flex-1 space-y-1.5">
-                    <Textarea
-                      value={sheet.startingResources}
-                      onChange={(e) => set("startingResources", e.target.value)}
-                      placeholder="e.g. 5 gold, 2 action cards, 1 territory…"
-                      className="text-sm min-h-[60px] resize-none"
-                    />
-                    {resourceNameWarnings.length > 0 && (
-                      <div className="flex items-start gap-1.5 text-[10px] text-amber-400">
-                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-                        <span>
-                          Unknown {resourceNameWarnings.length === 1 ? "resource" : "resources"}: {resourceNameWarnings.map((n) => `"${n}"`).join(", ")} — not used by other players
-                        </span>
-                      </div>
-                    )}
-                    <ResourceProgressionEditor
-                      startingResources={sheet.startingResources}
-                      progression={sheet.resourceProgression}
-                      onChange={(p) => set("resourceProgression", p)}
-                    />
-                  </div>
+                  <Textarea
+                    value={sheet.startingResources}
+                    onChange={(e) => set("startingResources", e.target.value)}
+                    placeholder="e.g. 5 gold, 2 action cards, 1 territory…"
+                    className="text-sm min-h-[60px] resize-none flex-1"
+                  />
                 </div>
               </Field>
               <Field label="Victory Condition">
