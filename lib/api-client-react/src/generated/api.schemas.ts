@@ -575,21 +575,21 @@ export interface CreatePlayerBody {
 export interface UpdatePlayerBody {
   name?: string;
   playerType?: string;
-  role?: string;
-  archetype?: string;
-  description?: string;
-  strategy?: string;
-  startingResources?: string;
-  victoryCondition?: string;
-  specialAbility?: string;
-  playstyle?: string;
-  faction?: string;
-  motivation?: string;
-  flaw?: string;
-  arc?: string;
+  role?: string | null;
+  archetype?: string | null;
+  description?: string | null;
+  strategy?: string | null;
+  startingResources?: string | null;
+  victoryCondition?: string | null;
+  specialAbility?: string | null;
+  playstyle?: string | null;
+  faction?: string | null;
+  motivation?: string | null;
+  flaw?: string | null;
+  arc?: string | null;
   displayOrder?: number;
-  behaviorProfile?: Record<string, unknown>;
-  relationships?: Record<string, unknown>[];
+  behaviorProfile?: Record<string, unknown> | null;
+  relationships?: Record<string, unknown>[] | null;
 }
 
 export interface ReorderPlayersBody {
