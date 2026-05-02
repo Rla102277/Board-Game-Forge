@@ -8,7 +8,7 @@ import {
   Layout, Users, FileText, CheckSquare, ChevronLeft, Gamepad2, Activity, MoreVertical, Trash2,
   BookOpen, Dice5, ImageIcon, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
   MessageSquare, History, Share2, Clock, BarChart3, EyeOff, Grid3X3, TrendingUp, ChevronRight,
-  Pencil, ClipboardList, Lock, Target, SlidersHorizontal, Zap, Inbox,
+  Pencil, ClipboardList, Lock, Target, SlidersHorizontal, Zap, Inbox, Settings2, Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -30,6 +30,7 @@ const Overview = lazy(() => import("@/components/workspace/overview").then(m => 
 const GameIdentity = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.GameIdentity })));
 const Research = lazy(() => import("@/components/workspace/research").then(m => ({ default: m.Research })));
 const AssetsEntities = lazy(() => import("@/components/workspace/assets-entities").then(m => ({ default: m.AssetsEntities })));
+const GamePiecesOverview = lazy(() => import("@/components/workspace/game-pieces-overview").then(m => ({ default: m.GamePiecesOverview })));
 const Players = lazy(() => import("@/components/workspace/players").then(m => ({ default: m.Players })));
 const Rules = lazy(() => import("@/components/workspace/rules").then(m => ({ default: m.Rules })));
 const Simulator = lazy(() => import("@/components/workspace/simulator").then(m => ({ default: m.Simulator })));
@@ -56,6 +57,9 @@ const ShareDialog = lazy(() => import("@/components/collaboration/share-dialog")
 const NotificationBell = lazy(() => import("@/components/collaboration/notification-bell").then(m => ({ default: m.NotificationBell })));
 const CollaborationDashboard = lazy(() => import("@/components/collaboration/collaboration-dashboard").then(m => ({ default: m.CollaborationDashboard })));
 const UnifiedInbox = lazy(() => import("@/components/workspace/unified-inbox").then(m => ({ default: m.UnifiedInbox })));
+const WorkspaceSettings = lazy(() => import("@/components/workspace/workspace-settings").then(m => ({ default: m.WorkspaceSettings })));
+const AuditLog = lazy(() => import("@/components/workspace/audit-log").then(m => ({ default: m.AuditLog })));
+const ConflictBanner = lazy(() => import("@/components/workspace/conflict-banner").then(m => ({ default: m.ConflictBanner })));
 
 // ─── Stage configuration ────────────────────────────────────────────────────
 
@@ -87,8 +91,9 @@ const STAGES: Stage[] = [
     what: "Create your game pieces, cards, tokens, and define player roles.",
     time: "45 min",
     items: [
-      { id: "assets-entities", label: "Game Pieces", icon: ImageIcon },
-      { id: "players",         label: "Players",     icon: Users },
+      { id: "game-pieces",     label: "Game Pieces",       icon: Layers },
+      { id: "assets-entities", label: "All Components",    icon: ImageIcon },
+      { id: "players",         label: "Players",           icon: Users },
     ],
   },
   {
@@ -128,11 +133,13 @@ const STAGES: Stage[] = [
     what: "Export your game, collaborate with your team, and share with players.",
     time: "Varies",
     items: [
-      { id: "export",   label: "Exports",      icon: Download },
-      { id: "inbox",    label: "Inbox",         icon: Inbox },
-      { id: "comments", label: "Comments",     icon: MessageSquare },
-      { id: "activity", label: "Activity",     icon: History },
-      { id: "members",  label: "Members",      icon: Users },
+      { id: "export",              label: "Exports",    icon: Download },
+      { id: "inbox",               label: "Inbox",      icon: Inbox },
+      { id: "comments",            label: "Comments",   icon: MessageSquare },
+      { id: "activity",            label: "Activity",   icon: History },
+      { id: "members",             label: "Members",    icon: Users },
+      { id: "workspace-settings",  label: "Workspace",  icon: Settings2 },
+      { id: "audit-log",           label: "Audit Log",  icon: ClipboardList },
     ],
   },
 ];
@@ -348,6 +355,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
   const [nextStepDismissed, setNextStepDismissed] = useState(false);
   const [teamPanelOpen, setTeamPanelOpen] = useState(false);
   const [lockWarningStage, setLockWarningStage] = useState<number | null>(null);
+  const [conflictDismissed, setConflictDismissed] = useState<Record<string, boolean>>({});
   const [showAdvancedConfirm, setShowAdvancedConfirm] = useState(false);
   const { showTour, startTour, completeTour, dismissTour } = useWorkspaceTour(projectId);
 
@@ -468,6 +476,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       case "overview": return <ErrorBoundary><Suspense fallback={loadingFallback}><Overview projectId={projectId} onPromptSend={setChatPrompt} /></Suspense></ErrorBoundary>;
       case "identity": return <ErrorBoundary><Suspense fallback={loadingFallback}><GameIdentity projectId={projectId} onPromptSend={setChatPrompt} /></Suspense></ErrorBoundary>;
       case "research": return <ErrorBoundary><Suspense fallback={loadingFallback}><Research projectId={projectId} onPromptSend={setChatPrompt} workspaceSlug={params.workspaceSlug} /></Suspense></ErrorBoundary>;
+      case "game-pieces": return <ErrorBoundary><Suspense fallback={loadingFallback}><GamePiecesOverview projectId={projectId} onChatPrompt={setChatPrompt} onNavigate={navigateTo} /></Suspense></ErrorBoundary>;
       case "assets-entities": return <ErrorBoundary><Suspense fallback={loadingFallback}><AssetsEntities projectId={projectId} onChatPrompt={setChatPrompt} /></Suspense></ErrorBoundary>;
       case "players": return <ErrorBoundary><Suspense fallback={loadingFallback}><Players projectId={projectId} /></Suspense></ErrorBoundary>;
       case "rules": return <ErrorBoundary><Suspense fallback={loadingFallback}><Rules projectId={projectId} /></Suspense></ErrorBoundary>;
@@ -489,6 +498,8 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       case "activity": return <ErrorBoundary><Suspense fallback={loadingFallback}><ActivityFeed projectId={projectId} /></Suspense></ErrorBoundary>;
       case "versions": return <ErrorBoundary><Suspense fallback={loadingFallback}><VersionHistory projectId={projectId} /></Suspense></ErrorBoundary>;
       case "members": return <ErrorBoundary><Suspense fallback={loadingFallback}><MembersDirectory projectId={projectId} /></Suspense></ErrorBoundary>;
+      case "workspace-settings": return <ErrorBoundary><Suspense fallback={loadingFallback}><WorkspaceSettings projectId={projectId} projectName={project.name} /></Suspense></ErrorBoundary>;
+      case "audit-log": return <ErrorBoundary><Suspense fallback={loadingFallback}><AuditLog projectId={projectId} /></Suspense></ErrorBoundary>;
       default: return null;
     }
   };
@@ -763,6 +774,15 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
         <DesignBriefHeader project={project} />
 
         <div className="flex-1 p-6 overflow-y-auto">
+          {!conflictDismissed[activeSection] && (
+            <Suspense fallback={null}>
+              <ConflictBanner
+                projectId={projectId}
+                section={activeSection}
+                onDismiss={() => setConflictDismissed(prev => ({ ...prev, [activeSection]: true }))}
+              />
+            </Suspense>
+          )}
           {renderSection()}
         </div>
       </div>
