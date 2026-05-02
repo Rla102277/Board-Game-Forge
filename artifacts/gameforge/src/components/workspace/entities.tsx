@@ -158,10 +158,10 @@ function RelationshipPicker({
         </div>
       )}
       <div className="flex gap-1.5 items-center">
-        <Select value={addVerb} onValueChange={setAddVerb}>
+        <Select value={addVerb || "__none__"} onValueChange={(v) => setAddVerb(v === "__none__" ? "" : v)}>
           <SelectTrigger className="h-7 bg-input text-[10px] w-28 shrink-0"><SelectValue placeholder="Verb…" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">— none —</SelectItem>
+            <SelectItem value="__none__">— none —</SelectItem>
             {RELATIONSHIP_VERBS.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
           </SelectContent>
         </Select>

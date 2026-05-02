@@ -304,10 +304,11 @@ export function CardStudio({ projectId, deck, cards, onRefresh }: CardStudioProp
                   </td>
                   <td className="px-1 py-0.5">
                     <Select
-                      value={card.subtype ?? ""}
+                      value={card.subtype || "__none__"}
                       onValueChange={async v => {
+                        const nextSubtype = v === "__none__" ? undefined : v;
                         try {
-                          await updateEntity.mutateAsync({ projectId, entityId: card.id, data: { subtype: v || undefined } });
+                          await updateEntity.mutateAsync({ projectId, entityId: card.id, data: { subtype: nextSubtype } });
                           onRefresh();
                         } catch { toast({ title: "Update failed", variant: "destructive" }); }
                       }}
@@ -316,7 +317,7 @@ export function CardStudio({ projectId, deck, cards, onRefresh }: CardStudioProp
                         <SelectValue placeholder="—" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">—</SelectItem>
+                        <SelectItem value="__none__">—</SelectItem>
                         {CARD_SUBTYPES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                       </SelectContent>
                     </Select>
