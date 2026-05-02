@@ -745,14 +745,14 @@ export function Players({ projectId }: PlayersProps) {
     reordered.splice(insertAt, 0, moved);
     clearDragState();
 
-    // Optimistic update — immediately reflect the new order in the cache
+    // Optimistic update — update displayOrder in-place so no array-order flicker (#35)
     const queryKey = getListPlayersQueryKey(projectId);
     const previous = qc.getQueryData<Player[]>(queryKey);
     if (previous) {
-      const idSet = new Set(reordered.map((p) => p.id));
-      const updated = previous
-        .filter((p) => !idSet.has(p.id))
-        .concat(reordered.map((p, idx) => ({ ...p, displayOrder: idx })));
+      const orderMap = new Map(reordered.map((p, idx) => [p.id, idx]));
+      const updated = previous.map((p) =>
+        orderMap.has(p.id) ? { ...p, displayOrder: orderMap.get(p.id)! } : p
+      );
       qc.setQueryData(queryKey, updated);
     }
 
