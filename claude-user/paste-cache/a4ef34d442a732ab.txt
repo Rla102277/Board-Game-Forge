@@ -1,0 +1,40 @@
+Quick-Create Entity Templates
+What to build:
+Fast entity creation with templates (Enemy, Item, Location, etc.).
+Files to modify:
+
+artifacts/gameforge/src/components/workspace/entities.tsx (add template selector)
+Create new: artifacts/gameforge/src/lib/entity-templates.ts
+
+Specification:
+When user clicks "[+] New Entity":
+SELECT TEMPLATE:
+┌─────────────┬─────────────┬──────────────┬──────────────┐
+│   Enemy     │    Item     │   Location   │   Faction    │
+│ (+Health    │ (+Cost      │ (+Difficulty │ (+Members    │
+│  +Damage    │  +Damage    │  +Encounters │  +Economy    │
+│  +Speed     │  +Defense   │  +Rewards)   │  +Units)     │
+│  +Loot)     │  +Rarity)   │              │              │
+└─────────────┴─────────────┴──────────────┴──────────────┘
+
+Then: "Create 5 Tier-1 Enemies" → auto-generates with stats
+
+Templates:
+  Enemy: [Health (1-5), Damage (1-3), Speed (1-3), LootTable]
+  Item: [Cost (1-10), Power (1-5), Rarity (1-3)]
+  Location: [Difficulty (1-5), Encounters (0-3), Rewards (1-5)]
+  Faction: [Members (0-20), Economy (1-5), Relations (0-3)]
+Technical Details:
+
+Templates defined in entity-templates.ts
+Each template has baseProperties (string, number, boolean fields)
+"Generate N" option uses existing simulator or simple algorithm to balance stats
+Auto-fills entity.type based on template
+User can customize before saving
+
+Deliverable:
+
+ Template selector shows 4 options
+ Each template pre-fills properties
+ "Generate N" option works (generates reasonable stats)
+ Templates customizable (not hardcoded)

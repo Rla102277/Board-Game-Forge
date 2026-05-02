@@ -43,6 +43,12 @@ const PAGE_MARGIN_IN = 0.25; // safe printable area on most consumer printers
  * This is the "real" DPI step: the browser otherwise prints whatever native
  * resolution the source has. We resample once, ahead of print, so the print
  * stream contains exactly the requested pixels per inch.
+ *
+ * If the source image already covers the target pixel area (i.e. its native
+ * resolution meets/exceeds the requested DPI for the chosen card size on both
+ * axes), we skip the canvas pass entirely and return the original source —
+ * resampling-down loses no real information for printing and just costs CPU
+ * and memory, so we let the printer's own driver do the downscale.
  */
 async function rasterizeImageToDpi(
   src: string,
@@ -58,6 +64,8 @@ async function rasterizeImageToDpi(
   });
   const w = Math.max(1, Math.round(targetWpx));
   const h = Math.max(1, Math.round(targetHpx));
+  // Source already at-or-above target on both axes → no resample needed.
+  if (img.width >= w && img.height >= h) return src;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -166,6 +174,9 @@ export function PrintSheet({ open, onClose, assets, initialAssetIds }: PrintShee
   // Build the @page CSS dynamically based on selected page size.
   // @page margin is 0; our print grid handles margins itself so geometry math
   // matches preview exactly (no double-margin bug).
+  // The print tree (.gf-print-root) is `display:none` inline by default so it
+  // never leaks into the normal on-screen layout, and is unhidden only inside
+  // @media print, where we also hide the rest of the document.
   const printCss = `
     @page {
       size: ${pageSize === "letter" ? "letter" : "A4"} portrait;
@@ -173,8 +184,8 @@ export function PrintSheet({ open, onClose, assets, initialAssetIds }: PrintShee
     }
     @media print {
       body * { visibility: hidden !important; }
+      .gf-print-root { display: block !important; position: absolute !important; inset: 0 !important; background: white !important; }
       .gf-print-root, .gf-print-root * { visibility: visible !important; }
-      .gf-print-root { position: absolute !important; inset: 0 !important; background: white !important; }
       .gf-print-page { page-break-after: always; break-after: page; }
       .gf-print-page:last-child { page-break-after: auto; break-after: auto; }
       .gf-no-print { display: none !important; }
@@ -464,13 +475,11 @@ export function PrintSheet({ open, onClose, assets, initialAssetIds }: PrintShee
           </div>
         </div>
 
-        {/* Print-only tree (positioned absolutely on print, hidden in screen) */}
+        {/* Print-only tree. `display:none` by default so it never leaks into
+            normal layout; the @media print rule above flips it to `display:block
+            !important` and hides everything else for the print stream. */}
         <style dangerouslySetInnerHTML={{ __html: printCss }} />
-        <div className="gf-print-root" style={{ display: "none" }} />
-        <div className="gf-print-root-screen-hidden">
-          {/* Mounted only when printing via the @media print rule above swapping visibility */}
-        </div>
-        <div className="gf-print-root" aria-hidden>
+        <div className="gf-print-root" aria-hidden style={{ display: "none" }}>
           {pages.map((pageItems, pIdx) => (
             <div
               key={pIdx}

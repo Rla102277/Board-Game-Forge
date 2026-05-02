@@ -1,0 +1,45 @@
+Design Connection
+What to build:
+"Use this mechanic" button on reference games → creates rules automatically.
+Files to modify:
+
+artifacts/gameforge/src/components/workspace/research.tsx (add [Apply Mechanic] button)
+Create new: artifacts/gameforge/src/lib/mechanic-parser.ts (parse mechanic descriptions)
+artifacts/gameforge/src/components/workspace/rules.tsx (accept imported mechanics)
+
+Specification:
+When viewing reference game in Research:
+GLOOMHAVEN (Reference Game)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Overview: Grid-based dungeon crawl with initiative cards...
+Key Mechanics:
+  • Loot division system
+    "After combat, players divide loot based on contribution"
+    [USE THIS MECHANIC] button
+    
+  • Stamina resources
+    "Characters have stamina that depletes—rest to recover"
+    [USE THIS MECHANIC] button
+Clicking [USE THIS MECHANIC]:
+
+Parse mechanic description with Claude: "Extract the game rule from this description"
+Create draft rule in Rules tab: [Placeholder] "From Gloomhaven: [Mechanic Name]"
+Create task: "Implement [Mechanic] from Gloomhaven"
+Link task back to research reference
+Show toast: "Added draft rule. Edit in Rules tab."
+
+Technical Details:
+
+Use Claude to transform mechanic description → rule text
+Prompt: "Convert this mechanic description into a concise game rule for my [game genre] game: [description]"
+Generated rule marked as maturity: "placeholder" + maturityNotes: "From [Reference Game]"
+Task automatically linked to rule
+User can customize rule after import
+
+Deliverable:
+
+ [USE THIS MECHANIC] button visible on mechanics
+ Clicking creates draft rule + task
+ Generated rules are editable
+ Task links back to research
+ Works with Claude/AI
