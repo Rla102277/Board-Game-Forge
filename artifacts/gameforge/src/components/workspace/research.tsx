@@ -14,7 +14,7 @@ import {
   ExternalLink, Edit2, Tag, Lightbulb, Compass, StickyNote, TrendingUp,
   MessageCircle, Zap, ChevronRight, CheckCircle2, ChevronDown, ChevronUp,
   Users, Clock, BarChart2, FileText, RefreshCw, ArrowRight,
-  AlertTriangle, Check,
+  AlertTriangle, Check, Copy,
 } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
 import { apiBase, workspacesApi } from "@/lib/workspaces-api";
@@ -106,6 +106,13 @@ const REVERSE_STAGES = [
   { label: "Finalizing blueprint…", sub: "Polishing the final design" },
 ];
 
+const CLONE_STAGES = [
+  { label: "Reading the rulebook…", sub: "KIMI is loading all official rules" },
+  { label: "Cataloguing components…", sub: "Mapping real component names and types" },
+  { label: "Reconstructing the game…", sub: "Building a faithful replica of the original" },
+  { label: "Verifying accuracy…", sub: "Checking player counts, times, and rules" },
+];
+
 /* ── sub-components ──────────────────────────────────────────────────── */
 
 function DraggableGameCard({
@@ -114,6 +121,7 @@ function DraggableGameCard({
   onResearch,
   onReResearch,
   onReverseEngineer,
+  onClone,
   researching,
   canReverseEngineer,
 }: {
@@ -122,6 +130,7 @@ function DraggableGameCard({
   onResearch: (depth: string) => void;
   onReResearch: () => void;
   onReverseEngineer: (gameId: string) => void;
+  onClone: (gameId: string) => void;
   researching: boolean;
   canReverseEngineer: boolean;
 }) {
@@ -284,13 +293,25 @@ function DraggableGameCard({
             </button>
 
             {canReverseEngineer && (
-              <Button
-                size="sm" variant="outline"
-                className="gap-1.5 text-xs h-7 border-violet-500/30 text-violet-400 hover:bg-violet-500/10 ml-auto"
-                onClick={() => onReverseEngineer(game.id)}
-              >
-                <Wand2 className="h-3 w-3" /> Reverse engineer
-              </Button>
+              <div className="ml-auto flex items-center gap-1.5">
+                <Button
+                  size="sm" variant="outline"
+                  data-testid="card-clone-btn"
+                  className="gap-1.5 text-xs h-7 border-violet-500/30 text-violet-400 hover:bg-violet-500/10"
+                  onClick={() => onClone(game.id)}
+                  title="Faithfully reconstruct this exact game"
+                >
+                  <Copy className="h-3 w-3" /> Clone
+                </Button>
+                <Button
+                  size="sm" variant="outline"
+                  className="gap-1.5 text-xs h-7 border-violet-500/30 text-violet-400 hover:bg-violet-500/10"
+                  onClick={() => onReverseEngineer(game.id)}
+                  title="Synthesize an original game inspired by this one"
+                >
+                  <Wand2 className="h-3 w-3" /> Reverse engineer
+                </Button>
+              </div>
             )}
           </>
         )}
@@ -374,6 +395,7 @@ function ReverseEngineerDialog({
   projectId,
   workspaceSlug,
   preselectedGameId,
+  initialSynthType,
   onSuccess,
 }: {
   open: boolean;
@@ -382,34 +404,62 @@ function ReverseEngineerDialog({
   projectId: number;
   workspaceSlug?: string;
   preselectedGameId: string | null;
-  onSuccess: (result: { project: { name: string; slug?: string; id: number }; workspaceSlug?: string; mode: string }) => void;
+  initialSynthType?: "synthesize" | "clone";
+  onSuccess: (result: { project: { name: string; slug?: string; id: number }; workspaceSlug?: string; mode: string; synthType?: string }) => void;
 }) {
   const { toast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [cloneGameId, setCloneGameId] = useState<string>("");
   const [direction, setDirection] = useState("");
-  const [mode, setMode] = useState<"new_project" | "populate_current" | "clone_game">(workspaceSlug ? "new_project" : "populate_current");
+  const [mode, setMode] = useState<"new_project" | "populate_current">(workspaceSlug ? "new_project" : "populate_current");
+  const [synthType, setSynthType] = useState<"synthesize" | "clone">(initialSynthType ?? "synthesize");
   const [reversing, setReversing] = useState(false);
   const [stageIdx, setStageIdx] = useState(0);
 
   useEffect(() => {
     if (open) {
-      if (preselectedGameId && researched.some((g) => g.id === preselectedGameId)) {
-        setSelectedIds(new Set([preselectedGameId]));
+      const resolvedSynthType = initialSynthType ?? "synthesize";
+      setSynthType(resolvedSynthType);
+      if (resolvedSynthType === "clone") {
+        // Clone mode: pre-select the single game
+        const firstId = preselectedGameId && researched.some((g) => g.id === preselectedGameId)
+          ? preselectedGameId
+          : (researched[0]?.id ?? "");
+        setCloneGameId(firstId);
+        setSelectedIds(new Set(firstId ? [firstId] : []));
       } else {
-        setSelectedIds(new Set(researched.map((g) => g.id)));
+        if (preselectedGameId && researched.some((g) => g.id === preselectedGameId)) {
+          setSelectedIds(new Set([preselectedGameId]));
+        } else {
+          setSelectedIds(new Set(researched.map((g) => g.id)));
+        }
       }
       setDirection("");
       setMode(workspaceSlug ? "new_project" : "populate_current");
       setStageIdx(0);
     }
-  }, [open, researched, preselectedGameId, workspaceSlug]);
+  }, [open, researched, preselectedGameId, workspaceSlug, initialSynthType]);
+
+  // When switching synthType, reset selection
+  const handleSynthTypeChange = (next: "synthesize" | "clone") => {
+    setSynthType(next);
+    if (next === "clone") {
+      const firstId = cloneGameId || researched[0]?.id || "";
+      setCloneGameId(firstId);
+      setSelectedIds(new Set(firstId ? [firstId] : []));
+    } else {
+      setSelectedIds(new Set(researched.map((g) => g.id)));
+    }
+  };
+
+  const stages = synthType === "clone" ? CLONE_STAGES : REVERSE_STAGES;
 
   // Cycle through stage labels while reversing
   useEffect(() => {
     if (!reversing) { setStageIdx(0); return; }
-    const interval = setInterval(() => setStageIdx((i) => Math.min(i + 1, REVERSE_STAGES.length - 1)), 3500);
+    const interval = setInterval(() => setStageIdx((i) => Math.min(i + 1, stages.length - 1)), 3500);
     return () => clearInterval(interval);
-  }, [reversing]);
+  }, [reversing, stages.length]);
 
   const toggleAll = () => {
     if (selectedIds.size === researched.length) {
@@ -428,10 +478,25 @@ function ReverseEngineerDialog({
   };
 
   const selectedGames = researched.filter((g) => selectedIds.has(g.id));
+  // For clone mode, we send exactly one game (the cloneGameId selection)
+  const cloneGame = researched.find((g) => g.id === cloneGameId) ?? null;
 
   const run = async () => {
-    if (selectedGames.length === 0) {
+    if (synthType === "clone") {
+      if (!cloneGame) {
+        toast({ title: "Select a game to clone", variant: "destructive" });
+        return;
+      }
+    } else if (selectedGames.length === 0) {
       toast({ title: "Select at least one game", variant: "destructive" });
+      return;
+    }
+    const gamesToSend = synthType === "clone" ? [cloneGame!] : selectedGames;
+    // Clone mode always creates a new project
+    const effectiveMode = synthType === "clone" ? "new_project" : mode;
+    const effectiveWorkspaceSlug = synthType === "clone" ? (workspaceSlug ?? "") : workspaceSlug;
+    if (synthType === "clone" && !workspaceSlug) {
+      toast({ title: "Clone requires a workspace context", description: "Open this from a project page to enable cloning.", variant: "destructive" });
       return;
     }
     setReversing(true);
@@ -440,7 +505,7 @@ function ReverseEngineerDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ games: selectedGames, direction: direction.trim(), mode, workspaceSlug }),
+        body: JSON.stringify({ games: gamesToSend, direction: direction.trim(), mode: effectiveMode, workspaceSlug: effectiveWorkspaceSlug, synthType }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -456,15 +521,15 @@ function ReverseEngineerDialog({
     }
   };
 
-  const stage = REVERSE_STAGES[stageIdx]!;
-
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !reversing && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg flex flex-col max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5 text-violet-400" />
-            Reverse Engineer
+            {synthType === "clone"
+              ? <><Copy className="h-5 w-5 text-violet-400" /> Clone Game</>
+              : <><Wand2 className="h-5 w-5 text-violet-400" /> Reverse Engineer</>
+            }
             <span className="ml-auto text-[10px] font-normal bg-violet-500/10 border border-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">Powered by AI</span>
           </DialogTitle>
         </DialogHeader>
@@ -474,16 +539,18 @@ function ReverseEngineerDialog({
           <div className="py-10 flex flex-col items-center gap-6 text-center">
             <div className="relative">
               <div className="h-16 w-16 rounded-full bg-violet-500/10 flex items-center justify-center">
-                <Wand2 className="h-8 w-8 text-violet-400 animate-pulse" />
+                {synthType === "clone"
+                  ? <Copy className="h-8 w-8 text-violet-400 animate-pulse" />
+                  : <Wand2 className="h-8 w-8 text-violet-400 animate-pulse" />}
               </div>
               <div className="absolute inset-0 rounded-full border-2 border-violet-500/30 animate-spin border-t-violet-400" />
             </div>
             <div>
-              <p className="font-semibold text-base text-foreground">{stage.label}</p>
-              <p className="text-sm text-muted-foreground mt-1">{stage.sub}</p>
+              <p className="font-semibold text-base text-foreground">{stages[stageIdx]!.label}</p>
+              <p className="text-sm text-muted-foreground mt-1">{stages[stageIdx]!.sub}</p>
             </div>
             <div className="flex gap-1.5">
-              {REVERSE_STAGES.map((_, i) => (
+              {stages.map((_, i) => (
                 <div
                   key={i}
                   className={`h-1.5 w-8 rounded-full transition-colors ${i <= stageIdx ? "bg-violet-400" : "bg-muted"}`}
@@ -492,60 +559,78 @@ function ReverseEngineerDialog({
             </div>
           </div>
         ) : (
-          <div className="space-y-5 py-2">
-            {/* Output mode toggle */}
+          <div className="space-y-5 py-2 overflow-y-auto flex-1">
+            {/* Synthesize vs Clone mode toggle */}
             <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Output</Label>
-              <div className={`grid gap-2 ${workspaceSlug ? "grid-cols-3" : "grid-cols-2"}`}>
-                {workspaceSlug && (
-                  <button
-                    type="button"
-                    onClick={() => setMode("new_project")}
-                    className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${mode === "new_project" ? "border-violet-500/60 bg-violet-500/10 text-violet-200" : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"}`}
-                  >
-                    <p className="text-xs font-semibold">New project</p>
-                    <p className="text-[10px] mt-0.5 opacity-70">Synthesize an original game inspired by these</p>
-                  </button>
-                )}
-                {workspaceSlug && (
-                  <button
-                    type="button"
-                    onClick={() => setMode("clone_game")}
-                    className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${mode === "clone_game" ? "border-amber-500/60 bg-amber-500/10 text-amber-200" : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"}`}
-                    data-testid="re-mode-clone"
-                  >
-                    <p className="text-xs font-semibold flex items-center gap-1">
-                      <span>🎯</span> Clone game
-                    </p>
-                    <p className="text-[10px] mt-0.5 opacity-70">Faithful reproduction of the selected game(s)</p>
-                  </button>
-                )}
+              <Label className="text-sm font-semibold">Mode</Label>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setMode("populate_current")}
-                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${mode === "populate_current" ? "border-violet-500/60 bg-violet-500/10 text-violet-200" : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"} ${!workspaceSlug ? "col-span-2" : ""}`}
+                  data-testid="mode-synthesize"
+                  onClick={() => handleSynthTypeChange("synthesize")}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${synthType === "synthesize" ? "border-violet-500/60 bg-violet-500/10 text-violet-200" : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"}`}
                 >
-                  <p className="text-xs font-semibold">Enrich current project</p>
-                  <p className="text-[10px] mt-0.5 opacity-70">Add components, rules &amp; players to this project</p>
+                  <p className="text-xs font-semibold flex items-center gap-1.5"><Wand2 className="h-3 w-3" /> Synthesize</p>
+                  <p className="text-[10px] mt-0.5 opacity-70">Original game inspired by your references</p>
+                </button>
+                <button
+                  type="button"
+                  data-testid="mode-clone"
+                  onClick={() => handleSynthTypeChange("clone")}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${synthType === "clone" ? "border-violet-500/60 bg-violet-500/10 text-violet-200" : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"}`}
+                >
+                  <p className="text-xs font-semibold flex items-center gap-1.5"><Copy className="h-3 w-3" /> Clone</p>
+                  <p className="text-[10px] mt-0.5 opacity-70">Faithful reconstruction of the exact game</p>
                 </button>
               </div>
-              {mode === "clone_game" && (
+              {synthType === "clone" && (
                 <p className="text-[10px] text-amber-400/80 flex items-center gap-1 mt-1">
                   ⚡ Clone mode uses a faithful-reproduction prompt — AI will preserve original names, mechanics, and rules.
                 </p>
               )}
             </div>
 
+            {/* Output mode toggle — only for synthesize mode */}
+            {synthType === "synthesize" && (
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">Output</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {workspaceSlug && (
+                    <button
+                      type="button"
+                      onClick={() => setMode("new_project")}
+                      className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${mode === "new_project" ? "border-violet-500/60 bg-violet-500/10 text-violet-200" : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"}`}
+                    >
+                      <p className="text-xs font-semibold">New project</p>
+                      <p className="text-[10px] mt-0.5 opacity-70">Create a brand-new project in this workspace</p>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setMode("populate_current")}
+                    className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${mode === "populate_current" ? "border-violet-500/60 bg-violet-500/10 text-violet-200" : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"} ${!workspaceSlug ? "col-span-2" : ""}`}
+                  >
+                    <p className="text-xs font-semibold">Enrich current project</p>
+                    <p className="text-[10px] mt-0.5 opacity-70">Add components, rules &amp; players to this project</p>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Game selection */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">Synthesize from</Label>
-                <button
-                  onClick={toggleAll}
-                  className="text-xs text-primary hover:underline"
-                >
-                  {selectedIds.size === researched.length ? "Deselect all" : "Select all"}
-                </button>
+                <Label className="text-sm font-semibold">
+                  {synthType === "clone" ? "Game to clone" : "Synthesize from"}
+                </Label>
+                {synthType === "synthesize" && (
+                  <button
+                    onClick={toggleAll}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    {selectedIds.size === researched.length ? "Deselect all" : "Select all"}
+                  </button>
+                )}
               </div>
               <div className="rounded-lg border border-border divide-y divide-border max-h-48 overflow-y-auto">
                 {researched.map((g) => (
@@ -553,10 +638,20 @@ function ReverseEngineerDialog({
                     key={g.id}
                     className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
                   >
-                    <Checkbox
-                      checked={selectedIds.has(g.id)}
-                      onCheckedChange={() => toggleGame(g.id)}
-                    />
+                    {synthType === "clone" ? (
+                      <input
+                        type="radio"
+                        name="clone-game"
+                        checked={cloneGameId === g.id}
+                        onChange={() => setCloneGameId(g.id)}
+                        className="accent-violet-400"
+                      />
+                    ) : (
+                      <Checkbox
+                        checked={selectedIds.has(g.id)}
+                        onCheckedChange={() => toggleGame(g.id)}
+                      />
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{g.name}</p>
                       {g.gameData?.keyMechanics?.length ? (
@@ -568,20 +663,30 @@ function ReverseEngineerDialog({
                   </label>
                 ))}
               </div>
-              {selectedGames.length === 0 && (
+              {synthType === "synthesize" && selectedGames.length === 0 && (
                 <p className="text-xs text-destructive flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" /> Select at least one game
                 </p>
               )}
+              {synthType === "clone" && !cloneGameId && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> Select a game to clone
+                </p>
+              )}
             </div>
 
-            {/* Designer direction */}
+            {/* Designer direction / clone notes */}
             <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Direction <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Label className="text-sm font-semibold">
+                {synthType === "clone" ? "Modifier notes" : "Direction"}{" "}
+                <span className="font-normal text-muted-foreground">(optional)</span>
+              </Label>
               <Textarea
                 value={direction}
                 onChange={(e) => setDirection(e.target.value)}
-                placeholder="e.g. 'Focus on asymmetric player powers', 'Make it 30 minutes, family-friendly', 'Lean into the trading mechanic'"
+                placeholder={synthType === "clone"
+                  ? "e.g. 'Include all official expansions', 'Focus on the base game only', 'Add a note about the revised 2nd edition rules'"
+                  : "e.g. 'Focus on asymmetric player powers', 'Make it 30 minutes, family-friendly', 'Lean into the trading mechanic'"}
                 className="text-sm min-h-[72px] resize-none"
                 maxLength={400}
               />
@@ -593,9 +698,15 @@ function ReverseEngineerDialog({
             {/* Info notice */}
             <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-violet-200">
               <p className="font-semibold mb-1">How it works</p>
-              <p className="text-violet-200/70">
-                The AI studies the design DNA of your selected games — their mechanics, structure, and core loops — then synthesizes an original game that combines their strongest patterns in a fresh way.
-              </p>
+              {synthType === "clone" ? (
+                <p className="text-violet-200/70">
+                  The AI faithfully reconstructs the selected game using its real component names, official rules text, and accurate player counts and play times — so you can study or modify the exact game.
+                </p>
+              ) : (
+                <p className="text-violet-200/70">
+                  The AI studies the design DNA of your selected games — their mechanics, structure, and core loops — then synthesizes an original game that combines their strongest patterns in a fresh way.
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -606,11 +717,12 @@ function ReverseEngineerDialog({
             <Button
               className="gap-2 bg-violet-600 hover:bg-violet-700"
               onClick={run}
-              disabled={selectedGames.length === 0}
+              disabled={synthType === "clone" ? !cloneGameId : selectedGames.length === 0}
             >
-              <Wand2 className="h-4 w-4" />
-              Reverse Engineer
-              <ArrowRight className="h-4 w-4" />
+              {synthType === "clone"
+                ? <><Copy className="h-4 w-4" /> Clone Game <ArrowRight className="h-4 w-4" /></>
+                : <><Wand2 className="h-4 w-4" /> Reverse Engineer <ArrowRight className="h-4 w-4" /></>
+              }
             </Button>
           </DialogFooter>
         )}
@@ -652,6 +764,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
   const [lookingUp, setLookingUp] = useState<string | null>(null);
   const [showReverseDialog, setShowReverseDialog] = useState(false);
   const [preselectedGameId, setPreselectedGameId] = useState<string | null>(null);
+  const [dialogSynthType, setDialogSynthType] = useState<"synthesize" | "clone">("synthesize");
   const [findingSimilar, setFindingSimilar] = useState(false);
   const [similarGames, setSimilarGames] = useState<string[]>([]);
   const [showSimilarDialog, setShowSimilarDialog] = useState(false);
@@ -806,7 +919,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
               size="sm"
               variant="outline"
               className="gap-1.5 shrink-0 border-violet-500/30 text-violet-400 hover:bg-violet-500/10"
-              onClick={() => { setPreselectedGameId(null); setShowReverseDialog(true); }}
+              onClick={() => { setDialogSynthType("synthesize"); setPreselectedGameId(null); setShowReverseDialog(true); }}
             >
               <Wand2 className="h-3.5 w-3.5" />
               Reverse Engineer all
@@ -864,7 +977,8 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
               onRemove={() => removeGame(rg.id)}
               onResearch={(depth) => lookUpGame(rg.id, depth)}
               onReResearch={() => lookUpGame(rg.id, undefined, true)}
-              onReverseEngineer={(gid) => { setPreselectedGameId(gid); setShowReverseDialog(true); }}
+              onReverseEngineer={(gid) => { setDialogSynthType("synthesize"); setPreselectedGameId(gid); setShowReverseDialog(true); }}
+              onClone={(gid) => { setDialogSynthType("clone"); setPreselectedGameId(gid); setShowReverseDialog(true); }}
               researching={lookingUp === rg.id}
               canReverseEngineer={Boolean(workspaceSlug && rg.gameData)}
             />
@@ -884,7 +998,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
         </button>
       )}
 
-      {/* Full reverse engineer dialog */}
+      {/* Full reverse engineer / clone dialog */}
       <ReverseEngineerDialog
         open={showReverseDialog}
         onClose={() => setShowReverseDialog(false)}
@@ -892,19 +1006,25 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
         projectId={projectId}
         workspaceSlug={workspaceSlug}
         preselectedGameId={preselectedGameId}
+        initialSynthType={dialogSynthType}
         onSuccess={(result) => {
-          const isClone = result.mode === "clone_game";
+          const isClone = result.synthType === "clone";
           if (result.workspaceSlug) {
             toast({
               title: isClone ? "Game cloned!" : "Game reverse engineered!",
               description: isClone
-                ? `${result.project.name} faithfully reproduced with original components and rules`
+                ? `${result.project.name} has been faithfully reconstructed with all real components and rules.`
                 : `${result.project.name} recreated with all components and rules`,
             });
             setLocation(`/${result.workspaceSlug}/${result.project.slug ?? result.project.id}`);
           } else {
             qc.invalidateQueries();
-            toast({ title: "Game reverse engineered!", description: "All components and rules have been recreated." });
+            toast({
+              title: isClone ? "Game cloned!" : "Game reverse engineered!",
+              description: isClone
+                ? "All real components and rules have been reconstructed."
+                : "All components and rules have been recreated.",
+            });
           }
         }}
       />

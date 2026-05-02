@@ -641,6 +641,53 @@ function buildReversePrompt(
   ].filter(Boolean).join("\n");
 }
 
+function buildClonePrompt(
+  sourceGame: ReverseGameInput,
+  notes: string,
+): string {
+  const lines = [`Game: ${sourceGame.name}`];
+  if (sourceGame.gameData?.overview) lines.push(`Overview: ${sourceGame.gameData.overview}`);
+  if (sourceGame.gameData?.coreLoop) lines.push(`Core loop: ${sourceGame.gameData.coreLoop}`);
+  if (sourceGame.gameData?.keyMechanics?.length) lines.push(`Key mechanics: ${sourceGame.gameData.keyMechanics.join(", ")}`);
+  if (sourceGame.gameData?.playerCount) lines.push(`Player count: ${sourceGame.gameData.playerCount}`);
+  if (sourceGame.gameData?.playTime) lines.push(`Play time: ${sourceGame.gameData.playTime}`);
+  if (sourceGame.gameData?.complexity) lines.push(`Complexity: ${sourceGame.gameData.complexity}`);
+  if (sourceGame.gameData?.designStrengths?.length) lines.push(`Design strengths: ${sourceGame.gameData.designStrengths.join(", ")}`);
+  if (sourceGame.gameData?.designLessons) lines.push(`Designer notes: ${sourceGame.gameData.designLessons}`);
+  const gameBlock = lines.join("\n");
+
+  return [
+    "You are a world-class tabletop game designer and rules encyclopaedia.",
+    "Your task is to faithfully reconstruct the published board game described below as a structured project.",
+    "Use the game's REAL name, REAL component names, OFFICIAL rules text, and ACCURATE player counts and play times.",
+    "Do NOT invent a new game — reproduce the actual game as accurately as possible.",
+    "",
+    gameBlock,
+    "",
+    notes ? `Modifier notes from the user: ${notes}` : "",
+    "",
+    "Output ONLY a valid JSON object with this exact shape (no markdown, no commentary).",
+    "Infer the correct entity type from the component's real-world function: boards → Board, playing cards → Card, resource cubes/discs → Token, player figurines → Meeple, hex/square tiles → Tile, dice → Die, terrain areas → Zone, named map locations → Location, player factions → Faction, event cards → Event, resource types → Resource, special abilities → Ability.",
+    `{
+  "name": "string — the exact published title of the game",
+  "description": "string — accurate 2-3 sentence summary of what the game is and how it plays",
+  "gameType": "Strategy|Party|Cooperative|Deck-builder|Roll-and-Write|Worker-Placement|Tile-Laying|Trick-Taking|Social-Deduction|Dexterity|Other",
+  "genre": "Fantasy|Sci-fi|Modern|Historical|Abstract|Horror|Western|Space|Medieval|Other",
+  "playerCount": "e.g. 2-5 (official range from the box)",
+  "targetDuration": "e.g. 45-75 minutes (official time from the box)",
+  "complexityScore": 1-10,
+  "blueprint": "string — 4-6 paragraphs covering the actual core loop, turn structure, win condition, player interaction, and component overview of the real game",
+  "entities": [{ "name": "string — real component name from the game", "type": "Card|Deck|Token|Meeple|Die|Tile|Board|Zone|Location|Faction|Event|Resource|Ability", "description": "string — what this component actually does in the game (1-2 sentences)" }],
+  "rules": [{ "title": "string — official rule name or section", "category": "Setup|Turn|Action|Scoring|Endgame|Special", "content": "string — accurate, actionable rule text (1-3 sentences)" }],
+  "players": [{ "name": "string — official role/faction/player name", "role": "string", "description": "string — what this role actually does in the game (1-2 sentences)" }],
+  "notes": [{ "title": "string", "content": "string — designer insight, FAQ clarification, or notable strategy note about the real game" }]
+}`,
+    "",
+    "Aim for: 8-12 entities covering all major component types, 10-14 rules covering all core phases, all official player roles/factions, 3-4 designer notes.",
+    "Prioritise accuracy over brevity — every rule should be immediately playable.",
+  ].filter(Boolean).join("\n");
+}
+
 router.post(
   "/projects/:projectId/reverse-engineer",
   async (req, res): Promise<void> => {
@@ -650,11 +697,12 @@ router.post(
       return;
     }
 
-    const { games, direction = "", mode = "new_project", workspaceSlug } = req.body as {
+    const { games, direction = "", mode = "new_project", workspaceSlug, synthType = "synthesize" } = req.body as {
       games?: ReverseGameInput[];
       direction?: string;
       mode?: "new_project" | "populate_current" | "clone_game";
       workspaceSlug?: string;
+      synthType?: "synthesize" | "clone";
     };
 
     if (!Array.isArray(games) || games.length === 0) {
@@ -667,12 +715,23 @@ router.post(
       return;
     }
 
+    // Clone mode always requires exactly one game and always creates a new project
+    if (synthType === "clone" && games.length === 0) {
+      res.status(400).json({ error: "Clone mode requires a game to clone" });
+      return;
+    }
+
+    const isClone = synthType === "clone";
+    const prompt = isClone
+      ? buildClonePrompt(games[0]!, direction)
+      : buildReversePrompt(games, direction, mode);
+
     let raw: string;
     try {
       raw = await completeWithKimi(req, {
-        system: "You are a world-class senior tabletop game designer. Output only valid JSON, never prose or markdown.",
-        prompt: buildReversePrompt(games, direction, mode),
-        maxTokens: 10000,
+        system: "You are a world-class senior tabletop game designer and rules encyclopaedia. Output only valid JSON, never prose or markdown.",
+        prompt,
+        maxTokens: 12000,
       });
     } catch (err) {
       req.log.error({ err }, "reverse-engineer kimi failed");
@@ -706,13 +765,13 @@ router.post(
           await insertReverseComponents(tx, projectId, parsed);
         });
 
-        await logChange(req, projectId, "update", `Reverse-engineered from: ${games.map((g) => g.name).join(", ")}`, {
+        await logChange(req, projectId, "update", `${isClone ? "Cloned" : "Reverse-engineered"} from: ${games.map((g) => g.name).join(", ")}`, {
           entityKind: "project",
           entityRef: String(projectId),
         });
 
         const [proj] = await db.select().from(projects).where(eq(projects.id, projectId));
-        res.json({ project: proj, mode: "populate_current" });
+        res.json({ project: proj, mode: "populate_current", synthType });
         return;
       }
 
@@ -723,7 +782,10 @@ router.post(
         return;
       }
 
-      const gameName = parsed.name?.trim() || `${games[0]!.name} Reimagined`;
+      // Clone mode: always name the project after the real source game; synthesize mode: use AI-generated name
+      const gameName = isClone
+        ? (games[0]!.name.trim() || parsed.name?.trim() || "Cloned Game")
+        : (parsed.name?.trim() || `${games[0]!.name} Reimagined`);
 
       let newProject: typeof projects.$inferSelect | undefined;
       newProject = await db.transaction(async (tx) => {
@@ -758,7 +820,7 @@ router.post(
         return inserted;
       });
 
-      res.status(201).json({ project: newProject, workspaceSlug: ws.slug, mode });
+      res.status(201).json({ project: newProject, workspaceSlug: ws.slug, mode: "new_project", synthType });
     } catch (err) {
       req.log.error({ err }, "reverse-engineer save failed");
       res.status(500).json({ error: "Could not save generated project" });
