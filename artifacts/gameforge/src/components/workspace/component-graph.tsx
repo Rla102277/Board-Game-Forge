@@ -265,6 +265,24 @@ const ASSET_KIND_HEX: Record<string, string> = {
   other:    "#6b7280",
 };
 
+// Hop-distance colors for multi-hop path highlighting (#65).
+// Index 0 = focused node (handled by isFocused), 1..N = hop distance.
+const HOP_COLORS: Record<number, string> = {
+  1: "hsl(var(--primary))",
+  2: "#f59e0b",
+  3: "#34d399",
+};
+function hopColor(hop: number): string {
+  return HOP_COLORS[hop] ?? "#94a3b8";
+}
+// Fill opacity scales down with hop distance so far-away nodes look lighter.
+function hopFillOpacity(hop: number): number {
+  if (hop <= 1) return 0.85;
+  if (hop === 2) return 0.60;
+  if (hop === 3) return 0.40;
+  return 0.25;
+}
+
 function assetKindHex(kind: string): string {
   return ASSET_KIND_HEX[kind] ?? ASSET_KIND_HEX.other;
 }
@@ -529,29 +547,27 @@ export function EntityGraph({
     return map;
   }, [renderedPreFilterEdges]);
 
-  // BFS tree edge-set for path highlighting (#65) — only active when neighbor filter is on.
-  const pathEdgeSet = useMemo(() => {
-    if (!showNeighborsOnly || !focusedNodeId) return new Set<string>();
-    const edgeKey = (a: number, b: number) => `${Math.min(a, b)}-${Math.max(a, b)}`;
-    const set = new Set<string>();
-    const visited = new Set<number>([focusedNodeId]);
+  // BFS hop-distance map (#65) — node id → hop distance from focused node.
+  // Only populated when neighbor filter is on. Hop 0 = focused, 1 = direct neighbor, etc.
+  const hopNodeMap = useMemo(() => {
+    if (!showNeighborsOnly || !focusedNodeId) return new Map<number, number>();
+    const map = new Map<number, number>();
+    map.set(focusedNodeId, 0);
     let frontier = new Set<number>([focusedNodeId]);
-    outer: for (let hop = 0; hop < neighborDepth; hop++) {
+    for (let hop = 1; hop <= neighborDepth; hop++) {
       const next = new Set<number>();
       for (const nodeId of frontier) {
         for (const neighborId of (adjacencyMap.get(nodeId) ?? [])) {
-          if (!visited.has(neighborId)) {
-            if (visited.size >= GRAPH_NODE_CAP) break outer;
-            visited.add(neighborId);
+          if (!map.has(neighborId)) {
+            map.set(neighborId, hop);
             next.add(neighborId);
-            set.add(edgeKey(nodeId, neighborId));
           }
         }
       }
       frontier = next;
       if (frontier.size === 0) break;
     }
-    return set;
+    return map;
   }, [showNeighborsOnly, focusedNodeId, neighborDepth, adjacencyMap]);
 
   // Apply neighbor filter — BFS up to neighborDepth hops, capped at GRAPH_NODE_CAP.
@@ -1189,15 +1205,19 @@ export function EntityGraph({
                   const b = nodeById.get(e.b);
                   if (!a || !b) return null;
                   const muted = hoverId != null && hoverId !== e.a && hoverId !== e.b;
-                  const onPath = pathEdgeSet.has(`${Math.min(e.a, e.b)}-${Math.max(e.a, e.b)}`);
+                  const haA = hopNodeMap.get(e.a);
+                  const haB = hopNodeMap.get(e.b);
+                  const edgeHop = (haA != null && haB != null) ? Math.max(haA, haB) : null;
+                  const color = edgeHop != null ? hopColor(edgeHop) : "currentColor";
+                  const opacity = edgeHop != null ? (0.9 - edgeHop * 0.12) : (muted ? 0.05 : 0.25);
                   return (
                     <line key={`i${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                      stroke={onPath ? "hsl(var(--primary))" : "currentColor"}
-                      strokeOpacity={onPath ? 0.85 : muted ? 0.05 : 0.25}
-                      strokeWidth={onPath ? 2 : Math.min(3, 1 + Math.log2(e.weight))}
-                      strokeDasharray={onPath ? undefined : "4 3"}
-                      className={onPath ? undefined : "text-foreground"}>
-                      <title>{a.name} ↔ {b.name} (co-occur in {e.weight} rules)</title>
+                      stroke={color}
+                      strokeOpacity={Math.max(0.15, opacity)}
+                      strokeWidth={edgeHop != null ? (edgeHop <= 1 ? 2 : 1.5) : Math.min(3, 1 + Math.log2(e.weight))}
+                      strokeDasharray={edgeHop != null ? undefined : "4 3"}
+                      className={edgeHop != null ? undefined : "text-foreground"}>
+                      <title>{a.name} ↔ {b.name} (co-occur in {e.weight} rules{edgeHop != null ? `, hop ${edgeHop}` : ""})</title>
                     </line>
                   );
                 })}
@@ -1206,14 +1226,18 @@ export function EntityGraph({
                   const b = nodeById.get(e.b);
                   if (!a || !b) return null;
                   const muted = hoverId != null && hoverId !== e.a && hoverId !== e.b;
-                  const onPath = pathEdgeSet.has(`${Math.min(e.a, e.b)}-${Math.max(e.a, e.b)}`);
+                  const haA = hopNodeMap.get(e.a);
+                  const haB = hopNodeMap.get(e.b);
+                  const edgeHop = (haA != null && haB != null) ? Math.max(haA, haB) : null;
+                  const color = edgeHop != null ? hopColor(edgeHop) : "currentColor";
+                  const opacity = edgeHop != null ? (0.95 - edgeHop * 0.12) : (muted ? 0.08 : 0.55);
                   return (
                     <line key={`e${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                      stroke={onPath ? "hsl(var(--primary))" : "currentColor"}
-                      strokeOpacity={onPath ? 0.9 : muted ? 0.08 : 0.55}
-                      strokeWidth={onPath ? 2.5 : 1.4}
-                      className={onPath ? undefined : "text-foreground"}>
-                      <title>{a.name} → {b.name} (explicit)</title>
+                      stroke={color}
+                      strokeOpacity={Math.max(0.15, opacity)}
+                      strokeWidth={edgeHop != null ? (edgeHop <= 1 ? 2.5 : 1.8) : 1.4}
+                      className={edgeHop != null ? undefined : "text-foreground"}>
+                      <title>{a.name} → {b.name} (explicit{edgeHop != null ? `, hop ${edgeHop}` : ""})</title>
                     </line>
                   );
                 })}
@@ -1263,6 +1287,11 @@ export function EntityGraph({
                   const isDragging = draggingId === n.id;
                   const dim = hoverId != null && !isHover && !isAdj && !isDragging;
                   const entity = entityById.get(n.id);
+                  const nodeHop = hopNodeMap.get(n.id);
+                  const hasHopMode = hopNodeMap.size > 0;
+                  const baseFillOpacity = hasHopMode && nodeHop != null
+                    ? hopFillOpacity(nodeHop)
+                    : (dim ? 0.2 : 0.85);
                   return (
                     <g key={n.id} transform={`translate(${n.x},${n.y})`}
                       onMouseEnter={() => !dragRef.current && setHoverId(n.id)}
@@ -1272,7 +1301,7 @@ export function EntityGraph({
                       style={{ cursor: isDragging ? "grabbing" : "grab" }}
                       data-testid={`graph-node-${n.id}`}>
                       <circle r={n.r + (isHover || isDragging ? 3 : 0)} fill={typeHex(n.type)}
-                        fillOpacity={dim ? 0.2 : 0.85} stroke="currentColor"
+                        fillOpacity={baseFillOpacity} stroke="currentColor"
                         strokeOpacity={isFocused ? 1 : isHover || isDragging ? 0.9 : 0.4}
                         strokeWidth={isFocused ? 2.5 : isHover || isDragging ? 2 : 1}
                         className="text-foreground" />
@@ -1280,6 +1309,13 @@ export function EntityGraph({
                         <circle r={n.r + 6} fill="none" stroke="currentColor"
                           strokeOpacity={0.4} strokeWidth={1} strokeDasharray="3 2"
                           className="text-primary" />
+                      )}
+                      {hasHopMode && !isFocused && nodeHop != null && nodeHop > 0 && (
+                        <circle r={n.r + (isHover || isDragging ? 5 : 4)} fill="none"
+                          stroke={hopColor(nodeHop)}
+                          strokeOpacity={isHover ? 0.9 : 0.65}
+                          strokeWidth={nodeHop === 1 ? 1.8 : 1.2}
+                          strokeDasharray={nodeHop === 1 ? undefined : "3 2"} />
                       )}
                       {(alwaysShowLabels || fewNodes || isHover || isAdj || isDragging || isFocused) && (() => {
                         const lp = labelPositions.get(n.id);
@@ -1350,6 +1386,44 @@ export function EntityGraph({
             </div>
           ))}
         </div>
+
+        {/* ── Hop-distance legend — shown when neighbor mode is active ── */}
+        {hopNodeMap.size > 0 && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border border-border/50 bg-background/30 px-3 py-2" data-testid="graph-hop-legend">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Hop distance</span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <svg width="16" height="16" viewBox="0 0 16 16">
+                <circle cx="8" cy="8" r="5" fill="hsl(var(--primary))" fillOpacity={0.85} />
+                <circle cx="8" cy="8" r="7" fill="none" stroke="hsl(var(--primary))" strokeOpacity={0.4} strokeWidth={1} strokeDasharray="3 2" />
+              </svg>
+              <span className="text-muted-foreground">Focused (origin)</span>
+            </span>
+            {([1, 2, 3] as const).map((hop) => (
+              <span key={hop} className="flex items-center gap-1.5 text-xs">
+                <svg width="16" height="16" viewBox="0 0 16 16">
+                  <circle cx="8" cy="8" r="4" fill="currentColor" fillOpacity={hopFillOpacity(hop)} className="text-foreground" />
+                  <circle cx="8" cy="8" r="6.5" fill="none"
+                    stroke={hopColor(hop)} strokeOpacity={0.65}
+                    strokeWidth={hop === 1 ? 1.8 : 1.2}
+                    strokeDasharray={hop === 1 ? undefined : "3 2"} />
+                </svg>
+                <span className="text-muted-foreground">Hop {hop}{hop === 3 ? "+" : ""}</span>
+              </span>
+            ))}
+            <span className="flex items-center gap-1.5 text-xs ml-2 pl-2 border-l border-border/50">
+              <span className="inline-block w-5 h-px" style={{ backgroundColor: hopColor(1), opacity: 0.9 }} />
+              <span className="text-muted-foreground/70 text-[10px]">hop-1 edge</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <span className="inline-block w-5 h-px" style={{ backgroundColor: hopColor(2), opacity: 0.8 }} />
+              <span className="text-muted-foreground/70 text-[10px]">hop-2 edge</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <span className="inline-block w-5 h-px" style={{ backgroundColor: hopColor(3), opacity: 0.7 }} />
+              <span className="text-muted-foreground/70 text-[10px]">hop-3 edge</span>
+            </span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
