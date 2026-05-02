@@ -29,6 +29,7 @@ import {
   ImageIcon, AlertTriangle, AlertCircle, Eye, Send, Calendar, UserPlus,
   Settings, LayoutDashboard, Pencil, Loader2, Check,
   Gauge, TrendingUp, ArrowRight, FlaskConical, ShieldAlert,
+  ListChecks, Circle, Rocket, ChevronUp, ChevronDown,
 } from "lucide-react";
 
 interface OverviewProps {
@@ -387,6 +388,354 @@ function GameStatusWidget({
   );
 }
 
+/* ─── Phase Guide ─────────────────────────────────────────────────────────── */
+
+interface PhaseMetrics {
+  experimentalRules: number;
+  importedRules: number;
+  balanceScore: number | null;
+  playtestTotal: number;
+  entityPct: number;
+  entityTotal: number;
+  blockerCount: number;
+  ruleTotal: number;
+  playerTotal: number;
+  hasPitch: boolean;
+  hasPlayerCount: boolean;
+  hasNarrative: boolean;
+}
+
+interface PhaseGuideItem {
+  key: string;
+  label: string;
+  hint?: string;
+  metric?: (m: PhaseMetrics) => boolean;
+}
+
+const PHASE_GUIDE_DATA: Record<string, {
+  thisWeek: { key: string; label: string }[];
+  thisMonth: { key: string; label: string }[];
+  nextPhaseChecklist: PhaseGuideItem[];
+  nextPhaseValue: string | null;
+  nextPhaseLabel: string;
+}> = {
+  concept: {
+    thisWeek: [
+      { key: "w1", label: "Write your core premise (1-sentence elevator pitch)" },
+      { key: "w2", label: "Pick 2–3 reference games to study" },
+      { key: "w3", label: "Sketch the core player loop on paper" },
+    ],
+    thisMonth: [
+      { key: "m1", label: "Define target player count and session duration" },
+      { key: "m2", label: "Draft 5+ mechanics or rules" },
+      { key: "m3", label: "Build a rough paper prototype" },
+    ],
+    nextPhaseChecklist: [
+      { key: "c1", label: "Elevator pitch written", metric: (m) => m.hasPitch },
+      { key: "c2", label: "Player count defined", metric: (m) => m.hasPlayerCount },
+      { key: "c3", label: "At least 1 reference game added", hint: "Add in Research tab" },
+      { key: "c4", label: "Core loop described", metric: (m) => m.hasNarrative },
+    ],
+    nextPhaseValue: "prototype",
+    nextPhaseLabel: "Prototype",
+  },
+  prototype: {
+    thisWeek: [
+      { key: "w1", label: "Complete one full solo playthrough" },
+      { key: "w2", label: "Write 5+ core rules" },
+      { key: "w3", label: "Define at least 3 component types" },
+    ],
+    thisMonth: [
+      { key: "m1", label: "3+ playtest sessions logged" },
+      { key: "m2", label: "All player roles defined" },
+      { key: "m3", label: "Core rules written and roughly stable" },
+    ],
+    nextPhaseChecklist: [
+      { key: "c1", label: "5+ rules written", metric: (m) => m.ruleTotal >= 5 },
+      { key: "c2", label: "At least 1 entity defined", metric: (m) => m.entityTotal >= 1 },
+      { key: "c3", label: "At least 1 player role defined", metric: (m) => m.playerTotal >= 1 },
+      { key: "c4", label: "1+ playtest completed", metric: (m) => m.playtestTotal >= 1 },
+    ],
+    nextPhaseValue: "alpha",
+    nextPhaseLabel: "Alpha",
+  },
+  alpha: {
+    thisWeek: [
+      { key: "w1", label: "Playtest with 2+ groups" },
+      { key: "w2", label: "Resolve 1 design blocker" },
+      { key: "w3", label: "Check balance score" },
+    ],
+    thisMonth: [
+      { key: "m1", label: "5+ playtest sessions logged" },
+      { key: "m2", label: "All experimental rules tested and resolved" },
+      { key: "m3", label: "Move towards Beta" },
+    ],
+    nextPhaseChecklist: [
+      { key: "c1", label: "Core loop fun (player feedback > 6/10)" },
+      { key: "c2", label: "All rules stable (0 experimental, 0 placeholders)", metric: (m) => m.experimentalRules === 0 && m.importedRules === 0 },
+      { key: "c3", label: "Balance score 70+/100", hint: "Run balance check in Ontology tab", metric: (m) => m.balanceScore !== null && m.balanceScore >= 70 },
+      { key: "c4", label: "3+ playtest sessions completed", metric: (m) => m.playtestTotal >= 3 },
+      { key: "c5", label: "Components mostly named (80%+)", metric: (m) => m.entityPct >= 80 },
+    ],
+    nextPhaseValue: "beta",
+    nextPhaseLabel: "Beta",
+  },
+  beta: {
+    thisWeek: [
+      { key: "w1", label: "Run a blind playtest (no you explaining rules)" },
+      { key: "w2", label: "Document edge cases and rule ambiguities" },
+      { key: "w3", label: "Polish all rule text for clarity" },
+    ],
+    thisMonth: [
+      { key: "m1", label: "3+ blind tests completed" },
+      { key: "m2", label: "All components named and fully defined" },
+      { key: "m3", label: "Final balance review across all entity classes" },
+    ],
+    nextPhaseChecklist: [
+      { key: "c1", label: "All rules stable (0 experimental, 0 placeholders)", metric: (m) => m.experimentalRules === 0 && m.importedRules === 0 },
+      { key: "c2", label: "Balance score 80+/100", metric: (m) => m.balanceScore !== null && m.balanceScore >= 80 },
+      { key: "c3", label: "5+ playtest sessions completed", metric: (m) => m.playtestTotal >= 5 },
+      { key: "c4", label: "All components fully defined (95%+)", metric: (m) => m.entityPct >= 95 },
+      { key: "c5", label: "0 critical design blockers", metric: (m) => m.blockerCount === 0 },
+    ],
+    nextPhaseValue: "rc",
+    nextPhaseLabel: "Release Candidate",
+  },
+  rc: {
+    thisWeek: [
+      { key: "w1", label: "Review print specifications" },
+      { key: "w2", label: "Final rulebook proofreading" },
+      { key: "w3", label: "Verify component counts and types" },
+    ],
+    thisMonth: [
+      { key: "m1", label: "Publisher submission materials ready" },
+      { key: "m2", label: "All art and layout complete" },
+      { key: "m3", label: "Rulebook signed off by external testers" },
+    ],
+    nextPhaseChecklist: [
+      { key: "c1", label: "Balance score 90+/100", metric: (m) => m.balanceScore !== null && m.balanceScore >= 90 },
+      { key: "c2", label: "0 critical design blockers", metric: (m) => m.blockerCount === 0 },
+      { key: "c3", label: "0 unstable or placeholder rules", metric: (m) => m.experimentalRules === 0 && m.importedRules === 0 },
+      { key: "c4", label: "All entities fully defined (100%)", metric: (m) => m.entityPct >= 100 },
+      { key: "c5", label: "Signed off by 3+ external playtesters" },
+    ],
+    nextPhaseValue: null,
+    nextPhaseLabel: "Launch",
+  },
+};
+
+function PhaseGuide({
+  projectId, phase, metrics, onAdvancePhase,
+}: {
+  projectId: number;
+  phase: string;
+  metrics: PhaseMetrics;
+  onAdvancePhase: (nextPhase: string) => void;
+}) {
+  const storageKey = `gameforge:phase-guide:${projectId}:${phase}`;
+
+  const [checked, setChecked] = useState<Record<string, boolean>>(() => {
+    try { const raw = localStorage.getItem(storageKey); return raw ? JSON.parse(raw) : {}; }
+    catch { return {}; }
+  });
+
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem(`gameforge:phase-guide-collapsed:${projectId}`) === "true"; }
+    catch { return false; }
+  });
+
+  useEffect(() => {
+    try { const raw = localStorage.getItem(storageKey); setChecked(raw ? JSON.parse(raw) : {}); }
+    catch { setChecked({}); }
+  }, [storageKey]);
+
+  const toggleCheck = (key: string, isAuto: boolean) => {
+    if (isAuto) return;
+    setChecked((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      try { localStorage.setItem(`gameforge:phase-guide-collapsed:${projectId}`, String(next)); } catch {}
+      return next;
+    });
+  };
+
+  const guide = PHASE_GUIDE_DATA[phase];
+  if (!guide) return null;
+
+  const currentPhaseObj = DESIGN_PHASES.find((p) => p.value === phase);
+
+  const checklistItems = guide.nextPhaseChecklist.map((item) => {
+    const autoVal = item.metric ? item.metric(metrics) : null;
+    const isAuto = autoVal !== null;
+    const isDone = isAuto ? autoVal! : (checked[item.key] ?? false);
+    return { ...item, isAuto, isDone };
+  });
+
+  const weekItems = guide.thisWeek.map((item) => ({
+    ...item, isDone: checked[item.key] ?? false,
+  }));
+  const monthItems = guide.thisMonth.map((item) => ({
+    ...item, isDone: checked[item.key] ?? false,
+  }));
+
+  const doneCount = checklistItems.filter((i) => i.isDone).length;
+  const totalCount = checklistItems.length;
+  const allDone = doneCount === totalCount;
+  const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+  return (
+    <Card className="border-border/60">
+      <CardHeader className="py-3 px-4 border-b border-border flex-row items-center gap-2 cursor-pointer select-none" onClick={toggleCollapsed}>
+        <ListChecks className="w-4 h-4 text-primary shrink-0" />
+        <div className="flex-1 min-w-0">
+          <CardTitle className="text-sm font-semibold">
+            Phase Guide
+            <span className={`ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${currentPhaseObj?.color ?? ""}`}>
+              {currentPhaseObj?.label ?? phase}
+            </span>
+          </CardTitle>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {!collapsed && (
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              {doneCount}/{totalCount} ready
+            </span>
+          )}
+          {collapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
+        </div>
+      </CardHeader>
+
+      {!collapsed && (
+        <CardContent className="px-4 py-4 space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {/* This Week */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">This Week</p>
+              <ul className="space-y-1.5">
+                {weekItems.map((item) => (
+                  <li key={item.key}>
+                    <button
+                      onClick={() => toggleCheck(item.key, false)}
+                      className="flex items-start gap-2 w-full text-left group/item"
+                    >
+                      <span className="shrink-0 mt-px">
+                        {item.isDone
+                          ? <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                          : <Circle className="w-3.5 h-3.5 text-muted-foreground/50 group-hover/item:text-muted-foreground transition-colors" />}
+                      </span>
+                      <span className={`text-xs leading-tight transition-colors ${item.isDone ? "line-through text-muted-foreground/50" : "text-foreground/90 group-hover/item:text-foreground"}`}>
+                        {item.label}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* This Month */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">This Month</p>
+              <ul className="space-y-1.5">
+                {monthItems.map((item) => (
+                  <li key={item.key}>
+                    <button
+                      onClick={() => toggleCheck(item.key, false)}
+                      className="flex items-start gap-2 w-full text-left group/item"
+                    >
+                      <span className="shrink-0 mt-px">
+                        {item.isDone
+                          ? <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                          : <Circle className="w-3.5 h-3.5 text-muted-foreground/50 group-hover/item:text-muted-foreground transition-colors" />}
+                      </span>
+                      <span className={`text-xs leading-tight transition-colors ${item.isDone ? "line-through text-muted-foreground/50" : "text-foreground/90 group-hover/item:text-foreground"}`}>
+                        {item.label}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Next phase checklist */}
+          <div className="rounded-lg border border-border bg-muted/10 px-4 py-3.5 space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary/80 mb-1">
+              {guide.nextPhaseValue ? `${guide.nextPhaseLabel} Checklist` : "Launch Readiness"}
+            </p>
+            <ul className="space-y-2">
+              {checklistItems.map((item) => (
+                <li key={item.key}>
+                  <button
+                    onClick={() => toggleCheck(item.key, item.isAuto)}
+                    disabled={item.isAuto}
+                    className="flex items-start gap-2.5 w-full text-left group/check disabled:cursor-default"
+                  >
+                    <span className="shrink-0 mt-px">
+                      {item.isDone
+                        ? <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                        : <Circle className={`w-3.5 h-3.5 transition-colors ${item.isAuto ? "text-muted-foreground/30" : "text-muted-foreground/50 group-hover/check:text-muted-foreground"}`} />}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-xs leading-tight ${item.isDone ? "line-through text-muted-foreground/50" : "text-foreground/90"}`}>
+                        {item.label}
+                      </span>
+                      {item.isAuto && (
+                        <span className="ml-1.5 text-[9px] text-muted-foreground/50 uppercase tracking-wider">auto</span>
+                      )}
+                      {item.hint && !item.isDone && (
+                        <p className="text-[10px] text-muted-foreground/60 mt-0.5">{item.hint}</p>
+                      )}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            {/* Progress bar */}
+            <div className="space-y-1.5 pt-1">
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${allDone ? "bg-emerald-500" : pct >= 60 ? "bg-lime-500" : "bg-primary"}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground text-right">
+                {doneCount} / {totalCount} complete
+              </p>
+            </div>
+
+            {/* Jump to next phase */}
+            {guide.nextPhaseValue && (
+              <Button
+                size="sm"
+                className={`w-full gap-2 mt-1 transition-all ${allDone ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "opacity-40 cursor-not-allowed"}`}
+                disabled={!allDone}
+                onClick={() => allDone && onAdvancePhase(guide.nextPhaseValue!)}
+                title={allDone ? `Advance to ${guide.nextPhaseLabel}` : `Complete all ${totalCount} items to advance`}
+              >
+                <Rocket className="w-3.5 h-3.5" />
+                Jump to {guide.nextPhaseLabel}
+              </Button>
+            )}
+            {!guide.nextPhaseValue && allDone && (
+              <div className="flex items-center justify-center gap-2 text-sm text-emerald-400 font-semibold py-1">
+                <Check className="w-4 h-4" /> Launch ready!
+              </div>
+            )}
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 function SaveIndicator({ status }: { status: SaveStatus | undefined }) {
   const visible = status && status !== "idle";
   return (
@@ -710,6 +1059,9 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
   const experimentalRules = useMemo(() =>
     (rules ?? []).filter((r) => r.category?.toLowerCase().includes("experimental") || r.category?.toLowerCase().includes("draft")).length,
   [rules]);
+  const importedRules = useMemo(() =>
+    (rules ?? []).filter((r) => r.category?.toLowerCase() === "imported").length,
+  [rules]);
 
   const playerTotal = players?.length ?? 0;
 
@@ -751,6 +1103,21 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
       return { label: `Stabilise ${experimentalRules} experimental rule${experimentalRules > 1 ? "s" : ""}`, action: "none" };
     return { label: "Looking good — consider advancing to the next design phase", action: "none" };
   }, [activeByCol.blocker.length, entityTotal, ruleTotal, playerTotal, playtestScheduled, balanceScore, experimentalRules]);
+
+  const phaseMetrics: PhaseMetrics = {
+    experimentalRules,
+    importedRules,
+    balanceScore,
+    playtestTotal,
+    entityPct,
+    entityTotal,
+    blockerCount: activeByCol.blocker.length,
+    ruleTotal,
+    playerTotal,
+    hasPitch: Boolean(heroMeta.elevatorPitch?.trim()),
+    hasPlayerCount: Boolean(form.playerCount?.trim()),
+    hasNarrative: Boolean(narrative?.trim()),
+  };
 
   const scrollToPlaytest = () => {
     playtestCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1030,7 +1397,15 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
             </Card>
           </div>
 
-          {/* Row 2: Game Status Widget + Design Advisor */}
+          {/* Row 2: Phase Guide */}
+          <PhaseGuide
+            projectId={projectId}
+            phase={form.designPhase}
+            metrics={phaseMetrics}
+            onAdvancePhase={saveDesignPhase}
+          />
+
+          {/* Row 3: Game Status Widget + Design Advisor */}
           <div className="space-y-3">
             <GameStatusWidget
               entityTotal={entityTotal}
