@@ -547,6 +547,14 @@ function AssetsView({
   const [focusedId, setFocusedId] = useState<number | null>(null);
   const localOrderRef = useRef<number[]>(localOrder);
   useEffect(() => { localOrderRef.current = localOrder; }, [localOrder]);
+  // Brief flash after keyboard reorder (#69)
+  const [flashedCardId, setFlashedCardId] = useState<number | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashCard = (id: number) => {
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    setFlashedCardId(id);
+    flashTimerRef.current = setTimeout(() => setFlashedCardId(null), 500);
+  };
 
   // Per-kind order tracking for grouped mode
   const [draggedKind, setDraggedKind] = useState<string | null>(null);
@@ -582,6 +590,26 @@ function AssetsView({
     }
     setLocalGroupOrder(map);
   }, [assets, draggedId]);
+
+  // Badge: detect when grouped-mode order diverges from flat-mode order (#55)
+  const ordersDisagree = useMemo(() => {
+    if (!assets?.length || localOrder.length === 0 || localGroupOrder.size === 0) return false;
+    const assetKindMap = new Map(assets.map((a) => [a.id, a.kind ?? "other"]));
+    // For each kind, extract the per-kind ordering from the flat list and compare to localGroupOrder
+    const flatKindOrder = new Map<string, number[]>();
+    for (const id of localOrder) {
+      const kind = assetKindMap.get(id);
+      if (!kind) continue;
+      if (!flatKindOrder.has(kind)) flatKindOrder.set(kind, []);
+      flatKindOrder.get(kind)!.push(id);
+    }
+    for (const [kind, flatIds] of flatKindOrder.entries()) {
+      const groupIds = localGroupOrder.get(kind) ?? [];
+      if (flatIds.length !== groupIds.length) return true;
+      if (flatIds.some((id, i) => id !== groupIds[i])) return true;
+    }
+    return false;
+  }, [assets, localOrder, localGroupOrder]);
 
   // Derive sorted asset list from localOrder
   const orderedAssets = useMemo(() => {
@@ -727,6 +755,7 @@ function AssetsView({
   }, [assets]);
 
   const moveAsset = async (id: number, delta: -1 | 1) => {
+    flashCard(id); // brief visual flash (#69)
     const currentOrder = localOrderRef.current;
     const idx = currentOrder.indexOf(id);
     if (idx === -1) return;
@@ -754,6 +783,7 @@ function AssetsView({
 
   // Keyboard reorder within a grouped section — writes groupDisplayOrder independently
   const moveGroupedAsset = async (id: number, kind: string, delta: -1 | 1) => {
+    flashCard(id); // brief visual flash (#69)
     const kindIds = localGroupOrder.get(kind) ?? [];
     const idx = kindIds.indexOf(id);
     if (idx === -1) return;
@@ -1098,13 +1128,22 @@ function AssetsView({
           </p>
           <button
             onClick={() => setGroupByType((v) => !v)}
-            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+            className={`relative flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors ${
               groupByType
                 ? "bg-primary/10 border-primary/30 text-primary"
                 : "border-border text-muted-foreground hover:text-foreground"
             }`}
+            title={ordersDisagree ? "Grouped and flat view orders differ" : undefined}
+            data-testid="group-by-type-toggle"
           >
             <LayoutGrid className="h-3 w-3" /> Group by type
+            {ordersDisagree && (
+              <span
+                className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-1 ring-background"
+                data-testid="orders-disagree-badge"
+                title="Grouped and flat orders differ"
+              />
+            )}
           </button>
         </div>
         <div className="flex gap-1.5">
@@ -1267,6 +1306,9 @@ function AssetsView({
                         focusedId === a.id
                           ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                           : "",
+                        flashedCardId === a.id
+                          ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-background"
+                          : "",
                       ].join(" ")}
                     >
                       <AssetCard
@@ -1331,6 +1373,9 @@ function AssetsView({
                   : "",
                 focusedId === a.id
                   ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                  : "",
+                flashedCardId === a.id
+                  ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-background"
                   : "",
               ].join(" ")}
             >

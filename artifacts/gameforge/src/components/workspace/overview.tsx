@@ -178,6 +178,9 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   const [narrativeSaveStatus, setNarrativeSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const narrativeSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const narrativeSaveSeqRef = useRef(0);
+  // Shared save status for all non-narrative fields (#56/#63)
+  const [fieldsSaveStatus, setFieldsSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const fieldsSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ── Per-column jsonb state ────────────────────────────────────── */
   const [heroMeta,     setHeroMeta]     = useState<HeroMeta>({});
@@ -229,9 +232,20 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   }, [project]);
 
   const save = (patch: Parameters<typeof updateProject.mutate>[0]["data"]) => {
+    setFieldsSaveStatus("saving");
+    if (fieldsSaveTimerRef.current) clearTimeout(fieldsSaveTimerRef.current);
     updateProject.mutate(
       { projectId, data: patch },
-      { onSuccess: () => qc.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) }) },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
+          setFieldsSaveStatus("saved");
+          fieldsSaveTimerRef.current = setTimeout(() => setFieldsSaveStatus("idle"), 2000);
+        },
+        onError: () => {
+          setFieldsSaveStatus("idle");
+        },
+      },
     );
   };
 
@@ -412,6 +426,25 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
 
   return (
     <div className="space-y-6 pb-10">
+
+      {/* ── Save status indicator (#56/#63) ─────────────────────────── */}
+      <div className="flex justify-end -mb-4" style={{ minHeight: 20 }}>
+        <span
+          className="flex items-center gap-1 text-[10px] shrink-0 transition-opacity duration-300"
+          style={{ opacity: fieldsSaveStatus === "idle" ? 0 : 1 }}
+          data-testid="overview-save-status"
+        >
+          {fieldsSaveStatus === "saving" ? (
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+            </span>
+          ) : fieldsSaveStatus === "saved" ? (
+            <span className="flex items-center gap-1 text-green-500">
+              <Check className="h-3 w-3" /> Saved
+            </span>
+          ) : null}
+        </span>
+      </div>
 
       {/* ── Game Identity Hero ───────────────────────────────────────── */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">

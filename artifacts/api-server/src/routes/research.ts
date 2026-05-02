@@ -453,7 +453,7 @@ async function insertReverseComponents(
 function buildReversePrompt(
   sourceGames: ReverseGameInput[],
   direction: string,
-  mode: "new_project" | "populate_current",
+  mode: "new_project" | "populate_current" | "clone_game",
 ): string {
   const gameBlocks = sourceGames.map((g) => {
     const lines = [`Game: ${g.name}`];
@@ -465,6 +465,41 @@ function buildReversePrompt(
     if (g.avoiding) lines.push(`Doing differently: ${g.avoiding}`);
     return lines.join("\n");
   }).join("\n\n---\n\n");
+
+  if (mode === "clone_game") {
+    // Faithful reproduction prompt (#72)
+    return [
+      "You are a world-class tabletop game designer and rules analyst.",
+      "Your task is to produce a FAITHFUL, COMPLETE REPRODUCTION of the source game(s) below.",
+      "Do NOT invent new mechanics. Do NOT rename or reimagine. Replicate the original as precisely as possible from the information available.",
+      "Treat each reference game as the authoritative source. Reconstruct its actual components, rules, win conditions, and player roles.",
+      "",
+      "Source game(s) to faithfully reproduce:",
+      "",
+      gameBlocks,
+      "",
+      direction ? `Additional fidelity notes from the designer: ${direction}` : "",
+      "",
+      "Output ONLY a valid JSON object with this exact shape (no markdown, no commentary):",
+      `{
+  "name": "string — use the original game's name (append ' Clone' only if multiple sources are selected)",
+  "description": "string — accurately describe the original game in 2-3 sentences",
+  "gameType": "Strategy|Party|Cooperative|Deck-builder|Roll-and-Write|Worker-Placement|Tile-Laying|Trick-Taking|Social-Deduction|Dexterity|Other",
+  "genre": "Fantasy|Sci-fi|Modern|Historical|Abstract|Horror|Western|Space|Medieval|Other",
+  "playerCount": "e.g. 2-5",
+  "targetDuration": "e.g. 45-75 minutes",
+  "complexityScore": 1-10,
+  "blueprint": "string — 4-6 paragraphs faithfully describing: core loop, turn structure, win condition, player interaction, key rules, and what makes the original game special",
+  "entities": [{ "name": "string — use real component names from the game", "type": "Card|Deck|Token|Meeple|Die|Tile|Board|Zone|Location|Faction|Event|Resource|Ability", "description": "string — describe the actual component and its function (1-2 sentences)" }],
+  "rules": [{ "title": "string — actual rule name", "category": "Setup|Turn|Action|Scoring|Endgame|Special", "content": "string — replicate the actual rule as precisely as possible (1-3 sentences)" }],
+  "players": [{ "name": "string — actual player role/faction from the game", "role": "string", "description": "string — describe the actual role (1-2 sentences)" }],
+  "notes": [{ "title": "string", "content": "string — note about the source material accuracy or things to verify in the original rulebook" }]
+}`,
+      "",
+      "Aim for: 8-12 entities representing real components, 10-15 rules covering setup through end game, all actual player roles, 2-3 accuracy notes.",
+      "Preserve the original game's terminology, component names, and rule logic exactly.",
+    ].filter(Boolean).join("\n");
+  }
 
   const modeHint = mode === "populate_current"
     ? "You are populating an existing project — focus on generating rich, detailed components that fit together."
@@ -513,7 +548,7 @@ router.post(
     const { games, direction = "", mode = "new_project", workspaceSlug } = req.body as {
       games?: ReverseGameInput[];
       direction?: string;
-      mode?: "new_project" | "populate_current";
+      mode?: "new_project" | "populate_current" | "clone_game";
       workspaceSlug?: string;
     };
 
@@ -522,8 +557,8 @@ router.post(
       return;
     }
 
-    if (mode === "new_project" && !workspaceSlug) {
-      res.status(400).json({ error: "workspaceSlug is required for new_project mode" });
+    if ((mode === "new_project" || mode === "clone_game") && !workspaceSlug) {
+      res.status(400).json({ error: "workspaceSlug is required for new_project/clone_game mode" });
       return;
     }
 
@@ -618,7 +653,7 @@ router.post(
         return inserted;
       });
 
-      res.status(201).json({ project: newProject, workspaceSlug: ws.slug, mode: "new_project" });
+      res.status(201).json({ project: newProject, workspaceSlug: ws.slug, mode });
     } catch (err) {
       req.log.error({ err }, "reverse-engineer save failed");
       res.status(500).json({ error: "Could not save generated project" });

@@ -330,6 +330,9 @@ function filterStorageKey(projectId: number): string {
 type PersistedFilters = {
   activeTypes: string[];
   minWeight: number;
+  showNeighborsOnly?: boolean;
+  neighborDepth?: number;
+  alwaysShowLabels?: boolean;
 };
 
 function loadFilters(projectId: number): PersistedFilters | null {
@@ -344,9 +347,22 @@ function loadFilters(projectId: number): PersistedFilters | null {
   }
 }
 
-function saveFilters(projectId: number, activeTypes: Set<string>, minWeight: number) {
+function saveFilters(
+  projectId: number,
+  activeTypes: Set<string>,
+  minWeight: number,
+  showNeighborsOnly: boolean,
+  neighborDepth: number,
+  alwaysShowLabels: boolean,
+) {
   try {
-    const data: PersistedFilters = { activeTypes: [...activeTypes], minWeight };
+    const data: PersistedFilters = {
+      activeTypes: [...activeTypes],
+      minWeight,
+      showNeighborsOnly,
+      neighborDepth,
+      alwaysShowLabels,
+    };
     localStorage.setItem(filterStorageKey(projectId), JSON.stringify(data));
   } catch {
     // ignore storage errors
@@ -408,9 +424,19 @@ export function EntityGraph({
     const saved = loadFilters(projectId);
     return saved ? new Set(saved.activeTypes) : new Set(ALL_COMPONENT_TYPES);
   });
+  const [alwaysShowLabels, setAlwaysShowLabels] = useState<boolean>(() => {
+    const saved = loadFilters(projectId);
+    return saved?.alwaysShowLabels ?? false;
+  });
   const [focusedNodeId, setFocusedNodeId] = useState<number | null>(null);
-  const [showNeighborsOnly, setShowNeighborsOnly] = useState(false);
-  const [neighborDepth, setNeighborDepth] = useState(1);
+  const [showNeighborsOnly, setShowNeighborsOnly] = useState<boolean>(() => {
+    const saved = loadFilters(projectId);
+    return saved?.showNeighborsOnly ?? false;
+  });
+  const [neighborDepth, setNeighborDepth] = useState<number>(() => {
+    const saved = loadFilters(projectId);
+    return saved?.neighborDepth ?? 1;
+  });
   const [minWeight, setMinWeight] = useState<number>(() => {
     const saved = loadFilters(projectId);
     return saved ? saved.minWeight : 2;
@@ -428,14 +454,15 @@ export function EntityGraph({
       const saved = loadFilters(projectId);
       setActiveTypes(saved ? new Set(saved.activeTypes) : new Set(ALL_COMPONENT_TYPES));
       setMinWeight(saved ? saved.minWeight : 2);
+      setShowNeighborsOnly(saved?.showNeighborsOnly ?? false);
+      setNeighborDepth(saved?.neighborDepth ?? 1);
+      setAlwaysShowLabels(saved?.alwaysShowLabels ?? false);
       setFocusedNodeId(null);
-      setShowNeighborsOnly(false);
-      setNeighborDepth(1);
     } else {
       // Same project, filters changed: persist them.
-      saveFilters(projectId, activeTypes, minWeight);
+      saveFilters(projectId, activeTypes, minWeight, showNeighborsOnly, neighborDepth, alwaysShowLabels);
     }
-  }, [projectId, activeTypes, minWeight]);
+  }, [projectId, activeTypes, minWeight, showNeighborsOnly, neighborDepth, alwaysShowLabels]);
 
   const allActive = presentTypes.every((t) => activeTypes.has(t));
 
@@ -501,6 +528,30 @@ export function EntityGraph({
     }
     return map;
   }, [renderedPreFilterEdges]);
+
+  // BFS tree edge-set for path highlighting (#65) — only active when neighbor filter is on.
+  const pathEdgeSet = useMemo(() => {
+    if (!showNeighborsOnly || !focusedNodeId) return new Set<string>();
+    const edgeKey = (a: number, b: number) => `${Math.min(a, b)}-${Math.max(a, b)}`;
+    const set = new Set<string>();
+    const visited = new Set<number>([focusedNodeId]);
+    let frontier = new Set<number>([focusedNodeId]);
+    for (let hop = 0; hop < neighborDepth; hop++) {
+      const next = new Set<number>();
+      for (const nodeId of frontier) {
+        for (const neighborId of (adjacencyMap.get(nodeId) ?? [])) {
+          if (!visited.has(neighborId)) {
+            visited.add(neighborId);
+            next.add(neighborId);
+            set.add(edgeKey(nodeId, neighborId));
+          }
+        }
+      }
+      frontier = next;
+      if (frontier.size === 0) break;
+    }
+    return set;
+  }, [showNeighborsOnly, focusedNodeId, neighborDepth, adjacencyMap]);
 
   // Apply neighbor filter — BFS up to neighborDepth hops, capped at GRAPH_NODE_CAP.
   // The focused node is always retained even when the cap is reached.
@@ -769,6 +820,24 @@ export function EntityGraph({
   const draggingId = dragRef.current?.nodeId ?? null;
   const hoverAdj = hoverId == null ? new Set<number>() : adjacent(hoverId);
   const fewNodes = nodes.length <= 20;
+
+  // Label de-clash (#60): alternate labels above/below when nodes are crowded.
+  // A simple greedy pass: sort by x then y, and if a node is within 55 px of a
+  // previously-placed "above" label, push the later node's label below.
+  const nodeLabelSides = useMemo(() => {
+    const sides = new Map<number, 1 | -1>(); // 1 = above, -1 = below
+    nodes.forEach((n) => sides.set(n.id, 1));
+    const sorted = [...nodes].sort((a, b) => a.x - b.x || a.y - b.y);
+    sorted.forEach((n, i) => {
+      for (const m of sorted.slice(i + 1)) {
+        if (Math.hypot(n.x - m.x, n.y - m.y) < 55 && sides.get(n.id) === 1) {
+          sides.set(m.id, -1);
+        }
+      }
+    });
+    return sides;
+  }, [nodes]);
+
   const entityById = new Map(entities.map((e) => [e.id, e]));
   const assetById = useMemo(() => new Map((assets ?? []).map((a) => [a.id, a])), [assets]);
   const explicitEdges = edges.filter((e) => e.kind === "explicit");
@@ -918,6 +987,18 @@ export function EntityGraph({
               reset
             </button>
           )}
+          <button
+            onClick={() => setAlwaysShowLabels((v) => !v)}
+            className={`ml-auto flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border transition-colors ${
+              alwaysShowLabels
+                ? "bg-primary/20 border-primary/50 text-primary"
+                : "border-border/50 bg-background/40 text-muted-foreground hover:text-white"
+            }`}
+            data-testid="graph-always-labels"
+            title="Always show all node labels"
+          >
+            Always show labels
+          </button>
         </div>
 
         {/* ── Focused node / neighbor strip ── */}
@@ -952,7 +1033,7 @@ export function EntityGraph({
             {showNeighborsOnly && (
               <span className="flex items-center gap-1 ml-1" data-testid="graph-depth-stepper">
                 <span className="text-[10px] text-muted-foreground shrink-0">Depth:</span>
-                {([1, 2, 3] as const).map((d) => (
+                {[1, 2, 3, 4, 5, 6].map((d) => (
                   <button
                     key={d}
                     onClick={() => setNeighborDepth(d)}
@@ -1015,11 +1096,14 @@ export function EntityGraph({
                   const b = nodeById.get(e.b);
                   if (!a || !b) return null;
                   const muted = hoverId != null && hoverId !== e.a && hoverId !== e.b;
+                  const onPath = pathEdgeSet.has(`${Math.min(e.a, e.b)}-${Math.max(e.a, e.b)}`);
                   return (
                     <line key={`i${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                      stroke="currentColor" strokeOpacity={muted ? 0.05 : 0.25}
-                      strokeWidth={Math.min(3, 1 + Math.log2(e.weight))}
-                      strokeDasharray="4 3" className="text-foreground">
+                      stroke={onPath ? "hsl(var(--primary))" : "currentColor"}
+                      strokeOpacity={onPath ? 0.85 : muted ? 0.05 : 0.25}
+                      strokeWidth={onPath ? 2 : Math.min(3, 1 + Math.log2(e.weight))}
+                      strokeDasharray={onPath ? undefined : "4 3"}
+                      className={onPath ? undefined : "text-foreground"}>
                       <title>{a.name} ↔ {b.name} (co-occur in {e.weight} rules)</title>
                     </line>
                   );
@@ -1029,10 +1113,13 @@ export function EntityGraph({
                   const b = nodeById.get(e.b);
                   if (!a || !b) return null;
                   const muted = hoverId != null && hoverId !== e.a && hoverId !== e.b;
+                  const onPath = pathEdgeSet.has(`${Math.min(e.a, e.b)}-${Math.max(e.a, e.b)}`);
                   return (
                     <line key={`e${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                      stroke="currentColor" strokeOpacity={muted ? 0.08 : 0.55}
-                      strokeWidth={1.4} className="text-foreground">
+                      stroke={onPath ? "hsl(var(--primary))" : "currentColor"}
+                      strokeOpacity={onPath ? 0.9 : muted ? 0.08 : 0.55}
+                      strokeWidth={onPath ? 2.5 : 1.4}
+                      className={onPath ? undefined : "text-foreground"}>
                       <title>{a.name} → {b.name} (explicit)</title>
                     </line>
                   );
@@ -1101,18 +1188,19 @@ export function EntityGraph({
                           strokeOpacity={0.4} strokeWidth={1} strokeDasharray="3 2"
                           className="text-primary" />
                       )}
-                      {(fewNodes || isHover || isAdj || isDragging || isFocused) && (
-                        <text y={-(n.r + 8)} textAnchor="middle" fontSize="11"
-                          fill="currentColor"
-                          fillOpacity={
-                            fewNodes && !isHover && !isAdj && !isDragging && !isFocused
-                              ? (hoverId != null ? 0.35 : 0.65)
-                              : 1
-                          }
-                          className="text-foreground font-medium pointer-events-none">
-                          {n.name}
-                        </text>
-                      )}
+                      {(alwaysShowLabels || fewNodes || isHover || isAdj || isDragging || isFocused) && (() => {
+                        const side = nodeLabelSides.get(n.id) ?? 1;
+                        const labelY = side === 1 ? -(n.r + 10) : (n.r + 18);
+                        const quietLabel = (alwaysShowLabels || fewNodes) && !isHover && !isAdj && !isDragging && !isFocused;
+                        return (
+                          <text y={labelY} textAnchor="middle" fontSize="11"
+                            fill="currentColor"
+                            fillOpacity={quietLabel ? (hoverId != null ? 0.35 : 0.65) : 1}
+                            className="text-foreground font-medium pointer-events-none">
+                            {n.name}
+                          </text>
+                        );
+                      })()}
                       <title>{n.name} ({n.type}) — drag to reposition · click to focus · inspect</title>
                     </g>
                   );

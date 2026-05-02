@@ -18,7 +18,7 @@ import {
   Plus, Trash2, Sparkles, Loader2, X, ChevronDown, ChevronRight,
   Shield, MessageCircle, Zap, Star, Leaf, Heart,
   Search, GripVertical, Users, UserPlus, BarChart3, User,
-  Target, Sword, Package, Trophy, Wand2, Gamepad2, List, GitGraph,
+  Target, Sword, Package, Trophy, Wand2, Gamepad2, List, GitGraph, Check,
 } from "lucide-react";
 import { PlayerRelationshipGraph } from "./player-relationship-graph";
 import { useQueryClient } from "@tanstack/react-query";
@@ -588,6 +588,9 @@ export function Players({ projectId }: PlayersProps) {
   // dropTargetId + insertBefore: where the insertion line should appear
   const [dropTargetId, setDropTargetId] = useState<number | null>(null);
   const [insertBefore, setInsertBefore] = useState<boolean>(true);
+  // Saved nudge: briefly shown checkmark after a successful reorder (#68)
+  const [savedNudgeId, setSavedNudgeId] = useState<number | null>(null);
+  const savedNudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Relationship add UI
   const [addingRelType, setAddingRelType] = useState<string>("Allied");
@@ -723,7 +726,23 @@ export function Players({ projectId }: PlayersProps) {
   }, [players]);
 
   // ── Drag-to-reorder (HTML5, within type group)
-  const handleDragStart = (id: number) => { setDraggedId(id); document.body.style.cursor = "grabbing"; };
+  const handleDragStart = (e: React.DragEvent, id: number, playerName: string) => {
+    setDraggedId(id);
+    document.body.style.cursor = "grabbing";
+    // Styled drag ghost (#66)
+    const ghost = document.createElement("div");
+    ghost.style.cssText = [
+      "position:fixed", "top:-200px", "left:-200px",
+      "padding:5px 12px", "border-radius:6px",
+      "background:rgba(124,58,237,0.25)", "border:1px solid rgba(124,58,237,0.55)",
+      "color:white", "font-size:11px", "font-family:inherit",
+      "backdrop-filter:blur(4px)", "white-space:nowrap", "pointer-events:none",
+    ].join(";");
+    ghost.textContent = `↕ ${playerName}`;
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2);
+    requestAnimationFrame(() => ghost.remove());
+  };
   const handleDragOver = (e: React.DragEvent, id: number) => {
     e.preventDefault();
     setDropTargetId(id);
@@ -761,11 +780,16 @@ export function Players({ projectId }: PlayersProps) {
     }
 
     // Single round-trip to the dedicated reorder endpoint
+    const movedId = moved.id;
     reorderPlayers.mutate(
       { projectId, data: { playerIds: reordered.map((p) => p.id) } },
       {
         onSuccess: (rows) => {
           qc.setQueryData(getListPlayersQueryKey(projectId), rows);
+          // Flash "saved" nudge on the moved card (#68)
+          if (savedNudgeTimerRef.current) clearTimeout(savedNudgeTimerRef.current);
+          setSavedNudgeId(movedId);
+          savedNudgeTimerRef.current = setTimeout(() => setSavedNudgeId(null), 2000);
         },
         onError: (err) => {
           // Roll back the optimistic update on failure
@@ -947,7 +971,7 @@ export function Players({ projectId }: PlayersProps) {
                           )}
                           <div
                             draggable
-                            onDragStart={() => handleDragStart(p.id)}
+                            onDragStart={(e) => handleDragStart(e, p.id, p.name)}
                             onDragOver={(e) => handleDragOver(e, p.id)}
                             onDrop={() => handleDrop(p.id, type)}
                             onDragEnd={() => { document.body.style.cursor = ""; clearDragState(); }}
@@ -964,6 +988,11 @@ export function Players({ projectId }: PlayersProps) {
                                 {p.faction ? ` · ${p.faction}` : ""}
                               </p>
                             </div>
+                            {savedNudgeId === p.id && (
+                              <span className="flex items-center gap-0.5 text-[10px] text-emerald-400 shrink-0 animate-in fade-in slide-in-from-right-2 duration-200" data-testid={`player-saved-nudge-${p.id}`}>
+                                <Check className="h-3 w-3" /> saved
+                              </span>
+                            )}
                             {deleteConfirmId === p.id ? (
                               <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                                 <button onClick={() => handleDelete(p.id)} className="text-[10px] text-destructive hover:text-destructive/80 font-medium">Del</button>
