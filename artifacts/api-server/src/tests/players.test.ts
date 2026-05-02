@@ -49,9 +49,21 @@ function createTestApp() {
   app.use((req: Request, _res: Response, next: NextFunction) => {
     req.appUserId = TEST_APP_USER_ID;
     req.appUserRole = "admin";
-    // Stub req.log for any router code that calls it
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (req as any).log = { error: () => {}, warn: () => {}, info: () => {}, debug: () => {}, trace: () => {}, fatal: () => {} };
+    // Stub req.log for any router code that calls it.
+    // pino-http augments Express.Request with `log` at runtime; in tests we
+    // attach an equivalent no-op via Object.assign to avoid an `any` cast.
+    const noopLog: Pick<
+      import("pino").Logger,
+      "error" | "warn" | "info" | "debug" | "trace" | "fatal"
+    > = {
+      error: () => {},
+      warn: () => {},
+      info: () => {},
+      debug: () => {},
+      trace: () => {},
+      fatal: () => {},
+    };
+    Object.assign(req, { log: noopLog });
     next();
   });
   app.use(playersRouter);
