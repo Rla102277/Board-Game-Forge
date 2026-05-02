@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "migrate-players": "tsx ./src/migrate-players.ts",
+    "migrate-ref-games": "tsx ./src/migrate-ref-games.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

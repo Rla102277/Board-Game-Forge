@@ -1,10 +1,19 @@
 import { Router, type IRouter } from "express";
 import { and, eq, desc } from "drizzle-orm";
-import { db, researchItems, workspaces, projects, entities, rules, players, notes } from "@workspace/db";
+import { z } from "zod";
+import { db, researchItems, referenceGames, workspaces, projects, entities, rules, players, notes } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import { complete, completeWithKimi, tryParseJsonArray, tryParseJsonObject } from "../lib/aiRouter";
 import { logChange } from "../lib/changelog";
 import { generateProjectSlug, isUniqueViolation } from "../lib/workspaceHelpers";
+
+const GameLookupBody = z.object({
+  gameName: z.string().min(1),
+  borrowing: z.string().optional(),
+  avoiding: z.string().optional(),
+  depth: z.enum(["quick", "comprehensive"]).default("comprehensive"),
+  referenceGameId: z.number().int().positive().optional(),
+});
 
 const router: IRouter = Router();
 
@@ -205,6 +214,91 @@ Output JUST the JSON object.`,
   },
 );
 
+/* ── Reference Games (dedicated table) ──────────────────────────────── */
+
+router.get("/projects/:projectId/reference-games", async (req, res): Promise<void> => {
+  const params = schemas.ListReferenceGamesParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(referenceGames)
+    .where(eq(referenceGames.projectId, params.data.projectId))
+    .orderBy(referenceGames.position, referenceGames.createdAt);
+  res.json(rows);
+});
+
+router.post("/projects/:projectId/reference-games", async (req, res): Promise<void> => {
+  const params = schemas.CreateReferenceGameParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = schemas.CreateReferenceGameBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [row] = await db
+    .insert(referenceGames)
+    .values({ ...parsed.data, projectId: params.data.projectId })
+    .returning();
+  res.status(201).json(row);
+});
+
+router.patch(
+  "/projects/:projectId/reference-games/:referenceGameId",
+  async (req, res): Promise<void> => {
+    const params = schemas.UpdateReferenceGameParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.UpdateReferenceGameBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [row] = await db
+      .update(referenceGames)
+      .set(parsed.data)
+      .where(
+        and(
+          eq(referenceGames.id, params.data.referenceGameId),
+          eq(referenceGames.projectId, params.data.projectId),
+        ),
+      )
+      .returning();
+    if (!row) {
+      res.status(404).json({ error: "Reference game not found" });
+      return;
+    }
+    res.json(row);
+  },
+);
+
+router.delete(
+  "/projects/:projectId/reference-games/:referenceGameId",
+  async (req, res): Promise<void> => {
+    const params = schemas.DeleteReferenceGameParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    await db
+      .delete(referenceGames)
+      .where(
+        and(
+          eq(referenceGames.id, params.data.referenceGameId),
+          eq(referenceGames.projectId, params.data.projectId),
+        ),
+      );
+    res.sendStatus(204);
+  },
+);
+
 router.post(
   "/projects/:projectId/research/game-lookup",
   async (req, res): Promise<void> => {
@@ -213,16 +307,12 @@ router.post(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const { gameName, borrowing, avoiding, depth = "comprehensive" } = req.body as {
-      gameName?: string;
-      borrowing?: string;
-      avoiding?: string;
-      depth?: string;
-    };
-    if (!gameName?.trim()) {
-      res.status(400).json({ error: "gameName is required" });
+    const body = GameLookupBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
       return;
     }
+    const { gameName, borrowing, avoiding, depth, referenceGameId } = body.data;
     try {
       const contextParts = [
         borrowing ? `The designer wants to borrow: ${borrowing}` : null,
@@ -338,7 +428,22 @@ Return exactly this JSON shape:
         entityRef: String(row!.id),
       });
 
-      res.status(201).json({ research: row, gameData: data });
+      let refGameRow: typeof referenceGames.$inferSelect | null = null;
+      if (referenceGameId) {
+        const [updated] = await db
+          .update(referenceGames)
+          .set({ gameData: data as Record<string, unknown>, researchId: row!.id })
+          .where(
+            and(
+              eq(referenceGames.id, referenceGameId),
+              eq(referenceGames.projectId, params.data.projectId),
+            ),
+          )
+          .returning();
+        refGameRow = updated ?? null;
+      }
+
+      res.status(201).json({ research: row, gameData: data, referenceGame: refGameRow });
     } catch (err) {
       req.log.error({ err }, "game-lookup failed");
       res.status(500).json({ error: "Game lookup failed" });

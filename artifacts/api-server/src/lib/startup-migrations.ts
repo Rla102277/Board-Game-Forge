@@ -49,6 +49,19 @@ const MIGRATIONS = [
   `ALTER TABLE assets ADD COLUMN IF NOT EXISTS display_order integer`,
   // 0012 – asset group display order (independent ordering for grouped/flat views)
   `ALTER TABLE assets ADD COLUMN IF NOT EXISTS group_display_order integer`,
+  // 0013 – reference games table (replaces projects.reference_games JSON blob)
+  `CREATE TABLE IF NOT EXISTS reference_games (
+    id serial PRIMARY KEY,
+    project_id integer NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    game_data jsonb,
+    borrowing text,
+    avoiding text,
+    research_id integer REFERENCES research_items(id) ON DELETE SET NULL,
+    position integer,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS reference_games_project_id_idx ON reference_games (project_id)`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {

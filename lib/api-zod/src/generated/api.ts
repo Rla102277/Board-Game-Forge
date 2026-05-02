@@ -1865,3 +1865,49 @@ export const DeletePlaytestReportParams = zod.object({
   projectId: zod.coerce.number(),
   reportId: zod.coerce.number(),
 });
+
+export const ListReferenceGamesParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ReferenceGameItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  gameData: zod.record(zod.string(), zod.unknown()).nullish(),
+  borrowing: zod.string().nullish(),
+  avoiding: zod.string().nullish(),
+  researchId: zod.number().nullish(),
+  position: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListReferenceGamesResponse = zod.array(ReferenceGameItem);
+
+export const CreateReferenceGameParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const CreateReferenceGameBody = zod.object({
+  name: zod.string(),
+  borrowing: zod.string().optional(),
+  avoiding: zod.string().optional(),
+  position: zod.number().optional(),
+});
+
+export const UpdateReferenceGameParams = zod.object({
+  projectId: zod.coerce.number(),
+  referenceGameId: zod.coerce.number(),
+});
+
+export const UpdateReferenceGameBody = zod.object({
+  borrowing: zod.string().optional(),
+  avoiding: zod.string().optional(),
+  position: zod.number().optional(),
+  gameData: zod.record(zod.string(), zod.unknown()).nullish(),
+  researchId: zod.number().optional(),
+});
+
+export const DeleteReferenceGameParams = zod.object({
+  projectId: zod.coerce.number(),
+  referenceGameId: zod.coerce.number(),
+});

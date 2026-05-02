@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetProject, useUpdateProject, useListResearch, getListResearchQueryKey,
   useCreateResearch, useUpdateResearch, useDeleteResearch, useAiEnhanceResearch,
+  useListReferenceGames, getListReferenceGamesQueryKey,
+  useCreateReferenceGame, useDeleteReferenceGame, useUpdateReferenceGame,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -70,14 +72,6 @@ interface CompGame {
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
 
-function parseRefGames(raw: string | null | undefined): RefGame[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((g: RefGame) => ({ ...g, id: g.id ?? crypto.randomUUID() }));
-  } catch { return []; }
-}
 
 const COMP_KEY = (pid: number) => `gameforge.comp.${pid}`;
 function loadComp(pid: number): CompGame[] {
@@ -627,14 +621,32 @@ function ReverseEngineerDialog({
 
 /* ── InspirationShelf ────────────────────────────────────────────────── */
 
+function mapDbToRefGame(row: {
+  id: number; name: string; borrowing?: string | null; avoiding?: string | null;
+  researchId?: number | null; gameData?: Record<string, unknown> | null;
+}): RefGame {
+  return {
+    id: String(row.id),
+    name: row.name,
+    borrowing: row.borrowing ?? "",
+    avoiding: row.avoiding ?? "",
+    researchId: row.researchId ?? undefined,
+    gameData: (row.gameData as GameData | undefined) ?? undefined,
+  };
+}
+
 function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; workspaceSlug?: string }) {
   const { data: project } = useGetProject(projectId);
-  const updateProject = useUpdateProject();
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const [refGames, setRefGames] = useState<RefGame[]>([]);
+  const { data: dbRefGames = [] } = useListReferenceGames(projectId);
+  const createRefGame = useCreateReferenceGame();
+  const deleteRefGame = useDeleteReferenceGame();
+  const updateRefGame = useUpdateReferenceGame();
+
+  const [localOrder, setLocalOrder] = useState<RefGame[]>([]);
   const [draft, setDraft] = useState({ name: "", borrowing: "", avoiding: "" });
   const [showForm, setShowForm] = useState(false);
   const [lookingUp, setLookingUp] = useState<string | null>(null);
@@ -643,50 +655,75 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
   const [findingSimilar, setFindingSimilar] = useState(false);
   const [similarGames, setSimilarGames] = useState<string[]>([]);
   const [showSimilarDialog, setShowSimilarDialog] = useState(false);
-  const initRef = useRef(false);
 
   useEffect(() => {
-    if (project && !initRef.current) {
-      setRefGames(parseRefGames((project as any).referenceGames));
-      initRef.current = true;
-    }
-  }, [project]);
+    setLocalOrder(dbRefGames.map(mapDbToRefGame));
+  }, [dbRefGames]);
 
-  const persist = (next: RefGame[]) => {
-    setRefGames(next);
-    updateProject.mutate({ projectId, data: { referenceGames: JSON.stringify(next) } as any });
-  };
+  const refGames = localOrder;
 
   const addGame = () => {
     if (!draft.name.trim()) return;
-    persist([...refGames, { id: crypto.randomUUID(), ...draft }]);
-    setDraft({ name: "", borrowing: "", avoiding: "" });
-    setShowForm(false);
+    createRefGame.mutate(
+      { projectId, data: { name: draft.name.trim(), borrowing: draft.borrowing || undefined, avoiding: draft.avoiding || undefined } },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getListReferenceGamesQueryKey(projectId) });
+          setDraft({ name: "", borrowing: "", avoiding: "" });
+          setShowForm(false);
+        },
+        onError: () => toast({ title: "Failed to add game", variant: "destructive" }),
+      },
+    );
   };
 
-  const removeGame = (id: string) => persist(refGames.filter((g) => g.id !== id));
+  const removeGame = (id: string) => {
+    const numId = Number(id);
+    setLocalOrder((prev) => prev.filter((g) => g.id !== id));
+    deleteRefGame.mutate(
+      { projectId, referenceGameId: numId },
+      {
+        onSuccess: () => qc.invalidateQueries({ queryKey: getListReferenceGamesQueryKey(projectId) }),
+        onError: () => {
+          qc.invalidateQueries({ queryKey: getListReferenceGamesQueryKey(projectId) });
+          toast({ title: "Failed to remove game", variant: "destructive" });
+        },
+      },
+    );
+  };
+
+  const handleReorder = (next: RefGame[]) => {
+    setLocalOrder(next);
+    const patches = next.map((g, idx) =>
+      new Promise<void>((resolve, reject) =>
+        updateRefGame.mutate(
+          { projectId, referenceGameId: Number(g.id), data: { position: idx } },
+          { onSuccess: () => resolve(), onError: (err) => reject(err) },
+        )
+      )
+    );
+    Promise.all(patches).catch(() => {
+      qc.invalidateQueries({ queryKey: getListReferenceGamesQueryKey(projectId) });
+    });
+  };
 
   const lookUpGame = async (id: string, depth = "comprehensive", clearExisting = false) => {
     const game = refGames.find((g) => g.id === id);
     if (!game) return;
     setLookingUp(id);
     if (clearExisting) {
-      persist(refGames.map((g) => g.id === id ? { ...g, gameData: undefined, researchId: undefined } : g));
+      setLocalOrder((prev) => prev.map((g) => g.id === id ? { ...g, gameData: undefined, researchId: undefined } : g));
     }
     try {
       const res = await fetch(`${apiBase()}/api/projects/${projectId}/research/game-lookup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ gameName: game.name, borrowing: game.borrowing, avoiding: game.avoiding, depth }),
+        body: JSON.stringify({ gameName: game.name, borrowing: game.borrowing, avoiding: game.avoiding, depth, referenceGameId: Number(id) }),
       });
       if (!res.ok) throw new Error(await res.text());
       const { research, gameData } = await res.json() as { research: { id: number }; gameData: GameData };
-      setRefGames((prev) => {
-        const next = prev.map((g) => g.id === id ? { ...g, researchId: research.id, gameData } : g);
-        updateProject.mutate({ projectId, data: { referenceGames: JSON.stringify(next) } as any });
-        return next;
-      });
+      qc.invalidateQueries({ queryKey: getListReferenceGamesQueryKey(projectId) });
       qc.invalidateQueries({ queryKey: getListResearchQueryKey(projectId) });
       toast({ title: `${game.name} researched`, description: "Full breakdown saved to your notes." });
     } catch (err) {
@@ -725,15 +762,17 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
   };
 
   const addSimilarGame = (gameName: string) => {
-    const newGame: RefGame = {
-      id: crypto.randomUUID(),
-      name: gameName,
-      borrowing: "",
-      avoiding: "",
-    };
-    persist([...refGames, newGame]);
-    setSimilarGames(similarGames.filter((g) => g !== gameName));
-    toast({ title: "Game added", description: `${gameName} added to your research list.` });
+    createRefGame.mutate(
+      { projectId, data: { name: gameName } },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getListReferenceGamesQueryKey(projectId) });
+          setSimilarGames((prev) => prev.filter((g) => g !== gameName));
+          toast({ title: "Game added", description: `${gameName} added to your research list.` });
+        },
+        onError: () => toast({ title: "Failed to add game", variant: "destructive" }),
+      },
+    );
   };
 
   const researched = refGames.filter((g) => g.gameData);
@@ -814,7 +853,7 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
         <Reorder.Group
           axis="y"
           values={refGames}
-          onReorder={persist}
+          onReorder={handleReorder}
           className="space-y-3"
           as="div"
         >

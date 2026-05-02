@@ -593,6 +593,70 @@ paths:
                 items:
                   $ref: "#/components/schemas/ResearchItem"
 
+  /projects/{projectId}/reference-games:
+    get:
+      operationId: listReferenceGames
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Reference games list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReferenceGame"
+    post:
+      operationId: createReferenceGame
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReferenceGameBody"
+      responses:
+        "201":
+          description: Created reference game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferenceGame"
+
+  /projects/{projectId}/reference-games/{referenceGameId}:
+    patch:
+      operationId: updateReferenceGame
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ReferenceGameId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReferenceGameBody"
+      responses:
+        "200":
+          description: Updated reference game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferenceGame"
+    delete:
+      operationId: deleteReferenceGame
+      tags: [research]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ReferenceGameId"
+      responses:
+        "204":
+          description: Deleted
+
   /projects/{projectId}/entities:
     get:
       operationId: listEntities
@@ -1808,6 +1872,12 @@ components:
         type: integer
     ResearchId:
       name: researchId
+      in: path
+      required: true
+      schema:
+        type: integer
+    ReferenceGameId:
+      name: referenceGameId
       in: path
       required: true
       schema:
@@ -3529,3 +3599,58 @@ components:
           additionalProperties:
             $ref: "#/components/schemas/NodePosition"
       required: [positions]
+
+    ReferenceGame:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        name:
+          type: string
+        gameData:
+          type: object
+          nullable: true
+          additionalProperties: true
+        borrowing:
+          type: [string, "null"]
+        avoiding:
+          type: [string, "null"]
+        researchId:
+          type: [integer, "null"]
+        position:
+          type: [integer, "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, projectId, name, createdAt]
+
+    CreateReferenceGameBody:
+      type: object
+      properties:
+        name:
+          type: string
+        borrowing:
+          type: string
+        avoiding:
+          type: string
+        position:
+          type: integer
+      required: [name]
+
+    UpdateReferenceGameBody:
+      type: object
+      properties:
+        borrowing:
+          type: string
+        avoiding:
+          type: string
+        position:
+          type: integer
+        gameData:
+          type: object
+          nullable: true
+          additionalProperties: true
+        researchId:
+          type: integer

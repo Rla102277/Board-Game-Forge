@@ -1058,3 +1058,34 @@ export interface UpdatePlaytestReportBody {
   whatBroke?: string | null;
   actionItems?: PlaytestReportActionItem[] | null;
 }
+
+export interface ReferenceGame {
+  id: number;
+  projectId: number;
+  name: string;
+  gameData?: { [key: string]: unknown } | null;
+  /** @nullable */
+  borrowing?: string | null;
+  /** @nullable */
+  avoiding?: string | null;
+  /** @nullable */
+  researchId?: number | null;
+  /** @nullable */
+  position?: number | null;
+  createdAt: string;
+}
+
+export interface CreateReferenceGameBody {
+  name: string;
+  borrowing?: string;
+  avoiding?: string;
+  position?: number;
+}
+
+export interface UpdateReferenceGameBody {
+  borrowing?: string;
+  avoiding?: string;
+  position?: number;
+  gameData?: { [key: string]: unknown } | null;
+  researchId?: number;
+}
