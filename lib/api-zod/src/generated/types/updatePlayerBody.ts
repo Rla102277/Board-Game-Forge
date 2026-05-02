@@ -19,10 +19,14 @@ export interface UpdatePlayerBody {
   victoryCondition?: string;
   specialAbility?: string;
   playstyle?: string;
-  faction?: string;
-  motivation?: string;
-  flaw?: string;
-  arc?: string;
+  /** @nullable */
+  faction?: string | null;
+  /** @nullable */
+  motivation?: string | null;
+  /** @nullable */
+  flaw?: string | null;
+  /** @nullable */
+  arc?: string | null;
   displayOrder?: number;
   behaviorProfile?: UpdatePlayerBodyBehaviorProfile;
   relationships?: UpdatePlayerBodyRelationshipsItem[];

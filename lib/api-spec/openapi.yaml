@@ -2971,13 +2971,13 @@ components:
         playstyle:
           type: string
         faction:
-          type: string
+          type: [string, "null"]
         motivation:
-          type: string
+          type: [string, "null"]
         flaw:
-          type: string
+          type: [string, "null"]
         arc:
-          type: string
+          type: [string, "null"]
         displayOrder:
           type: integer
         behaviorProfile:

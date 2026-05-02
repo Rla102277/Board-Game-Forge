@@ -1,0 +1,80 @@
+ONTOLOGY TAB (Game Components)
+What it does: Define game pieces (items, enemies, locations, events)
+Code Location: artifacts/board-game-factory/src/components/ontology-tab.tsx (51KB)
+What Works ✅
+You can create 4 types of components:
+- Items (weapons, treasures, cards, powers)
+- Factions (teams, guilds, civilizations)
+- Locations (dungeons, cities, areas, zones)
+- Events (plot twists, disasters, milestones)
+Color coding: Each type has its own color (blue/purple/green/orange)
+
+Makes it easy to see at a glance what you're looking at
+
+Properties System ✅
+For each component, add properties with rules:
+- Health: min=1, max=10, default=5
+- Damage: min=0, max=15
+- Cost: min=0, max=100
+- Range: min=1, max=5
+You can:
+
+Add as many properties as you want
+Set min/max values (balance checker later uses these)
+Type hints (numeric, text, choice)
+Units (health, damage, gold, etc.)
+
+Relationship Map ✅
+
+Shows ALL your components connected
+Draws lines between items that mention each other
+Visual: Click on component → highlights connections
+Helps you see if something is isolated (unused)
+
+What Works Really Well:
+
+Fast to add 50+ components
+Visual relationship map is genius for seeing your game's complexity
+Property validation (can't set max below min)
+
+What Needs Rework ⚠️
+
+Relationships are dumb
+
+Only connects if text mentions other component name
+Doesn't understand meaning
+Example: "This weapon counters the Dragon" → doesn't recognize relationship
+Designer Impact: Map might show false connections or miss real ones
+Fix: Let you manually draw connections, or use smarter text parsing
+
+
+No property inheritance
+
+Every component starts blank
+Can't say "all enemies have Health, Damage, Speed"
+Must add same properties to 20 enemies manually
+Designer Impact: Tedious, error-prone
+Fix: Create templates or inherit from parent types
+
+
+Can't see interconnected impact
+
+You define Item A counters Faction B
+But no analysis of: "if B is strong, does A balance it?"
+Designer Impact: Hard to spot broken balance
+Fix: Add balance checker
+
+
+No versioning
+
+Change a property value → old value is gone
+Can't see "this worked in version 2"
+Designer Impact: Can't go back if you break something
+Fix: Track changes (show history)
+
+
+Duplicate components
+
+To clone an item, must re-type everything
+Designer Impact: Slow
+Fix: Add "duplicate" button
