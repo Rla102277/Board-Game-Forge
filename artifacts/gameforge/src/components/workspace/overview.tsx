@@ -319,6 +319,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   useEffect(() => {
     return () => {
       if (narrativeSaveTimerRef.current) clearTimeout(narrativeSaveTimerRef.current);
+      if (fieldsSaveTimerRef.current) clearTimeout(fieldsSaveTimerRef.current);
     };
   }, []);
 
