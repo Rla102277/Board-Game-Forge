@@ -1,0 +1,665 @@
+CARD & DECK BUILDER REVIEW
+As a Board Game Designer: What Works & What Fails
+Date: May 2, 2026
+Perspective: Actual designer trying to build a deck
+Codebase: Card Studio (346 lines), Entities (3090 lines), Assets-Entities (3036 lines)
+
+TL;DR
+What Works: 90% of the infrastructure (properties, AI generation, export)
+What Fails: 40% of the UX (discoverability, workflow, feedback, iteration)
+Grade: 55/100 for deck building (vs. 85/100 for the feature completeness)
+AspectGradeWhyCard CreationASimple, clear formBatch Generation (AI)A-Works but needs UX cleanupProperty ManagementBExists but scatteredCard OrganizationC+No sorting, filtering, or groupingIteration & FeedbackDNo "playability signals"Export & PreviewBWorks but slow to discoverWorkflowD+Scattered across 3+ tabsMobile ExperienceDTiny, unusable
+
+WHAT WORKS (The Good)
+1. ✅ BASIC CARD CREATION (A Grade)
+What I see:
+[New Card Form]
+├─ Name: [Spell Bolt] ✓
+├─ Subtype: [Spell ▼] ✓ (predefined list)
+├─ Effect: [Deal 5 damage]
+├─ Flavor: [A flash of arcane power...]
+└─ Designer Notes: [Too weak vs. Deflect?]
+
+[Add Card] [Cancel]
+What works:
+
+✅ Quick form, no fluff
+✅ 5 fields (name, subtype, description, lore, notes)
+✅ Subtype dropdown (Action, Item, Spell, Event, Quest, etc.)
+✅ Can toggle fields visible/hidden
+✅ Saving is instant (optimistic update)
+
+Grade: A — This is exactly what I need. No friction.
+
+2. ✅ AI BATCH GENERATION (A- Grade)
+What I see:
+[AI Generate Cards ✨]
+
+Prompt: [Create 50 spell cards for a cooperative RPG...]
+Count: [5 ▼]
+[Generate]
+
+↓ (loading...)
+
+Results:
+✅ Lightning Bolt (Spell) — Deal 5 damage to 1 enemy
+✅ Mana Shield (Spell) — Grant 3 armor to 1 ally
+✅ Fireball (Spell) — Deal 3 damage to all enemies
+✅ Heal (Spell) — Restore 5 health to 1 ally
+✅ Time Warp (Spell) — Skip opponent's next turn
+
+[Use All] [Use Selected] [Regenerate] [Discard]
+What works:
+
+✅ Can describe what I want in plain English
+✅ AI generates 5+ cards at once (saves time)
+✅ Shows preview before committing
+✅ Can regenerate if not happy
+✅ Can cherry-pick individual cards
+
+Grade: A- — Solid. Only issue: regenerate loses my edits.
+Problem: If I edit "Lightning Bolt → 6 damage" then hit [Regenerate], I lose my edit. Should remember my selections.
+
+3. ✅ PROPERTIES & STATS (B Grade)
+What I see:
+Card: Spell Bolt
+├─ Name: Spell Bolt ✓
+├─ Type: Card
+├─ Subtype: Spell
+└─ Properties (tab):
+    ├─ Cost: 3 ◇
+    ├─ Power: 5 ⚡
+    ├─ Cooldown: 1 ⏱️
+    └─ [Add Property +]
+
+Property templates by type:
+Card → [Cost, Power, Defense]
+Enemy → [Health, Damage, Speed, XP]
+Meeple → [Health, Movement, Armor]
+Token → [Value]
+What works:
+
+✅ Auto-populated templates per card type
+✅ Can add custom properties beyond templates
+✅ Numeric and text properties supported
+✅ Property defaults (Cost = 2, Power = 1, etc.)
+✅ Can see all properties in a list
+
+Grade: B — Good system, but hard to find. Buried in tabs.
+Problems:
+
+❌ Not visible when adding cards (form only shows name, subtype, description)
+❌ Have to navigate to separate "Properties" tab to add stats
+❌ No inline editing (click to see list, can't edit on card directly)
+❌ No quick "batch edit properties" (e.g., "Set all Spell costs to 2")
+
+
+4. ✅ COMPONENT RELATIONSHIPS (B Grade)
+What I see:
+Card: Spell Bolt
+├─ Relationships:
+    ├─ counters: Deflect (verb:object)
+    ├─ requires: Mana (resource)
+    ├─ spawns: Lightning Token
+    └─ [Add Relationship +]
+
+Relationship verbs:
+counters, requires, spawns, upgrades, drops,
+part-of, enables, enemy-of, ally-of, is-a
+What works:
+
+✅ Structured relationships (verb + object)
+✅ Predefined verbs (counters, requires, etc.)
+✅ Can link entities explicitly
+
+Grade: B — Good for linking, but rarely used.
+Problems:
+
+❌ I didn't discover this on first visit
+❌ No visualization (can't see "Spell Bolt counters Deflect" graphically)
+❌ Can't auto-detect conflicts (if 2 cards both "counter" the same card)
+
+
+5. ✅ DECK GROUPING & FILTERS (B- Grade)
+What I see:
+Entities Tab
+├─ [All Types ▼] (Card, Token, Meeple, Board, etc.)
+├─ [Sort by: Name ▼] (Name, Created, Modified, Type)
+├─ [Search: ___________]
+│
+├─ CARDS (50 total)
+│  ├─ Spell Bolt (Spell)
+│  ├─ Fireball (Spell)
+│  ├─ Heal (Spell)
+│  └─ (47 more)
+│
+└─ TOKENS (12 total)
+   └─ Health Token
+What works:
+
+✅ Filter by type
+✅ Sort by name/created/modified
+✅ Search functionality
+✅ Shows count per category
+
+Grade: B- — Filtering exists but is basic.
+Problems:
+
+❌ Can't filter by subtype (show only "Spell" cards, not all Cards)
+❌ Can't group by subtype (see Spells grouped, Items grouped, etc.)
+❌ No favorites/pinning (can't mark "Spell Bolt" as core mechanic)
+❌ No status indicators (is this card balanced? tested? broken?)
+
+
+6. ✅ AI ENHANCEMENT (B- Grade)
+What I see:
+Card: Spell Bolt
+
+[Enhance with AI ✨]
+↓
+Suggestions:
+✅ Description: "Unleash a crackling bolt of arcane energy..."
+✅ Flavor: "In the War of Elements, this spell turned the tide."
+✅ Properties: 
+   - Consider adding "Element: Lightning"
+   - Suggest "Damage Range: 4-6" for variance
+   
+[Accept] [Edit] [Discard]
+What works:
+
+✅ AI fills in flavor text
+✅ Suggests properties I might have missed
+✅ Improves description
+
+Grade: B- — Helpful but generic.
+Problems:
+
+❌ AI doesn't know my game's balance (suggests properties randomly)
+❌ No context on "why" it's suggesting (e.g., "other Spells average 4-5 damage")
+❌ Can't batch enhance (have to click per card)
+
+
+7. ✅ EXPORT (B Grade)
+What I see:
+Exports Tab
+├─ [Download Deck as CSV] (card name, subtype, rules, flavor, notes)
+├─ [Generate with Gamma] (PDF rulebook via AI)
+├─ [TTS JSON] (Tabletop Simulator format)
+└─ [Cost Estimator] (print cost per unit)
+What works:
+
+✅ CSV export for external tools (Google Sheets)
+✅ Gamma integration for nice PDFs
+✅ TTS JSON for testing online
+✅ Cost calculator for Kickstarter budgeting
+
+Grade: B — All present, but hard to find.
+Problems:
+
+❌ Export button is in "Exports" tab (requires navigation from "Entities")
+❌ No "preview" before export (what will the CSV look like?)
+❌ No "quick print" (print-and-play cards right now)
+
+
+WHAT FAILS (The Bad)
+1. ❌ DISCOVERABILITY - SCATTERED UI (D Grade)
+My experience:
+I want to build a deck. Where do I go?
+
+Overview Tab    ❌ No mention of card building
+Identity Tab    ❌ Not here
+Research Tab    ❌ Not here
+Components Tab  ❌ Actually "Assets-Entities" (confusing name)
+    ├─ Click Components
+    ├─ See 30 tabs at top: Entities, Assets, Properties, Variants, BOM, etc.
+    ├─ Where are the CARDS?
+    ├─ Click Entities tab
+    ├─ See list of ALL entities (cards, tokens, meeples, etc.)
+    ├─ Click Card Studio tab
+    ├─ FINALLY see the card builder
+    └─ But had to navigate through 5+ screens to get here
+What works: All the features exist
+What fails: I can't find them
+Grade: D — Features are 90% done, but discoverability is 10% done
+Problem: "Card Studio" is buried under:
+
+Components tab (vs. "Game Pieces" or "Cards")
+Inside Assets-Entities (confusing name)
+As 1 tab among 15+ other tabs
+No "Quick Start: Build Your Deck" hint
+
+Fix needed: Make "Card Studio" the PRIMARY feature of the Components tab, not hidden as a sub-tab
+
+2. ❌ WORKFLOW FRICTION (D Grade)
+My desired workflow:
+STEP 1: Create deck (5 min)
+  → Name: "Spell Deck" (50 cards)
+  → Subtypes: Spell, Artifact, Ritual (3 categories)
+
+STEP 2: Add cards (30 min)
+  IDEAL:
+  - Inline form: Type name → Hit Enter → Card added
+  - See card appear in list below
+  - Continue adding without page reloads
+  
+  ACTUAL:
+  - Click "New Card" button
+  - Fill form (name, subtype, description, lore, notes)
+  - Hit [Add Card]
+  - Form clears
+  - Card appears in list (sometimes)
+  - Click "New Card" again
+  - Repeat 50 times
+
+STEP 3: Edit properties (20 min)
+  IDEAL:
+  - Click card → See inline property editor
+  - "Cost: [3] Power: [5] Cooldown: [1]"
+  - Edit right there
+  
+  ACTUAL:
+  - Click card to open sheet view
+  - Scroll to Properties tab (in card detail)
+  - Click "Add Property"
+  - Select property type
+  - Set value
+  - Save
+  - Back to list
+  - Repeat 150 times (50 cards × 3 properties)
+Current flow: 10 clicks, 3 page loads, 1 form per card
+Ideal flow: Inline editing, card appears instantly, no page reloads
+Grade: D — Features exist but workflow is slow
+Problems:
+
+❌ No inline editing on the card list
+❌ Form doesn't stay open for rapid card creation
+❌ Properties hidden on separate tab
+❌ No "bulk property assignment" (set all Cards to Cost: 2)
+❌ No keyboard shortcuts (Tab to next field, Enter to submit)
+
+Fix needed: Redesign for rapid iteration:
+
+Inline card name editor on list
+Click to expand → see properties inline
+Tab moves to next card
+No page reloads
+
+
+3. ❌ CARD LIST UX (D Grade)
+What I see:
+ENTITIES
+
+Filter: [All Types ▼] | Sort: [Name ▼] | [Search: _______]
+
+Spell Bolt
+├─ Spell (subtype)
+├─ Cost: 3 | Power: 5 | Cooldown: 1 (properties shown but small)
+├─ Created 2 days ago
+└─ [Edit ✏️] [Delete 🗑️] [Enhance ✨] [+]
+
+(49 more cards listed the same way)
+Current issues:
+
+❌ Each card takes up 4 lines (name, subtype, properties, created date)
+❌ Can't see all 50 cards on screen (only see 5-10)
+❌ No pagination or virtual scrolling (loading 50 cards is slow)
+❌ Properties shown small text (hard to read)
+❌ Can't drag to reorder cards
+❌ Can't multi-select cards (to bulk delete or edit)
+❌ No status badges (is card balanced? playtested? broken?)
+
+Grade: D — List view works but is inefficient for 50+ cards
+Problems:
+
+Card list is NOT optimized for designers with large decks
+Should be compact (one line per card) or card-grid view
+Should show key properties prominently
+
+Example of what I need:
+CARDS (50 total)
+┌─────────────────────────────────────────────────────────┐
+│ Spell Bolt      │ Spell  │ Cost: 3 │ Power: 5 │ ✓ ✏️ │
+│ Fireball        │ Spell  │ Cost: 4 │ Power: 6 │ ✓ ✏️ │
+│ Heal            │ Spell  │ Cost: 2 │ Power: 0 │ ? ✏️ │
+│ Lightning Bolt  │ Spell  │ Cost: 3 │ Power: 5 │ ✓ ✏️ │
+│ ...             │        │         │          │       │
+└─────────────────────────────────────────────────────────┘
+
+[✓ = balanced] [? = untested] [✗ = broken]
+
+4. ❌ NO PLAYTESTABILITY SIGNALS (D+ Grade)
+What's missing:
+Card: Spell Bolt
+├─ Status: [Untested ▼] (Untested, Balanced, Broken, Too Weak, Too Strong)
+├─ Playtest Notes: [ ________________ ]
+│  (e.g., "Testers found this too weak; consider Cost: 2")
+└─ Balance Indicator: (compared to other Spells)
+   - Average Power: 5.2
+   - Your Power: 5.0 (within range ✓)
+   - Average Cost: 3.1
+   - Your Cost: 3.0 (good value ✓)
+Current reality:
+
+No way to mark "this card is broken"
+No way to note "playtester feedback: too strong"
+No comparison to other cards (is my 5-power spell balanced vs. other spells?)
+No history (when did I last change this card?)
+
+Grade: D+ — No feedback loop between playtesting and design
+Why this matters:
+
+I playtest → Get feedback: "Spell Bolt is OP"
+Return to card list → No place to note this
+Next iteration → Forget the feedback
+Ship broken game
+
+
+5. ❌ NO DECK STATISTICS (C Grade)
+What I need:
+DECK OVERVIEW: Spell Deck (50 cards)
+
+Cost Distribution:
+0-1  ████░░░░░░ 20% (10 cards)
+2-3  █████████░ 40% (20 cards)
+4-5  ████░░░░░░ 30% (15 cards)
+6+   █░░░░░░░░░ 10% (5 cards)
+
+Average Cost: 2.9
+Min/Max: 0-7
+Median: 3
+
+Power Distribution:
+(similar breakdown)
+
+Subtypes:
+├─ Spell (40)
+├─ Artifact (8)
+└─ Ritual (2)
+
+Unbalanced Cards:
+⚠️ Fireball: Cost 4, Power 8 (outlier, too strong?)
+⚠️ Heal: Cost 2, Power 0 (always worthless?)
+⚠️ Time Warp: Unique (no comparison)
+Current reality:
+
+No deck statistics tab
+Can't see cost/power distribution
+Can't spot outliers
+Can't identify weak/strong cards visually
+
+Grade: C — Feature doesn't exist at all
+
+6. ❌ NO RAPID ITERATION (D+ Grade)
+Designer workflow:
+I'm playtesting with friends. They say:
+  → "Spell Bolt is too weak"
+  → "Fireball is too strong"
+  → "We need more cheap spells"
+
+Back at my desk:
+  IDEAL (5 minutes):
+  - Open Spell Deck
+  - Click "Spell Bolt" → See [Power: 5], change to [6]
+  - Click "Fireball" → See [Power: 8], change to [7]
+  - [Bulk add] → Name: "Weak Spell" × 5, Cost: 1
+  - Save
+  - Done
+  
+  ACTUAL (45 minutes):
+  - Open Components → Assets-Entities → Entities → (search for spell bolt)
+  - Click Spell Bolt → Opens card detail
+  - Click Properties tab → Find Power property → Edit to 6
+  - Save, close
+  - Back to list, search for Fireball
+  - Repeat
+  - For "add 5 weak spells": Click "New Card" 5 times, fill each form
+  - Save
+  - Done
+Grade: D+ — 9x slower than ideal
+Problems:
+
+No inline editing
+No keyboard navigation
+No bulk operations
+No undo/redo
+Have to navigate through multiple tabs per change
+
+
+7. ❌ MOBILE IS UNUSABLE (D Grade)
+On iPhone:
+Components → Assets-Entities → Entities Tab
+(screen is 375px wide)
+
+Card list:
+┌─────────────────────┐
+│ Spell Bolt          │ (truncated)
+│ Spell • Cost 3  ... │ (text too small)
+│ [✏️] [🗑️] [✨] [+] │ (buttons huge, text tiny)
+└─────────────────────┘
+
+Properties:
+┌─────────────────────┐
+│ [Cost ▼] [3]        │ (dropdown too small to tap)
+│ [Power ▼] [5]       │
+│ [Cooldown ▼] [1]    │
+│ [+]                 │ (add another property)
+└─────────────────────┘
+
+Result: Unusable. Can't tap tiny dropdowns on phone.
+Grade: D — Should be mobile-first for rapid playtesting feedback
+
+8. ❌ NO "PLAYABLE SKELETON" EXPORT (C Grade)
+What I need:
+[Quick Print & Play]
+↓
+Downloads PDF:
+- Instructions (generated from Rules tab)
+- Card template × 50
+- Token sheet
+- Player reference card
+
+Print at home, test TODAY
+Current reality:
+
+Can export CSV (data only, not printable)
+Can export TTS JSON (requires online tool)
+Can use Gamma (slow, AI-generated, might be wrong)
+Can't print-and-play today
+
+Grade: C — Feature is possible but not exposed
+
+SCORING BREAKDOWN
+Card Deck Builder: 55/100
+FeatureGradeWeightPointsCard CreationA15%15AI GenerationA-12%11PropertiesB12%8RelationshipsB8%5OrganizationC+10%4Iteration SpeedD15%3Mobile ExperienceD10%2Stats/BalanceC8%3PlaytestabilityD+8%2TOTAL100%55
+
+TOP 5 MUST-FIXES (Priority Order)
+1. 🔴 MAKE CARD STUDIO THE HERO (Week 1)
+Problem: Card Studio is hidden 4 tabs deep
+Impact: NEW DESIGNERS NEVER FIND IT
+Fix:
+Components Tab → RENAMED TO "GAME PIECES"
+├─ 📋 Card Studio (FIRST TAB, FEATURED)
+│  ├─ Deck selector (or auto-create "Main Deck")
+│  ├─ Card list (50 cards)
+│  ├─ [New Card +] (inline form at top)
+│  └─ [AI Generate] (batch add)
+│
+├─ 👥 Players (tabs remain)
+├─ 🎮 Tokens
+├─ 📐 Entities (advanced, behind collapsible)
+└─ 🔗 Properties (hidden by default)
+Expected impact: +40% discovery rate
+
+2. 🔴 INLINE CARD EDITING (Week 1-2)
+Problem: Editing a property takes 5 clicks and 3 screens
+Impact: Slow iteration, high friction
+Fix:
+Card List:
+┌──────────────────────────────────┐
+│ Spell Bolt    │ Spell │ Cost [3] │
+│               │       │ Power [5]│
+│ [Expand ▼]    │       │ Cool [1] │
+└──────────────────────────────────┘
+
+Click card → Expands inline:
+┌──────────────────────────────────┐
+│ Spell Bolt                       │
+├──────────────────────────────────┤
+│ Name: [Spell Bolt_________] ✏️   │
+│ Subtype: [Spell ▼]               │
+│ Effect: [Deal 5 damage] ✏️        │
+│ Cost: [3] Power: [5] Cool: [1]  │
+│ [Save] [Delete] [Next ▶]         │
+└──────────────────────────────────┘
+Expected impact: 8x faster editing
+
+3. 🔴 CARD STATUS BADGES (Week 2)
+Problem: No way to track "is this card balanced?"
+Impact: Playtesting feedback is lost
+Fix:
+Card Status Dropdown:
+├─ Untested (no feedback yet)
+├─ Balanced (playtested, working)
+├─ Broken (too strong)
+├─ Weak (too weak)
+└─ Unique (no comparison possible)
+
+Card list shows:
+Spell Bolt        [Balanced ✓]  Cost 3  Power 5
+Fireball          [Broken ✗]    Cost 4  Power 8
+Time Warp         [Unique ⚠️]   Cost 5  Power ?
+Expected impact: Designers remember feedback
+
+4. 🔴 DECK STATISTICS (Week 2-3)
+Problem: Can't spot unbalanced decks
+Impact: Ship games with obvious imbalances
+Fix:
+Deck Overview Tab:
+├─ Cost histogram (see distribution)
+├─ Power histogram (see distribution)
+├─ Subtype breakdown (pie chart)
+├─ Outliers (which cards are weird?)
+└─ Comparison (vs. other decks in project)
+Expected impact: Catch balance issues before playtesting
+
+5. 🟡 BATCH OPERATIONS (Week 3)
+Problem: Can't edit multiple cards at once
+Impact: Slow iteration on feedback
+Fix:
+[Select All] or [Filter] then:
+├─ [Bulk Edit Properties]
+│  └─ "Set all Spell costs to 2"
+├─ [Bulk Change Status]
+│  └─ "Mark all as Balanced"
+├─ [Bulk Delete]
+└─ [Bulk Export]
+Expected impact: 5x faster large deck changes
+
+SECONDARY ISSUES
+🟡 Deck Variants Not Obvious
+
+Can create variants (color variations, different art)
+But "Variant Manager" is hidden tab
+Designers don't know they can do this
+
+🟡 CSV Export Exists But Slow
+
+Can export to CSV → import to Sheets
+But requires manual steps
+Should have "Open in Sheets" button
+
+🟡 AI Generation Prompt Is Unclear
+
+"Generate 5 spell cards"
+But what flavor? What costs? What balance?
+Should provide examples and templates
+
+🟡 No Undo/Redo
+
+Delete card → Gone forever
+Should have "Undo" button or soft deletes
+
+🟡 No Print Preview
+
+Can export PDF via Gamma
+But takes 30+ seconds
+Should have quick print preview
+
+
+DESIGNER SCORECARD
+What I Can Do Quickly (< 5 min)
+
+✅ Create a single card
+✅ See AI suggestions
+✅ Export to CSV
+✅ View properties list
+
+What Takes Medium Time (5-30 min)
+
+🟡 Edit multiple properties per card
+🟡 Create 10 cards manually
+🟡 Spot outlier cards
+🟡 Print-and-play to test
+
+What Takes Forever (30+ min)
+
+❌ Create a 50-card deck from scratch
+❌ Iterate based on playtest feedback
+❌ Reorganize deck structure
+❌ Bulk balance changes
+
+
+IDEAL DESIGNER WORKFLOW
+Hour 1: Rapid Prototyping
+1. Open Card Studio
+2. See "Spell Deck (0 cards)"
+3. [AI Generate] → "50 spell cards for fantasy co-op RPG"
+4. AI generates 50 cards in 3 seconds
+5. Review list, select which to keep
+6. See all 50 cards on screen (compact view)
+7. Inline edit costs/power in bulk
+8. [Print & Play] → PDF downloads
+9. Done, ready to test
+Hour 2: Playtesting
+
+Play with friends
+Get feedback: "Spell Bolt too weak", "Fireball too strong"
+Mark cards: [Weak] [Balanced] [Too Strong]
+
+Hour 3: Iteration
+1. Open Card Studio
+2. Filter [Weak] cards
+3. Inline edit: Change "Spell Bolt" Cost 3→2
+4. Export playtest kit
+5. Done
+
+THE VERDICT
+The System Is 90% Done Technically, But 40% Done for Designers
+What's DoneGradeData modelAAPI endpointsAFeature completenessA-Designer workflowDDiscoverabilityDIteration speedDMobile experienceDFeedback loopsC
+You built a powerful system with all the right features, but buried them under poor UX.
+
+RECOMMENDATION
+Immediate (Week 1)
+
+Make "Card Studio" the PRIMARY feature of Components tab
+Add inline editing to card list
+Add card status badges (Balanced/Broken/Untested)
+
+Short-term (Week 2-3)
+
+Add deck statistics & visualization
+Add batch operations (bulk edit, bulk delete)
+Improve AI generation with templates
+
+Medium-term (Week 4+)
+
+Mobile optimization
+Print-and-play export
+Undo/redo functionality
+
+
+FINAL SCORE
+Deck Building Feature Completeness: 85/100 (all pieces here)
+Deck Building Designer UX: 55/100 (too hard to use)
+Deck Building Grade: 70/100 (powerful but hidden)
+To reach 85/100 designer grade: Fix discoverability + iteration speed (Week 1-2)

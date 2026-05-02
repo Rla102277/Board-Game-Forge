@@ -1,5 +1,5 @@
 {
-  "numStartups": 15,
+  "numStartups": 16,
   "installMethod": "global",
   "tipsHistory": {
     "new-user-warmup": 9,
@@ -22,7 +22,7 @@
     "image-paste": 4,
     "web-app": 5,
     "remote-control": 5,
-    "voice-mode": 5,
+    "voice-mode": 15,
     "custom-agents": 6,
     "feedback-command": 6,
     "permissions": 11,
@@ -499,9 +499,9 @@
         "workspace.tsx"
       ],
       "exampleFilesGeneratedAt": 1777391945446,
-      "lastHintSessionId": "f6c1625e-8582-4ed4-a655-cacc7b442182",
+      "lastHintSessionId": "f490514e-7f44-47bc-8c45-3e8f86daa852",
       "lastSessionFirstPrompt": "# WORKFLOW REDESIGN SPECIFICATION ## Process-Based Navigation with Advanced Mode Toggle  **Status:** Design Requirements Document   **Date:** May 2, 2026   **Purpose:** Transform navigation from categ",
-      "lastSessionModified": 1777739825835,
+      "lastSessionModified": 1777740233043,
       "lastCost": 0,
       "lastAPIDuration": 0,
       "lastAPIDurationWithoutRetries": 0,

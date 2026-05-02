@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCreateProject, useAiGenerateEntities, useAiGenerateRules, useAiGeneratePlayers,
+  useAiGenerateResearch, useUpdateProject, useCreateNote, useCreateTask, useCreateReferenceGame,
   getListProjectsQueryKey, getGetDashboardSummaryQueryKey, getGetRecentActivityQueryKey,
 } from "@workspace/api-client-react";
 import { workspacesApi } from "@/lib/workspaces-api";
@@ -69,6 +70,51 @@ const COMPLEXITIES: Complexity[] = [
   { id: "heavy",  label: "Heavy",  icon: Library, blurb: "Deep strategy, 3+ systems, longer learning curve", examples: "like Terraforming Mars, Gloomhaven", componentCount: 8, ruleCount: 7 },
 ];
 
+// ─── Curated reference games per complexity tier ─────────────────────────────
+// Used to pre-populate the Research → Reference Games tab so the new project
+// has a starting point for inspiration / "borrowing" + "avoiding" notes.
+const REFERENCE_GAMES_BY_COMPLEXITY: Record<Complexity["id"], Array<{ name: string; borrowing: string; avoiding: string }>> = {
+  light: [
+    { name: "Sushi Go!",   borrowing: "Tight 15-minute play time and crystal-clear card iconography.", avoiding: "Limited replayability after a dozen plays — keep variety in mind." },
+    { name: "Love Letter", borrowing: "Minimal component count (one deck) with deep deduction.",       avoiding: "Player elimination — consider keeping everyone in the round." },
+  ],
+  medium: [
+    { name: "Catan",            borrowing: "Resource trading creates emergent player interaction.",  avoiding: "Runaway-leader problem — design catch-up mechanics early." },
+    { name: "Ticket to Ride",   borrowing: "Clean shared-board route building with hidden objectives.", avoiding: "Limited end-game tension — score reveal can feel anti-climactic." },
+  ],
+  heavy: [
+    { name: "Terraforming Mars", borrowing: "Engine-building with interlocking economy + tableau.",   avoiding: "Steep first-game friction — your teach script must be very tight." },
+    { name: "Gloomhaven",        borrowing: "Tactical card-driven combat with persistent legacy state.", avoiding: "3-hour sessions and bookkeeping — scope your game smaller." },
+  ],
+};
+
+// ─── Starter tasks per complexity tier ───────────────────────────────────────
+// Pre-populates the Tasks board so the user has a concrete next-step checklist
+// the moment they enter the workspace.
+type StarterTask = { title: string; description: string; priority: "low" | "medium" | "high"; category: string };
+const STARTER_TASKS_BASE: StarterTask[] = [
+  { title: "Define the starting setup",       description: "Document what each player has on turn 1 — components, hand size, starting resources.",         priority: "high",   category: "design" },
+  { title: "Write a 5-minute teach script",   description: "Draft the elevator pitch + the first 3 moves a new player should make.",                       priority: "medium", category: "design" },
+  { title: "Run a paper prototype playtest",  description: "Build the cheapest possible version (index cards, sticky notes) and play one full game.",      priority: "high",   category: "playtest" },
+  { title: "Validate scaling at min and max", description: "Play once at the lowest player count and once at the highest — note where pacing breaks.",     priority: "medium", category: "playtest" },
+];
+const STARTER_TASKS_BY_COMPLEXITY: Record<Complexity["id"], StarterTask[]> = {
+  light:  STARTER_TASKS_BASE,
+  medium: [...STARTER_TASKS_BASE, { title: "Outline the rulebook structure",  description: "Decide section order: setup → turn structure → win condition → edge cases.", priority: "low", category: "rulebook" }],
+  heavy:  [
+    ...STARTER_TASKS_BASE,
+    { title: "Outline the rulebook structure", description: "Decide section order: setup → turn structure → win condition → edge cases.",                priority: "low",    category: "rulebook" },
+    { title: "Draft a balance tracking sheet", description: "Spreadsheet columns: component, cost, expected value, observed win rate.",                  priority: "medium", category: "balance" },
+  ],
+};
+
+// Default turn phases per complexity (used to seed the Game Identity tab).
+const TURN_PHASES_BY_COMPLEXITY: Record<Complexity["id"], string> = {
+  light:  "Draw → Play one card → End",
+  medium: "Refresh → Action → Resolve → Cleanup",
+  heavy:  "Upkeep → Income → Action (×2) → Combat → Cleanup",
+};
+
 type WizardAnswers = {
   theme: string;
   themeFlavor: string;
@@ -98,9 +144,14 @@ export function QuickStartWizard({ open, onOpenChange, workspaceSlug, onCreated 
   const { toast } = useToast();
 
   const createProject = useCreateProject();
+  const updateProject = useUpdateProject();
   const aiGenerateEntities = useAiGenerateEntities();
   const aiGenerateRules = useAiGenerateRules();
   const aiGeneratePlayers = useAiGeneratePlayers();
+  const aiGenerateResearch = useAiGenerateResearch();
+  const createNote = useCreateNote();
+  const createTask = useCreateTask();
+  const createReferenceGame = useCreateReferenceGame();
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -141,15 +192,31 @@ export function QuickStartWizard({ open, onOpenChange, workspaceSlug, onCreated 
     }, 800);
   };
 
-  // Restore draft on mount
+  // Restore draft on mount (with type-guarded validation so a corrupt session
+  // entry can never poison the wizard state)
   useEffect(() => {
     if (!open) return;
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const draft = JSON.parse(raw) as Partial<WizardAnswers>;
-        setAnswers(prev => ({ ...prev, ...draft }));
+      if (!raw) return;
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return;
+      const d = parsed as Record<string, unknown>;
+      const validComplexity = (v: unknown): v is "light" | "medium" | "heavy" =>
+        v === "light" || v === "medium" || v === "heavy";
+      const safe: Partial<WizardAnswers> = {};
+      if (typeof d.theme === "string") safe.theme = d.theme;
+      if (typeof d.themeFlavor === "string") safe.themeFlavor = d.themeFlavor;
+      if (typeof d.customTheme === "string") safe.customTheme = d.customTheme;
+      if (typeof d.playerCount === "number" && d.playerCount >= 1 && d.playerCount <= 8) {
+        safe.playerCount = d.playerCount;
       }
+      if (typeof d.playTime === "number" && d.playTime >= 15 && d.playTime <= 120) {
+        safe.playTime = d.playTime;
+      }
+      if (validComplexity(d.complexity)) safe.complexity = d.complexity;
+      if (typeof d.pitch === "string") safe.pitch = d.pitch;
+      setAnswers(prev => ({ ...prev, ...safe }));
     } catch { /* ignore */ }
   }, [open]);
 
@@ -220,11 +287,19 @@ export function QuickStartWizard({ open, onOpenChange, workspaceSlug, onCreated 
       ? answers.pitch.trim().slice(0, 60)
       : `My ${themeLabel} game`;
 
+    const referenceGames = REFERENCE_GAMES_BY_COMPLEXITY[answers.complexity];
+    const starterTasks = STARTER_TASKS_BY_COMPLEXITY[answers.complexity];
+
     const initialStages: GenStage[] = [
-      { id: "project",   label: "Creating your project...",       status: "running" },
-      { id: "entities",  label: `Designing ${complexity.componentCount} components...`, status: "pending" },
-      { id: "players",   label: "Setting up player roles...",     status: "pending" },
-      { id: "rules",     label: `Drafting ${complexity.ruleCount} starter rules...`,  status: "pending" },
+      { id: "project",    label: "Creating your project...",                                     status: "running" },
+      { id: "identity",   label: "Setting game identity & turn structure...",                    status: "pending" },
+      { id: "entities",   label: `Designing ${complexity.componentCount} components...`,         status: "pending" },
+      { id: "players",    label: "Setting up player roles...",                                   status: "pending" },
+      { id: "rules",      label: `Drafting ${complexity.ruleCount} starter rules...`,            status: "pending" },
+      { id: "research",   label: "Researching theme & inspiration...",                           status: "pending" },
+      { id: "references", label: `Adding ${referenceGames.length} reference games...`,           status: "pending" },
+      { id: "tasks",      label: `Creating ${starterTasks.length} starter tasks...`,             status: "pending" },
+      { id: "notes",      label: "Saving your design pitch as a note...",                        status: "pending" },
     ];
     setStages(initialStages);
 
@@ -276,11 +351,56 @@ export function QuickStartWizard({ open, onOpenChange, workspaceSlug, onCreated 
         `Include: a basic win condition, a turn-structure rule, and ${complexity.ruleCount - 2} core mechanic rules. ` +
         `Each rule should have a clear title and 1-2 sentence content.`;
 
-      updateStage("entities", "running");
-      updateStage("players", "running");
-      updateStage("rules", "running");
+      // Stage prompt for Research (uses the same AiGenerateBody contract)
+      const researchPrompt =
+        `Generate 3 short market-research notes for a ${contextSummary}. ` +
+        `Each note should cover one of: target audience, comparable published games, or a design risk to watch for. ` +
+        `Each note has a clear topic and 2-3 sentence content.`;
 
-      const [entitiesRes, playersRes, rulesRes] = await Promise.allSettled([
+      // Game-Identity payload — all client-derived, no AI call needed
+      const complexityScore = complexity.id === "light" ? 3 : complexity.id === "medium" ? 6 : 9;
+      const identityBody = {
+        narrative: answers.pitch.trim() ||
+          `A ${complexity.label.toLowerCase()} ${themeLabel.toLowerCase()} game for ${playerCountString(answers.playerCount)}, around ${playTimeString(answers.playTime)} per session.`,
+        winCondition: "Placeholder — first player to reach the target victory condition wins. Refine this once the core loop is playtested.",
+        turnPhases: TURN_PHASES_BY_COMPLEXITY[answers.complexity],
+        complexityScore,
+        referenceGames: referenceGames.map(r => r.name).join(", "),
+        designPhase: "concept",
+      };
+
+      // Pitch note content (client-derived)
+      const pitchNoteContent =
+        `## Quick Start summary\n\n` +
+        `- **Theme:** ${themeLabel}\n` +
+        `- **Players:** ${playerCountString(answers.playerCount)}\n` +
+        `- **Play time:** ${playTimeString(answers.playTime)}\n` +
+        `- **Complexity:** ${complexity.label} (${complexity.blurb})\n\n` +
+        (answers.pitch.trim() ? `## Pitch\n\n${answers.pitch.trim()}\n` : `## Pitch\n\n_Add your one-line pitch here._\n`);
+
+      // Capture projectId as a non-null const for use inside the parallel
+      // closures below (eliminates `projectId!` and closure-narrowing noise).
+      const createdProjectId: number = projectId;
+
+      // Mark all parallel stages as running
+      updateStage("identity",   "running");
+      updateStage("entities",   "running");
+      updateStage("players",    "running");
+      updateStage("rules",      "running");
+      updateStage("research",   "running");
+      updateStage("references", "running");
+      updateStage("tasks",      "running");
+      updateStage("notes",      "running");
+
+      // Fan out 8 operations in parallel. allSettled tolerates per-stage failure;
+      // we still navigate as long as the project itself was created.
+      const [
+        identityRes, entitiesRes, playersRes, rulesRes,
+        researchRes, referencesRes, tasksRes, notesRes,
+      ] = await Promise.allSettled([
+        updateProject.mutateAsync({ projectId, data: identityBody })
+          .then(r => { updateStage("identity", "done"); return r; })
+          .catch(e => { updateStage("identity", "failed"); throw e; }),
         aiGenerateEntities.mutateAsync({ projectId, data: { prompt: entitiesPrompt, count: complexity.componentCount } })
           .then(r => { updateStage("entities", "done"); return r; })
           .catch(e => { updateStage("entities", "failed"); throw e; }),
@@ -290,25 +410,53 @@ export function QuickStartWizard({ open, onOpenChange, workspaceSlug, onCreated 
         aiGenerateRules.mutateAsync({ projectId, data: { prompt: rulesPrompt, count: complexity.ruleCount } })
           .then(r => { updateStage("rules", "done"); return r; })
           .catch(e => { updateStage("rules", "failed"); throw e; }),
+        aiGenerateResearch.mutateAsync({ projectId, data: { prompt: researchPrompt, count: 3 } })
+          .then(r => { updateStage("research", "done"); return r; })
+          .catch(e => { updateStage("research", "failed"); throw e; }),
+        // References: create N reference games in parallel — succeed if at least one lands
+        Promise.allSettled(
+          referenceGames.map((rg, i) =>
+            createReferenceGame.mutateAsync({ projectId: createdProjectId, data: { ...rg, position: i } })
+          )
+        ).then(results => {
+          const ok = results.some(r => r.status === "fulfilled");
+          updateStage("references", ok ? "done" : "failed");
+          if (!ok) throw new Error("All reference-game creates failed");
+          return results;
+        }),
+        // Tasks: create N starter tasks in parallel — succeed if at least one lands
+        Promise.allSettled(
+          starterTasks.map(t =>
+            createTask.mutateAsync({ projectId: createdProjectId, data: { ...t, status: "todo" } })
+          )
+        ).then(results => {
+          const ok = results.some(r => r.status === "fulfilled");
+          updateStage("tasks", ok ? "done" : "failed");
+          if (!ok) throw new Error("All task creates failed");
+          return results;
+        }),
+        createNote.mutateAsync({ projectId, data: { title: "Quick Start pitch", topic: "concept", content: pitchNoteContent, pinned: true } })
+          .then(r => { updateStage("notes", "done"); return r; })
+          .catch(e => { updateStage("notes", "failed"); throw e; }),
       ]);
 
-      const allFailed = [entitiesRes, playersRes, rulesRes].every(r => r.status === "rejected");
-      if (allFailed) {
+      const allResults = [identityRes, entitiesRes, playersRes, rulesRes, researchRes, referencesRes, tasksRes, notesRes];
+      const totalCount = allResults.length;
+      const failedCount = allResults.filter(r => r.status === "rejected").length;
+
+      if (failedCount === totalCount) {
         toast({
-          title: "AI generation failed",
+          title: "Setup partially failed",
           description: "Your project was created, but no content was generated. You can add content manually.",
           variant: "destructive",
         });
+      } else if (failedCount > 0) {
+        toast({
+          title: `Project created with ${totalCount - failedCount} of ${totalCount} sections`,
+          description: "Some setup steps failed. You can retry them inside the workspace.",
+        });
       } else {
-        const failedCount = [entitiesRes, playersRes, rulesRes].filter(r => r.status === "rejected").length;
-        if (failedCount > 0) {
-          toast({
-            title: `Project created with ${3 - failedCount} of 3 sections`,
-            description: "Some AI generation steps failed. You can retry them inside the workspace.",
-          });
-        } else {
-          toast({ title: "Game ready!", description: "Your skeleton is set up — let's play." });
-        }
+        toast({ title: "Game ready!", description: "Your full starter project is set up — let's play." });
       }
 
       try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
