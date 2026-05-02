@@ -56,6 +56,8 @@ tags:
     description: Component graph layout persistence operations
   - name: designer-artifacts
     description: Generic per-project designer artifact persistence (rulebook, turn structure, blind playtest, scaling matrix, layout, cost estimator, scoring curve, card templates, graph layout)
+  - name: analysis
+    description: AI-powered design analysis operations
   - name: trash
     description: Soft-deleted project recycle bin operations
 paths:
@@ -1989,6 +1991,23 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ChangelogEntry"
+
+  /projects/{projectId}/design-advisor:
+    post:
+      operationId: runDesignAdvisor
+      tags: [analysis]
+      summary: AI-powered design analysis of the entire game project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Structured design analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignAdvisorResponse"
+        "503":
+          description: AI provider unavailable
 
   /projects/{projectId}/export/{kind}:
     post:
@@ -3927,6 +3946,60 @@ components:
         position:
           type: integer
       required: [name]
+
+    DesignAdvisorResponse:
+      type: object
+      properties:
+        strengths:
+          type: array
+          items:
+            type: string
+        issues:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              description:
+                type: string
+              priority:
+                type: string
+                enum: [high, medium, low]
+              estimatedHours:
+                type: number
+              suggestedTab:
+                type: string
+            required: [title, description, priority]
+        recommendations:
+          type: array
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+              why:
+                type: string
+              hoursNeeded:
+                type: number
+              priority:
+                type: integer
+              suggestedTab:
+                type: string
+            required: [action, why, priority]
+        nextMilestone:
+          type: object
+          properties:
+            name:
+              type: string
+            requirements:
+              type: array
+              items:
+                type: string
+            progressPercentage:
+              type: number
+          required: [name, requirements, progressPercentage]
+      required: [strengths, issues, recommendations, nextMilestone]
 
     UpdateReferenceGameBody:
       type: object

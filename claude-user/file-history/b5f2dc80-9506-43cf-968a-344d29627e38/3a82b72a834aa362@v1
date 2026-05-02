@@ -6,9 +6,7 @@ import {
   useCreateResearch, useUpdateResearch, useDeleteResearch, useAiEnhanceResearch,
   useListReferenceGames, getListReferenceGamesQueryKey,
   useCreateReferenceGame, useDeleteReferenceGame, useUpdateReferenceGame,
-  useCreateRule, useCreateTask,
 } from "@workspace/api-client-react";
-import { parseMechanic } from "@/lib/mechanic-parser";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
@@ -124,10 +122,8 @@ function DraggableGameCard({
   onReResearch,
   onReverseEngineer,
   onClone,
-  onUseMechanic,
   researching,
   canReverseEngineer,
-  usingMechanic,
 }: {
   game: RefGame;
   onRemove: () => void;
@@ -135,10 +131,8 @@ function DraggableGameCard({
   onReResearch: () => void;
   onReverseEngineer: (gameId: string) => void;
   onClone: (gameId: string) => void;
-  onUseMechanic: (mechanic: string, gameName: string) => void;
   researching: boolean;
   canReverseEngineer: boolean;
-  usingMechanic: string | null;
 }) {
   const controls = useDragControls();
   const [expanded, setExpanded] = useState(false);
@@ -443,25 +437,9 @@ function DraggableGameCard({
             <div>
               <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">Key mechanics</p>
               <div className="flex flex-wrap gap-1.5">
-                {game.gameData.keyMechanics.map((m, mi) => {
-                  const mechKey = `${game.name}::${m}`;
-                  const isLoading = usingMechanic === mechKey;
-                  return (
-                    <div key={mi} className="flex items-center gap-1">
-                      <span className="text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded-full">{m}</span>
-                      <button
-                        onClick={() => onUseMechanic(m, game.name)}
-                        disabled={isLoading || usingMechanic !== null}
-                        className="text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 px-1.5 py-0.5 rounded-full transition-colors disabled:opacity-40 flex items-center gap-0.5 whitespace-nowrap"
-                        title={`Import "${m}" as a draft rule in the Rules tab`}
-                      >
-                        {isLoading
-                          ? <><Loader2 className="h-2.5 w-2.5 animate-spin" /> importing…</>
-                          : <><Plus className="h-2.5 w-2.5" /> Use this</>}
-                      </button>
-                    </div>
-                  );
-                })}
+                {game.gameData.keyMechanics.map((m, mi) => (
+                  <span key={mi} className="text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded-full">{m}</span>
+                ))}
               </div>
             </div>
           ) : null}
@@ -901,14 +879,10 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
   const deleteRefGame = useDeleteReferenceGame();
   const updateRefGame = useUpdateReferenceGame();
 
-  const createRuleMut = useCreateRule();
-  const createTaskMut = useCreateTask();
-
   const [localOrder, setLocalOrder] = useState<RefGame[]>([]);
   const [draft, setDraft] = useState({ name: "", borrowing: "", avoiding: "" });
   const [showForm, setShowForm] = useState(false);
   const [lookingUp, setLookingUp] = useState<string | null>(null);
-  const [usingMechanic, setUsingMechanic] = useState<string | null>(null);
   const [showReverseDialog, setShowReverseDialog] = useState(false);
   const [preselectedGameId, setPreselectedGameId] = useState<string | null>(null);
   const [dialogSynthType, setDialogSynthType] = useState<"synthesize" | "clone">("synthesize");
@@ -921,46 +895,6 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
   }, [dbRefGames]);
 
   const refGames = localOrder;
-
-  const handleUseMechanic = async (mechanicName: string, gameName: string) => {
-    const key = `${gameName}::${mechanicName}`;
-    setUsingMechanic(key);
-    try {
-      const parsed = await parseMechanic(projectId, mechanicName, gameName);
-      const rule = await createRuleMut.mutateAsync({
-        projectId,
-        data: {
-          title: `[Placeholder] From ${gameName}: ${mechanicName}`,
-          content: parsed.content,
-          category: "imported",
-          priority: 2,
-          designNotes: `Imported from ${gameName}.${parsed.designNotes ? " " + parsed.designNotes : ""}`,
-        },
-      });
-      await createTaskMut.mutateAsync({
-        projectId,
-        data: {
-          title: `Implement "${mechanicName}" from ${gameName}`,
-          description: `Draft rule created (Rule #${rule.id}). Review and finalize the "${mechanicName}" mechanic adapted from ${gameName}.`,
-          status: "todo",
-          priority: "medium",
-          category: "design",
-        },
-      });
-      toast({
-        title: `"${mechanicName}" imported`,
-        description: "Draft rule added to Rules tab · task created",
-      });
-    } catch (err) {
-      toast({
-        title: "Import failed",
-        description: err instanceof Error ? err.message : "Could not import mechanic",
-        variant: "destructive",
-      });
-    } finally {
-      setUsingMechanic(null);
-    }
-  };
 
   const addGame = () => {
     if (!draft.name.trim()) return;
@@ -1166,10 +1100,8 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
               onReResearch={() => lookUpGame(rg.id, undefined, true)}
               onReverseEngineer={(gid) => { setDialogSynthType("synthesize"); setPreselectedGameId(gid); setShowReverseDialog(true); }}
               onClone={(gid) => { setDialogSynthType("clone"); setPreselectedGameId(gid); setShowReverseDialog(true); }}
-              onUseMechanic={handleUseMechanic}
               researching={lookingUp === rg.id}
               canReverseEngineer={Boolean(workspaceSlug && rg.gameData)}
-              usingMechanic={usingMechanic}
             />
           ))}
         </Reorder.Group>

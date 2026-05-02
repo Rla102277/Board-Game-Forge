@@ -50,6 +50,7 @@ import type {
   CreateStoryboardNodeBody,
   CreateTaskBody,
   DashboardSummary,
+  DesignAdvisorResponse,
   DesignerArtifact,
   DuplicateProjectBody,
   Entity,
@@ -10020,6 +10021,90 @@ export function useListChangelog<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary AI-powered design analysis of the entire game project
+ */
+export const getRunDesignAdvisorUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/design-advisor`;
+};
+
+export const runDesignAdvisor = async (
+  projectId: number,
+  options?: RequestInit,
+): Promise<DesignAdvisorResponse> => {
+  return customFetch<DesignAdvisorResponse>(getRunDesignAdvisorUrl(projectId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRunDesignAdvisorMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runDesignAdvisor>>,
+    TError,
+    { projectId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runDesignAdvisor>>,
+  TError,
+  { projectId: number },
+  TContext
+> => {
+  const mutationKey = ["runDesignAdvisor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runDesignAdvisor>>,
+    { projectId: number }
+  > = (props) => {
+    const { projectId } = props ?? {};
+
+    return runDesignAdvisor(projectId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunDesignAdvisorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runDesignAdvisor>>
+>;
+
+export type RunDesignAdvisorMutationError = ErrorType<void>;
+
+/**
+ * @summary AI-powered design analysis of the entire game project
+ */
+export const useRunDesignAdvisor = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runDesignAdvisor>>,
+    TError,
+    { projectId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runDesignAdvisor>>,
+  TError,
+  { projectId: number },
+  TContext
+> => {
+  return useMutation(getRunDesignAdvisorMutationOptions(options));
+};
 
 export const getGenerateExportUrl = (
   projectId: number,

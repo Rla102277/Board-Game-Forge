@@ -1095,6 +1095,44 @@ export interface CreateReferenceGameBody {
   position?: number;
 }
 
+export type DesignAdvisorResponseIssuesItemPriority =
+  (typeof DesignAdvisorResponseIssuesItemPriority)[keyof typeof DesignAdvisorResponseIssuesItemPriority];
+
+export const DesignAdvisorResponseIssuesItemPriority = {
+  high: "high",
+  medium: "medium",
+  low: "low",
+} as const;
+
+export type DesignAdvisorResponseIssuesItem = {
+  title: string;
+  description: string;
+  priority: DesignAdvisorResponseIssuesItemPriority;
+  estimatedHours?: number;
+  suggestedTab?: string;
+};
+
+export type DesignAdvisorResponseRecommendationsItem = {
+  action: string;
+  why: string;
+  hoursNeeded?: number;
+  priority: number;
+  suggestedTab?: string;
+};
+
+export type DesignAdvisorResponseNextMilestone = {
+  name: string;
+  requirements: string[];
+  progressPercentage: number;
+};
+
+export interface DesignAdvisorResponse {
+  strengths: string[];
+  issues: DesignAdvisorResponseIssuesItem[];
+  recommendations: DesignAdvisorResponseRecommendationsItem[];
+  nextMilestone: DesignAdvisorResponseNextMilestone;
+}
+
 export type UpdateReferenceGameBodyGameData = { [key: string]: unknown } | null;
 
 export interface UpdateReferenceGameBody {

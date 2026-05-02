@@ -2250,6 +2250,40 @@ export const ListChangelogResponseItem = zod.object({
 });
 export const ListChangelogResponse = zod.array(ListChangelogResponseItem);
 
+/**
+ * @summary AI-powered design analysis of the entire game project
+ */
+export const RunDesignAdvisorParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const RunDesignAdvisorResponse = zod.object({
+  strengths: zod.array(zod.string()),
+  issues: zod.array(
+    zod.object({
+      title: zod.string(),
+      description: zod.string(),
+      priority: zod.enum(["high", "medium", "low"]),
+      estimatedHours: zod.number().optional(),
+      suggestedTab: zod.string().optional(),
+    }),
+  ),
+  recommendations: zod.array(
+    zod.object({
+      action: zod.string(),
+      why: zod.string(),
+      hoursNeeded: zod.number().optional(),
+      priority: zod.number(),
+      suggestedTab: zod.string().optional(),
+    }),
+  ),
+  nextMilestone: zod.object({
+    name: zod.string(),
+    requirements: zod.array(zod.string()),
+    progressPercentage: zod.number(),
+  }),
+});
+
 export const GenerateExportParams = zod.object({
   projectId: zod.coerce.number(),
   kind: zod.enum([

@@ -343,49 +343,6 @@ router.post(
 );
 
 router.post(
-  "/projects/:projectId/rules/parse-mechanic",
-  async (req, res): Promise<void> => {
-    const projectId = parseInt(req.params.projectId, 10);
-    if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
-    const { mechanicName, gameName } = req.body as { mechanicName?: string; gameName?: string };
-    if (!mechanicName || !gameName) {
-      res.status(400).json({ error: "mechanicName and gameName are required" });
-      return;
-    }
-    const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
-    const narrativeLine = project?.narrative?.trim()
-      ? `\nGame narrative: ${project.narrative.trim()}\n`
-      : "";
-    try {
-      const text = await complete(req, {
-        preferFast: true,
-        prompt: `You are a board game rules designer.${narrativeLine}
-The designer wants to adapt the "${mechanicName}" mechanic from "${gameName}" into their own game.
-Write a concise draft rule for this mechanic as it might appear in their game's rulebook.
-
-Return ONLY a JSON object:
-{
-  "content": "1-3 sentences describing how the mechanic works in play (<= 350 chars)",
-  "designNotes": "1-2 sentences on design intent — why this mechanic creates interesting decisions (<= 200 chars)"
-}
-
-Output JUST the JSON object.`,
-        maxTokens: 500,
-      });
-      const obj = tryParseJsonObject<{ content?: string; designNotes?: string }>(text);
-      if (!obj?.content) { res.status(502).json({ error: "AI returned no content" }); return; }
-      res.json({
-        content: String(obj.content),
-        designNotes: obj.designNotes ? String(obj.designNotes) : undefined,
-      });
-    } catch (err) {
-      req.log.error({ err }, "parse-mechanic failed");
-      res.status(500).json({ error: "AI call failed" });
-    }
-  },
-);
-
-router.post(
   "/projects/:projectId/rules/conflict-check",
   async (req, res): Promise<void> => {
     const params = schemas.ConflictCheckRulesParams.safeParse(req.params);

@@ -1,0 +1,111 @@
+Design Advisor (AI Synthesis)
+What to build:
+AI button that reads entire game design, identifies issues, suggests next steps.
+Files to modify:
+
+Create new: artifacts/gameforge/src/components/workspace/design-advisor.tsx
+artifacts/api-server/src/routes/analysis.ts (new endpoint)
+
+Specification:
+In Overview, add button: "[✨ Design Advisor]"
+Clicking opens:
+DESIGN ADVISOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Analyzing your game...
+(fetching rules, components, feedback, balance score)
+
+FINDINGS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Strengths:
+  • Combat feels tactical (3 player feedback mentions)
+  • Unique resource system
+  
+⚠️  Issues Found:
+  • Endgame drags (avg 2.5 extra turns)
+    → Suggest: Add "accelerator" condition at 80% score
+  • Damage spread is wide (3x) but intentional (rarity tiers)
+    → Status: OK
+  • 2 experimental rules haven't been tested yet
+    → Next: Playtest #4 should focus on these
+    
+🎯 Recommendations (Priority Order):
+  1. Resolve endgame pacing (1-2 hours design work)
+  2. Playtest experimental rules (2+ hours testing)
+  3. Add solitaire variant (if interested)
+  4. Blind test before beta
+  5. Polish component names/descriptions
+
+🚀 Next Milestone:
+  Move from Alpha → Beta when:
+    ✓ Playtests showing consistent fun (3+ sessions)
+    ✓ Endgame resolved
+    ✓ All rules stable (0 experimental)
+    ✓ Balance score 75+/100
+Technical Details:
+
+AI prompt reads: rules + entities + players + feedback + balance + changelog
+Synthesizes findings into structured output (JSON: strengths, issues, recommendations)
+Each recommendation includes time estimate and why it matters
+"Benchmark against similar games" (if reference games exist in research)
+
+Implementation Approach:
+ts// artifacts/api-server/src/routes/analysis.ts - new endpoint
+router.post(
+  "/projects/:projectId/design-advisor",
+  async (req, res): Promise<void> => {
+    // 1. Fetch all project data in parallel
+    const [project, rules, entities, players, feedback, balance, changelog] = await Promise.all([...]);
+    
+    // 2. Build comprehensive game description
+    const gameContext = `
+      Project: ${project.name}
+      Phase: ${project.designPhase}
+      Rules: ${rules.map(r => `[${r.maturity}] ${r.title}: ${r.content}`).join('\n')}
+      Components: ${entities.map(e => `${e.name} (${e.type})`).join(', ')}
+      Players: ${players.map(p => `${p.name} (${p.role})`).join(', ')}
+      Recent Feedback: ${feedback.map(f => f.summary).join('; ')}
+      Balance Score: ${balance.score}
+      Experimental Rules: ${rules.filter(r => r.maturity === 'experimental').length}
+    `;
+    
+    // 3. Send to Claude with structured prompt
+    const prompt = `You are a board game design consultant. Analyze this game design:
+    ${gameContext}
+    
+    Provide analysis in JSON:
+    {
+      "strengths": ["...", "..."],
+      "issues": [
+        {
+          "title": "...",
+          "description": "...",
+          "priority": "high|medium|low",
+          "estimatedHours": number
+        }
+      ],
+      "recommendations": [
+        {
+          "action": "...",
+          "why": "...",
+          "hoursNeeded": number,
+          "priority": 1|2|3|...
+        }
+      ],
+      "nextMilestone": {
+        "name": "Move to Beta",
+        "requirements": ["...", "..."],
+        "progressPercentage": number
+      }
+    }`;
+    
+    // 4. Return structured response
+  }
+);
+Deliverable:
+
+ [✨ Design Advisor] button in Overview
+ Fetches all project data
+ AI analyzes using Claude
+ Returns structured findings (JSON)
+ UI displays strengths, issues, recommendations
+ Each recommendation links to relevant tab (e.g., "Playtest" for feedback issue)

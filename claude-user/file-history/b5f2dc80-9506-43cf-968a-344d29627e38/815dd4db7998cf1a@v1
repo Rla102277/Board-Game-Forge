@@ -29,12 +29,11 @@ interface RulesProps {
 const CATEGORIES = ["movement", "combat", "economy", "turn_structure", "variant"] as const;
 
 const CATEGORY_META: Record<string, { label: string; bg: string; text: string; border: string; dot: string }> = {
-  movement:        { label: "Movement",       bg: "bg-blue-500/15",    text: "text-blue-400",    border: "border-blue-500/30",    dot: "bg-blue-400" },
-  combat:          { label: "Combat",         bg: "bg-red-500/15",     text: "text-red-400",     border: "border-red-500/30",     dot: "bg-red-400" },
-  economy:         { label: "Economy",        bg: "bg-amber-500/15",   text: "text-amber-400",   border: "border-amber-500/30",   dot: "bg-amber-400" },
-  turn_structure:  { label: "Turn Structure", bg: "bg-slate-500/15",   text: "text-slate-400",   border: "border-slate-500/30",   dot: "bg-slate-400" },
-  variant:         { label: "Variant",        bg: "bg-violet-500/15",  text: "text-violet-400",  border: "border-violet-500/30",  dot: "bg-violet-400" },
-  imported:        { label: "Imported",       bg: "bg-orange-500/15",  text: "text-orange-400",  border: "border-orange-500/30",  dot: "bg-orange-400" },
+  movement:        { label: "Movement",       bg: "bg-blue-500/15",   text: "text-blue-400",   border: "border-blue-500/30",   dot: "bg-blue-400" },
+  combat:          { label: "Combat",         bg: "bg-red-500/15",    text: "text-red-400",    border: "border-red-500/30",    dot: "bg-red-400" },
+  economy:         { label: "Economy",        bg: "bg-amber-500/15",  text: "text-amber-400",  border: "border-amber-500/30",  dot: "bg-amber-400" },
+  turn_structure:  { label: "Turn Structure", bg: "bg-slate-500/15",  text: "text-slate-400",  border: "border-slate-500/30",  dot: "bg-slate-400" },
+  variant:         { label: "Variant",        bg: "bg-violet-500/15", text: "text-violet-400", border: "border-violet-500/30", dot: "bg-violet-400" },
 };
 
 const catMeta = (cat?: string | null) => {
