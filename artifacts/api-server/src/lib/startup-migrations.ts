@@ -64,6 +64,15 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS reference_games_project_id_idx ON reference_games (project_id)`,
   // 0014 – entity display order (drag-to-reorder in Component Workshop)
   `ALTER TABLE entities ADD COLUMN IF NOT EXISTS display_order integer`,
+  // 0015 – drop obsolete projects.reference_games text blob (replaced by reference_games table)
+  `DO $$ BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'projects' AND column_name = 'reference_games'
+    ) THEN
+      ALTER TABLE projects DROP COLUMN reference_games;
+    END IF;
+  END $$`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {

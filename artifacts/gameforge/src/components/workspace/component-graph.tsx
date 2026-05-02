@@ -1126,39 +1126,38 @@ export function EntityGraph({
             >
               {showNeighborsOnly ? "Showing neighbors only" : "Show neighbors only"}
             </button>
-            {showNeighborsOnly && (
-              <span className="flex items-center gap-1 ml-1" data-testid="graph-depth-stepper">
-                <span className="text-[10px] text-muted-foreground shrink-0">Depth:</span>
-                <button
-                  onClick={() => setNeighborDepth((v) => Math.max(1, v - 1))}
-                  className="w-5 h-5 rounded border border-border/50 bg-background/40 text-muted-foreground hover:text-white text-[11px] font-bold transition-colors flex items-center justify-center"
-                  data-testid="graph-depth-dec"
-                  aria-label="Decrease depth"
-                >
-                  −
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={neighborDepth}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    if (!isNaN(v) && v >= 1) setNeighborDepth(Math.min(v, 20));
-                  }}
-                  className="w-9 h-5 rounded border border-primary/40 bg-background/60 text-primary text-[11px] font-bold text-center focus:outline-none focus:ring-1 focus:ring-primary/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  data-testid="graph-depth-input"
-                />
-                <button
-                  onClick={() => setNeighborDepth((v) => Math.min(20, v + 1))}
-                  className="w-5 h-5 rounded border border-border/50 bg-background/40 text-muted-foreground hover:text-white text-[11px] font-bold transition-colors flex items-center justify-center"
-                  data-testid="graph-depth-inc"
-                  aria-label="Increase depth"
-                >
-                  +
-                </button>
-              </span>
-            )}
+            {/* Depth stepper — visible whenever a node is focused, regardless of neighbor-only mode */}
+            <span className="flex items-center gap-1 ml-1" data-testid="graph-depth-stepper">
+              <span className="text-[10px] text-muted-foreground shrink-0">Depth:</span>
+              <button
+                onClick={() => setNeighborDepth((v) => Math.max(1, v - 1))}
+                className="w-5 h-5 rounded border border-border/50 bg-background/40 text-muted-foreground hover:text-white text-[11px] font-bold transition-colors flex items-center justify-center"
+                data-testid="graph-depth-dec"
+                aria-label="Decrease depth"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={neighborDepth}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v) && v >= 1) setNeighborDepth(Math.min(v, 20));
+                }}
+                className="w-9 h-5 rounded border border-primary/40 bg-background/60 text-primary text-[11px] font-bold text-center focus:outline-none focus:ring-1 focus:ring-primary/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                data-testid="graph-depth-input"
+              />
+              <button
+                onClick={() => setNeighborDepth((v) => Math.min(20, v + 1))}
+                className="w-5 h-5 rounded border border-border/50 bg-background/40 text-muted-foreground hover:text-white text-[11px] font-bold transition-colors flex items-center justify-center"
+                data-testid="graph-depth-inc"
+                aria-label="Increase depth"
+              >
+                +
+              </button>
+            </span>
             <button
               onClick={() => { setFocusedNodeId(null); setShowNeighborsOnly(false); setNeighborDepth(1); }}
               className="ml-auto text-muted-foreground/60 hover:text-white transition-colors"
@@ -1166,6 +1165,22 @@ export function EntityGraph({
             >
               <X className="h-3.5 w-3.5" />
             </button>
+          </div>
+        )}
+
+        {/* Neighbor-filter on but no node clicked yet */}
+        {showNeighborsOnly && !focusedNodeId && (
+          <div className="flex items-center gap-2 rounded-md border border-blue-500/30 bg-blue-500/5 px-3 py-2 text-xs text-blue-200/80" data-testid="graph-no-focus-hint">
+            <span className="text-blue-400">ℹ</span>
+            Click any node to focus it — the graph will then show only its neighbors within the selected depth.
+          </div>
+        )}
+
+        {/* Cap warning — neighbor mode cut off nodes due to GRAPH_NODE_CAP */}
+        {showNeighborsOnly && focusedNodeId && finalEntities.length >= GRAPH_NODE_CAP && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/80" data-testid="graph-cap-warning">
+            <span className="text-amber-400">⚠</span>
+            Showing {GRAPH_NODE_CAP} nodes max — some nodes at depth {neighborDepth} may be hidden. Reduce depth to see a more complete neighborhood.
           </div>
         )}
 
@@ -1217,7 +1232,8 @@ export function EntityGraph({
                       strokeOpacity={Math.max(0.15, opacity)}
                       strokeWidth={edgeHop != null ? (edgeHop <= 1 ? 2 : 1.5) : Math.min(3, 1 + Math.log2(e.weight))}
                       strokeDasharray={edgeHop != null ? undefined : "4 3"}
-                      className={edgeHop != null ? undefined : "text-foreground"}>
+                      className={edgeHop != null ? undefined : "text-foreground"}
+                      style={{ transition: "stroke-opacity 0.15s ease" }}>
                       <title>{a.name} ↔ {b.name} (co-occur in {e.weight} rules{edgeHop != null ? `, hop ${edgeHop}` : ""})</title>
                     </line>
                   );
@@ -1237,7 +1253,8 @@ export function EntityGraph({
                       stroke={color}
                       strokeOpacity={Math.max(0.15, opacity)}
                       strokeWidth={edgeHop != null ? (edgeHop <= 1 ? 2.5 : 1.8) : 1.4}
-                      className={edgeHop != null ? undefined : "text-foreground"}>
+                      className={edgeHop != null ? undefined : "text-foreground"}
+                      style={{ transition: "stroke-opacity 0.15s ease" }}>
                       <title>{a.name} → {b.name} (explicit{edgeHop != null ? `, hop ${edgeHop}` : ""})</title>
                     </line>
                   );
@@ -1305,7 +1322,8 @@ export function EntityGraph({
                         fillOpacity={baseFillOpacity} stroke="currentColor"
                         strokeOpacity={isFocused ? 1 : isHover || isDragging ? 0.9 : 0.4}
                         strokeWidth={isFocused ? 2.5 : isHover || isDragging ? 2 : 1}
-                        className="text-foreground" />
+                        className="text-foreground"
+                        style={{ transition: "fill-opacity 0.15s ease, stroke-opacity 0.15s ease" }} />
                       {isFocused && (
                         <circle r={n.r + 6} fill="none" stroke="currentColor"
                           strokeOpacity={0.4} strokeWidth={1} strokeDasharray="3 2"

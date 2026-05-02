@@ -17,7 +17,7 @@ import {
 import {
   Plus, Trash2, Sparkles, Loader2, X, ChevronDown, ChevronRight,
   Shield, MessageCircle, Zap, Star, Leaf, Heart,
-  Search, GripVertical, Users, UserPlus, BarChart3, User,
+  Search, GripVertical, GripHorizontal, Users, UserPlus, BarChart3, User,
   Target, Sword, Package, Trophy, Wand2, Gamepad2, List, GitGraph, Check,
 } from "lucide-react";
 import { PlayerRelationshipGraph } from "./player-relationship-graph";
@@ -37,6 +37,20 @@ const PLAYSTYLE_TAGS = ["Solo", "Team", "Asymmetric", "Cooperative", "Competitiv
 type PlaystyleTag = typeof PLAYSTYLE_TAGS[number];
 
 const COMMON_ARCHETYPES = ["Hero", "Villain", "Trickster", "Mentor", "Guardian", "Wanderer", "Ruler", "Rebel", "Sage", "Innocent"] as const;
+
+const PLAYER_TYPE_COLORS: Record<string, string> = {
+  Character: "#60a5fa",
+  NPC: "#4ade80",
+  Enemy: "#f87171",
+  Boss: "#fb923c",
+  Creature: "#c084fc",
+  Ally: "#22d3ee",
+};
+
+function playerCompleteness(p: Player): number {
+  const fields = [p.archetype, p.role, p.faction, p.motivation, p.flaw, p.strategy, p.specialAbility, p.description];
+  return Math.round((fields.filter(Boolean).length / fields.length) * 100);
+}
 
 interface BehaviorProfile { riskTolerance: number; aggression: number; decisionStyle: string; }
 interface Relationship { targetPlayerId: number; relationshipType: string; }
@@ -309,6 +323,9 @@ interface BalanceViewProps { players: Player[]; onReorder: (ids: number[]) => vo
 
 function BalanceView({ players, onReorder }: BalanceViewProps) {
   const [selected, setSelected] = useState<Set<number>>(() => new Set(players.slice(0, 4).map((p) => p.id)));
+  const [balanceTypeFilter, setBalanceTypeFilter] = useState<string | null>(null);
+
+  const visibleByFilter = balanceTypeFilter ? players.filter((p) => p.playerType === balanceTypeFilter) : players;
 
   // Drag state for player chip reordering
   const [draggedId, setDraggedId] = useState<number | null>(null);
@@ -397,9 +414,27 @@ function BalanceView({ players, onReorder }: BalanceViewProps) {
     <div className="p-6 space-y-6">
       {/* Player selector */}
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1 mb-3">Compare Players</h3>
+        <div className="flex items-center justify-between mb-3 border-b border-border pb-1">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Compare Players</h3>
+          {/* Type filter chips */}
+          <div className="flex items-center gap-1 flex-wrap justify-end">
+            {PLAYER_TYPES.filter((t) => players.some((p) => p.playerType === t)).map((t) => {
+              const m = getMeta(t);
+              return (
+                <button
+                  key={t}
+                  onClick={() => setBalanceTypeFilter(balanceTypeFilter === t ? null : t)}
+                  className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${balanceTypeFilter === t ? `${m.bg} border-current ${m.color}` : "border-border text-muted-foreground hover:text-foreground"}`}
+                  title={`Filter by ${t}`}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
-          {players.map((p) => {
+          {visibleByFilter.map((p) => {
             const m = getMeta(p.playerType);
             const colorIdx = players.indexOf(p) % RADAR_COLORS.length;
             const active = selected.has(p.id);
@@ -432,6 +467,7 @@ function BalanceView({ players, onReorder }: BalanceViewProps) {
                   } ${draggedId === p.id ? "opacity-40" : ""} ${isDropTarget ? "ring-1 ring-primary/60 ring-inset scale-[1.02]" : ""}`}
                   style={active ? { color: RADAR_COLORS[colorIdx % RADAR_COLORS.length], borderColor: RADAR_COLORS[colorIdx % RADAR_COLORS.length], backgroundColor: `${RADAR_COLORS[colorIdx % RADAR_COLORS.length]}15` } : {}}
                 >
+                  <GripHorizontal className="h-3 w-3 opacity-40" />
                   <m.Icon className="h-3 w-3" />
                   {p.name}
                 </button>
@@ -628,7 +664,18 @@ export function Players({ projectId }: PlayersProps) {
   const [typeFilter, setTypeFilter] = useState<PlayerType | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<PlayerType>>(new Set());
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
-  const [narrativeEnhancedIds, setNarrativeEnhancedIds] = useState<Set<number>>(new Set());
+  const [narrativeEnhancedIds, setNarrativeEnhancedIds] = useState<Set<number>>(() => {
+    try {
+      const raw = localStorage.getItem(`gameforge:narrative-player-ids:${projectId}`);
+      return raw ? new Set(JSON.parse(raw) as number[]) : new Set();
+    } catch { return new Set(); }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(`gameforge:narrative-player-ids:${projectId}`, JSON.stringify([...narrativeEnhancedIds])); }
+    catch { /* quota exceeded – ignore */ }
+  }, [narrativeEnhancedIds, projectId]);
+
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
@@ -644,6 +691,14 @@ export function Players({ projectId }: PlayersProps) {
   // Saved nudge: briefly shown checkmark + ring after a successful reorder (#68)
   const [savedNudgeId, setSavedNudgeId] = useState<number | null>(null);
   const savedNudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [reorderFlashId, setReorderFlashId] = useState<number | null>(null);
+  const reorderFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flashReorderFail = (id: number) => {
+    setReorderFlashId(id);
+    if (reorderFlashTimerRef.current) clearTimeout(reorderFlashTimerRef.current);
+    reorderFlashTimerRef.current = setTimeout(() => setReorderFlashId(null), 600);
+  };
 
   // ── Relationship add UI
   const [addingRelType, setAddingRelType] = useState<string>("Allied");
@@ -786,15 +841,7 @@ export function Players({ projectId }: PlayersProps) {
     e.dataTransfer.setData("text/plain", String(id));
 
     // Build a compact card preview that the browser will show under the cursor
-    const TYPE_COLORS: Record<string, string> = {
-      Character: "#60a5fa",
-      NPC: "#4ade80",
-      Enemy: "#f87171",
-      Boss: "#fb923c",
-      Creature: "#c084fc",
-      Ally: "#22d3ee",
-    };
-    const accentColor = TYPE_COLORS[player.playerType ?? "Character"] ?? "#60a5fa";
+    const accentColor = PLAYER_TYPE_COLORS[player.playerType ?? "Character"] ?? "#60a5fa";
 
     const card = document.createElement("div");
     card.style.cssText = [
@@ -827,7 +874,10 @@ export function Players({ projectId }: PlayersProps) {
     name.style.cssText = "margin:0;font-size:12px;font-weight:600;color:#e5e5e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
 
     const sub = document.createElement("p");
-    sub.textContent = player.archetype ? player.archetype : (player.playerType ?? "Character");
+    const subParts = [player.archetype || (player.playerType ?? "Character")];
+    if (player.faction) subParts.push(player.faction);
+    if (player.role) subParts.push(player.role);
+    sub.textContent = subParts.join(" · ");
     sub.style.cssText = `margin:0;font-size:10px;color:${accentColor};white-space:nowrap;overflow:hidden;text-overflow:ellipsis`;
 
     const grip = document.createElement("div");
@@ -911,6 +961,53 @@ export function Players({ projectId }: PlayersProps) {
         },
       },
     );
+  };
+
+  // ── Keyboard reorder within the same type group (Alt+Up / Alt+Down)
+  const handleKeyboardReorder = (e: React.KeyboardEvent, playerId: number) => {
+    if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    const sorted = [...(players ?? [])].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    const player = sorted.find((p) => p.id === playerId);
+    if (!player) return;
+    const sameGroup = sorted.filter((p) => p.playerType === player.playerType);
+    const idx = sameGroup.indexOf(player);
+    const delta = e.key === "ArrowUp" ? -1 : 1;
+    const newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= sameGroup.length) { flashReorderFail(playerId); return; }
+    const swapped = [...sameGroup];
+    swapped.splice(idx, 1); swapped.splice(newIdx, 0, player);
+    // Build full reordered list: replace this type group in the global order
+    const otherPlayers = sorted.filter((p) => p.playerType !== player.playerType);
+    const groupStartIdx = sorted.findIndex((p) => p.playerType === player.playerType);
+    const reordered = [...sorted];
+    swapped.forEach((sp, i) => { reordered[groupStartIdx + i] = sp; });
+    const allIds = reordered.map((p) => p.id);
+    const queryKey = getListPlayersQueryKey(projectId);
+    const previous = qc.getQueryData<Player[]>(queryKey);
+    const orderMap = new Map(allIds.map((id, i) => [id, i]));
+    if (previous) {
+      qc.setQueryData(queryKey, previous.map((p) => orderMap.has(p.id) ? { ...p, displayOrder: orderMap.get(p.id)! } : p));
+    }
+    const movedId = playerId;
+    reorderPlayers.mutate(
+      { projectId, data: { playerIds: allIds } },
+      {
+        onSuccess: (rows) => {
+          qc.setQueryData(getListPlayersQueryKey(projectId), rows);
+          if (savedNudgeTimerRef.current) clearTimeout(savedNudgeTimerRef.current);
+          setSavedNudgeId(movedId);
+          savedNudgeTimerRef.current = setTimeout(() => setSavedNudgeId(null), 2000);
+        },
+        onError: (err) => {
+          if (previous) qc.setQueryData(queryKey, previous);
+          flashReorderFail(playerId);
+          toast({ title: "Reorder failed", description: String(err), variant: "destructive" });
+        },
+      },
+    );
+    // Suppress "unused variable" warning
+    void otherPlayers;
   };
 
   // ── Balance view reorder (flat, cross-group)
@@ -1108,12 +1205,15 @@ export function Players({ projectId }: PlayersProps) {
                           )}
                           <div
                             draggable
+                            tabIndex={0}
                             onDragStart={(e) => handleDragStart(e, p.id, p)}
                             onDragOver={(e) => handleDragOver(e, p.id)}
                             onDrop={() => handleDrop(p.id, type)}
                             onDragEnd={() => { document.body.style.cursor = ""; clearDragState(); }}
                             onClick={() => { setSelectedId(isSelected ? null : p.id); setView("persona"); }}
-                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-all border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${draggedId === p.id ? "opacity-40 cursor-grabbing" : ""} ${isActive && draggedId !== p.id ? "ring-1 ring-primary/60 ring-inset scale-[1.01] bg-primary/5" : ""} ${isSaved ? "ring-1 ring-green-500/70 ring-inset bg-green-500/5 transition-[box-shadow,background-color]" : ""}`}
+                            onKeyDown={(e) => handleKeyboardReorder(e, p.id)}
+                            title="Alt+↑/↓ to reorder"
+                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-all border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${draggedId === p.id ? "opacity-40 cursor-grabbing" : ""} ${isActive && draggedId !== p.id ? "ring-1 ring-primary/60 ring-inset scale-[1.01] bg-primary/5" : ""} ${isSaved ? "ring-1 ring-green-500/70 ring-inset bg-green-500/5 transition-[box-shadow,background-color]" : ""} ${reorderFlashId === p.id ? "ring-1 ring-red-500/70 ring-inset bg-red-500/5 transition-[box-shadow,background-color]" : ""}`}
                           >
                             <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0 cursor-grab" />
                             <m.Icon className={`h-3.5 w-3.5 shrink-0 ${m.color}`} />
@@ -1125,6 +1225,25 @@ export function Players({ projectId }: PlayersProps) {
                                 {p.faction ? ` · ${p.faction}` : ""}
                               </p>
                             </div>
+                            {/* Completeness indicator */}
+                            {(() => {
+                              const pct = playerCompleteness(p);
+                              const color = pct >= 75 ? "#4ade80" : pct >= 40 ? "#fbbf24" : "#f87171";
+                              return (
+                                <span
+                                  title={`Profile ${pct}% complete`}
+                                  className="shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 12 12">
+                                    <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth="2" className="text-foreground" />
+                                    <circle cx="6" cy="6" r="5" fill="none" stroke={color} strokeWidth="2"
+                                      strokeDasharray={`${(pct / 100) * 31.4} 31.4`}
+                                      strokeLinecap="round"
+                                      transform="rotate(-90 6 6)" />
+                                  </svg>
+                                </span>
+                              );
+                            })()}
                             {savedNudgeId === p.id && (
                               <span className="flex items-center gap-0.5 text-[10px] text-emerald-400 shrink-0 animate-in fade-in slide-in-from-right-2 duration-200" data-testid={`player-saved-nudge-${p.id}`}>
                                 <Check className="h-3 w-3" /> saved

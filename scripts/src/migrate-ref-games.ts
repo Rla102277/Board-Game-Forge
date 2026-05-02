@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db, projects, referenceGames } from "@workspace/db";
+import { db, referenceGames } from "@workspace/db";
 
 type LegacyRefGame = {
   id?: string;
@@ -21,15 +21,24 @@ function parseLegacyRefGames(raw: string | null | undefined): LegacyRefGame[] {
   }
 }
 
-const allProjects = await db
-  .select({ id: projects.id, referenceGames: projects.referenceGames })
-  .from(projects);
+// Read the legacy column via raw SQL (column was removed from Drizzle schema but may still exist in DB)
+type ProjectRow = { id: number; reference_games: string | null };
+let allProjects: ProjectRow[] = [];
+try {
+  const result = await db.execute(
+    sql`SELECT id, reference_games FROM projects WHERE reference_games IS NOT NULL`,
+  );
+  allProjects = result.rows as ProjectRow[];
+} catch {
+  console.log("projects.reference_games column not found — migration already applied or not needed.");
+  process.exit(0);
+}
 
 let migrated = 0;
 let skipped = 0;
 
 for (const project of allProjects) {
-  const legacy = parseLegacyRefGames(project.referenceGames);
+  const legacy = parseLegacyRefGames(project.reference_games);
   if (legacy.length === 0) {
     skipped++;
     continue;

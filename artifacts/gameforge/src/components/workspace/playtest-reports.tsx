@@ -549,6 +549,16 @@ export function PlaytestReports({ projectId }: PlaytestReportsProps) {
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
 
+  const avgRating = sorted.length
+    ? sorted.reduce((acc, r) => acc + (r.rating ?? 0), 0) / sorted.filter((r) => r.rating != null).length || null
+    : null;
+  const totalActionItems = sorted.reduce((acc, r) => acc + (r.actionItems?.length ?? 0), 0);
+  const openActionItems = sorted.reduce(
+    (acc, r) => acc + (r.actionItems?.filter((i) => !i.done).length ?? 0),
+    0,
+  );
+  const totalAttendees = sorted.reduce((acc, r) => acc + (r.attendees?.length ?? 0), 0);
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
@@ -563,6 +573,35 @@ export function PlaytestReports({ projectId }: PlaytestReportsProps) {
           Log session
         </Button>
       </div>
+      {sorted.length > 0 && (
+        <div className="flex items-center gap-6 px-6 py-2 border-b border-border bg-muted/30 shrink-0 text-sm">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <ClipboardList className="h-3.5 w-3.5" />
+            <span className="font-medium text-foreground">{sorted.length}</span>
+            {sorted.length === 1 ? "session" : "sessions"}
+          </span>
+          {avgRating != null && (
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Star className="h-3.5 w-3.5 text-yellow-500" />
+              <span className="font-medium text-foreground">{avgRating.toFixed(1)}</span>
+              avg rating
+            </span>
+          )}
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Users className="h-3.5 w-3.5" />
+            <span className="font-medium text-foreground">{totalAttendees}</span>
+            attendees
+          </span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <ListChecks className="h-3.5 w-3.5" />
+            <span className="font-medium text-foreground">{openActionItems}</span>
+            {openActionItems === 1 ? "open action" : "open actions"}
+            {totalActionItems > 0 && (
+              <span className="text-xs text-muted-foreground/70">/ {totalActionItems}</span>
+            )}
+          </span>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
         {showForm && (

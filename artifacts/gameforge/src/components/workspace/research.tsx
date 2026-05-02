@@ -14,7 +14,7 @@ import {
   ExternalLink, Edit2, Tag, Lightbulb, Compass, StickyNote, TrendingUp,
   MessageCircle, Zap, ChevronRight, CheckCircle2, ChevronDown, ChevronUp,
   Users, Clock, BarChart2, FileText, RefreshCw, ArrowRight,
-  AlertTriangle, Check, Copy,
+  AlertTriangle, Check, Copy, Eye, RotateCcw,
 } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
 import { apiBase, workspacesApi } from "@/lib/workspaces-api";
@@ -138,6 +138,7 @@ function DraggableGameCard({
   const [expanded, setExpanded] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [researchDepth, setResearchDepth] = useState("comprehensive");
+  const [showPreview, setShowPreview] = useState(false);
   const hasData = Boolean(game.gameData);
 
   return (
@@ -294,6 +295,15 @@ function DraggableGameCard({
 
             {canReverseEngineer && (
               <div className="ml-auto flex items-center gap-1.5">
+                {/* R3: Preview parsed data before cloning */}
+                <Button
+                  size="sm" variant="ghost"
+                  className="gap-1 text-xs h-7 text-muted-foreground hover:text-foreground px-2"
+                  onClick={() => setShowPreview(true)}
+                  title="Preview parsed game data"
+                >
+                  <Eye className="h-3 w-3" /> Preview
+                </Button>
                 <Button
                   size="sm" variant="outline"
                   data-testid="card-clone-btn"
@@ -302,6 +312,15 @@ function DraggableGameCard({
                   title="Faithfully reconstruct this exact game"
                 >
                   <Copy className="h-3 w-3" /> Clone
+                </Button>
+                {/* R1: Re-clone quick button */}
+                <Button
+                  size="sm" variant="ghost"
+                  className="gap-1 text-xs h-7 text-violet-400/70 hover:text-violet-400 px-2"
+                  onClick={() => onClone(game.id)}
+                  title="Re-clone (redo a new clone from updated data)"
+                >
+                  <RotateCcw className="h-3 w-3" />
                 </Button>
                 <Button
                   size="sm" variant="outline"
@@ -312,6 +331,82 @@ function DraggableGameCard({
                   <Wand2 className="h-3 w-3" /> Reverse engineer
                 </Button>
               </div>
+            )}
+
+            {/* R3: Preview modal */}
+            {showPreview && game.gameData && (
+              <Dialog open={showPreview} onOpenChange={setShowPreview}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Eye className="h-5 w-5 text-violet-400" />
+                      {game.name} — Game Data Preview
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-2">
+                    {game.gameData.overview && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-1">Overview</p>
+                        <p className="text-sm leading-relaxed">{game.gameData.overview}</p>
+                      </div>
+                    )}
+                    {game.gameData.coreLoop && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-1">Core loop</p>
+                        <p className="text-sm leading-relaxed text-muted-foreground">{game.gameData.coreLoop}</p>
+                      </div>
+                    )}
+                    {game.gameData.keyMechanics?.length ? (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">Key mechanics</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {game.gameData.keyMechanics.map((m, mi) => (
+                            <span key={mi} className="text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded-full">{m}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {game.gameData.designStrengths?.length ? (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider font-semibold text-emerald-400 mb-1.5">Design strengths</p>
+                          <ul className="space-y-1">
+                            {game.gameData.designStrengths.map((s, si) => (
+                              <li key={si} className="text-xs text-muted-foreground flex gap-1.5">
+                                <span className="text-emerald-400 shrink-0">✓</span>{s}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {game.gameData.designWeaknesses?.length ? (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider font-semibold text-amber-400 mb-1.5">Watch out for</p>
+                          <ul className="space-y-1">
+                            {game.gameData.designWeaknesses.map((w, wi) => (
+                              <li key={wi} className="text-xs text-muted-foreground flex gap-1.5">
+                                <span className="text-amber-400 shrink-0">!</span>{w}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </div>
+                    {game.gameData.designLessons && (
+                      <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+                        <p className="text-[10px] uppercase tracking-wider font-semibold text-primary mb-1">Designer takeaway</p>
+                        <p className="text-sm leading-relaxed">{game.gameData.designLessons}</p>
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                      <Button variant="outline" size="sm" onClick={() => setShowPreview(false)}>Close</Button>
+                      <Button size="sm" className="gap-1.5 bg-violet-500 hover:bg-violet-600 text-white" onClick={() => { setShowPreview(false); onClone(game.id); }}>
+                        <Copy className="h-3.5 w-3.5" /> Clone this game
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             )}
           </>
         )}
@@ -412,6 +507,8 @@ function ReverseEngineerDialog({
   const [cloneGameId, setCloneGameId] = useState<string>("");
   const [direction, setDirection] = useState("");
   const [mode, setMode] = useState<"new_project" | "populate_current">(workspaceSlug ? "new_project" : "populate_current");
+  // R2: clone destination toggle (new project vs. into current project)
+  const [cloneDestination, setCloneDestination] = useState<"new_project" | "populate_current">("new_project");
   const [synthType, setSynthType] = useState<"synthesize" | "clone">(initialSynthType ?? "synthesize");
   const [reversing, setReversing] = useState(false);
   const [stageIdx, setStageIdx] = useState(0);
@@ -493,7 +590,7 @@ function ReverseEngineerDialog({
     }
     const gamesToSend = synthType === "clone" ? [cloneGame!] : selectedGames;
     // Clone mode always creates a new project
-    const effectiveMode = synthType === "clone" ? "new_project" : mode;
+    const effectiveMode = synthType === "clone" ? cloneDestination : mode;
     const effectiveWorkspaceSlug = synthType === "clone" ? (workspaceSlug ?? "") : workspaceSlug;
     if (synthType === "clone" && !workspaceSlug) {
       toast({ title: "Clone requires a workspace context", description: "Open this from a project page to enable cloning.", variant: "destructive" });
@@ -584,9 +681,33 @@ function ReverseEngineerDialog({
                 </button>
               </div>
               {synthType === "clone" && (
-                <p className="text-[10px] text-amber-400/80 flex items-center gap-1 mt-1">
-                  ⚡ Clone mode uses a faithful-reproduction prompt — AI will preserve original names, mechanics, and rules.
-                </p>
+                <>
+                  <p className="text-[10px] text-amber-400/80 flex items-center gap-1 mt-1">
+                    ⚡ Clone mode uses a faithful-reproduction prompt — AI will preserve original names, mechanics, and rules.
+                  </p>
+                  {/* R2: destination toggle for clone mode */}
+                  <div className="mt-2">
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Destination</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCloneDestination("new_project")}
+                        className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors ${cloneDestination === "new_project" ? "border-violet-500/60 bg-violet-500/10 text-violet-200" : "border-border text-muted-foreground hover:text-foreground"}`}
+                      >
+                        <span className="font-semibold block">New project</span>
+                        <span className="opacity-70 text-[10px]">Create a separate project for this clone</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCloneDestination("populate_current")}
+                        className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors ${cloneDestination === "populate_current" ? "border-violet-500/60 bg-violet-500/10 text-violet-200" : "border-border text-muted-foreground hover:text-foreground"}`}
+                      >
+                        <span className="font-semibold block">Into this project</span>
+                        <span className="opacity-70 text-[10px]">Add cloned content into the current project</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
 

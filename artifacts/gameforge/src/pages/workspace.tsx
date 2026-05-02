@@ -66,7 +66,7 @@ const NAV_GROUPS = [
     items: [
       { id: "tasks",          label: "Tasks",            icon: CheckSquare,  statKey: "taskCount",      shortcut: "t" },
       { id: "notes",          label: "Notes",            icon: FileText,     statKey: "noteCount",      shortcut: null },
-      { id: "playtest-reports", label: "Playtest Reports", icon: ClipboardList, statKey: null,           shortcut: null },
+      { id: "playtest-reports", label: "Playtest Reports", icon: ClipboardList, statKey: "playtestReportCount", shortcut: null },
     ],
   },
   {

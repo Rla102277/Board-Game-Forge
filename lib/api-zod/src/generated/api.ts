@@ -295,6 +295,7 @@ export const GetProjectStatsResponse = zod.object({
   researchCount: zod.number(),
   assetCount: zod.number(),
   playtestCount: zod.number(),
+  playtestReportCount: zod.number(),
 });
 
 /**

@@ -841,6 +841,19 @@ export function Entities({ projectId }: EntitiesProps) {
                     <span className={`text-sm font-semibold ${m.color}`}>{type}s</span>
                     <Badge variant="outline" className={`text-[10px] ml-1 ${m.badge}`}>{items.length}</Badge>
                     <span className="text-xs text-muted-foreground ml-1 hidden sm:block">{m.desc}</span>
+                    {/* E2: color dots for entities with custom colors */}
+                    {(() => {
+                      const colored = items.filter((e) => e.color && /^#[0-9a-fA-F]{6}$/.test(e.color));
+                      if (!colored.length) return null;
+                      return (
+                        <span className="flex items-center gap-0.5 ml-auto">
+                          {colored.slice(0, 8).map((e) => (
+                            <span key={e.id} className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/20" style={{ backgroundColor: e.color! }} />
+                          ))}
+                          {colored.length > 8 && <span className="text-[9px] text-muted-foreground ml-0.5">+{colored.length - 8}</span>}
+                        </span>
+                      );
+                    })()}
                   </button>
                   {!isCollapsed && (
                     viewMode === "grid" ? (
@@ -1137,6 +1150,7 @@ function EntityVisualCard({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [hexInput, setHexInput] = useState(entity.color ?? "");
   const lastSubmittedHexRef = useRef<string | null>(null);
+  const colorPickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (showColorPicker) {
@@ -1145,7 +1159,23 @@ function EntityVisualCard({
     }
   }, [showColorPicker, entity.color]);
 
+  // E1: close color picker on outside click
+  useEffect(() => {
+    if (!showColorPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        setShowColorPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showColorPicker]);
+
   const isValidHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v);
+  const normalize3Hex = (v: string): string => {
+    if (/^#[0-9a-fA-F]{3}$/.test(v)) return "#" + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+    return v;
+  };
   const previewColor = showColorPicker && isValidHex(hexInput) ? hexInput : (entity.color ?? null);
 
   const [editForm, setEditForm] = useState({
@@ -1675,7 +1705,7 @@ function EntityVisualCard({
 
         {/* Color picker swatches (#53) + hex input (#70) */}
         {showColorPicker && (
-          <div className="pt-2 border-t border-border/40 space-y-2" data-color-picker="true">
+          <div ref={colorPickerRef} className="pt-2 border-t border-border/40 space-y-2" data-color-picker="true">
             <div className="flex items-center gap-1 flex-wrap">
               {CARD_COLORS.map((c) => (
                 <button
@@ -1714,11 +1744,26 @@ function EntityVisualCard({
                 </button>
               )}
             </div>
-            {/* Hex input */}
+            {/* Hex input + E3 native color wheel */}
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <div
-                className="rounded shrink-0 border border-border/60"
-                style={{ width: 18, height: 18, backgroundColor: isValidHex(hexInput) ? hexInput : "transparent" }}
+              {/* E3: native <input type="color"> — synced bidirectionally with hex field */}
+              <input
+                type="color"
+                title="Color wheel"
+                value={isValidHex(hexInput) ? hexInput : (entity.color ?? "#000000")}
+                className="w-7 h-7 rounded cursor-pointer border border-border/60 bg-transparent p-0 shrink-0"
+                style={{ WebkitAppearance: "none" } as React.CSSProperties}
+                onChange={(e) => {
+                  const val = e.target.value.toLowerCase();
+                  setHexInput(val);
+                }}
+                onBlur={async (e) => {
+                  const val = e.target.value.toLowerCase();
+                  if (isValidHex(val) && val !== (entity.color ?? "").toLowerCase()) {
+                    lastSubmittedHexRef.current = val;
+                    try { await updateEntity.mutateAsync({ projectId, entityId: entity.id, data: { color: val } }); refresh(); } catch { /* noop */ }
+                  }
+                }}
               />
               <input
                 data-testid={`hex-input-${entity.id}`}
@@ -1730,12 +1775,14 @@ function EntityVisualCard({
                 onChange={(e) => {
                   let val = e.target.value.trim().toLowerCase();
                   if (val && !val.startsWith("#")) val = "#" + val;
+                  // E4: normalize 3-digit hex on the fly
+                  val = normalize3Hex(val);
                   setHexInput(val);
                 }}
                 onKeyDown={async (e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    const val = hexInput.trim().toLowerCase();
+                    const val = normalize3Hex(hexInput.trim().toLowerCase());
                     if (isValidHex(val)) {
                       lastSubmittedHexRef.current = val;
                       try {
@@ -1749,7 +1796,7 @@ function EntityVisualCard({
                 onBlur={async (e) => {
                   const related = e.relatedTarget as HTMLElement | null;
                   if (related && related.closest("[data-color-picker]")) return;
-                  const val = hexInput.trim().toLowerCase();
+                  const val = normalize3Hex(hexInput.trim().toLowerCase());
                   const currentNorm = (entity.color ?? "").toLowerCase();
                   if (isValidHex(val) && val !== currentNorm && val !== lastSubmittedHexRef.current) {
                     lastSubmittedHexRef.current = val;

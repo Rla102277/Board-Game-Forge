@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useListRules, useCreateRule, useUpdateRule, useDeleteRule,
   useAiGenerateRules, useAiEnhanceRule, useConflictCheckRules, getListRulesQueryKey,
-  useListRuleEntities,
+  useListRuleEntities, useGetProject,
   type Rule,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,6 +75,7 @@ const COLLAPSE_THRESHOLD = 240;
 export function Rules({ projectId }: RulesProps) {
   const queryClient = useQueryClient();
   const { data: rules, isLoading } = useListRules(projectId);
+  const { data: project } = useGetProject(projectId);
   const createRule = useCreateRule();
   const updateRule = useUpdateRule();
   const deleteRule = useDeleteRule();
@@ -84,8 +85,30 @@ export function Rules({ projectId }: RulesProps) {
 
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-  const [narrativeRuleIds, setNarrativeRuleIds] = useState<Set<number>>(new Set());
-  const [narrativeEnhanceRuleIds, setNarrativeEnhanceRuleIds] = useState<Set<number>>(new Set());
+
+  const [narrativeRuleIds, setNarrativeRuleIds] = useState<Set<number>>(() => {
+    try {
+      const raw = localStorage.getItem(`gameforge:narrative-rule-ids:${projectId}`);
+      return raw ? new Set(JSON.parse(raw) as number[]) : new Set();
+    } catch { return new Set(); }
+  });
+  const [narrativeEnhanceRuleIds, setNarrativeEnhanceRuleIds] = useState<Set<number>>(() => {
+    try {
+      const raw = localStorage.getItem(`gameforge:narrative-enhance-rule-ids:${projectId}`);
+      return raw ? new Set(JSON.parse(raw) as number[]) : new Set();
+    } catch { return new Set(); }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(`gameforge:narrative-rule-ids:${projectId}`, JSON.stringify([...narrativeRuleIds])); }
+    catch { /* quota exceeded – ignore */ }
+  }, [narrativeRuleIds, projectId]);
+
+  useEffect(() => {
+    try { localStorage.setItem(`gameforge:narrative-enhance-rule-ids:${projectId}`, JSON.stringify([...narrativeEnhanceRuleIds])); }
+    catch { /* quota exceeded – ignore */ }
+  }, [narrativeEnhanceRuleIds, projectId]);
+
   const [filter, setFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
@@ -328,6 +351,14 @@ export function Rules({ projectId }: RulesProps) {
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeForms}><X className="h-4 w-4" /></Button>
           </CardHeader>
           <CardContent className="space-y-3">
+            {project?.narrative && (
+              <div className="rounded-md bg-violet-500/10 border border-violet-500/20 px-3 py-2 text-xs text-violet-300 flex gap-2 items-start">
+                <Sparkles className="h-3 w-3 mt-0.5 shrink-0 text-violet-400" />
+                <span className="line-clamp-2 italic">
+                  {project.narrative.length > 120 ? project.narrative.slice(0, 120) + "…" : project.narrative}
+                </span>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="rules-ai-prompt">What kind of rules?</Label>
               <Input

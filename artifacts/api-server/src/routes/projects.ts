@@ -12,6 +12,7 @@ import {
   researchItems,
   assets,
   playtestSessions,
+  playtestReports,
   appUsers,
 } from "@workspace/db";
 import { getAuth } from "@clerk/express";
@@ -123,6 +124,7 @@ router.get("/projects/:projectId/stats", async (req, res): Promise<void> => {
     [researchRow],
     [assetRow],
     [playtestRow],
+    [playtestReportRow],
   ] = await Promise.all([
     db.select({ c }).from(entities).where(eq(entities.projectId, projectId)),
     db.select({ c }).from(rules).where(eq(rules.projectId, projectId)),
@@ -133,6 +135,7 @@ router.get("/projects/:projectId/stats", async (req, res): Promise<void> => {
     db.select({ c }).from(researchItems).where(eq(researchItems.projectId, projectId)),
     db.select({ c }).from(assets).where(eq(assets.projectId, projectId)),
     db.select({ c }).from(playtestSessions).where(eq(playtestSessions.projectId, projectId)),
+    db.select({ c }).from(playtestReports).where(eq(playtestReports.projectId, projectId)),
   ]);
   res.json(
     schemas.GetProjectStatsResponse.parse({
@@ -145,6 +148,7 @@ router.get("/projects/:projectId/stats", async (req, res): Promise<void> => {
       researchCount: researchRow?.c ?? 0,
       assetCount: assetRow?.c ?? 0,
       playtestCount: playtestRow?.c ?? 0,
+      playtestReportCount: playtestReportRow?.c ?? 0,
     }),
   );
 });

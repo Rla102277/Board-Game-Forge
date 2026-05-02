@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useToast } from "@/hooks/use-toast";
 import { AiEditTextarea } from "@/components/workspace/ai-edit-textarea";
 import { ProjectVersions } from "@/components/workspace/project-versions";
 import { ComplexityScore } from "@/components/workspace/complexity-score";
@@ -183,6 +184,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   const { data: stats, isLoading: statsLoading } = useGetProjectStats(projectId);
   const updateProject = useUpdateProject();
   const qc = useQueryClient();
+  const { toast } = useToast();
 
   const { data: entities } = useListEntities(projectId);
   const { data: rules }    = useListRules(projectId);
@@ -274,8 +276,9 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
             2000,
           );
         },
-        onError: () => {
+        onError: (err) => {
           setSectionSaveStatus((s) => ({ ...s, [section]: "idle" }));
+          toast({ title: "Section save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
         },
       },
     );
@@ -349,10 +352,11 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
             setNarrativeSaveStatus("saved");
             narrativeSaveTimerRef.current = setTimeout(() => setNarrativeSaveStatus("idle"), 2000);
           },
-          onError: () => {
+          onError: (err) => {
             if (seq !== narrativeSaveSeqRef.current) return;
             if (narrativeSaveTimerRef.current) clearTimeout(narrativeSaveTimerRef.current);
             setNarrativeSaveStatus("idle");
+            toast({ title: "Narrative save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
           },
         },
       );
@@ -505,17 +509,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
                 <p className="text-[10px] text-muted-foreground">
                   This seed is shared across the studio — it guides AI generation for components, rules, and players.
                 </p>
-                <span className="flex items-center gap-1 text-[10px] shrink-0 ml-2 transition-opacity duration-300" style={{ opacity: narrativeSaveStatus === "idle" ? 0 : 1 }}>
-                  {narrativeSaveStatus === "saving" ? (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Saving…
-                    </span>
-                  ) : narrativeSaveStatus === "saved" ? (
-                    <span className="flex items-center gap-1 text-green-500">
-                      <Check className="h-3 w-3" /> Saved
-                    </span>
-                  ) : null}
-                </span>
+                <SaveIndicator status={narrativeSaveStatus} />
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

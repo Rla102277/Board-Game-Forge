@@ -1,0 +1,37 @@
+Let users control hop-coloring depth in the full graph without switching to neighbor-only mode
+Add a drag handle icon to Balance view chips so users know they can be reordered
+Animate the graph hover dimming so nodes and labels fade smoothly
+Show a loading state on the Sync button so users know the save is in progress
+Let users also push grouped order back to flat order (reverse sync)
+Show save feedback in the Rules, Players, and Components editors too
+Tell users when a save fails instead of silently resetting
+Let users re-clone a game to refresh its components with the latest AI output
+Let users clone a game directly into their current project (not just as a new project)
+Show a preview of what a cloned game will contain before committing
+Warn users when high hop depth hides nodes due to the graph cap
+Unify the narrative seed save indicator style with the section header indicators
+Let users know when a save fails so they don't lose edits silently
+Explain what to do when neighbor-filter is on but no node is selected
+Remove the old reference-games text column from projects to keep the database clean
+Fix the API code-generator so schema changes auto-generate client code correctly
+Keep the color picker open until user clicks elsewhere, not just on the dot again
+Show the entity's custom color in grouped-mode section headers
+Show a native color picker wheel alongside the hex field for visual color selection
+Support 3-digit shorthand hex values like #f60 in the color input
+Show a brief red flash when a keyboard reorder fails to save
+Remove the duplicate color definitions for player types
+Show the player's faction and role in the drag preview card
+Announce keyboard reorder changes to screen readers in the component gallery
+Let keyboard reordering move assets between kind groups
+Show a 'position saved' flash when assets or entities are reordered
+Catch bad player inputs early so invalid data can't corrupt the roster
+Add automated tests for other routes so regressions are caught project-wide
+Let users link entities to rules directly from the relationship graph
+Show a 'linked elsewhere' indicator on assets already linked to other components
+Show playtest report count in the sidebar badge
+Add summary statistics to the Playtest Reports header
+Show a 'field completeness' indicator on each persona card in the roster
+Let users filter the Balance view by player type or faction
+Add a 'copy archetype' quick-fill that pre-populates strategy and ability from a template
+Remember which rules and players were narrative-grounded after page refresh
+Show a preview of the narrative seed inside the AI generate panels

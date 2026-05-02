@@ -21,7 +21,6 @@ export const projects = pgTable(
     winCondition: text("win_condition"),
     turnPhases: text("turn_phases"),
     eliminationRule: text("elimination_rule"),
-    referenceGames: text("reference_games"),
     designPhase: text("design_phase").default("concept").notNull(),
     overviewMeta: jsonb("overview_meta"),
     designProblems: jsonb("design_problems"),

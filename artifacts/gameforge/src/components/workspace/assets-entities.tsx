@@ -507,6 +507,8 @@ function AssetsView({
   const { toast } = useToast();
   const { data: assets, isLoading } = useListAssets(projectId);
   const { data: entities } = useListEntities(projectId);
+  // A6: Set of asset IDs that are linked to an entity (used elsewhere in the game system)
+  const linkedAssetIds = useMemo(() => new Set((assets ?? []).filter((a) => a.entityId != null).map((a) => a.id)), [assets]);
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
   const deleteAsset = useDeleteAsset();
@@ -636,6 +638,47 @@ function AssetsView({
   const showOrderNotice = ordersDisagree && !orderNoticeDismissed;
 
   const [isSyncingOrders, setIsSyncingOrders] = useState(false);
+  const [isSyncingReverse, setIsSyncingReverse] = useState(false);
+  const [positionSavedId, setPositionSavedId] = useState<number | null>(null);
+  const positionSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [ariaAnnouncement, setAriaAnnouncement] = useState("");
+
+  const triggerPositionSaved = (id: number) => {
+    setPositionSavedId(id);
+    if (positionSavedTimerRef.current) clearTimeout(positionSavedTimerRef.current);
+    positionSavedTimerRef.current = setTimeout(() => setPositionSavedId(null), 1400);
+  };
+  const announce = (msg: string) => setAriaAnnouncement(msg);
+
+  // Reverse sync: grouped order → flat displayOrder
+  const handleReverseSyncOrders = async () => {
+    if (!assets?.length || isSyncingReverse) return;
+    setIsSyncingReverse(true);
+    try {
+      // Build globally-ordered list from grouped order: kind by ASSET_KINDS order, within kind by groupDisplayOrder
+      const assetById = new Map(assets.map((a) => [a.id, a]));
+      const kindOrder = ASSET_KINDS;
+      const sortedIds: number[] = [];
+      for (const kind of kindOrder) {
+        const ids = localGroupOrder.get(kind) ?? [];
+        sortedIds.push(...ids);
+      }
+      // Any kinds not in ASSET_KINDS
+      for (const [kind, ids] of localGroupOrder.entries()) {
+        if (!kindOrder.includes(kind)) sortedIds.push(...ids);
+      }
+      await Promise.all(sortedIds.map((id, index) =>
+        updateAsset.mutateAsync({ projectId, assetId: id, data: { displayOrder: index } })
+      ));
+      void assetById;
+      refresh();
+      announce("Flat order updated from grouped order");
+    } catch {
+      toast({ title: "Failed to reverse sync", variant: "destructive" });
+    } finally {
+      setIsSyncingReverse(false);
+    }
+  };
 
   const handleSyncOrders = async () => {
     if (!assets?.length || isSyncingOrders) return;
@@ -830,12 +873,15 @@ function AssetsView({
     setLocalOrder(finalOrder);
     triggerFlash(id);
     requestAnimationFrame(() => cardElemRefs.current.get(id)?.focus());
+    const assetName = assets?.find((a) => a.id === id)?.name ?? "Asset";
     try {
       await Promise.all(
         finalOrder.map((aid, index) =>
           updateAsset.mutateAsync({ projectId, assetId: aid, data: { displayOrder: index } })
         )
       );
+      triggerPositionSaved(id);
+      announce(`${assetName} moved to position ${newIdx + 1}`);
       pendingFocusId.current = id;
       refresh();
     } catch {
@@ -862,12 +908,15 @@ function AssetsView({
     });
     triggerFlash(id);
     requestAnimationFrame(() => cardElemRefs.current.get(id)?.focus());
+    const assetName = assets?.find((a) => a.id === id)?.name ?? "Asset";
     try {
       await Promise.all(
         finalKindIds.map((aid, index) =>
           updateAsset.mutateAsync({ projectId, assetId: aid, data: { groupDisplayOrder: index } })
         )
       );
+      triggerPositionSaved(id);
+      announce(`${assetName} moved within ${kind} group to position ${newIdx + 1}`);
       pendingFocusId.current = id;
       refresh();
     } catch {
@@ -877,15 +926,65 @@ function AssetsView({
     }
   };
 
+  // Shift+Alt+Arrow: cross-group jump in flat mode — moves asset to start/end of adjacent kind group
+  const moveAcrossGroups = async (id: number, delta: -1 | 1) => {
+    const currentOrder = localOrderRef.current;
+    const idx = currentOrder.indexOf(id);
+    if (idx === -1) return;
+    const asset = assets?.find((a) => a.id === id);
+    if (!asset) return;
+    const assetKindMap = new Map((assets ?? []).map((a) => [a.id, a.kind ?? "other"]));
+    const currentKind = assetKindMap.get(id);
+    // Find boundary of current group in flat order
+    if (delta === -1) {
+      // Jump to just before first item of current group
+      const firstInGroup = currentOrder.findIndex((aid) => assetKindMap.get(aid) === currentKind);
+      if (firstInGroup <= 0) return; // already at top or boundary
+      const targetIdx = Math.max(0, firstInGroup - 1);
+      if (targetIdx === idx) return;
+      const finalOrder = [...currentOrder];
+      finalOrder.splice(idx, 1);
+      finalOrder.splice(targetIdx, 0, id);
+      setLocalOrder(finalOrder);
+      triggerFlash(id);
+      try {
+        await Promise.all(finalOrder.map((aid, i) => updateAsset.mutateAsync({ projectId, assetId: aid, data: { displayOrder: i } })));
+        triggerPositionSaved(id); announce(`${asset.name} moved to previous group`);
+        pendingFocusId.current = id; refresh();
+      } catch { toast({ title: "Failed to save order", variant: "destructive" }); pendingFocusId.current = id; refresh(); }
+    } else {
+      // Jump to just after last item of current group
+      let lastInGroup = -1;
+      for (let i = currentOrder.length - 1; i >= 0; i--) {
+        if (assetKindMap.get(currentOrder[i]) === currentKind) { lastInGroup = i; break; }
+      }
+      if (lastInGroup === -1 || lastInGroup >= currentOrder.length - 1) return;
+      const targetIdx = Math.min(currentOrder.length - 1, lastInGroup + 1);
+      if (targetIdx === idx) return;
+      const finalOrder = [...currentOrder];
+      finalOrder.splice(idx, 1);
+      finalOrder.splice(targetIdx, 0, id);
+      setLocalOrder(finalOrder);
+      triggerFlash(id);
+      try {
+        await Promise.all(finalOrder.map((aid, i) => updateAsset.mutateAsync({ projectId, assetId: aid, data: { displayOrder: i } })));
+        triggerPositionSaved(id); announce(`${asset.name} moved to next group`);
+        pendingFocusId.current = id; refresh();
+      } catch { toast({ title: "Failed to save order", variant: "destructive" }); pendingFocusId.current = id; refresh(); }
+    }
+  };
+
   const handleCardKeyDown = (e: React.KeyboardEvent, id: number, kind?: string) => {
     if (!e.shiftKey) return;
     if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
       e.preventDefault();
-      if (groupByType && kind) moveGroupedAsset(id, kind, -1);
+      if (e.altKey) { if (!groupByType) moveAcrossGroups(id, -1); }
+      else if (groupByType && kind) moveGroupedAsset(id, kind, -1);
       else moveAsset(id, -1);
     } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
       e.preventDefault();
-      if (groupByType && kind) moveGroupedAsset(id, kind, 1);
+      if (e.altKey) { if (!groupByType) moveAcrossGroups(id, 1); }
+      else if (groupByType && kind) moveGroupedAsset(id, kind, 1);
       else moveAsset(id, 1);
     }
   };
@@ -1220,7 +1319,16 @@ function AssetsView({
                 aria-label="Sync grouped order to match flat order"
                 data-testid="orders-sync-button"
               >
-                {isSyncingOrders ? "Syncing…" : "Sync"}
+                {isSyncingOrders ? "Syncing…" : "Sync ↓"}
+              </button>
+              <button
+                onClick={handleReverseSyncOrders}
+                disabled={isSyncingReverse}
+                className="ml-0.5 flex items-center gap-0.5 rounded-full hover:bg-amber-400/30 px-1.5 py-0.5 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Sync flat order to match grouped order"
+                title="Push grouped order back to flat list"
+              >
+                {isSyncingReverse ? "Syncing…" : "Sync ↑"}
               </button>
               <button
                 onClick={() => {
@@ -1307,6 +1415,9 @@ function AssetsView({
           ))}
         </div>
       )}
+
+      {/* A5: aria-live region for screen reader announcements */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">{ariaAnnouncement}</div>
 
       {/* Gallery: loading / empty / grouped / flat */}
       {isLoading ? (
@@ -1419,10 +1530,24 @@ function AssetsView({
                         applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
                         onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
                       />
-                      {focusedId === a.id && (
+                      {/* A6: linked-elsewhere dot */}
+                      {linkedAssetIds.has(a.id) && (
+                        <div className="absolute top-2 right-2 pointer-events-none z-10">
+                          <span className="w-2 h-2 rounded-full bg-blue-400 ring-1 ring-background block" title="Linked to entity" />
+                        </div>
+                      )}
+                      {/* A4: position saved flash label */}
+                      {positionSavedId === a.id && (
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none z-10 animate-in fade-in slide-in-from-bottom-1 duration-200">
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/90 text-white text-[10px] font-medium shadow-sm whitespace-nowrap">
+                            <Check className="h-2.5 w-2.5" /> Saved
+                          </span>
+                        </div>
+                      )}
+                      {focusedId === a.id && positionSavedId !== a.id && (
                         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none z-10">
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[10px] font-medium shadow-sm whitespace-nowrap">
-                            Shift+← → to reorder
+                            Shift+↑↓ / Shift+Alt+↑↓ to reorder
                           </span>
                         </div>
                       )}
@@ -1485,10 +1610,24 @@ function AssetsView({
                 applyEnhance={async (fields) => { await updateAsset.mutateAsync({ projectId, assetId: a.id, data: fields }); refresh(); }}
                 onGamma={() => onGamma(`Asset PDF — ${a.name}`, buildAssetPrompt(a, entities?.find((e) => e.id === a.entityId), projectName, narrative))}
               />
-              {focusedId === a.id && (
+              {/* A6: linked-elsewhere dot */}
+              {linkedAssetIds.has(a.id) && (
+                <div className="absolute top-2 right-2 pointer-events-none z-10">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 ring-1 ring-background block" title="Linked to entity" />
+                </div>
+              )}
+              {/* A4: position saved flash label */}
+              {positionSavedId === a.id && (
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none z-10 animate-in fade-in slide-in-from-bottom-1 duration-200">
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/90 text-white text-[10px] font-medium shadow-sm whitespace-nowrap">
+                    <Check className="h-2.5 w-2.5" /> Saved
+                  </span>
+                </div>
+              )}
+              {focusedId === a.id && positionSavedId !== a.id && (
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none z-10">
                   <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[10px] font-medium shadow-sm whitespace-nowrap">
-                    Shift+← → to reorder
+                    Shift+↑↓ / Shift+Alt+↑↓ to reorder
                   </span>
                 </div>
               )}
