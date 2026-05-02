@@ -609,15 +609,30 @@ function AssetsView({
     return false;
   }, [assets, localOrder, localGroupOrder]);
 
-  // Dismissal state for the order-divergence notice; resets when orders diverge again
-  const [orderNoticeDismissed, setOrderNoticeDismissed] = useState(false);
-  const prevOrdersDisagree = useRef(false);
+  // Dismissal state for the order-divergence notice; persisted in localStorage
+  const storageKey = `gameforge:orderNoticeDismissed:${projectId}`;
+  const [orderNoticeDismissed, setOrderNoticeDismissed] = useState(() => {
+    try { return localStorage.getItem(storageKey) === "true"; } catch { return false; }
+  });
+  // null = not yet initialised (data still loading); boolean = last known value.
+  // Transition-based: only act on false→true (new divergence) or true→false (resynced).
+  // We skip until assets are defined so that the initial ordersDisagree=false from an
+  // empty-state render is not misread as "orders are in sync".
+  const prevOrdersDisagree = useRef<boolean | null>(null);
   useEffect(() => {
-    if (ordersDisagree && !prevOrdersDisagree.current) {
-      setOrderNoticeDismissed(false);
-    }
+    if (assets === undefined) return; // Wait until data has loaded
+    const prev = prevOrdersDisagree.current;
     prevOrdersDisagree.current = ordersDisagree;
-  }, [ordersDisagree]);
+    if (prev === null) return; // First run after load: establish baseline, no action
+    if (ordersDisagree && !prev) {
+      // false → true: a genuinely new divergence — clear stored dismissal and show notice.
+      setOrderNoticeDismissed(false);
+      try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
+    } else if (!ordersDisagree && prev) {
+      // true → false: orders resynced — clear stored dismissal so next divergence is fresh.
+      try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
+    }
+  }, [ordersDisagree, assets, storageKey]);
   const showOrderNotice = ordersDisagree && !orderNoticeDismissed;
 
   const [isSyncingOrders, setIsSyncingOrders] = useState(false);
@@ -1208,8 +1223,11 @@ function AssetsView({
                 {isSyncingOrders ? "Syncing…" : "Sync"}
               </button>
               <button
-                onClick={() => setOrderNoticeDismissed(true)}
-                className="rounded-full hover:bg-amber-400/30 p-0.5 transition-colors"
+                onClick={() => {
+                  setOrderNoticeDismissed(true);
+                  try { localStorage.setItem(storageKey, "true"); } catch { /* ignore */ }
+                }}
+                className="ml-0.5 rounded-full hover:bg-amber-400/30 p-0.5 transition-colors"
                 aria-label="Dismiss"
                 data-testid="orders-disagree-dismiss"
               >
