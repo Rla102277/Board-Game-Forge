@@ -545,17 +545,11 @@ function AssetsView({
   const isSavingOrder = useRef(false);
   // Keyboard reorder focus tracking
   const [focusedId, setFocusedId] = useState<number | null>(null);
+  const [flashId, setFlashId] = useState<number | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (flashTimerRef.current !== null) clearTimeout(flashTimerRef.current); }, []);
   const localOrderRef = useRef<number[]>(localOrder);
   useEffect(() => { localOrderRef.current = localOrder; }, [localOrder]);
-  // Brief flash after keyboard reorder (#69)
-  const [flashedCardId, setFlashedCardId] = useState<number | null>(null);
-  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flashCard = (id: number) => {
-    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    setFlashedCardId(id);
-    flashTimerRef.current = setTimeout(() => setFlashedCardId(null), 500);
-  };
-
   // Per-kind order tracking for grouped mode
   const [draggedKind, setDraggedKind] = useState<string | null>(null);
   const [localGroupOrder, setLocalGroupOrder] = useState<Map<string, number[]>>(new Map());
@@ -754,8 +748,16 @@ function AssetsView({
     requestAnimationFrame(() => cardElemRefs.current.get(id)?.focus());
   }, [assets]);
 
+  const triggerFlash = (id: number) => {
+    if (flashTimerRef.current !== null) clearTimeout(flashTimerRef.current);
+    setFlashId(null);
+    requestAnimationFrame(() => {
+      setFlashId(id);
+      flashTimerRef.current = setTimeout(() => setFlashId(null), 600);
+    });
+  };
+
   const moveAsset = async (id: number, delta: -1 | 1) => {
-    flashCard(id); // brief visual flash (#69)
     const currentOrder = localOrderRef.current;
     const idx = currentOrder.indexOf(id);
     if (idx === -1) return;
@@ -765,6 +767,7 @@ function AssetsView({
     finalOrder.splice(idx, 1);
     finalOrder.splice(newIdx, 0, id);
     setLocalOrder(finalOrder);
+    triggerFlash(id);
     requestAnimationFrame(() => cardElemRefs.current.get(id)?.focus());
     try {
       await Promise.all(
@@ -783,7 +786,6 @@ function AssetsView({
 
   // Keyboard reorder within a grouped section — writes groupDisplayOrder independently
   const moveGroupedAsset = async (id: number, kind: string, delta: -1 | 1) => {
-    flashCard(id); // brief visual flash (#69)
     const kindIds = localGroupOrder.get(kind) ?? [];
     const idx = kindIds.indexOf(id);
     if (idx === -1) return;
@@ -797,6 +799,7 @@ function AssetsView({
       next.set(kind, finalKindIds);
       return next;
     });
+    triggerFlash(id);
     requestAnimationFrame(() => cardElemRefs.current.get(id)?.focus());
     try {
       await Promise.all(
@@ -1306,9 +1309,7 @@ function AssetsView({
                         focusedId === a.id
                           ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                           : "",
-                        flashedCardId === a.id
-                          ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-background"
-                          : "",
+                        flashId === a.id ? "card-move-flash" : "",
                       ].join(" ")}
                     >
                       <AssetCard
@@ -1374,9 +1375,7 @@ function AssetsView({
                 focusedId === a.id
                   ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                   : "",
-                flashedCardId === a.id
-                  ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-background"
-                  : "",
+                flashId === a.id ? "card-move-flash" : "",
               ].join(" ")}
             >
               <AssetCard
