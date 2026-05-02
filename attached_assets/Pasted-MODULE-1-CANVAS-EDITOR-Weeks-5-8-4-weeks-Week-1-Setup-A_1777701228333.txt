@@ -1,0 +1,1162 @@
+MODULE 1: CANVAS EDITOR (Weeks 5-8, 4 weeks)
+Week 1: Setup & Architecture
+1.1: Install Canvas Library (Fabric.js)
+bashcd artifacts/board-game-factory
+
+# Install Fabric.js and dependencies
+pnpm add fabric@6.0.0 uuid
+
+# Install types
+pnpm add -D @types/fabric
+1.2: Create Canvas Component Structure
+bash# Create canvas module
+mkdir -p src/components/canvas
+mkdir -p src/components/canvas/tools
+mkdir -p src/components/canvas/shapes
+mkdir -p src/lib/canvas
+
+# Create component files
+touch src/components/canvas/canvas-editor.tsx
+touch src/components/canvas/canvas-toolbar.tsx
+touch src/components/canvas/canvas-properties.tsx
+touch src/lib/canvas/fabric-utils.ts
+touch src/lib/canvas/board-state.ts
+1.3: Create Database Schema for Canvas
+bash# In lib/db/src/schema/
+cat > game_boards.ts << 'DBEOF'
+import { pgTable, serial, integer, text, jsonb, timestamp } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { projectsTable } from './projects';
+
+export const gameBoardsTable = pgTable('game_boards', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').references(() => projectsTable.id, { onDelete: 'cascade' }),
+  name: text('name').notNull().default('Board 1'),
+  width: integer('width').notNull().default(800),
+  height: integer('height').notNull().default(600),
+  gridSize: integer('grid_size').notNull().default(20),
+  showGrid: integer('show_grid').notNull().default(1), // boolean as int
+  snapToGrid: integer('snap_to_grid').notNull().default(1),
+  canvasState: jsonb('canvas_state').notNull(), // Fabric.js canvas JSON
+  version: integer('version').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).default(sql`now()`),
+});
+
+export type GameBoard = typeof gameBoardsTable.$inferSelect;
+export type GameBoardInsert = typeof gameBoardsTable.$inferInsert;
+DBEOF
+1.4: Create Canvas Tab Component
+bashcat > src/components/canvas-tab.tsx << 'TSXEOF'
+import { useEffect, useRef, useState } from 'react';
+import { Canvas as FabricCanvas } from 'fabric';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+
+interface CanvasTabProps {
+  projectId: number;
+}
+
+export default function CanvasTab({ projectId }: CanvasTabProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fabricCanvasRef = useRef<FabricCanvas | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+
+    // Initialize Fabric.js canvas
+    const canvas = new FabricCanvas(canvasRef.current, {
+      width: 800,
+      height: 600,
+      backgroundColor: '#f0f0f0',
+    });
+
+    fabricCanvasRef.current = canvas;
+    setIsLoading(false);
+
+    return () => {
+      canvas.dispose();
+    };
+  }, []);
+
+  const addRectangle = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const rect = new fabric.Rect({
+      left: 100,
+      top: 100,
+      width: 100,
+      height: 100,
+      fill: '#3b82f6',
+    });
+
+    canvas.add(rect);
+    canvas.renderAll();
+  };
+
+  const addCircle = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const circle = new fabric.Circle({
+      left: 100,
+      top: 100,
+      radius: 50,
+      fill: '#ef4444',
+    });
+
+    canvas.add(circle);
+    canvas.renderAll();
+  };
+
+  const saveBoard = async () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const canvasJSON = canvas.toJSON();
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/boards`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Board 1',
+          canvasState: canvasJSON,
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Board saved successfully');
+      }
+    } catch (error) {
+      console.error('Failed to save board:', error);
+    }
+  };
+
+  if (isLoading) return <div>Loading canvas...</div>;
+
+  return (
+    <div className="w-full h-full flex flex-col gap-4 p-4">
+      <div className="flex gap-2">
+        <Button onClick={addRectangle}>Add Rectangle</Button>
+        <Button onClick={addCircle}>Add Circle</Button>
+        <Button onClick={saveBoard} variant="default">
+          Save Board
+        </Button>
+      </div>
+      <Card>
+        <canvas ref={canvasRef} className="border border-slate-300" />
+      </Card>
+    </div>
+  );
+}
+TSXEOF
+Week 2-3: Backend API & Save/Load
+2.1: Create Canvas API Routes
+bashcat > artifacts/api-server/src/routes/game-boards.ts << 'TSEOF'
+import { Router } from 'express';
+import { db, gameBoardsTable, projectsTable } from '@workspace/db';
+import { eq, and } from 'drizzle-orm';
+
+const router = Router();
+
+// GET all boards for a project
+router.get('/projects/:projectId/boards', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId);
+    const boards = await db
+      .select()
+      .from(gameBoardsTable)
+      .where(eq(gameBoardsTable.projectId, projectId));
+    res.json(boards);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch boards' });
+  }
+});
+
+// GET single board
+router.get('/projects/:projectId/boards/:boardId', async (req, res) => {
+  try {
+    const { projectId, boardId } = req.params;
+    const [board] = await db
+      .select()
+      .from(gameBoardsTable)
+      .where(
+        and(
+          eq(gameBoardsTable.id, parseInt(boardId)),
+          eq(gameBoardsTable.projectId, parseInt(projectId))
+        )
+      );
+    res.json(board);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch board' });
+  }
+});
+
+// CREATE new board
+router.post('/projects/:projectId/boards', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { name, width, height, canvasState } = req.body;
+
+    const [board] = await db
+      .insert(gameBoardsTable)
+      .values({
+        projectId: parseInt(projectId),
+        name: name || 'New Board',
+        width: width || 800,
+        height: height || 600,
+        canvasState: canvasState || {},
+      })
+      .returning();
+
+    res.json(board);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create board' });
+  }
+});
+
+// UPDATE board
+router.patch('/projects/:projectId/boards/:boardId', async (req, res) => {
+  try {
+    const { projectId, boardId } = req.params;
+    const { name, canvasState } = req.body;
+
+    const [updated] = await db
+      .update(gameBoardsTable)
+      .set({
+        name: name,
+        canvasState: canvasState,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(gameBoardsTable.id, parseInt(boardId)),
+          eq(gameBoardsTable.projectId, parseInt(projectId))
+        )
+      )
+      .returning();
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update board' });
+  }
+});
+
+// DELETE board
+router.delete('/projects/:projectId/boards/:boardId', async (req, res) => {
+  try {
+    const { projectId, boardId } = req.params;
+    await db
+      .delete(gameBoardsTable)
+      .where(
+        and(
+          eq(gameBoardsTable.id, parseInt(boardId)),
+          eq(gameBoardsTable.projectId, parseInt(projectId))
+        )
+      );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete board' });
+  }
+});
+
+export default router;
+TSEOF
+2.2: Register Routes in API
+bash# Edit artifacts/api-server/src/routes/index.ts
+# Add to imports:
+import gameBoardsRouter from './game-boards';
+
+# Add to router:
+app.use('/api', gameBoardsRouter);
+2.3: Add Auto-Save Feature
+bashcat > src/lib/canvas/auto-save.ts << 'TSEOF'
+const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
+
+export function setupAutoSave(
+  canvas: fabric.Canvas,
+  projectId: number,
+  boardId: number,
+  onSave?: () => void
+) {
+  const interval = setInterval(async () => {
+    const canvasJSON = canvas.toJSON();
+    
+    try {
+      await fetch(`/api/projects/${projectId}/boards/${boardId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ canvasState: canvasJSON }),
+      });
+      onSave?.();
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+    }
+  }, AUTO_SAVE_INTERVAL);
+
+  return () => clearInterval(interval);
+}
+TSEOF
+Week 4: Polish & Testing
+4.1: Add Canvas Toolbar
+bashcat > src/components/canvas/canvas-toolbar.tsx << 'TSXEOF'
+import { Button } from '@/components/ui/button';
+import { Palette, Grid3x3, Save } from 'lucide-react';
+
+interface CanvasToolbarProps {
+  onAddRectangle: () => void;
+  onAddCircle: () => void;
+  onToggleGrid: () => void;
+  onSave: () => void;
+}
+
+export function CanvasToolbar({
+  onAddRectangle,
+  onAddCircle,
+  onToggleGrid,
+  onSave,
+}: CanvasToolbarProps) {
+  return (
+    <div className="flex gap-2 bg-slate-900 p-3 rounded-lg border border-slate-800">
+      <Button size="sm" onClick={onAddRectangle} variant="outline">
+        Rectangle
+      </Button>
+      <Button size="sm" onClick={onAddCircle} variant="outline">
+        Circle
+      </Button>
+      <Button size="sm" onClick={onToggleGrid} variant="outline">
+        <Grid3x3 className="w-4 h-4" />
+      </Button>
+      <Button size="sm" onClick={onSave} className="ml-auto">
+        <Save className="w-4 h-4 mr-2" /> Save
+      </Button>
+    </div>
+  );
+}
+TSXEOF
+4.2: Update Project Workspace to Include Canvas Tab
+bash# Edit artifacts/board-game-factory/src/pages/project-workspace.tsx
+# Add to TABS array:
+
+const TABS = [
+  // ... existing tabs ...
+  { id: "canvas", label: "Canvas" },  // ADD THIS
+  // ... rest of tabs ...
+];
+
+# Add to imports:
+import CanvasTab from '@/components/canvas-tab';
+
+# Add to tab rendering:
+<TabsContent value="canvas">
+  <CanvasTab projectId={projectId} />
+</TabsContent>
+4.3: Run Tests
+bashcd artifacts/board-game-factory
+pnpm run test
+
+# Manual testing:
+# 1. Start dev server
+pnpm run dev
+# 2. Open http://localhost:5173
+# 3. Create project
+# 4. Go to Canvas tab
+# 5. Add shapes
+# 6. Save board
+# 7. Refresh page
+# 8. Verify board loaded
+
+MODULE 2: PLAYTEST SCHEDULING (Weeks 9-10, 2 weeks)
+Week 1: Backend + Email Setup
+1.1: Install Dependencies
+bashcd artifacts/api-server
+
+# Install calendar & email libraries
+pnpm add date-fns nodemailer
+pnpm add -D @types/nodemailer
+1.2: Create Playtest Session Scheduling Schema
+bash# Edit lib/db/src/schema/playtest_sessions.ts
+# Add new fields to existing schema:
+
+import { timestamp } from 'drizzle-orm/pg-core';
+
+export const playtestSessionsTable = pgTable('playtest_sessions', {
+  // ... existing fields ...
+  scheduledDate: timestamp('scheduled_date', { withTimezone: true }), // NEW
+  scheduledTime: text('scheduled_time'), // "14:30" format - NEW
+  inviteEmails: text('invite_emails').array(), // NEW
+  reminderSent: integer('reminder_sent').default(0), // NEW
+  status: text('status').default('draft'), // 'draft' | 'scheduled' | 'completed' - NEW
+});
+1.3: Create Email Service
+bashcat > artifacts/api-server/src/lib/email-service.ts << 'TSEOF'
+import nodemailer from 'nodemailer';
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+export async function sendPlaytestInvite(
+  gameTitle: string,
+  playtestDate: string,
+  playtestTime: string,
+  feedbackLink: string,
+  recipientEmails: string[]
+) {
+  const emailBody = `
+    You've been invited to playtest "${gameTitle}"!
+    
+    Date: ${playtestDate}
+    Time: ${playtestTime} UTC
+    
+    Please use this link to submit feedback: ${feedbackLink}
+    
+    Thank you for helping make this game better!
+  `;
+
+  for (const email of recipientEmails) {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: `Playtest Invitation: ${gameTitle}`,
+      text: emailBody,
+      html: `<pre>${emailBody}</pre>`,
+    });
+  }
+}
+
+export async function sendPlaytestReminder(
+  gameTitle: string,
+  playtestDate: string,
+  playtestTime: string,
+  feedbackLink: string,
+  recipientEmails: string[]
+) {
+  const emailBody = `
+    Reminder: Your playtest session starts today!
+    
+    Game: ${gameTitle}
+    Time: ${playtestTime} UTC
+    
+    Feedback link: ${feedbackLink}
+    
+    See you then!
+  `;
+
+  for (const email of recipientEmails) {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: `Playtest Reminder: ${gameTitle}`,
+      text: emailBody,
+      html: `<pre>${emailBody}</pre>`,
+    });
+  }
+}
+TSEOF
+1.4: Create Playtest Scheduling Routes
+bashcat > artifacts/api-server/src/routes/playtest-scheduling.ts << 'TSEOF'
+import { Router } from 'express';
+import { db, playtestSessionsTable, projectsTable } from '@workspace/db';
+import { eq } from 'drizzle-orm';
+import { sendPlaytestInvite, sendPlaytestReminder } from '../lib/email-service';
+
+const router = Router();
+
+// Schedule a playtest session
+router.post('/projects/:projectId/playtest-sessions/:sessionId/schedule', async (req, res) => {
+  try {
+    const { projectId, sessionId } = req.params;
+    const { scheduledDate, scheduledTime, inviteEmails } = req.body;
+
+    // Get project for game title
+    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, parseInt(projectId)));
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    // Update session
+    const [updated] = await db
+      .update(playtestSessionsTable)
+      .set({
+        scheduledDate: new Date(scheduledDate),
+        scheduledTime: scheduledTime,
+        inviteEmails: inviteEmails,
+        status: 'scheduled',
+      })
+      .where(eq(playtestSessionsTable.id, parseInt(sessionId)))
+      .returning();
+
+    // Send invites
+    const feedbackLink = `${process.env.VITE_APP_URL}/feedback/${sessionId}`;
+    await sendPlaytestInvite(project.name, scheduledDate, scheduledTime, feedbackLink, inviteEmails);
+
+    res.json({ success: true, session: updated });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to schedule playtest' });
+  }
+});
+
+// Get upcoming playtest sessions
+router.get('/projects/:projectId/playtest-sessions/upcoming', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId);
+    const now = new Date();
+
+    const sessions = await db
+      .select()
+      .from(playtestSessionsTable)
+      .where(
+        and(
+          eq(playtestSessionsTable.projectId, projectId),
+          eq(playtestSessionsTable.status, 'scheduled'),
+          gt(playtestSessionsTable.scheduledDate, now)
+        )
+      )
+      .orderBy(playtestSessionsTable.scheduledDate);
+
+    res.json(sessions);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch sessions' });
+  }
+});
+
+export default router;
+TSEOF
+Week 2: Frontend Calendar Component
+2.1: Install Calendar Component
+bashcd artifacts/board-game-factory
+pnpm add react-day-picker date-fns
+2.2: Create Playtest Scheduling UI
+bashcat > src/components/playtest-scheduler.tsx << 'TSXEOF'
+import { useState } from 'react';
+import { Calendar } from '@/components/ui/calendar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { format } from 'date-fns';
+
+interface PlaytestSchedulerProps {
+  projectId: number;
+  sessionId: number;
+  gameTitle: string;
+}
+
+export function PlaytestScheduler({
+  projectId,
+  sessionId,
+  gameTitle,
+}: PlaytestSchedulerProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [selectedTime, setSelectedTime] = useState('14:00');
+  const [inviteEmails, setInviteEmails] = useState('');
+  const [isScheduling, setIsScheduling] = useState(false);
+
+  const handleSchedule = async () => {
+    if (!selectedDate) return;
+
+    setIsScheduling(true);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/playtest-sessions/${sessionId}/schedule`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scheduledDate: format(selectedDate, 'yyyy-MM-dd'),
+            scheduledTime: selectedTime,
+            inviteEmails: inviteEmails.split(',').map(e => e.trim()),
+          }),
+        }
+      );
+
+      if (response.ok) {
+        alert('Playtest scheduled and invites sent!');
+        setSelectedDate(undefined);
+        setSelectedTime('14:00');
+        setInviteEmails('');
+      }
+    } catch (error) {
+      console.error('Failed to schedule:', error);
+    } finally {
+      setIsScheduling(false);
+    }
+  };
+
+  return (
+    <Card className="p-6 max-w-md">
+      <h3 className="text-lg font-semibold mb-4">Schedule Playtest: {gameTitle}</h3>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">Date</label>
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={setSelectedDate}
+          className="border border-slate-700 rounded-lg"
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">Time (UTC)</label>
+        <Input
+          type="time"
+          value={selectedTime}
+          onChange={e => setSelectedTime(e.target.value)}
+          className="bg-slate-800 border-slate-700"
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">
+          Invite Emails (comma-separated)
+        </label>
+        <textarea
+          value={inviteEmails}
+          onChange={e => setInviteEmails(e.target.value)}
+          placeholder="tester1@example.com, tester2@example.com"
+          className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm"
+          rows={4}
+        />
+      </div>
+
+      <Button
+        onClick={handleSchedule}
+        disabled={!selectedDate || !inviteEmails.trim() || isScheduling}
+        className="w-full"
+      >
+        {isScheduling ? 'Scheduling...' : 'Schedule & Send Invites'}
+      </Button>
+    </Card>
+  );
+}
+TSXEOF
+2.3: Update Playtest Tab
+bash# Edit src/components/playtest-tab.tsx
+# Add scheduler to the UI
+
+import { PlaytestScheduler } from './playtest-scheduler';
+
+// Inside component:
+<PlaytestScheduler 
+  projectId={projectId}
+  sessionId={selectedSessionId}
+  gameTitle={projectName}
+/>
+
+MODULE 3: RULEBOOK + PDF EXPORT (Weeks 11-12, 2 weeks)
+Week 1: PDF Generation Setup
+1.1: Install PDF Library
+bashcd artifacts/api-server
+pnpm add puppeteer html2pdf
+1.2: Create PDF Export Service
+bashcat > artifacts/api-server/src/lib/pdf-service.ts << 'TSEOF'
+import puppeteer from 'puppeteer';
+import * as fs from 'fs';
+import * as path from 'path';
+
+export async function generatePDF(
+  htmlContent: string,
+  filename: string,
+  options?: {
+    format?: string;
+    margin?: { top: string; right: string; bottom: string; left: string };
+  }
+): Promise<Buffer> {
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
+
+  await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
+  const pdf = await page.pdf({
+    format: options?.format || 'A4',
+    margin: options?.margin || {
+      top: '1cm',
+      right: '1cm',
+      bottom: '1cm',
+      left: '1cm',
+    },
+  });
+
+  await browser.close();
+  return pdf;
+}
+
+export async function generateRulebookPDF(
+  gameTitle: string,
+  rulebookHtml: string
+): Promise<Buffer> {
+  const wrappedHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        h1 { color: #1a1a1a; border-bottom: 3px solid #000; padding-bottom: 10px; }
+        h2 { color: #444; margin-top: 20px; }
+        .page-break { page-break-after: always; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f0f0f0; }
+      </style>
+    </head>
+    <body>
+      <h1>${gameTitle} — Rulebook</h1>
+      <div class="page-break"></div>
+      ${rulebookHtml}
+      <p style="margin-top: 40px; color: #999; font-size: 0.9em;">
+        Generated by Table Forge on ${new Date().toLocaleDateString()}
+      </p>
+    </body>
+    </html>
+  `;
+
+  return generatePDF(wrappedHtml, `${gameTitle}-rulebook.pdf`);
+}
+TSEOF
+1.3: Create Rulebook Editor Routes
+bashcat > artifacts/api-server/src/routes/rulebooks.ts << 'TSEOF'
+import { Router } from 'express';
+import { db, projectsTable, rulesTable } from '@workspace/db';
+import { eq } from 'drizzle-orm';
+import { generateRulebookPDF } from '../lib/pdf-service';
+
+const router = Router();
+
+// GET rulebook draft (HTML)
+router.get('/projects/:projectId/rulebook', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId);
+
+    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId));
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const rules = await db
+      .select()
+      .from(rulesTable)
+      .where(eq(rulesTable.projectId, projectId))
+      .orderBy(rulesTable.priority);
+
+    // Build HTML
+    let html = '<h2>Components</h2>';
+    // ... add components section ...
+
+    html += '<h2>Rules</h2>';
+    for (const rule of rules) {
+      html += `
+        <h3>${rule.title}</h3>
+        <p>${rule.content}</p>
+      `;
+    }
+
+    res.json({ html, title: project.name });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch rulebook' });
+  }
+});
+
+// GENERATE and DOWNLOAD PDF
+router.get('/projects/:projectId/rulebook/download', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId);
+
+    const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId));
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const rules = await db
+      .select()
+      .from(rulesTable)
+      .where(eq(rulesTable.projectId, projectId))
+      .orderBy(rulesTable.priority);
+
+    // Build HTML
+    let html = '<h2>Components</h2>';
+    // ... add components ...
+
+    html += '<h2>Rules</h2>';
+    for (const rule of rules) {
+      html += `
+        <h3>${rule.title}</h3>
+        <p>${rule.content}</p>
+      `;
+    }
+
+    // Generate PDF
+    const pdfBuffer = await generateRulebookPDF(project.name, html);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${project.name}-rulebook.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+});
+
+export default router;
+TSEOF
+Week 2: Frontend Rulebook Editor
+2.1: Create Rulebook Editor Component
+bashcat > src/components/rulebook-editor.tsx << 'TSXEOF'
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Download, Eye } from 'lucide-react';
+
+interface RulebookEditorProps {
+  projectId: number;
+}
+
+export function RulebookEditor({ projectId }: RulebookEditorProps) {
+  const [rulebookHtml, setRulebookHtml] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  useEffect(() => {
+    fetchRulebook();
+  }, [projectId]);
+
+  const fetchRulebook = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/rulebook`);
+      const data = await response.json();
+      setRulebookHtml(data.html);
+    } catch (error) {
+      console.error('Failed to fetch rulebook:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const downloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/rulebook/download`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'rulebook.pdf';
+      a.click();
+    } catch (error) {
+      console.error('Failed to download PDF:', error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  if (isLoading) return <div>Loading rulebook...</div>;
+
+  return (
+    <div className="w-full">
+      <div className="flex gap-2 mb-4">
+        <Button onClick={downloadPDF} disabled={isDownloading}>
+          <Download className="w-4 h-4 mr-2" />
+          {isDownloading ? 'Generating PDF...' : 'Download PDF'}
+        </Button>
+        <Button variant="outline" onClick={fetchRulebook}>
+          <Eye className="w-4 h-4 mr-2" /> Refresh
+        </Button>
+      </div>
+
+      <Card className="p-6 bg-slate-900 prose prose-invert max-w-none">
+        <div dangerouslySetInnerHTML={{ __html: rulebookHtml }} />
+      </Card>
+    </div>
+  );
+}
+TSXEOF
+
+MODULE 4: PUBLIC GAME LIBRARY (Weeks 13-14, 2 weeks)
+Week 1: Backend Library Endpoints
+1.1: Create Game Library Schema
+bashcat > lib/db/src/schema/game_library.ts << 'DBEOF'
+import { pgTable, serial, integer, text, timestamp, decimal } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { projectsTable } from './projects';
+
+export const gameLibraryTable = pgTable('game_library', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').references(() => projectsTable.id, { onDelete: 'cascade' }),
+  isPublished: integer('is_published').default(0),
+  averageRating: decimal('average_rating', { precision: 3, scale: 2 }).default('0'),
+  totalRatings: integer('total_ratings').default(0),
+  totalPlays: integer('total_plays').default(0),
+  totalDownloads: integer('total_downloads').default(0),
+  slug: text('slug').unique(),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
+});
+
+export const gameRatingsTable = pgTable('game_ratings', {
+  id: serial('id').primaryKey(),
+  gameLibraryId: integer('game_library_id').references(() => gameLibraryTable.id),
+  userId: text('user_id'),
+  rating: integer('rating'), // 1-5
+  review: text('review'),
+  createdAt: timestamp('created_at', { withTimezone: true }).default(sql`now()`),
+});
+DBEOF
+1.2: Create Library API Routes
+bashcat > artifacts/api-server/src/routes/game-library.ts << 'TSEOF'
+import { Router } from 'express';
+import { db, gameLibraryTable, projectsTable, gameRatingsTable } from '@workspace/db';
+import { eq, desc } from 'drizzle-orm';
+import slug from 'slug';
+
+const router = Router();
+
+// GET all published games (public)
+router.get('/library/games', async (req, res) => {
+  try {
+    const { search, sort } = req.query;
+
+    let query = db
+      .select({
+        id: gameLibraryTable.id,
+        name: projectsTable.name,
+        description: projectsTable.description,
+        genre: projectsTable.genre,
+        playerCount: projectsTable.playerCount,
+        targetDuration: projectsTable.targetDuration,
+        rating: gameLibraryTable.averageRating,
+        slug: gameLibraryTable.slug,
+      })
+      .from(gameLibraryTable)
+      .innerJoin(projectsTable, eq(gameLibraryTable.projectId, projectsTable.id))
+      .where(eq(gameLibraryTable.isPublished, 1));
+
+    // Add filters
+    if (search) {
+      // SQL LIKE search
+    }
+
+    // Sort options
+    if (sort === 'rating') {
+      query = query.orderBy(desc(gameLibraryTable.averageRating));
+    } else if (sort === 'newest') {
+      query = query.orderBy(desc(gameLibraryTable.publishedAt));
+    } else if (sort === 'popular') {
+      query = query.orderBy(desc(gameLibraryTable.totalPlays));
+    }
+
+    const games = await query.limit(50);
+    res.json(games);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch games' });
+  }
+});
+
+// GET single game (public)
+router.get('/library/games/:slug', async (req, res) => {
+  try {
+    const gameSlug = req.params.slug;
+
+    const [game] = await db
+      .select()
+      .from(gameLibraryTable)
+      .where(eq(gameLibraryTable.slug, gameSlug));
+
+    if (!game || !game.isPublished) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    const project = await db
+      .select()
+      .from(projectsTable)
+      .where(eq(projectsTable.id, game.projectId));
+
+    const ratings = await db
+      .select()
+      .from(gameRatingsTable)
+      .where(eq(gameRatingsTable.gameLibraryId, game.id));
+
+    res.json({ ...game, ...project[0], ratings });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch game' });
+  }
+});
+
+// PUBLISH a game (authenticated)
+router.post('/projects/:projectId/publish', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId);
+
+    const [project] = await db
+      .select()
+      .from(projectsTable)
+      .where(eq(projectsTable.id, projectId));
+
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const gameSlug = slug(project.name).toLowerCase();
+
+    const [published] = await db
+      .insert(gameLibraryTable)
+      .values({
+        projectId,
+        isPublished: 1,
+        slug: gameSlug,
+        publishedAt: new Date(),
+      })
+      .returning();
+
+    res.json({ success: true, published });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to publish game' });
+  }
+});
+
+// SUBMIT rating (public)
+router.post('/library/games/:gameLibraryId/ratings', async (req, res) => {
+  try {
+    const { gameLibraryId } = req.params;
+    const { userId, rating, review } = req.body;
+
+    const [submitted] = await db
+      .insert(gameRatingsTable)
+      .values({
+        gameLibraryId: parseInt(gameLibraryId),
+        userId,
+        rating,
+        review,
+      })
+      .returning();
+
+    // Update average rating
+    const allRatings = await db
+      .select()
+      .from(gameRatingsTable)
+      .where(eq(gameRatingsTable.gameLibraryId, parseInt(gameLibraryId)));
+
+    const avgRating = (
+      allRatings.reduce((sum, r) => sum + (r.rating || 0), 0) / allRatings.length
+    ).toFixed(2);
+
+    await db
+      .update(gameLibraryTable)
+      .set({
+        averageRating: parseFloat(avgRating),
+        totalRatings: allRatings.length,
+      })
+      .where(eq(gameLibraryTable.id, parseInt(gameLibraryId)));
+
+    res.json({ success: true, rating: submitted });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to submit rating' });
+  }
+});
+
+export default router;
+TSEOF
+Week 2: Public Library Frontend
+2.1: Create Library Page
+bashcat > src/pages/library.tsx << 'TSXEOF'
+import { useEffect, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Star } from 'lucide-react';
+
+interface Game {
+  id: number;
+  name: string;
+  description: string;
+  genre: string;
+  playerCount: string;
+  targetDuration: string;
+  rating: number;
+  slug: string;
+}
+
+export default function LibraryPage() {
+  const [games, setGames] = useState<Game[]>([]);
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('newest');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchGames();
+  }, [sort]);
+
+  const fetchGames = async () => {
+    try {
+      const response = await fetch(`/api/library/games?sort=${sort}`);
+      const data = await response.json();
+      setGames(data);
+    } catch (error) {
+      console.error('Failed to fetch games:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredGames = games.filter(
+    game =>
+      game.name.toLowerCase().includes(search.toLowerCase()) ||
+      game.genre.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="w-full p-8">
+      <h1 className="text-3xl font-bold mb-6">Game Library</h1>
+
+      <div className="flex gap-4 mb-6">
+        <Input
+          placeholder="Search games..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 bg-slate-800"
+        />
+        <select
+          value={sort}
+          onChange={e => setSort(e.target.value)}
+          className="bg-slate-800 border border-slate-700 rounded px-4 py-2"
+        >
+          <option value="newest">Newest</option>
+          <option value="rating">Highest Rated</option>
+          <option value="popular">Most Popular</option>
+        </select>
+      </div>
+
+      {isLoading ? (
+        <div>Loading games...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredGames.map(game => (
+            <Card key={game.id} className="p-4 bg-slate-900 hover:bg-slate-800">
+              <h3 className="text-lg font-semibold mb-2">{game.name}</h3>
+              <p className="text-sm text-slate-400 mb-3">{game.description}</p>
+
+              <div className="flex items-center gap-1 mb-3">
+                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                <span>{parseFloat(game.rating).toFixed(1)}/5</span>
+              </div>
+
+              <div className="text-xs text-slate-500 mb-3">
+                <div>{game.genre}</div>
+                <div>{game.playerCount} players</div>
+                <div>{game.targetDuration}</div>
+              </div>
+
+              <Button asChild className="w-full">
+                <a href={`/library/${game.slug}`}>View Details</a>
+              </Button>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+TSXEOF
+
