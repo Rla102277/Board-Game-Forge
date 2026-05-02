@@ -451,6 +451,69 @@ Return exactly this JSON shape:
   },
 );
 
+router.post(
+  "/projects/:projectId/research/similar-games",
+  async (req, res): Promise<void> => {
+    const projectId = parseInt(req.params.projectId ?? "");
+    if (isNaN(projectId)) {
+      res.status(400).json({ error: "Invalid projectId" });
+      return;
+    }
+
+    const { gameName, description, gameType, genre, playerCount } = req.body as {
+      gameName?: string;
+      description?: string;
+      gameType?: string;
+      genre?: string;
+      playerCount?: string;
+    };
+
+    if (!gameName?.trim()) {
+      res.status(400).json({ error: "gameName is required" });
+      return;
+    }
+
+    const contextParts = [
+      description ? `Description: ${description}` : null,
+      gameType ? `Game type: ${gameType}` : null,
+      genre ? `Genre: ${genre}` : null,
+      playerCount ? `Player count: ${playerCount}` : null,
+    ].filter(Boolean).join("\n");
+
+    try {
+      const text = await complete(req, {
+        system: "You are an expert tabletop game designer. Return only valid JSON — no prose, no markdown fences.",
+        prompt: `A designer is creating a board game called "${gameName}".
+${contextParts}
+
+List 8-12 published board games that are most similar to this project in terms of mechanics, theme, player count, or genre. Favour well-known games that the designer could research for inspiration or as competitive comparisons.
+
+Return ONLY a JSON object: { "games": ["Game Name 1", "Game Name 2", ...] }
+- Each entry is the exact published title of the game.
+- Order from most similar to least similar.
+- Do not include "${gameName}" itself.`,
+        maxTokens: 400,
+        preferFast: true,
+      });
+
+      const obj = tryParseJsonObject<{ games?: unknown[] }>(text);
+      const games = Array.isArray(obj?.games)
+        ? obj.games.filter((g): g is string => typeof g === "string").slice(0, 12)
+        : [];
+
+      if (games.length === 0) {
+        res.status(502).json({ error: "AI returned no similar games" });
+        return;
+      }
+
+      res.json({ games });
+    } catch (err) {
+      req.log.error({ err }, "similar-games failed");
+      res.status(500).json({ error: "Similar games lookup failed" });
+    }
+  },
+);
+
 /* ── Types shared with frontend ──────────────────────────────────────── */
 
 type ReverseGameInput = {
