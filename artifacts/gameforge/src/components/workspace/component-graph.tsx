@@ -548,9 +548,10 @@ export function EntityGraph({
   }, [renderedPreFilterEdges]);
 
   // BFS hop-distance map (#65) — node id → hop distance from focused node.
-  // Only populated when neighbor filter is on. Hop 0 = focused, 1 = direct neighbor, etc.
+  // Populated whenever a node is focused (full graph or neighbor-only mode).
+  // Hop 0 = focused, 1 = direct neighbor, etc.
   const hopNodeMap = useMemo(() => {
-    if (!showNeighborsOnly || !focusedNodeId) return new Map<number, number>();
+    if (!focusedNodeId) return new Map<number, number>();
     const map = new Map<number, number>();
     map.set(focusedNodeId, 0);
     let frontier = new Set<number>([focusedNodeId]);
@@ -568,7 +569,7 @@ export function EntityGraph({
       if (frontier.size === 0) break;
     }
     return map;
-  }, [showNeighborsOnly, focusedNodeId, neighborDepth, adjacencyMap]);
+  }, [focusedNodeId, neighborDepth, adjacencyMap]);
 
   // Apply neighbor filter — BFS up to neighborDepth hops, capped at GRAPH_NODE_CAP.
   // The focused node is always retained even when the cap is reached.
