@@ -1,0 +1,513 @@
+CORE FEATURES
+1. GAME CANVAS / VISUAL DESIGN EDITOR
+Description: Drag-and-drop visual workspace for designing game components, boards, and mechanics.
+Features:
+
+Component Library
+
+Pre-built templates: boards, cards, dice, tokens, miniatures
+Customizable shapes, sizes, colors, text
+Layer system (Z-order management)
+Snap-to-grid, alignment guides
+Asset import (PNG, SVG, PDF)
+
+
+Board Builder
+
+Tile-based or freeform grid options
+Hexagon, square, triangle grid presets
+Path drawing tool for movement tracks
+Zone/region painter with properties (safe zone, danger, etc.)
+Heat map visualization (optional: frequency-based coloring)
+
+
+Card Designer
+
+Template system (standard poker, custom sizes)
+Front/back editing
+Batch card generator (CSV import for stats, abilities, etc.)
+Deck preview with zoom
+Print-optimized export
+
+
+Token/Counter Creator
+
+SVG-based scalable design
+Stacking indicators
+Unique ID assignment for tracking
+Printing guide (sheets per token type)
+
+
+Collaboration Tools
+
+Real-time co-editing (max 5 simultaneous designers)
+Comment threads on elements
+Version history (last 30 versions)
+Variant branching (save as alt design)
+
+
+
+Success Metrics:
+
+Time to first playable prototype: <2 hours
+Designer retention after 5 edits: >60%
+
+
+2. RULEBOOK GENERATOR & EDITOR
+Description: AI-assisted and manual rulebook creation with multi-format output.
+Features:
+
+Structural Templates
+
+Auto-generated table of contents
+Standard sections: overview, setup, turn order, victory, FAQ
+Genre presets (Euro, Ameritrash, party game, war game, etc.)
+Customizable section reordering
+
+
+AI Content Generation
+
+Context-aware rule clarifications
+FAQ auto-population from design notes
+Balance note suggestions (based on playtest feedback)
+Example walkthrough generation
+Plain-language translation of complex mechanics
+
+
+Manual Editing
+
+Rich text editor with formatting
+Equation support (for complex math)
+Embedded images, diagrams, icons
+Footnote / sidebar system
+Glossary builder with auto-linking
+
+
+Multi-Format Output
+
+PDF (print-ready, web-optimized)
+HTML (responsive, searchable)
+Markdown (for version control)
+Print-on-demand metadata (page count, trim size, bleed)
+
+
+Accessibility
+
+High-contrast mode
+WCAG 2.1 AA compliance for generated PDFs
+Alt text suggestions for images
+Dyslexia-friendly font option
+
+
+
+Success Metrics:
+
+Rulebook generated in <30 min
+First-read comprehension test: >75%
+User satisfaction with AI suggestions: >4.0/5
+
+
+3. PLAYTEST COORDINATION & FEEDBACK SYSTEM
+Description: Tools to recruit playtesters, collect feedback, and iterate.
+Features:
+
+Playtest Campaign Manager
+
+Create playtest events with logistics (date, location, player count)
+Public/private scheduling
+Playtest theme (closed alpha, open beta, community validation)
+Link to rulebook + component files for printing
+Session duration timer with phase tracking
+
+
+Playtest Recruiting
+
+Directory of registered playtesters (opt-in community)
+Matching algorithm (skill level, game preference, location)
+Email invitations with RSVP management
+Incentive tracking (track tester rewards/compensation)
+
+
+In-Session Feedback Forms
+
+Pre-game: Player demographics, experience level
+During: Phase-based observation prompts
+Post-game: Structured feedback (fun, balance, clarity, length, replayability) on 1–5 scales
+Free-text notes with image/audio attachment support
+Sentiment analysis tagging (ai-assisted)
+
+
+Feedback Dashboard
+
+Aggregate analytics: heat maps of problem areas
+Session-by-session trend tracking
+Tester demographic breakdowns
+Word clouds from open feedback
+Comparison views (v1 vs. v2 playtest results)
+
+
+Action Tracking
+
+Convert feedback to change tickets
+Link design changes to feedback
+Mark feedback as "implemented" or "rejected"
+Reason tagging (balance, clarity, pacing, theme)
+
+
+Tester Management
+
+Reputation system (0–5 star tester rating)
+Playtest history per designer
+Incentive ledger (points, rewards, notes)
+Custom feedback request templates per game
+
+
+
+Success Metrics:
+
+Avg. playtest per game: 3+ sessions
+Average tester participation rate: >65%
+Feedback actionability rating: >4.2/5
+Time from feedback collection to decision: <7 days
+
+
+4. PROTOTYPE FILE GENERATION
+Description: Auto-generate ready-to-print component files optimized for home printing or POD.
+Features:
+
+Print-Optimized Exports
+
+Component sheets (A4, Letter, custom sizes)
+Tiling logic (automatically break oversized boards into printable sections)
+Cut guides, fold lines, bleed areas (configurable)
+Registration marks for alignment
+Two-sided printing guides
+
+
+Manufacturing Metadata
+
+Quantity calculators
+Print specifications (color/B&W, cardstock weight, finish)
+POD vendor presets (DriveThruCards, The Game Crafter, Printful, etc.)
+File packaging (organize by sheet, layer, component type)
+DPI/resolution validation
+
+
+Format Support
+
+PDF (standard)
+SVG (for scaling)
+Print-ready TIFF (high-res)
+Tablescenic-compatible formats (for VTT integration)
+JSON export for 3D print shops (future: miniature specs)
+
+
+Assembly Instructions
+
+Auto-generated punch guides
+Step-by-step folding/assembly diagrams
+Parts checklist generator
+QR code linking to video tutorials
+
+
+
+Success Metrics:
+
+First print success rate: >90%
+Setup time (design → printable files): <15 min
+
+
+5. GAME LIBRARY & DISCOVERY
+Description: Central repository for sharing, discovering, and exploring games.
+Features:
+
+Library Management
+
+Public vs. private visibility toggle
+Sharing by URL (generate shareable link)
+Playtest-only sharing (restricted access)
+Version history accessible to viewers
+Download entire game package (design files + rulebook + assets)
+
+
+Discovery & Curation
+
+Search by: game title, designer, mechanics, theme, player count, playtime
+Filtering: complexity (simple → expert), player count, playtime, genre
+Trending games (by playtests, downloads, ratings)
+Curated collections by staff (editors' picks, teaching games, etc.)
+Hashtag system (#coopgame #deduction #economics)
+
+
+Game Profiles
+
+Designer bio and portfolio
+Game overview (theme, mechanics, playtime, player count)
+Playtest stats (# of sessions, avg. rating, player feedback highlights)
+Media gallery (gameplay photos, video links)
+Changelog (visible changes from version to version)
+
+
+Rating & Reviews
+
+Overall rating (1–5 stars) + weighted by playtester authority
+Category ratings (fun, balance, clarity, pacing, theme)
+Text reviews (optional)
+Verified playtest badge (only playtested games show badge)
+Designer response feature (respond to reviews)
+
+
+Social Features
+
+Follow designers (receive updates on new games)
+Wishlist (save games to play later)
+Remix / derivative work linking (credit chain)
+Comments on game versions
+
+
+
+Success Metrics:
+
+Monthly discovery sessions: 10K+
+Avg. ratings per game: >3.8/5
+Wishlist conversion to playtest: >20%
+
+
+6. COLLABORATIVE DESIGN WORKSPACES
+Description: Team and community tools for distributed design.
+Features:
+
+Team Management
+
+Invite collaborators by email
+Role-based permissions (owner, editor, commenter, viewer)
+Workspace settings (color, name, member list)
+Activity feed (who changed what, when)
+
+
+Design Notes & Brainstorm
+
+Attached design journal (date-stamped entries)
+Mechanic brainstorm board (sticky-note style)
+Decision log (mechanic A was rejected because X)
+Image annotations (pin notes to design elements)
+Video clip library (store design inspiration)
+
+
+Variant Management
+
+Branch designs (e.g., "Classic Mode" vs. "Expansion Pack")
+Diff view (compare two versions side-by-side)
+Merge conflict resolution UI
+Change tracking (before/after snapshots)
+
+
+Communication
+
+In-app chat (direct messages or workspace channels)
+Comment threads on components
+Mention system (@designer_name)
+Email notifications (configurable)
+
+
+
+Success Metrics:
+
+Team games created: >500 in Year 1
+Avg. team size: 2.3 members
+Collaboration dropout: <15%
+
+
+7. BALANCE & PLAYTESTING ANALYTICS
+Description: Data-driven insights into game balance and player experience.
+Features:
+
+Win/Loss Analysis
+
+Track outcomes per player, strategy, faction, etc.
+Win rate variance detection (flag >55% wins)
+Trend analysis over playtest sessions
+Strategic archetype tracking (aggressive vs. defensive, etc.)
+
+
+Pacing & Duration
+
+Actual game length vs. designer estimate
+Phase duration breakdowns
+Downtime per player (time between turns)
+Bottleneck identification (longest phase highlighted)
+
+
+Engagement Metrics
+
+Player elimination analysis (when eliminated, % wanting to continue)
+Catch-up mechanism effectiveness
+Risk-taking frequency (inferred from mechanic choices)
+Decision complexity (are players overwhelmed?)
+
+
+Accessibility Analytics
+
+Teachability score (time to explain rules)
+Rules clarity issues (marked during playtest)
+Cognitive load ranking (complexity perception vs. actual)
+
+
+Anomaly Detection
+
+AI flags: "Rule X was confusing in 60% of playtests"
+"Faction Y won 73% of games (possible balance issue)"
+"Average game length increased 40% from v1.1 to v1.2"
+Correlation analysis (if mechanic X appears, outcome favors player type Y)
+
+
+Comparison Reports
+
+Before/after balance change (A/B testing)
+Designer variants side-by-side
+Genre benchmarks ("Your game paces like Catan, but balance is off")
+
+
+
+Success Metrics:
+
+Designers act on flagged insights: >70%
+Balance confidence after playtesting: 4.2+/5
+
+
+8. PUBLISHING & GO-TO-MARKET TOOLS
+Description: Transition from playtest to published product.
+Features:
+
+Campaign Wizard
+
+Kickstarter/Backerkit integration (pre-populate from Table Forge)
+Retail price calculator (with margin modeling)
+Production timeline estimator
+Funding goal recommendation (based on component costs)
+
+
+Production Coordination
+
+Vendor quotes dashboard (request quotes from multiple POD partners)
+Manufacturing timeline (milestone tracking)
+Compliance checklist (CPSIA, international labeling)
+Quality assurance checklist builder
+
+
+Asset Management
+
+Final art approval workflow (compare designer vs. final print)
+Printer communication portal (upload final files, receive proofs)
+Barcode / ISBN generation
+Metadata export (retailer specs, game databases like BoardGameGeek)
+
+
+Distribution Setup
+
+Retailer submission guides (Amazon, local game stores, etc.)
+Direct-to-consumer setup (Shopify integration, email list)
+Affiliate tracking
+Inventory management (if using POD)
+
+
+Publishing Templates
+
+Self-publishing checklist (legal, art, production, marketing)
+Licensing & copyright guidance
+Contract templates (designer share agreements if using collaborators)
+Tax/business setup resources
+
+
+
+Success Metrics:
+
+Games reaching publish stage: >50 in Year 1
+Time from "approved for production" to "available for sale": <120 days
+Published game success rate (>100 copies sold): >65%
+
+
+9. LEARNING & TEMPLATES
+Description: Educational resources and kickstarters for new designers.
+Features:
+
+Design School
+
+Interactive tutorials (mechanics 101, pacing, balance, theme integration)
+Video lessons by established designers (curated partnerships)
+Written guides (game design patterns, playtesting methodology)
+Glossary (common mechanics: worker placement, deck-building, etc.)
+Quiz/certification (optional, shareable badge)
+
+
+Game Templates
+
+Genre starter packs (Euro game, party game, war game, co-op)
+Pre-built mechanics (worker placement board, hidden role voting, auction)
+Component presets (deck, board, tokens)
+Rulebook outline (fill-in-the-blank structure)
+
+
+Design Challenges
+
+Monthly design jam ("Create a 2-player game in 1 week")
+Themed prompts
+Community showcase (winners displayed)
+Mentorship matching (experienced designers volunteer)
+
+
+Example Games
+
+Public reference games (designer-approved educational examples)
+Annotated designs (designer commentary on decisions)
+Playtest history visible (see evolution)
+
+
+
+Success Metrics:
+
+Tutorial completion rate: >60%
+New designer activation (completes 1st tutorial): >40%
+Challenge participation: 500+ per month
+
+
+10. INTEGRATIONS & ECOSYSTEMS
+Description: Connect to external tools and platforms.
+Features:
+
+File Storage
+
+Google Drive / Dropbox sync (backup design files)
+Asset library cloud storage (unlimited for Pro tier)
+
+
+VTT / Digital Tabletop
+
+Tablescenic export
+Tabletopia integration (upload playable version)
+Vassal module export (for wargames)
+TTS (Tabletop Simulator) integration
+
+
+Community
+
+Discord bot (notify server when game updates, recruiting playtests)
+Reddit integration (post to r/boardgames)
+BGG (BoardGameGeek) sync (import existing game, post playtest sessions)
+
+
+Analytics & Marketing
+
+Google Analytics integration (track game page views)
+Email marketing (Mailchimp integration for newsletter)
+Social media scheduling (Hootsuite / Buffer for game announcements)
+
+
+Creator Tools
+
+Patreon integration (offer exclusive variants, early access)
+Ko-Fi integration (accept donations)
+Asset marketplace (buy/sell components from other designers — future)
+
+
+
