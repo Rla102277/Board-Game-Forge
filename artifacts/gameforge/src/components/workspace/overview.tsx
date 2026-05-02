@@ -499,6 +499,67 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
     { label: "Messages",   count: stats?.chatMessageCount, Icon: MessageSquare,   color: "text-sky-400",     bg: "bg-sky-500/10"     },
   ].filter((s) => (s.count ?? 0) > 0);
 
+  /* ── Game Status Widget metrics ───────────────────────────────── */
+  const entityTotal      = entities?.length ?? 0;
+  const fullyDefinedEntities = useMemo(() =>
+    (entities ?? []).filter((e) => e.description && e.stats).length,
+  [entities]);
+  const entityPct = entityTotal > 0 ? Math.round(fullyDefinedEntities / entityTotal * 100) : 0;
+
+  const ruleTotal = rules?.length ?? 0;
+  const experimentalRules = useMemo(() =>
+    (rules ?? []).filter((r) => r.category?.toLowerCase().includes("experimental") || r.category?.toLowerCase().includes("draft")).length,
+  [rules]);
+
+  const playerTotal = players?.length ?? 0;
+
+  const playtestTotal     = (stats as { playtestCount?: number } | undefined)?.playtestCount ?? 0;
+  const playtestScheduled = nextPlaytest.date && new Date(nextPlaytest.date) > new Date() ? 1 : 0;
+
+  const balanceScore   = balanceReport?.balanceScore ?? null;
+  const balanceVerdict = balanceReport?.verdict ?? "";
+
+  const statusScoreLabel = balanceScore === null
+    ? "—"
+    : balanceScore >= 80 ? "Excellent"
+    : balanceScore >= 65 ? "Good"
+    : balanceScore >= 45 ? "Fair"
+    : "Needs work";
+
+  const statusScoreColor = balanceScore === null
+    ? "text-muted-foreground"
+    : balanceScore >= 80 ? "text-emerald-400"
+    : balanceScore >= 65 ? "text-lime-400"
+    : balanceScore >= 45 ? "text-amber-400"
+    : "text-red-400";
+
+  /* Compute the single highest-priority "next step" */
+  const nextStep = useMemo<{ label: string; action: "playtest" | "none" }>(() => {
+    if (activeByCol.blocker.length > 0)
+      return { label: `Resolve ${activeByCol.blocker.length} critical design blocker${activeByCol.blocker.length > 1 ? "s" : ""}`, action: "none" };
+    if (entityTotal === 0)
+      return { label: "Define your first component in the Ontology tab", action: "none" };
+    if (ruleTotal === 0)
+      return { label: "Write your first rule in the Rules tab", action: "none" };
+    if (playerTotal === 0)
+      return { label: "Define player roles in the Players tab", action: "none" };
+    if (playtestScheduled === 0)
+      return { label: "Schedule your next playtest session", action: "playtest" };
+    if (balanceScore !== null && balanceScore < 50)
+      return { label: "Balance score is low — review entity stats", action: "none" };
+    if (experimentalRules > 0)
+      return { label: `Stabilise ${experimentalRules} experimental rule${experimentalRules > 1 ? "s" : ""}`, action: "none" };
+    return { label: "Looking good — consider advancing to the next design phase", action: "none" };
+  }, [activeByCol.blocker.length, entityTotal, ruleTotal, playerTotal, playtestScheduled, balanceScore, experimentalRules]);
+
+  const scrollToPlaytest = () => {
+    playtestCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => {
+      const input = playtestCardRef.current?.querySelector<HTMLInputElement>("input[type='date']");
+      input?.focus();
+    }, 400);
+  };
+
   const radarData = FINGERPRINT_AXES.map((ax) => ({
     subject: ax.charAt(0).toUpperCase() + ax.slice(1),
     value: fingerprint[ax],
@@ -769,7 +830,26 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
             </Card>
           </div>
 
-          {/* Row 2: Where you left off (full width) */}
+          {/* Row 2: Game Status Widget */}
+          <GameStatusWidget
+            entityTotal={entityTotal}
+            entityPct={entityPct}
+            ruleTotal={ruleTotal}
+            experimentalRules={experimentalRules}
+            playerTotal={playerTotal}
+            playtestTotal={playtestTotal}
+            playtestScheduled={playtestScheduled}
+            blockerCount={activeByCol.blocker.length}
+            concernCount={activeByCol.concern.length}
+            balanceScore={balanceScore}
+            balanceScoreLabel={statusScoreLabel}
+            balanceScoreColor={statusScoreColor}
+            balanceVerdict={balanceVerdict}
+            nextStep={nextStep}
+            onSchedulePlaytest={scrollToPlaytest}
+          />
+
+          {/* Row 3: Where you left off (full width) */}
           {recentItems.length > 0 && (
             <section>
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-2">Where you left off</h3>
