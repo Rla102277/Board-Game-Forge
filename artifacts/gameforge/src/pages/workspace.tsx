@@ -20,7 +20,8 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 // Lazy load workspace components for code splitting
-const Overview = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.Overview })));
+const Overview = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.default } as any)));
+const GameIdentity = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.GameIdentity })));
 const Research = lazy(() => import("@/components/workspace/research").then(m => ({ default: m.Research })));
 const Ontology = lazy(() => import("@/components/workspace/ontology").then(m => ({ default: m.Ontology })));
 const AssetsEntities = lazy(() => import("@/components/workspace/assets-entities").then(m => ({ default: m.AssetsEntities })));
@@ -56,7 +57,8 @@ const NAV_GROUPS = [
     label: "Foundation",
     defaultOpen: true,
     items: [
-      { id: "overview",       label: "Overview",        icon: Layout,       statKey: null,             shortcut: "1" },
+      { id: "overview",       label: "Game Dashboard",  icon: Layout,       statKey: null,             shortcut: "1" },
+      { id: "identity",       label: "Game Identity",   icon: Gamepad2,     statKey: null,             shortcut: null },
       { id: "research",       label: "Research",         icon: BookOpen,     statKey: "researchCount",  shortcut: "2" },
     ],
   },
@@ -167,13 +169,13 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       setIsRenameDialogOpen(false);
     },
     nav1: () => setActiveSection("overview"),
-    nav2: () => setActiveSection("research"),
-    nav3: () => setActiveSection("players"),
-    nav4: () => setActiveSection("assets-entities"),
-    nav5: () => setActiveSection("rules"),
-    nav6: () => setActiveSection("simulator"),
-    nav7: () => setActiveSection("playtesting"),
-    nav8: () => setActiveSection("export"),
+    nav2: () => setActiveSection("identity"),
+    nav3: () => setActiveSection("research"),
+    nav4: () => setActiveSection("players"),
+    nav5: () => setActiveSection("assets-entities"),
+    nav6: () => setActiveSection("rules"),
+    nav7: () => setActiveSection("simulator"),
+    nav8: () => setActiveSection("playtesting"),
     nav9: () => setActiveSection("playtesting"),
     quickCreateEntity: () => setActiveSection("assets-entities"),
     quickCreateRule: () => setActiveSection("rules"),
@@ -223,6 +225,13 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
             <Overview projectId={projectId} onPromptSend={setChatPrompt} />
+          </Suspense>
+        </ErrorBoundary>
+      );
+      case "identity": return (
+        <ErrorBoundary>
+          <Suspense fallback={loadingFallback}>
+            <GameIdentity projectId={projectId} onPromptSend={setChatPrompt} />
           </Suspense>
         </ErrorBoundary>
       );

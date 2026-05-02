@@ -34,6 +34,11 @@ interface OverviewProps {
   onPromptSend: (prompt: string) => void;
 }
 
+interface GameIdentityProps {
+  projectId: number;
+  onPromptSend: (prompt: string) => void;
+}
+
 /* ── Typed shapes for each jsonb column ───────────────────────────── */
 interface DesignProblem {
   id: string;
