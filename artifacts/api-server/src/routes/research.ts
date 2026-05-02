@@ -213,10 +213,11 @@ router.post(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const { gameName, borrowing, avoiding } = req.body as {
+    const { gameName, borrowing, avoiding, depth = "comprehensive" } = req.body as {
       gameName?: string;
       borrowing?: string;
       avoiding?: string;
+      depth?: string;
     };
     if (!gameName?.trim()) {
       res.status(400).json({ error: "gameName is required" });
@@ -228,15 +229,27 @@ router.post(
         avoiding ? `They want to avoid: ${avoiding}` : null,
       ].filter(Boolean).join(". ");
 
-      const text = await complete(req, {
-        system: "You are an expert tabletop game designer and analyst. Return only valid JSON — no prose, no markdown fences.",
-        prompt: `Write a thorough design breakdown of the board game "${gameName}" for a game designer using it as a reference.${contextParts ? ` Context: ${contextParts}.` : ""}
+      const isQuick = depth === "quick";
+      const quickPrompt = `Give a concise design snapshot of the board game "${gameName}".${contextParts ? ` Context: ${contextParts}.` : ""}
+
+Return ONLY this JSON — no prose, no fences:
+{
+  "overview": "1-2 sentences: what is this game?",
+  "keyMechanics": ["mechanic 1", "mechanic 2", "mechanic 3"],
+  "playerCount": "e.g. 2-5 players",
+  "playTime": "e.g. 60 min",
+  "complexity": "e.g. Medium (2.8/5)",
+  "designLessons": "1 sentence takeaway for designers",
+  "tags": "comma-separated short tags"
+}`;
+
+      const comprehensivePrompt = `Write a thorough design breakdown of the board game "${gameName}" for a game designer using it as a reference.${contextParts ? ` Context: ${contextParts}.` : ""}
 
 Return exactly this JSON shape:
 {
   "overview": "2-3 sentences: what is this game and where does it sit in the hobby?",
   "coreLoop": "1-2 sentences: what does a player actually DO on their turn?",
-  "keyMechanics": ["mechanic 1", "mechanic 2", "mechanic 3"],
+  "keyMechanics": ["mechanic 1", "mechanic 2", "mechanic 3", "mechanic 4", "mechanic 5"],
   "playerCount": "e.g. 2-5 players",
   "playTime": "e.g. 60-90 min",
   "complexity": "e.g. Medium (2.8/5)",
@@ -244,9 +257,13 @@ Return exactly this JSON shape:
   "designWeaknesses": ["weakness 1", "weakness 2"],
   "designLessons": "2-3 sentences on what a designer can steal or learn from this game",
   "tags": "comma-separated short tags e.g. strategy, worker-placement, resource-management"
-}`,
-        maxTokens: 1400,
-        preferFast: true,
+}`;
+
+      const text = await complete(req, {
+        system: "You are an expert tabletop game designer and analyst. Return only valid JSON — no prose, no markdown fences.",
+        prompt: isQuick ? quickPrompt : comprehensivePrompt,
+        maxTokens: isQuick ? 600 : 1800,
+        preferFast: isQuick,
       });
 
       type GameData = {
@@ -364,6 +381,29 @@ type GeneratedGame = {
   notes?: Array<{ title?: string; content?: string }>;
 };
 
+// Map AI-returned entity type strings to canonical GameForge types (#bug-fix)
+const ENTITY_TYPE_MAP: Record<string, string> = {
+  card: "Card", cards: "Card",
+  deck: "Deck", decks: "Deck",
+  token: "Token", tokens: "Token", piece: "Token", pieces: "Token", counter: "Token",
+  meeple: "Meeple", meeples: "Meeple", pawn: "Meeple", pawns: "Meeple",
+  die: "Die", dice: "Die",
+  tile: "Tile", tiles: "Tile", hex: "Tile",
+  board: "Board", boards: "Board",
+  zone: "Zone", zones: "Zone", area: "Zone", areas: "Zone",
+  location: "Location", locations: "Location", space: "Location",
+  faction: "Faction", factions: "Faction", team: "Faction",
+  event: "Event", events: "Event",
+  resource: "Resource", resources: "Resource", currency: "Resource", commodity: "Resource",
+  ability: "Ability", abilities: "Ability", power: "Ability", skill: "Ability",
+};
+
+function normalizeEntityType(raw: string | undefined): string {
+  if (!raw) return "Token";
+  const lower = raw.trim().toLowerCase();
+  return ENTITY_TYPE_MAP[lower] ?? "Token";
+}
+
 async function insertReverseComponents(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   projectId: number,
@@ -374,7 +414,7 @@ async function insertReverseComponents(
       parsed.entities.slice(0, 20).map((e) => ({
         projectId,
         name: String(e.name ?? "Entity").slice(0, 80),
-        type: String(e.type ?? "other").slice(0, 40),
+        type: normalizeEntityType(e.type),
         description: e.description ? String(e.description) : null,
       })),
     );
@@ -431,10 +471,10 @@ function buildReversePrompt(
     : "You are creating a brand-new original game — give it a fresh name and identity.";
 
   return [
-    "You are a world-class tabletop game designer performing a deep reverse-engineering exercise.",
+    "You are a world-class tabletop game designer.",
     modeHint,
     "",
-    "Study these reference games deeply, then synthesize a completely original game that takes the best structural DNA from each while being distinctly different:",
+    "Study these reference games deeply. Extract the strongest structural patterns, mechanics, and design DNA from each, then synthesize an original game concept that combines their best elements in a fresh way:",
     "",
     gameBlocks,
     "",
@@ -450,7 +490,7 @@ function buildReversePrompt(
   "targetDuration": "e.g. 45-75 minutes",
   "complexityScore": 1-10,
   "blueprint": "string — 4-6 paragraphs covering: core loop, turn structure, win condition, player interaction, balance philosophy, what makes it feel fresh",
-  "entities": [{ "name": "string", "type": "card|token|board|piece|resource|other", "description": "string (1-2 sentences)" }],
+  "entities": [{ "name": "string", "type": "Card|Deck|Token|Meeple|Die|Tile|Board|Zone|Location|Faction|Event|Resource|Ability", "description": "string (1-2 sentences)" }],
   "rules": [{ "title": "string", "category": "Setup|Turn|Action|Scoring|Endgame|Special", "content": "string — clear, actionable, 1-3 sentences" }],
   "players": [{ "name": "string — role/archetype name", "role": "string", "description": "string (1-2 sentences)" }],
   "notes": [{ "title": "string", "content": "string — designer insight or open question" }]

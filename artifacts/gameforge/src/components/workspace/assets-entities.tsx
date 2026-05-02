@@ -44,20 +44,6 @@ import { VariantManager } from "./variant-manager";
 import { ComponentBOM } from "./component-bom";
 import { Entities } from "@/components/workspace/entities";
 
-// Stubs for entity-rule linking hooks (API endpoints not yet implemented in the backend).
-// LinkedRulesPanel uses these; they return empty data gracefully until the backend is ready.
-function useListEntityRules(_projectId: number, _entityId: number) {
-  return { data: [] as Array<{ ruleId: number }>, isLoading: false };
-}
-function useLinkEntityRule() {
-  return { mutateAsync: async (_args: { projectId: number; entityId: number; ruleId: number }) => {} };
-}
-function useUnlinkEntityRule() {
-  return { mutateAsync: async (_args: { projectId: number; entityId: number; ruleId: number }) => {} };
-}
-function getListEntityRulesQueryKey(_projectId: number, _entityId: number) {
-  return ["entity-rules", _projectId, _entityId] as const;
-}
 
 type ComponentKind = { id: string; label: string; kind: string; icon: React.ComponentType<{ className?: string }>; promptHint: string };
 const COMPONENT_KINDS: ComponentKind[] = [

@@ -602,8 +602,12 @@ export function Players({ projectId }: PlayersProps) {
   // Sync sheet when a different player is selected
   useEffect(() => {
     if (selectedPlayer && selectedPlayer.id !== sheetPlayerId) {
-      setSheet(playerToSheet(selectedPlayer));
+      const initial = playerToSheet(selectedPlayer);
+      setSheet(initial);
       setSheetPlayerId(selectedPlayer.id);
+      // Reset lastSavedRef so the debounce won't fire a redundant save immediately
+      // after loading — it will only save once the user actually changes something.
+      lastSavedRef.current = JSON.stringify(initial);
     }
   }, [selectedPlayer, sheetPlayerId]);
 
@@ -948,7 +952,7 @@ export function Players({ projectId }: PlayersProps) {
                             onDrop={() => handleDrop(p.id, type)}
                             onDragEnd={() => { document.body.style.cursor = ""; clearDragState(); }}
                             onClick={() => { setSelectedId(isSelected ? null : p.id); setView("persona"); }}
-                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-all border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${draggedId === p.id ? "opacity-40 cursor-grabbing" : ""}`}
+                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer group transition-all border-l-2 ${isSelected ? "bg-primary/10 border-l-primary" : "border-l-transparent hover:bg-muted/20"} ${draggedId === p.id ? "opacity-40 cursor-grabbing" : ""} ${isActive && draggedId !== p.id ? "ring-1 ring-primary/60 ring-inset scale-[1.01] bg-primary/5" : ""}`}
                           >
                             <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0 cursor-grab" />
                             <m.Icon className={`h-3.5 w-3.5 shrink-0 ${m.color}`} />

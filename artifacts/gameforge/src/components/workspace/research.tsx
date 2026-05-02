@@ -393,6 +393,7 @@ function ReverseEngineerDialog({
   const { toast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [direction, setDirection] = useState("");
+  const [mode, setMode] = useState<"new_project" | "populate_current">(workspaceSlug ? "new_project" : "populate_current");
   const [reversing, setReversing] = useState(false);
   const [stageIdx, setStageIdx] = useState(0);
 
@@ -404,9 +405,10 @@ function ReverseEngineerDialog({
         setSelectedIds(new Set(researched.map((g) => g.id)));
       }
       setDirection("");
+      setMode(workspaceSlug ? "new_project" : "populate_current");
       setStageIdx(0);
     }
-  }, [open, researched, preselectedGameId]);
+  }, [open, researched, preselectedGameId, workspaceSlug]);
 
   // Cycle through stage labels while reversing
   useEffect(() => {
@@ -444,7 +446,7 @@ function ReverseEngineerDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ games: selectedGames, direction, mode: "new_project", workspaceSlug }),
+        body: JSON.stringify({ games: selectedGames, direction: direction.trim(), mode, workspaceSlug }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -497,10 +499,35 @@ function ReverseEngineerDialog({
           </div>
         ) : (
           <div className="space-y-5 py-2">
+            {/* Output mode toggle */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold">Output</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {workspaceSlug && (
+                  <button
+                    type="button"
+                    onClick={() => setMode("new_project")}
+                    className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${mode === "new_project" ? "border-violet-500/60 bg-violet-500/10 text-violet-200" : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"}`}
+                  >
+                    <p className="text-xs font-semibold">New project</p>
+                    <p className="text-[10px] mt-0.5 opacity-70">Create a brand-new project in this workspace</p>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setMode("populate_current")}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${mode === "populate_current" ? "border-violet-500/60 bg-violet-500/10 text-violet-200" : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"} ${!workspaceSlug ? "col-span-2" : ""}`}
+                >
+                  <p className="text-xs font-semibold">Enrich current project</p>
+                  <p className="text-[10px] mt-0.5 opacity-70">Add components, rules &amp; players to this project</p>
+                </button>
+              </div>
+            </div>
+
             {/* Game selection */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">Clone from</Label>
+                <Label className="text-sm font-semibold">Synthesize from</Label>
                 <button
                   onClick={toggleAll}
                   className="text-xs text-primary hover:underline"
@@ -508,7 +535,7 @@ function ReverseEngineerDialog({
                   {selectedIds.size === researched.length ? "Deselect all" : "Select all"}
                 </button>
               </div>
-              <div className="rounded-lg border border-border divide-y divide-border">
+              <div className="rounded-lg border border-border divide-y divide-border max-h-48 overflow-y-auto">
                 {researched.map((g) => (
                   <label
                     key={g.id}
@@ -536,11 +563,26 @@ function ReverseEngineerDialog({
               )}
             </div>
 
+            {/* Designer direction */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold">Direction <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Textarea
+                value={direction}
+                onChange={(e) => setDirection(e.target.value)}
+                placeholder="e.g. 'Focus on asymmetric player powers', 'Make it 30 minutes, family-friendly', 'Lean into the trading mechanic'"
+                className="text-sm min-h-[72px] resize-none"
+                maxLength={400}
+              />
+              {direction.length > 0 && (
+                <p className="text-[10px] text-muted-foreground text-right">{direction.length}/400</p>
+              )}
+            </div>
+
             {/* Info notice */}
             <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-violet-200">
-              <p className="font-semibold mb-1">Recreates the exact game</p>
+              <p className="font-semibold mb-1">How it works</p>
               <p className="text-violet-200/70">
-                AI will pull comprehensive details from all available sources and recreate the exact game with all its components, rules, mechanics, and structure — not an "inspired by" version.
+                The AI studies the design DNA of your selected games — their mechanics, structure, and core loops — then synthesizes an original game that combines their strongest patterns in a fresh way.
               </p>
             </div>
           </div>
