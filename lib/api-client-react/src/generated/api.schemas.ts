@@ -299,6 +299,8 @@ export interface Entity {
   lore?: string | null;
   /** @nullable */
   designNotes?: string | null;
+  /** @nullable */
+  displayOrder?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -329,6 +331,7 @@ export interface UpdateEntityBody {
   relatedTo?: string;
   lore?: string;
   designNotes?: string;
+  displayOrder?: number;
 }
 
 export interface EntityProperty {

@@ -2416,8 +2416,6 @@ components:
           type: [string, "null"]
         stats:
           type: [string, "null"]
-        status:
-          type: [string, "null"]
         color:
           type: [string, "null"]
         relatedTo:
@@ -2428,6 +2426,8 @@ components:
           type: [string, "null"]
         status:
           type: string
+        displayOrder:
+          type: [integer, "null"]
         createdAt:
           type: string
           format: date-time
@@ -2486,8 +2486,8 @@ components:
           type: string
         designNotes:
           type: string
-        status:
-          type: string
+        displayOrder:
+          type: integer
 
     EntityProperty:
       type: object

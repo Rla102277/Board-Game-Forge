@@ -83,6 +83,7 @@ export function Entities({ projectId }: EntitiesProps) {
   const queryClient = useQueryClient();
   const { data: entities, isLoading } = useListEntities(projectId);
   const createEntity = useCreateEntity();
+  const updateEntity = useUpdateEntity();
   const aiGenerate = useAiGenerateEntities();
   const { toast } = useToast();
 
@@ -113,10 +114,15 @@ export function Entities({ projectId }: EntitiesProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [showHierarchy, setShowHierarchy] = useState(false);
 
-  // Drag-to-reorder state (local session order, no server persistence)
+  // Drag-to-reorder state (flat / single-type filtered view)
   const [draggedEntityId, setDraggedEntityId] = useState<number | null>(null);
   const [localEntityOrder, setLocalEntityOrder] = useState<number[]>([]);
   const dragOverEntityIdRef = useRef<number | null>(null);
+  const isSavingOrder = useRef(false);
+
+  // Drag-to-reorder state (grouped / all-types view)
+  const [draggedGroupType, setDraggedGroupType] = useState<string | null>(null);
+  const [localGroupOrder, setLocalGroupOrder] = useState<Map<string, number[]>>(new Map());
 
   const errMsg = (err: unknown) => err instanceof Error ? err.message : String(err);
   const refresh = () => queryClient.invalidateQueries({ queryKey: getListEntitiesQueryKey(projectId) });
@@ -245,10 +251,16 @@ export function Entities({ projectId }: EntitiesProps) {
     return map;
   }, [filtered, filterType]);
 
-  // Sync local order from filtered when not dragging
+  // Sync local order from server whenever filtered changes (but not during active drag)
+  // Uses server displayOrder for initial sort, falling back to filtered order (createdAt desc)
   useEffect(() => {
     if (draggedEntityId === null) {
-      setLocalEntityOrder(filtered.map((e) => e.id));
+      const sorted = [...filtered].sort((a, b) => {
+        const oa = a.displayOrder ?? Infinity;
+        const ob = b.displayOrder ?? Infinity;
+        return oa - ob;
+      });
+      setLocalEntityOrder(sorted.map((e) => e.id));
     }
   }, [filtered, draggedEntityId]);
 
@@ -287,16 +299,126 @@ export function Entities({ projectId }: EntitiesProps) {
     });
   };
 
-  const handleEntityDrop = (e: React.DragEvent) => {
+  const handleEntityDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     document.body.style.cursor = "";
+    if (draggedEntityId === null || isSavingOrder.current) return;
+    isSavingOrder.current = true;
+    const finalOrder = [...localEntityOrder];
     setDraggedEntityId(null);
     dragOverEntityIdRef.current = null;
+    try {
+      await Promise.all(
+        finalOrder.map((id, index) =>
+          updateEntity.mutateAsync({ projectId, entityId: id, data: { displayOrder: index } })
+        )
+      );
+      refresh();
+    } catch {
+      toast({ title: "Failed to save order", variant: "destructive" });
+      refresh();
+    } finally {
+      isSavingOrder.current = false;
+    }
   };
 
   const handleEntityDragEnd = () => {
     document.body.style.cursor = "";
     setDraggedEntityId(null);
+    dragOverEntityIdRef.current = null;
+  };
+
+  // ── Grouped-mode drag handlers (within-type only) ─────────────────────────
+  //
+  // displayOrder semantics: indices are scoped per entity type (0, 1, 2…
+  // independently for Cards, Tokens, Dice, etc.). The server orders by
+  // displayOrder ASC and the client groups by type after fetching, so
+  // within-group order is always stable. displayOrder is NOT a global
+  // cross-type rank — if a global flat ordering is ever introduced, a
+  // migration that assigns globally unique ranks will be needed.
+
+  // Sync localGroupOrder from server whenever entities change (but not during active grouped drag)
+  useEffect(() => {
+    if (draggedEntityId !== null || draggedGroupType !== null) return;
+    const all = entities ?? [];
+    const map = new Map<string, number[]>();
+    for (const e of all) {
+      if (!map.has(e.type)) map.set(e.type, []);
+      map.get(e.type)!.push(e.id);
+    }
+    // Sort each bucket by displayOrder (with Infinity fallback so nulls come last)
+    const entityById = new Map(all.map((e) => [e.id, e]));
+    for (const [type, ids] of map.entries()) {
+      ids.sort((idA, idB) => {
+        const a = entityById.get(idA);
+        const b = entityById.get(idB);
+        const oa = a?.displayOrder ?? Infinity;
+        const ob = b?.displayOrder ?? Infinity;
+        return oa - ob;
+      });
+      map.set(type, ids);
+    }
+    setLocalGroupOrder(map);
+  }, [entities, draggedEntityId, draggedGroupType]);
+
+  const handleGroupedDragStart = (id: number, type: string, e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = "move";
+    setDraggedEntityId(id);
+    setDraggedGroupType(type);
+    dragOverEntityIdRef.current = null;
+    document.body.style.cursor = "grabbing";
+  };
+
+  const handleGroupedDragOver = (e: React.DragEvent, targetId: number, targetType: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (draggedEntityId === null || draggedGroupType === null || draggedEntityId === targetId) return;
+    if (draggedGroupType !== targetType) return;
+    if (dragOverEntityIdRef.current === targetId) return;
+    dragOverEntityIdRef.current = targetId;
+    setLocalGroupOrder((prev) => {
+      const ids = prev.get(draggedGroupType) ?? [];
+      const from = ids.indexOf(draggedEntityId);
+      const to = ids.indexOf(targetId);
+      if (from === -1 || to === -1) return prev;
+      const next = [...ids];
+      next.splice(from, 1);
+      next.splice(to, 0, draggedEntityId);
+      const newMap = new Map(prev);
+      newMap.set(draggedGroupType, next);
+      return newMap;
+    });
+  };
+
+  const handleGroupedDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    document.body.style.cursor = "";
+    if (draggedEntityId === null || draggedGroupType === null || isSavingOrder.current) return;
+    isSavingOrder.current = true;
+    const type = draggedGroupType;
+    const finalKindOrder = localGroupOrder.get(type) ?? [];
+    setDraggedEntityId(null);
+    setDraggedGroupType(null);
+    dragOverEntityIdRef.current = null;
+    try {
+      await Promise.all(
+        finalKindOrder.map((id, index) =>
+          updateEntity.mutateAsync({ projectId, entityId: id, data: { displayOrder: index } })
+        )
+      );
+      refresh();
+    } catch {
+      toast({ title: "Failed to save order", variant: "destructive" });
+      refresh();
+    } finally {
+      isSavingOrder.current = false;
+    }
+  };
+
+  const handleGroupedDragEnd = () => {
+    document.body.style.cursor = "";
+    setDraggedEntityId(null);
+    setDraggedGroupType(null);
     dragOverEntityIdRef.current = null;
   };
 
@@ -692,11 +814,20 @@ export function Entities({ projectId }: EntitiesProps) {
             </button>
           </div>
         ) : grouped ? (
-          // Grouped by type
+          // Grouped by type — drag-to-reorder enabled within each type section
           <div className="space-y-4">
             {Array.from(grouped.entries()).map(([type, items]) => {
               const m = getMeta(type);
               const isCollapsed = collapsedGroups.has(type);
+              // Apply local group ordering
+              const groupIds = localGroupOrder.get(type);
+              const orderedItems = groupIds
+                ? [...items].sort((a, b) => {
+                    const ia = groupIds.indexOf(a.id);
+                    const ib = groupIds.indexOf(b.id);
+                    return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
+                  })
+                : items;
               return (
                 <div key={type} className="rounded-lg border border-border overflow-hidden">
                   <button
@@ -714,32 +845,50 @@ export function Entities({ projectId }: EntitiesProps) {
                   {!isCollapsed && (
                     viewMode === "grid" ? (
                       <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {items.map((entity) => (
-                          <EntityVisualCard
+                        {orderedItems.map((entity) => (
+                          <div
                             key={entity.id}
-                            entity={entity}
-                            projectId={projectId}
-                            childEntities={childrenByParent[entity.id]}
-                            isDeck={decks.has(entity.id)}
-                            deckOptions={deckOptions}
-                            onUpdated={refresh}
-                          />
+                            draggable
+                            onDragStart={(e) => handleGroupedDragStart(entity.id, type, e)}
+                            onDragOver={(e) => handleGroupedDragOver(e, entity.id, type)}
+                            onDrop={handleGroupedDrop}
+                            onDragEnd={handleGroupedDragEnd}
+                            className={draggedEntityId === entity.id ? "opacity-40 cursor-grabbing" : "cursor-grab"}
+                          >
+                            <EntityVisualCard
+                              entity={entity}
+                              projectId={projectId}
+                              childEntities={childrenByParent[entity.id]}
+                              isDeck={decks.has(entity.id)}
+                              deckOptions={deckOptions}
+                              onUpdated={refresh}
+                            />
+                          </div>
                         ))}
                       </div>
                     ) : (
                       <div className="divide-y divide-border/50">
-                        {items.map((entity) => (
-                          <EntityListRow
+                        {orderedItems.map((entity) => (
+                          <div
                             key={entity.id}
-                            entity={entity}
-                            projectId={projectId}
-                            isExpanded={expandedIds.has(entity.id)}
-                            onToggle={() => toggleExpand(entity.id)}
-                            childEntities={childrenByParent[entity.id]}
-                            isDeck={decks.has(entity.id)}
-                            deckOptions={deckOptions}
-                            onUpdated={refresh}
-                          />
+                            draggable
+                            onDragStart={(e) => handleGroupedDragStart(entity.id, type, e)}
+                            onDragOver={(e) => handleGroupedDragOver(e, entity.id, type)}
+                            onDrop={handleGroupedDrop}
+                            onDragEnd={handleGroupedDragEnd}
+                            className={draggedEntityId === entity.id ? "opacity-40 cursor-grabbing" : "cursor-grab"}
+                          >
+                            <EntityListRow
+                              entity={entity}
+                              projectId={projectId}
+                              isExpanded={expandedIds.has(entity.id)}
+                              onToggle={() => toggleExpand(entity.id)}
+                              childEntities={childrenByParent[entity.id]}
+                              isDeck={decks.has(entity.id)}
+                              deckOptions={deckOptions}
+                              onUpdated={refresh}
+                            />
+                          </div>
                         ))}
                       </div>
                     )

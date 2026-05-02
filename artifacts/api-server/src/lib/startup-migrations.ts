@@ -62,6 +62,8 @@ const MIGRATIONS = [
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE INDEX IF NOT EXISTS reference_games_project_id_idx ON reference_games (project_id)`,
+  // 0014 – entity display order (drag-to-reorder in Component Workshop)
+  `ALTER TABLE entities ADD COLUMN IF NOT EXISTS display_order integer`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {

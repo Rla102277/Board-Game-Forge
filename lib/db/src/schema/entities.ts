@@ -19,6 +19,7 @@ export const entities = pgTable("entities", {
   lore: text("lore"),
   designNotes: text("design_notes"),
   status: text("status").default("draft").notNull(),
+  displayOrder: integer("display_order"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

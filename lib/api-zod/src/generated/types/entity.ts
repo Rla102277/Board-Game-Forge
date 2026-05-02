@@ -27,6 +27,8 @@ export interface Entity {
   lore?: string | null;
   /** @nullable */
   designNotes?: string | null;
+  /** @nullable */
+  displayOrder?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

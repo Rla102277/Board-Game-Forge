@@ -555,6 +555,7 @@ export const ListEntitiesResponseItem = zod.object({
   lore: zod.string().nullish(),
   designNotes: zod.string().nullish(),
   status: zod.string().default("draft"),
+  displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -595,6 +596,7 @@ export const UpdateEntityBody = zod.object({
   lore: zod.string().optional(),
   designNotes: zod.string().optional(),
   status: zod.string().optional(),
+  displayOrder: zod.number().optional(),
 });
 
 export const UpdateEntityResponse = zod.object({
@@ -611,6 +613,7 @@ export const UpdateEntityResponse = zod.object({
   lore: zod.string().nullish(),
   designNotes: zod.string().nullish(),
   status: zod.string().default("draft"),
+  displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

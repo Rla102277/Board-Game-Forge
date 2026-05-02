@@ -19,4 +19,5 @@ export interface UpdateEntityBody {
   lore?: string;
   designNotes?: string;
   status?: string;
+  displayOrder?: number;
 }

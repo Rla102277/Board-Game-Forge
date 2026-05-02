@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, asc } from "drizzle-orm";
 import { db, entities, entityRules, rules, projects } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import { complete, tryParseJsonArray } from "../lib/aiRouter";
@@ -16,7 +16,7 @@ router.get("/projects/:projectId/entities", async (req, res): Promise<void> => {
     .select()
     .from(entities)
     .where(eq(entities.projectId, params.data.projectId))
-    .orderBy(desc(entities.createdAt));
+    .orderBy(asc(entities.displayOrder), desc(entities.createdAt));
   res.json(schemas.ListEntitiesResponse.parse(rows));
 });
 
