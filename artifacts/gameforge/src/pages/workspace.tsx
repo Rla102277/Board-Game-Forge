@@ -602,7 +602,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
               if (group) setOpenGroups(prev => ({ ...prev, [group.label]: true }));
             }}
             onComplete={() => completeTour(projectId)}
-            onDismiss={dismissTour}
+            onDismiss={() => dismissTour(projectId)}
           />
         )}
       </AnimatePresence>

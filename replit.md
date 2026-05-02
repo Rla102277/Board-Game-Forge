@@ -41,6 +41,7 @@ The architecture follows a contract-first API approach, where the OpenAPI spec (
     - AI Project Generation for full game prototypes from text prompts.
 - **Admin Console:** User management and soft-deletion of users.
 - **Trash / Recycle Bin:** Soft-deletion and restoration of projects.
+- **Onboarding Tour:** Step-by-step guided walkthrough for new users entering a workspace. 20 steps covering all sidebar groups (Foundation, Tasks & Tracking, Workshop, Rules & Flow, Simulation, Playtesting, Publish, Team, AI Chat). Auto-triggers on first visit (800ms delay), persists completion/skip in localStorage (`gameforge:workspace-tour-completed:<projectId>`), accessible dialog with focus trap and ARIA semantics. Re-trigger via "Workspace Tour" button in sidebar footer. Files: `src/components/workspace/workspace-tour.tsx`, `src/hooks/use-workspace-tour.ts`.
 - **Learn System:** GameForge Bible (app documentation), Board Game Design 101 (8-lesson course), and an AI Tutor grounded in reference material.
 
 **Database Schema (Core Tables):**
