@@ -323,6 +323,36 @@ function localStorageKey(projectId: number): string {
   return `gameforge-graph-positions-project-${projectId}`;
 }
 
+function filterStorageKey(projectId: number): string {
+  return `gameforge-graph-filters-project-${projectId}`;
+}
+
+type PersistedFilters = {
+  activeTypes: string[];
+  minWeight: number;
+};
+
+function loadFilters(projectId: number): PersistedFilters | null {
+  try {
+    const raw = localStorage.getItem(filterStorageKey(projectId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedFilters;
+    if (!Array.isArray(parsed.activeTypes) || typeof parsed.minWeight !== "number") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveFilters(projectId: number, activeTypes: Set<string>, minWeight: number) {
+  try {
+    const data: PersistedFilters = { activeTypes: [...activeTypes], minWeight };
+    localStorage.setItem(filterStorageKey(projectId), JSON.stringify(data));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 function loadLocalPositions(projectId: number): Map<number, { x: number; y: number }> {
   try {
     const raw = localStorage.getItem(localStorageKey(projectId));
@@ -373,11 +403,39 @@ export function EntityGraph({
     () => ALL_COMPONENT_TYPES.filter((t) => entities.some((e) => e.type === t)),
     [entities],
   );
-  const [activeTypes, setActiveTypes] = useState<Set<string>>(() => new Set(ALL_COMPONENT_TYPES));
+
+  const [activeTypes, setActiveTypes] = useState<Set<string>>(() => {
+    const saved = loadFilters(projectId);
+    return saved ? new Set(saved.activeTypes) : new Set(ALL_COMPONENT_TYPES);
+  });
   const [focusedNodeId, setFocusedNodeId] = useState<number | null>(null);
   const [showNeighborsOnly, setShowNeighborsOnly] = useState(false);
   const [neighborDepth, setNeighborDepth] = useState(1);
-  const [minWeight, setMinWeight] = useState(2);
+  const [minWeight, setMinWeight] = useState<number>(() => {
+    const saved = loadFilters(projectId);
+    return saved ? saved.minWeight : 2;
+  });
+
+  // Single effect handles both project-switch (load) and filter-change (save).
+  // Using a ref to track the last projectId we loaded for prevents the project-switch
+  // render (which carries the old state + new projectId) from overwriting the new
+  // project's stored filters before the rehydrated state arrives.
+  const filterProjectRef = useRef(projectId);
+  useEffect(() => {
+    if (filterProjectRef.current !== projectId) {
+      // Project switched: reload filters for the new project, do not save yet.
+      filterProjectRef.current = projectId;
+      const saved = loadFilters(projectId);
+      setActiveTypes(saved ? new Set(saved.activeTypes) : new Set(ALL_COMPONENT_TYPES));
+      setMinWeight(saved ? saved.minWeight : 2);
+      setFocusedNodeId(null);
+      setShowNeighborsOnly(false);
+      setNeighborDepth(1);
+    } else {
+      // Same project, filters changed: persist them.
+      saveFilters(projectId, activeTypes, minWeight);
+    }
+  }, [projectId, activeTypes, minWeight]);
 
   const allActive = presentTypes.every((t) => activeTypes.has(t));
 
