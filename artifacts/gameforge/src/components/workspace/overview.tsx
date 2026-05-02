@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useToast } from "@/hooks/use-toast";
 import { AiEditTextarea } from "@/components/workspace/ai-edit-textarea";
@@ -32,6 +31,8 @@ import {
 interface OverviewProps {
   projectId: number;
   onPromptSend: (prompt: string) => void;
+  /** "dashboard" → Game Dashboard tab; "identity" → Game Identity tab */
+  view?: "dashboard" | "identity";
 }
 
 interface GameIdentityProps {
@@ -184,7 +185,7 @@ function SaveIndicator({ status }: { status: SaveStatus | undefined }) {
   );
 }
 
-export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewProps) {
+export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashboard" }: OverviewProps) {
   const { data: project, isLoading: projectLoading } = useGetProject(projectId);
   const { data: stats, isLoading: statsLoading } = useGetProjectStats(projectId);
   const updateProject = useUpdateProject();
@@ -481,101 +482,173 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
   return (
     <div className="space-y-6 pb-10">
 
-      {/* ── Game Identity Hero ───────────────────────────────────────── */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-        <CardHeader className="py-3 px-5 border-b border-border/50">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Game Identity</CardTitle>
-            <SaveIndicator status={sectionSaveStatus.hero} />
+      {/* ═══════════════════════════════════════════════════════════════
+          GAME IDENTITY VIEW — hero card + Game Bible (own tab)
+          ═══════════════════════════════════════════════════════════════ */}
+      {view === "identity" && (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardHeader className="py-3 px-5 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Game Identity</CardTitle>
+              <SaveIndicator status={sectionSaveStatus.hero} />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-5 pb-5 space-y-4">
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Elevator pitch</Label>
+                <Textarea
+                  placeholder="In one or two sentences, what's the core experience of your game?"
+                  rows={2}
+                  className="resize-none text-sm bg-background/60"
+                  value={heroMeta.elevatorPitch || ""}
+                  onChange={(e) => setHeroMeta((m) => ({ ...m, elevatorPitch: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Narrative seed</Label>
+                <Textarea
+                  placeholder="Describe the world, theme, or story that drives your game's atmosphere and components…"
+                  rows={3}
+                  className="resize-none text-sm bg-background/60"
+                  value={narrative}
+                  onChange={(e) => setNarrative(e.target.value)}
+                />
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[10px] text-muted-foreground">
+                    This seed is shared across the studio — it guides AI generation for components, rules, and players.
+                  </p>
+                  <SaveIndicator status={narrativeSaveStatus} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1 block">Player count</Label>
+                  <Input placeholder="e.g. 2–5" className="h-8 text-sm bg-background/60"
+                    value={form.playerCount} onChange={(e) => setForm((f) => ({ ...f, playerCount: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1 block">Play time</Label>
+                  <Input placeholder="e.g. 45–90 min" className="h-8 text-sm bg-background/60"
+                    value={form.targetDuration} onChange={(e) => setForm((f) => ({ ...f, targetDuration: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1 block">Age range</Label>
+                  <Input placeholder="e.g. 12+" className="h-8 text-sm bg-background/60"
+                    value={heroMeta.ageRange || ""} onChange={(e) => setHeroMeta((m) => ({ ...m, ageRange: e.target.value }))} />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1 block">Plays like</Label>
+                  <Input placeholder="e.g. Catan meets Dominion" className="h-8 text-sm bg-background/60"
+                    value={heroMeta.playsLike || ""} onChange={(e) => setHeroMeta((m) => ({ ...m, playsLike: e.target.value }))} />
+                </div>
+              </div>
+
+              {/* Complexity tier selector */}
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Complexity tier</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {COMPLEXITY_TIERS.map((tier) => (
+                    <button
+                      key={tier.value}
+                      onClick={() => setHeroMeta((m) => ({ ...m, complexityTier: tier.value }))}
+                      title={tier.desc}
+                      className={`px-2.5 py-1 rounded-md border text-xs font-medium transition-all ${
+                        heroMeta.complexityTier === tier.value
+                          ? "bg-primary/15 border-primary/40 text-primary"
+                          : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
+                      }`}
+                    >
+                      {tier.label}
+                      <span className="ml-1 hidden sm:inline opacity-60 font-normal">— {tier.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════
+          GAME DASHBOARD VIEW — phase / glance / recent / fingerprint / complexity
+          ═══════════════════════════════════════════════════════════════ */}
+      {view === "dashboard" && (
+        <>
+          {/* Row 1: Design Phase (left) | Project at a Glance (right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Design Phase tracker */}
+            <Card>
+              <CardHeader className="border-b border-border py-3 px-4 flex-row items-center gap-2">
+                <Flag className="w-4 h-4 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-sm font-semibold">Design Phase</CardTitle>
+                </div>
+                <SaveIndicator status={sectionSaveStatus.phase} />
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${currentPhase?.color}`}>
+                  {currentPhase?.label}
+                </span>
+              </CardHeader>
+              <CardContent className="px-4 py-3 space-y-2">
+                <div className="flex flex-col gap-1">
+                  {DESIGN_PHASES.map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => saveDesignPhase(p.value)}
+                      className={`text-left px-2.5 py-1.5 rounded-md border text-xs font-medium transition-all ${
+                        form.designPhase === p.value
+                          ? `${p.color} ring-1 ring-current`
+                          : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                      }`}
+                    >
+                      <span className="font-semibold">{p.label}</span>
+                      <span className="ml-1 opacity-60 font-normal">{p.desc}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="h-1 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all duration-500"
+                    style={{ width: `${((currentPhaseIdx + 1) / DESIGN_PHASES.length) * 100}%` }} />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Project at a Glance */}
+            <Card>
+              <CardHeader className="border-b border-border py-3 px-4 flex-row items-center gap-2">
+                <LayoutDashboard className="w-4 h-4 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-sm font-semibold">Project at a Glance</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 py-3">
+                {visibleStats.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {visibleStats.map((stat) => {
+                      const Icon = stat.Icon;
+                      return (
+                        <div key={stat.label} className={`rounded-lg border border-border p-2 ${stat.bg}`}>
+                          <Icon className={`h-3.5 w-3.5 ${stat.color} mb-1`} />
+                          <div className="text-lg font-bold leading-none">{statsLoading ? "·" : stat.count}</div>
+                          <div className="text-[9px] text-muted-foreground mt-0.5">{stat.label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-4 italic">
+                    Add components, rules, or players to see project stats here.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        </CardHeader>
-        <CardContent className="pt-5 pb-5 space-y-4">
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">Elevator pitch</Label>
-              <Textarea
-                placeholder="In one or two sentences, what's the core experience of your game?"
-                rows={2}
-                className="resize-none text-sm bg-background/60"
-                value={heroMeta.elevatorPitch || ""}
-                onChange={(e) => setHeroMeta((m) => ({ ...m, elevatorPitch: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">Narrative seed</Label>
-              <Textarea
-                placeholder="Describe the world, theme, or story that drives your game's atmosphere and components…"
-                rows={3}
-                className="resize-none text-sm bg-background/60"
-                value={narrative}
-                onChange={(e) => setNarrative(e.target.value)}
-              />
-              <div className="flex items-center justify-between mt-1">
-                <p className="text-[10px] text-muted-foreground">
-                  This seed is shared across the studio — it guides AI generation for components, rules, and players.
-                </p>
-                <SaveIndicator status={narrativeSaveStatus} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Player count</Label>
-                <Input placeholder="e.g. 2–5" className="h-8 text-sm bg-background/60"
-                  value={form.playerCount} onChange={(e) => setForm((f) => ({ ...f, playerCount: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Play time</Label>
-                <Input placeholder="e.g. 45–90 min" className="h-8 text-sm bg-background/60"
-                  value={form.targetDuration} onChange={(e) => setForm((f) => ({ ...f, targetDuration: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Age range</Label>
-                <Input placeholder="e.g. 12+" className="h-8 text-sm bg-background/60"
-                  value={heroMeta.ageRange || ""} onChange={(e) => setHeroMeta((m) => ({ ...m, ageRange: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Plays like</Label>
-                <Input placeholder="e.g. Catan meets Dominion" className="h-8 text-sm bg-background/60"
-                  value={heroMeta.playsLike || ""} onChange={(e) => setHeroMeta((m) => ({ ...m, playsLike: e.target.value }))} />
-              </div>
-            </div>
 
-            {/* Complexity tier selector */}
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5 block">Complexity tier</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {COMPLEXITY_TIERS.map((tier) => (
-                  <button
-                    key={tier.value}
-                    onClick={() => setHeroMeta((m) => ({ ...m, complexityTier: tier.value }))}
-                    title={tier.desc}
-                    className={`px-2.5 py-1 rounded-md border text-xs font-medium transition-all ${
-                      heroMeta.complexityTier === tier.value
-                        ? "bg-primary/15 border-primary/40 text-primary"
-                        : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
-                    }`}
-                  >
-                    {tier.label}
-                    <span className="ml-1 hidden sm:inline opacity-60 font-normal">— {tier.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Two-column body ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* ── LEFT column ──────────────────────────────────────────── */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Last Session — exactly top 3 */}
+          {/* Row 2: Where you left off (full width) */}
           {recentItems.length > 0 && (
             <section>
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-2">Where you left off</h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {recentItems.map((item) => {
                   const Icon = item.Icon;
                   return (
@@ -592,313 +665,274 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
             </section>
           )}
 
-          {/* ── Design Problems — Kanban 3-column ──────────────────── */}
-          <Card>
-            <CardHeader className="py-4 px-5 border-b border-border">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-400" />
-                  Design Problems
-                  {totalActive > 0 && (
-                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{totalActive} open</Badge>
-                  )}
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  {resolvedCount > 0 && (
-                    <span className="text-[10px] text-muted-foreground">{resolvedCount} resolved</span>
-                  )}
-                  <SaveIndicator status={sectionSaveStatus.problems} />
+          {/* Row 3: Mechanic Fingerprint (left) | Design Complexity (right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Mechanic Fingerprint */}
+            <Card>
+              <CardHeader className="py-3 px-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold">Mechanic Fingerprint</CardTitle>
+                  <SaveIndicator status={sectionSaveStatus.fingerprint} />
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="px-5 py-4 space-y-3">
-              {/* Add problem bar */}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Describe a design tension…"
-                  className="h-8 text-sm flex-1"
-                  value={newProblemText}
-                  onChange={(e) => setNewProblemText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addProblem()}
-                />
-                <div className="flex gap-1">
-                  {(["blocker", "concern", "watch"] as const).map((sev) => {
-                    const cfg = SEVERITY[sev];
-                    const Icon = cfg.Icon;
-                    return (
-                      <button
-                        key={sev}
-                        onClick={() => setNewProblemSeverity(sev)}
-                        title={cfg.label}
-                        className={`h-8 w-8 rounded flex items-center justify-center border transition-all ${
-                          newProblemSeverity === sev ? `${cfg.bg} ${cfg.border}` : "border-transparent hover:border-border"
-                        }`}
-                      >
-                        <Icon className={`h-3.5 w-3.5 ${newProblemSeverity === sev ? cfg.color : "text-muted-foreground"}`} />
-                      </button>
-                    );
-                  })}
-                </div>
-                <Button size="sm" variant="outline" className="h-8 px-2" onClick={addProblem} disabled={!newProblemText.trim()}>
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-
-              {/* Kanban board — 3 columns */}
-              <div className="grid grid-cols-3 gap-3">
-                {(["blocker", "concern", "watch"] as const).map((sev) => {
-                  const cfg = SEVERITY[sev];
-                  const Icon = cfg.Icon;
-                  const col  = activeByCol[sev];
-                  return (
-                    <div key={sev} className={`rounded-lg border ${cfg.border} ${cfg.bg} flex flex-col`}>
-                      <div className={`flex items-center gap-1.5 px-3 py-2 ${cfg.header}`}>
-                        <Icon className={`h-3 w-3 ${cfg.color}`} />
-                        <span className={`text-xs font-semibold ${cfg.color}`}>{cfg.label}</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground">{col.length}</span>
+              </CardHeader>
+              <CardContent className="px-4 py-3">
+                <ResponsiveContainer width="100%" height={160}>
+                  <RadarChart data={radarData} margin={{ top: 0, right: 16, bottom: 0, left: 16 }}>
+                    <PolarGrid stroke="hsl(var(--border))" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                    <Radar dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.25} dot={{ fill: "hsl(var(--primary))", r: 3 }} />
+                  </RadarChart>
+                </ResponsiveContainer>
+                <div className="space-y-1.5 mt-2">
+                  {FINGERPRINT_AXES.map((ax) => (
+                    <div key={ax} className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground w-20 capitalize">{ax}</span>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((v) => (
+                          <button key={v} onClick={() => setFp(ax, v)}
+                            className={`h-4 w-4 rounded-sm text-[9px] font-bold transition-all ${
+                              fingerprint[ax] >= v ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                            }`}
+                          >{v}</button>
+                        ))}
                       </div>
-                      <div className="flex flex-col gap-1.5 p-2 min-h-[60px]">
-                        {col.length === 0 ? (
-                          <p className="text-[10px] text-muted-foreground text-center py-2 italic">None</p>
-                        ) : (
-                          col.map((p) => (
-                            <div key={p.id} className="bg-background/60 rounded-md px-2 py-1.5 group relative">
-                              <p className="text-xs leading-snug pr-8">{p.text}</p>
-                              <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => resolveProblem(p.id)} className="text-[9px] text-muted-foreground hover:text-emerald-400 px-0.5" title="Resolve">✓</button>
-                                <button onClick={() => removeProblem(p.id)} className="text-muted-foreground hover:text-destructive"><X className="h-2.5 w-2.5" /></button>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ── Decision Log ─────────────────────────────────────────── */}
-          <Card>
-            <CardHeader className="py-4 px-5 border-b border-border">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Pencil className="h-4 w-4 text-primary" />
-                  Decision Log
-                  <span className="text-xs font-normal text-muted-foreground ml-1">Why did you make this choice?</span>
-                </CardTitle>
-                <SaveIndicator status={sectionSaveStatus.decisions} />
-              </div>
-            </CardHeader>
-            <CardContent className="px-5 py-4 space-y-3">
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <Textarea
-                    placeholder="e.g. Removed trading — too much downtime. Replaced with direct exchange…"
-                    rows={2}
-                    className="resize-none text-sm"
-                    value={newLogEntry}
-                    onChange={(e) => setNewLogEntry(e.target.value.slice(0, 280))}
-                    onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addLogEntry(); }}
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{newLogEntry.length}/280 · Cmd+Enter to save</p>
-                </div>
-                <Button size="icon" variant="outline" className="h-8 w-8 shrink-0 mb-5" onClick={addLogEntry} disabled={!newLogEntry.trim()}>
-                  <Send className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              {decisionLog.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">No decisions logged yet.</p>
-              ) : (
-                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                  {decisionLog.map((entry) => (
-                    <div key={entry.id} className="flex gap-2 text-sm">
-                      <div className="w-1 shrink-0 bg-primary/30 rounded-full mt-0.5" />
-                      <div className="flex-1">
-                        <p className="leading-snug">{entry.text}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{relativeTime(entry.createdAt)}</p>
-                      </div>
-                      <button onClick={() => setDecisionLog((d) => d.filter((e) => e.id !== entry.id))} className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5">
-                        <X className="h-3 w-3" />
-                      </button>
                     </div>
                   ))}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
 
-        {/* ── RIGHT column ─────────────────────────────────────────── */}
-        <div className="space-y-5">
+            {/* Design Complexity */}
+            {stats ? (
+              <ComplexityScore
+                ruleCount={(stats as any).ruleCount ?? 0}
+                entityCount={(stats as any).entityCount ?? 0}
+                playerCount={form.playerCount}
+                playtestCount={(stats as any).playtestCount ?? 0}
+              />
+            ) : (
+              <Card>
+                <CardHeader className="py-3 px-4 border-b border-border">
+                  <CardTitle className="text-sm font-semibold">Design Complexity</CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 py-6">
+                  <p className="text-xs text-muted-foreground text-center italic">Loading complexity score…</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
-          {/* Design Phase tracker */}
-          <Card>
-            <CardHeader className="border-b border-border py-3 px-4 flex-row items-center gap-2">
-              <Flag className="w-4 h-4 text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <CardTitle className="text-sm font-semibold">Design Phase</CardTitle>
-              </div>
-              <SaveIndicator status={sectionSaveStatus.phase} />
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${currentPhase?.color}`}>
-                {currentPhase?.label}
-              </span>
-            </CardHeader>
-            <CardContent className="px-4 py-3 space-y-2">
-              <div className="flex flex-col gap-1">
-                {DESIGN_PHASES.map((p) => (
-                  <button
-                    key={p.value}
-                    onClick={() => saveDesignPhase(p.value)}
-                    className={`text-left px-2.5 py-1.5 rounded-md border text-xs font-medium transition-all ${
-                      form.designPhase === p.value
-                        ? `${p.color} ring-1 ring-current`
-                        : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
-                    }`}
-                  >
-                    <span className="font-semibold">{p.label}</span>
-                    <span className="ml-1 opacity-60 font-normal">{p.desc}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="h-1 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all duration-500"
-                  style={{ width: `${((currentPhaseIdx + 1) / DESIGN_PHASES.length) * 100}%` }} />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Mechanic Fingerprint */}
-          <Card>
-            <CardHeader className="py-3 px-4 border-b border-border">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold">Mechanic Fingerprint</CardTitle>
-                <SaveIndicator status={sectionSaveStatus.fingerprint} />
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 py-3">
-              <ResponsiveContainer width="100%" height={160}>
-                <RadarChart data={radarData} margin={{ top: 0, right: 16, bottom: 0, left: 16 }}>
-                  <PolarGrid stroke="hsl(var(--border))" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
-                  <Radar dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.25} dot={{ fill: "hsl(var(--primary))", r: 3 }} />
-                </RadarChart>
-              </ResponsiveContainer>
-              <div className="space-y-1.5 mt-2">
-                {FINGERPRINT_AXES.map((ax) => (
-                  <div key={ax} className="flex items-center gap-2">
-                    <span className="text-[10px] text-muted-foreground w-20 capitalize">{ax}</span>
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map((v) => (
-                        <button key={v} onClick={() => setFp(ax, v)}
-                          className={`h-4 w-4 rounded-sm text-[9px] font-bold transition-all ${
-                            fingerprint[ax] >= v ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                          }`}
-                        >{v}</button>
-                      ))}
+          {/* Secondary sections — Design Problems / Decision Log / Next Playtest */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* LEFT — problems + decisions */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Design Problems — Kanban 3-column */}
+              <Card>
+                <CardHeader className="py-4 px-5 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-400" />
+                      Design Problems
+                      {totalActive > 0 && (
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{totalActive} open</Badge>
+                      )}
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      {resolvedCount > 0 && (
+                        <span className="text-[10px] text-muted-foreground">{resolvedCount} resolved</span>
+                      )}
+                      <SaveIndicator status={sectionSaveStatus.problems} />
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Next Playtest */}
-          <Card>
-            <CardHeader className="py-3 px-4 border-b border-border">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-primary" /> Next Playtest
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  {daysAway !== null && (
-                    <span className={`text-xs font-semibold ${daysAway <= 1 ? "text-red-400" : daysAway <= 3 ? "text-amber-400" : "text-emerald-400"}`}>
-                      {daysAway === 0 ? "Today!" : daysAway < 0 ? "Past" : `${daysAway}d away`}
-                    </span>
-                  )}
-                  <SaveIndicator status={sectionSaveStatus.playtest} />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 py-3 space-y-3">
-              <Input type="date" className="h-8 text-sm"
-                value={nextPlaytest.date || ""}
-                onChange={(e) => setNextPlaytest((p) => ({ ...p, date: e.target.value }))} />
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Attending</Label>
-                <div className="flex flex-wrap gap-1 mb-1.5">
-                  {(nextPlaytest.attendees || []).map((a, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 text-xs bg-secondary rounded px-2 py-0.5">
-                      {a}<button onClick={() => removeAttendee(i)}><X className="h-2.5 w-2.5" /></button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-1">
-                  <Input placeholder="Add person…" className="h-7 text-xs"
-                    value={newAttendee} onChange={(e) => setNewAttendee(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addAttendee()} />
-                  <Button size="icon" variant="outline" className="h-7 w-7 shrink-0" onClick={addAttendee}>
-                    <UserPlus className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">What to test</Label>
-                <Textarea placeholder="e.g. Test new scoring rule, check 4-player balance…" rows={2}
-                  className="resize-none text-xs"
-                  value={nextPlaytest.focus || ""}
-                  onChange={(e) => setNextPlaytest((p) => ({ ...p, focus: e.target.value }))} />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Stats — non-zero only */}
-          {visibleStats.length > 0 && (
-            <section>
-              <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">Project at a glance</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {visibleStats.map((stat) => {
-                  const Icon = stat.Icon;
-                  return (
-                    <div key={stat.label} className={`rounded-lg border border-border p-2 ${stat.bg}`}>
-                      <Icon className={`h-3.5 w-3.5 ${stat.color} mb-1`} />
-                      <div className="text-lg font-bold leading-none">{statsLoading ? "·" : stat.count}</div>
-                      <div className="text-[9px] text-muted-foreground mt-0.5">{stat.label}</div>
+                </CardHeader>
+                <CardContent className="px-5 py-4 space-y-3">
+                  {/* Add problem bar */}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Describe a design tension…"
+                      className="h-8 text-sm flex-1"
+                      value={newProblemText}
+                      onChange={(e) => setNewProblemText(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addProblem()}
+                    />
+                    <div className="flex gap-1">
+                      {(["blocker", "concern", "watch"] as const).map((sev) => {
+                        const cfg = SEVERITY[sev];
+                        const Icon = cfg.Icon;
+                        return (
+                          <button
+                            key={sev}
+                            onClick={() => setNewProblemSeverity(sev)}
+                            title={cfg.label}
+                            className={`h-8 w-8 rounded flex items-center justify-center border transition-all ${
+                              newProblemSeverity === sev ? `${cfg.bg} ${cfg.border}` : "border-transparent hover:border-border"
+                            }`}
+                          >
+                            <Icon className={`h-3.5 w-3.5 ${newProblemSeverity === sev ? cfg.color : "text-muted-foreground"}`} />
+                          </button>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+                    <Button size="sm" variant="outline" className="h-8 px-2" onClick={addProblem} disabled={!newProblemText.trim()}>
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
 
-          {/* Complexity widget */}
-          {stats && (
-            <ComplexityScore
-              ruleCount={(stats as any).ruleCount ?? 0}
-              entityCount={(stats as any).entityCount ?? 0}
-              playerCount={form.playerCount}
-              playtestCount={(stats as any).playtestCount ?? 0}
-            />
-          )}
-        </div>
-      </div>
+                  {/* Kanban board — 3 columns */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {(["blocker", "concern", "watch"] as const).map((sev) => {
+                      const cfg = SEVERITY[sev];
+                      const Icon = cfg.Icon;
+                      const col  = activeByCol[sev];
+                      return (
+                        <div key={sev} className={`rounded-lg border ${cfg.border} ${cfg.bg} flex flex-col`}>
+                          <div className={`flex items-center gap-1.5 px-3 py-2 ${cfg.header}`}>
+                            <Icon className={`h-3 w-3 ${cfg.color}`} />
+                            <span className={`text-xs font-semibold ${cfg.color}`}>{cfg.label}</span>
+                            <span className="ml-auto text-[10px] text-muted-foreground">{col.length}</span>
+                          </div>
+                          <div className="flex flex-col gap-1.5 p-2 min-h-[60px]">
+                            {col.length === 0 ? (
+                              <p className="text-[10px] text-muted-foreground text-center py-2 italic">None</p>
+                            ) : (
+                              col.map((p) => (
+                                <div key={p.id} className="bg-background/60 rounded-md px-2 py-1.5 group relative">
+                                  <p className="text-xs leading-snug pr-8">{p.text}</p>
+                                  <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => resolveProblem(p.id)} className="text-[9px] text-muted-foreground hover:text-emerald-400 px-0.5" title="Resolve">✓</button>
+                                    <button onClick={() => removeProblem(p.id)} className="text-muted-foreground hover:text-destructive"><X className="h-2.5 w-2.5" /></button>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
 
-      {/* ── Collaboration ─────────────────────────────────────────── */}
-      <CollaborationDashboard projectId={projectId} />
+              {/* Decision Log */}
+              <Card>
+                <CardHeader className="py-4 px-5 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Pencil className="h-4 w-4 text-primary" />
+                      Decision Log
+                      <span className="text-xs font-normal text-muted-foreground ml-1">Why did you make this choice?</span>
+                    </CardTitle>
+                    <SaveIndicator status={sectionSaveStatus.decisions} />
+                  </div>
+                </CardHeader>
+                <CardContent className="px-5 py-4 space-y-3">
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Textarea
+                        placeholder="e.g. Removed trading — too much downtime. Replaced with direct exchange…"
+                        rows={2}
+                        className="resize-none text-sm"
+                        value={newLogEntry}
+                        onChange={(e) => setNewLogEntry(e.target.value.slice(0, 280))}
+                        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addLogEntry(); }}
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{newLogEntry.length}/280 · Cmd+Enter to save</p>
+                    </div>
+                    <Button size="icon" variant="outline" className="h-8 w-8 shrink-0 mb-5" onClick={addLogEntry} disabled={!newLogEntry.trim()}>
+                      <Send className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  {decisionLog.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-2">No decisions logged yet.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                      {decisionLog.map((entry) => (
+                        <div key={entry.id} className="flex gap-2 text-sm">
+                          <div className="w-1 shrink-0 bg-primary/30 rounded-full mt-0.5" />
+                          <div className="flex-1">
+                            <p className="leading-snug">{entry.text}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{relativeTime(entry.createdAt)}</p>
+                          </div>
+                          <button onClick={() => setDecisionLog((d) => d.filter((e) => e.id !== entry.id))} className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
-      {/* ── Game Bible accordion ──────────────────────────────────── */}
-      <Accordion type="single" collapsible className="border border-border rounded-lg overflow-hidden">
-        <AccordionItem value="game-bible" className="border-0">
-          <AccordionTrigger className="px-5 py-4 text-sm font-semibold hover:no-underline bg-card">
+            {/* RIGHT — Next Playtest */}
+            <div className="space-y-5">
+              <Card>
+                <CardHeader className="py-3 px-4 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Calendar className="h-3.5 w-3.5 text-primary" /> Next Playtest
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      {daysAway !== null && (
+                        <span className={`text-xs font-semibold ${daysAway <= 1 ? "text-red-400" : daysAway <= 3 ? "text-amber-400" : "text-emerald-400"}`}>
+                          {daysAway === 0 ? "Today!" : daysAway < 0 ? "Past" : `${daysAway}d away`}
+                        </span>
+                      )}
+                      <SaveIndicator status={sectionSaveStatus.playtest} />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 py-3 space-y-3">
+                  <Input type="date" className="h-8 text-sm"
+                    value={nextPlaytest.date || ""}
+                    onChange={(e) => setNextPlaytest((p) => ({ ...p, date: e.target.value }))} />
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Attending</Label>
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      {(nextPlaytest.attendees || []).map((a, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 text-xs bg-secondary rounded px-2 py-0.5">
+                          {a}<button onClick={() => removeAttendee(i)}><X className="h-2.5 w-2.5" /></button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-1">
+                      <Input placeholder="Add person…" className="h-7 text-xs"
+                        value={newAttendee} onChange={(e) => setNewAttendee(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addAttendee()} />
+                      <Button size="icon" variant="outline" className="h-7 w-7 shrink-0" onClick={addAttendee}>
+                        <UserPlus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">What to test</Label>
+                    <Textarea placeholder="e.g. Test new scoring rule, check 4-player balance…" rows={2}
+                      className="resize-none text-xs"
+                      value={nextPlaytest.focus || ""}
+                      onChange={(e) => setNextPlaytest((p) => ({ ...p, focus: e.target.value }))} />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Collaboration */}
+          <CollaborationDashboard projectId={projectId} />
+        </>
+      )}
+
+      {/* ── Game Bible — only on identity tab, expanded inline ─────────────── */}
+      {view === "identity" && (
+        <Card className="overflow-hidden">
+          <CardHeader className="py-4 px-5 border-b border-border bg-card">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <Settings className="h-4 w-4 text-muted-foreground shrink-0" />
-              Game Bible
+              <CardTitle className="text-sm font-semibold">Game Bible</CardTitle>
               <span className="text-xs font-normal text-muted-foreground">Metadata, core loop, turn phases, versions</span>
-              <SaveIndicator status={sectionSaveStatus.bible} />
+              <div className="ml-auto"><SaveIndicator status={sectionSaveStatus.bible} /></div>
             </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-5 py-5 bg-background/60 space-y-6">
+          </CardHeader>
+          <CardContent className="px-5 py-5 bg-background/60 space-y-6">
 
             <div className="space-y-4">
               <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Project metadata</h4>
@@ -970,13 +1004,13 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
             </div>
 
             <ProjectVersions projectId={projectId} />
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
 
 export function GameIdentity(props: GameIdentityProps) {
-  return <Overview {...props} />;
+  return <Overview {...props} view="identity" />;
 }

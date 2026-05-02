@@ -1476,7 +1476,7 @@ function PersonaCard({
           <div className="flex-1 min-w-0">
             {/* P6: Field completeness % indicator */}
             {(() => {
-              const pct = playerCompleteness({ ...player, ...sheet } as Player);
+              const pct = playerCompleteness({ ...player, ...sheet } as unknown as Player);
               const color = pct >= 75 ? "#4ade80" : pct >= 40 ? "#fbbf24" : "#f87171";
               return (
                 <div className="flex items-center gap-2 mb-1.5" data-testid={`persona-completeness-${player.id}`}>
