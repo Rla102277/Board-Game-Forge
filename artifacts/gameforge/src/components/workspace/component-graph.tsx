@@ -1301,7 +1301,7 @@ export function EntityGraph({
                               <line
                                 x1={edgeX} y1={edgeY} x2={dx} y2={dy}
                                 stroke="currentColor"
-                                strokeOpacity={0.25}
+                                strokeOpacity={dim ? 0.08 : 0.25}
                                 strokeWidth={0.8}
                                 strokeDasharray="3 2"
                                 className="text-foreground pointer-events-none"
