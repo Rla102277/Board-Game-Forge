@@ -1,0 +1,121 @@
+TASKS TAB (Team Collaboration / Kanban)
+What it does: Organize design work in a task board
+Code Location: artifacts/board-game-factory/src/components/collaboration-tab.tsx (15KB)
+What Works ✅
+4-column Kanban board:
+TO DO | IN PROGRESS | REVIEW | DONE
+
+For each task:
+- Title
+- Description
+- Priority (Low/Medium/High)
+- Assigned to: designer name
+- Category (rule, component, balance, etc.)
+- Due date
+Changelog ✅
+
+Automatically tracks what you changed:
+
+"Created entity: Fire Sword"
+"Changed rule: Increased damage by 5"
+"Added asset: Dragon image"
+
+
+Shows who made change, when
+Organized by date
+
+What Works Well:
+
+Visual task management
+Changelog is genius (undo tool)
+Clean interface
+
+What Needs Rework ⚠️
+
+No task linking
+
+Task says "balance Fire Sword"
+Task says "nerf Fire Sword"
+They're not linked (might both happen, creating conflicts)
+Designer Impact: Duplicated work
+Fix: Link related tasks
+
+
+No task templates
+
+Must create new task each time
+Can't say "design new player archetype" template
+Designer Impact: Repetitive
+Fix: Create task templates
+
+
+Changelog is read-only
+
+Can see history but can't:
+
+Revert to old version
+Compare before/after
+
+
+Designer Impact: Cool data but not useful
+Fix: Let you revert changes, compare versions
+
+
+No dependencies
+
+Can't say "Task B depends on Task A"
+Might work on B before A is done
+Designer Impact: Wasted work
+Fix: Show task dependencies
+
+
+
+
+10. NOTES TAB (Design Journal)
+What it does: Free-form design notes with AI discussion
+Code Location: artifacts/board-game-factory/src/components/notes-tab.tsx (40KB - biggest!)
+What Works ✅
+Sticky-note style:
+- Colored (6 colors to choose from)
+- Can pin to top
+- Can mark "look at later"
+- Can tag with topics
+- Write in markdown
+
+Each note has a persistent chat thread:
+- Write a note: "Should weapons be expensive?"
+- AI suggests: "Pro: limits power creep, Con: new players struggle"
+- You discuss back-and-forth
+- Chat history saved forever
+What Works Really Well:
+
+Most polished feature in the whole app
+Color-coded notes make them stand out
+Chat with AI about design decisions is genius
+Great for thinking through problems
+
+What Needs Rework ⚠️
+
+No note linking
+
+Note 1: "Weapon balance is broken"
+Note 2: "Fire Sword does too much damage"
+They're related but not linked
+Designer Impact: Hard to track connected ideas
+Fix: Create "see also" links
+
+
+Can't see conversation flow
+
+You and AI back-and-forth in note chat
+No summary of conclusions
+Designer Impact: Lose important decisions
+Fix: Generate summary after X messages
+
+
+No shared notes
+
+Only you can see your notes
+Can't collaborate or show playtesters
+Designer Impact: Single-player tool
+Fix: Allow sharing notes with team

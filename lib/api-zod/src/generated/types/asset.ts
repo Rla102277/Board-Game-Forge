@@ -29,6 +29,8 @@ export interface Asset {
   displayOrder?: number | null;
   /** @nullable */
   groupDisplayOrder?: number | null;
+  /** Additional entities this asset is linked to (in addition to the primary entityId). Empty array if none. */
+  linkedEntityIds: number[];
   createdAt: Date;
   updatedAt: Date;
 }

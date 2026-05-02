@@ -84,62 +84,6 @@ router.delete("/projects/:projectId/notes/:noteId", async (req, res): Promise<vo
 });
 
 router.post(
-  "/projects/:projectId/notes/digest",
-  async (req, res): Promise<void> => {
-    const params = schemas.ListNotesParams.safeParse(req.params);
-    if (!params.success) {
-      res.status(400).json({ error: params.error.message });
-      return;
-    }
-    const allNotes = await db
-      .select()
-      .from(notes)
-      .where(eq(notes.projectId, params.data.projectId))
-      .orderBy(desc(notes.updatedAt));
-    if (allNotes.length === 0) {
-      res.status(400).json({ error: "No notes to digest" });
-      return;
-    }
-    const notesText = allNotes
-      .filter((n) => !n.title?.startsWith("AI Digest"))
-      .map((n) => `### ${n.title || "Untitled"}\n${n.content ?? ""}`)
-      .join("\n\n---\n\n");
-    try {
-      const summary = await complete(req, {
-        prompt: `You are a board game design consultant reviewing a designer's notes. Generate a concise "Design Digest" from these notes.
-
-Include:
-1. **Key Themes** — recurring ideas and design pillars (2-3 bullets)
-2. **Open Tensions** — unresolved design conflicts that need decisions (3-5 bullets)
-3. **Next Steps** — concrete recommended actions (3-5 bullets)
-4. **Quick Wins** — small improvements the designer can act on immediately (2-3 bullets)
-
-Designer notes:
-${notesText.slice(0, 8000)}
-
-Output clean markdown with the four sections above. Be specific and reference actual content from the notes.`,
-        maxTokens: 1200,
-      });
-      const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      const [row] = await db
-        .insert(notes)
-        .values({
-          projectId: params.data.projectId,
-          title: `AI Digest — ${today}`,
-          content: summary,
-          color: "blue",
-          pinned: true,
-        })
-        .returning();
-      res.status(201).json(row);
-    } catch (err) {
-      req.log.error({ err }, "digest notes failed");
-      res.status(500).json({ error: "Digest failed" });
-    }
-  },
-);
-
-router.post(
   "/projects/:projectId/notes/:noteId/enhance",
   async (req, res): Promise<void> => {
     const params = schemas.AiEnhanceNoteParams.safeParse(req.params);

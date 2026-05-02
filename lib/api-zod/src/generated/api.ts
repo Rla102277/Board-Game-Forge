@@ -1602,6 +1602,11 @@ export const ListAssetsResponseItem = zod.object({
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
   groupDisplayOrder: zod.number().nullish(),
+  linkedEntityIds: zod
+    .array(zod.number())
+    .describe(
+      "Additional entities this asset is linked to (in addition to the primary entityId). Empty array if none.",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1657,6 +1662,11 @@ export const UpdateAssetResponse = zod.object({
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
   groupDisplayOrder: zod.number().nullish(),
+  linkedEntityIds: zod
+    .array(zod.number())
+    .describe(
+      "Additional entities this asset is linked to (in addition to the primary entityId). Empty array if none.",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1723,6 +1733,11 @@ export const AiDescribeAssetResponse = zod.object({
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
   groupDisplayOrder: zod.number().nullish(),
+  linkedEntityIds: zod
+    .array(zod.number())
+    .describe(
+      "Additional entities this asset is linked to (in addition to the primary entityId). Empty array if none.",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1752,8 +1767,184 @@ export const GenerateAssetImageResponse = zod.object({
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
   groupDisplayOrder: zod.number().nullish(),
+  linkedEntityIds: zod
+    .array(zod.number())
+    .describe(
+      "Additional entities this asset is linked to (in addition to the primary entityId). Empty array if none.",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Generate N candidate images without saving to the asset
+ */
+export const GenerateAssetImageVariationsParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const generateAssetImageVariationsBodyNMax = 4;
+
+export const GenerateAssetImageVariationsBody = zod.object({
+  prompt: zod.string(),
+  n: zod
+    .number()
+    .min(1)
+    .max(generateAssetImageVariationsBodyNMax)
+    .optional()
+    .describe("Number of candidate images to generate (1-4). Defaults to 1."),
+});
+
+export const GenerateAssetImageVariationsResponse = zod.object({
+  candidates: zod
+    .array(zod.string())
+    .describe("Array of base64 data URLs (NOT yet saved to the asset)."),
+});
+
+/**
+ * @summary Save a selected variation as the asset's current image
+ */
+export const SelectAssetVariationParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const SelectAssetVariationBody = zod.object({
+  dataUrl: zod.string(),
+  prompt: zod.string().optional(),
+});
+
+export const SelectAssetVariationResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  entityId: zod.number().nullish(),
+  name: zod.string(),
+  kind: zod.string(),
+  description: zod.string().nullish(),
+  flavorText: zod.string().nullish(),
+  imageDataUrl: zod.string().nullish(),
+  imagePrompt: zod.string().nullish(),
+  quantity: zod.number(),
+  status: zod.string(),
+  componentDetails: zod.string().nullish(),
+  displayOrder: zod.number().nullish(),
+  groupDisplayOrder: zod.number().nullish(),
+  linkedEntityIds: zod
+    .array(zod.number())
+    .describe(
+      "Additional entities this asset is linked to (in addition to the primary entityId). Empty array if none.",
+    ),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Replace the set of additional entities this asset is linked to
+ */
+export const SetAssetLinksParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const SetAssetLinksBody = zod.object({
+  entityIds: zod
+    .array(zod.number())
+    .describe(
+      "Replaces the asset's link set (additional entities beyond primary entityId).",
+    ),
+});
+
+export const SetAssetLinksResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  entityId: zod.number().nullish(),
+  name: zod.string(),
+  kind: zod.string(),
+  description: zod.string().nullish(),
+  flavorText: zod.string().nullish(),
+  imageDataUrl: zod.string().nullish(),
+  imagePrompt: zod.string().nullish(),
+  quantity: zod.number(),
+  status: zod.string(),
+  componentDetails: zod.string().nullish(),
+  displayOrder: zod.number().nullish(),
+  groupDisplayOrder: zod.number().nullish(),
+  linkedEntityIds: zod
+    .array(zod.number())
+    .describe(
+      "Additional entities this asset is linked to (in addition to the primary entityId). Empty array if none.",
+    ),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const ListAssetVersionsParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const ListAssetVersionsResponseItem = zod.object({
+  id: zod.number(),
+  assetId: zod.number(),
+  versionLabel: zod.string().nullish(),
+  imageDataUrl: zod.string().nullish(),
+  imagePrompt: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  createdByUserId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAssetVersionsResponse = zod.array(
+  ListAssetVersionsResponseItem,
+);
+
+/**
+ * @summary Snapshot the asset's current image into version history
+ */
+export const CreateAssetVersionParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const CreateAssetVersionBody = zod.object({
+  versionLabel: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+export const RestoreAssetVersionParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  versionId: zod.coerce.number(),
+});
+
+export const RestoreAssetVersionResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  entityId: zod.number().nullish(),
+  name: zod.string(),
+  kind: zod.string(),
+  description: zod.string().nullish(),
+  flavorText: zod.string().nullish(),
+  imageDataUrl: zod.string().nullish(),
+  imagePrompt: zod.string().nullish(),
+  quantity: zod.number(),
+  status: zod.string(),
+  componentDetails: zod.string().nullish(),
+  displayOrder: zod.number().nullish(),
+  groupDisplayOrder: zod.number().nullish(),
+  linkedEntityIds: zod
+    .array(zod.number())
+    .describe(
+      "Additional entities this asset is linked to (in addition to the primary entityId). Empty array if none.",
+    ),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const DeleteAssetVersionParams = zod.object({
+  projectId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  versionId: zod.coerce.number(),
 });
 
 export const RunSimulatorParams = zod.object({

@@ -105,6 +105,26 @@ const MIGRATIONS = [
   `ALTER TABLE rules ADD COLUMN IF NOT EXISTS section text`,
   `ALTER TABLE rules ADD COLUMN IF NOT EXISTS display_order integer NOT NULL DEFAULT 0`,
   `CREATE INDEX IF NOT EXISTS rules_project_order_idx ON rules (project_id, display_order)`,
+  // 0021 – assets: many-to-many entity links (one image used by multiple components)
+  `CREATE TABLE IF NOT EXISTS asset_entity_links (
+    asset_id integer NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    entity_id integer NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (asset_id, entity_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS asset_entity_links_entity_idx ON asset_entity_links (entity_id)`,
+  // 0022 – asset version history (manual snapshots of image + metadata)
+  `CREATE TABLE IF NOT EXISTS asset_versions (
+    id serial PRIMARY KEY,
+    asset_id integer NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    version_label text,
+    image_data_url text,
+    image_prompt text,
+    notes text,
+    created_by_user_id integer,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS asset_versions_asset_id_idx ON asset_versions (asset_id, created_at DESC)`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {

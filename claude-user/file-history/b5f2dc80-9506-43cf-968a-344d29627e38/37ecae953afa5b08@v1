@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -30,12 +30,8 @@ import {
   X,
   Loader2,
   GripVertical,
-  RotateCcw,
-  GitBranch,
-  AlertTriangle,
 } from "lucide-react";
 import { CommentsPanel } from "@/components/collaboration/comments-panel";
-import { TaskDependencies, type TaskDependency } from "./task-dependencies";
 import { useToast } from "@/hooks/use-toast";
 import {
   useUpdateRichTask,
@@ -45,10 +41,6 @@ import {
   useToggleSubtask,
   useDeleteSubtask,
   useListProjectUsers,
-  useListRichTasks,
-  useListTaskDependencies,
-  useAddTaskDependency,
-  useRemoveTaskDependency,
   getListRichTasksQueryKey,
 } from "@/hooks/use-collaboration";
 import { useQueryClient } from "@tanstack/react-query";
@@ -93,63 +85,10 @@ export function TaskDetailDrawer({
   const [subtaskInput, setSubtaskInput] = useState("");
   const [showSubtaskAdd, setShowSubtaskAdd] = useState(false);
 
-  const snapshotRef = useRef<Pick<RichTask, "status" | "priority" | "description"> | null>(null);
-  const [revertPending, setRevertPending] = useState(false);
-
-  useEffect(() => {
-    if (task) {
-      snapshotRef.current = {
-        status: task.status,
-        priority: task.priority,
-        description: task.description,
-      };
-    }
-  }, [task?.id]);
-
-  const { data: allTasks } = useListRichTasks(projectId);
-  const { data: rawDeps } = useListTaskDependencies(projectId, task?.id ?? 0);
-  const addDep = useAddTaskDependency();
-  const removeDep = useRemoveTaskDependency();
-
   const statusOptions: TaskStatus[] = ["backlog", "in_progress", "review", "blocked", "done"];
   const priorityOptions: TaskPriority[] = ["low", "medium", "high", "urgent"];
 
   if (!task) return null;
-
-  const snapshot = snapshotRef.current;
-  const fieldChanges: string[] = [];
-  if (snapshot) {
-    if (task.status !== snapshot.status) fieldChanges.push(`Status: ${snapshot.status.replace("_", " ")} → ${task.status.replace("_", " ")}`);
-    if (task.priority !== snapshot.priority) fieldChanges.push(`Priority: ${snapshot.priority} → ${task.priority}`);
-    if ((task.description ?? "") !== (snapshot.description ?? "")) fieldChanges.push("Description updated");
-  }
-
-  const depData: TaskDependency[] = (rawDeps ?? []).map((d) => ({
-    taskId: d.dependsOnTaskId,
-    taskTitle: d.dependsOnTitle ?? `Task ${d.dependsOnTaskId}`,
-    type: d.type as TaskDependency["type"],
-  }));
-  const hasBlocker = depData.some((d) => d.type === "blocks");
-
-  const handleAddDep = (dep: TaskDependency) => {
-    addDep.mutate({ projectId, taskId: task.id, dependsOnTaskId: dep.taskId, type: dep.type });
-  };
-
-  const handleRemoveDep = (depTaskId: number) => {
-    const found = (rawDeps ?? []).find((d) => d.dependsOnTaskId === depTaskId);
-    if (found) removeDep.mutate({ projectId, taskId: task.id, depId: found.id });
-  };
-
-  const handleRevert = async () => {
-    if (!snapshot) return;
-    setRevertPending(true);
-    try {
-      await handleUpdate({ status: snapshot.status, priority: snapshot.priority, description: snapshot.description });
-      snapshotRef.current = { ...snapshot };
-    } finally {
-      setRevertPending(false);
-    }
-  };
 
   const handleUpdate = async (data: Partial<RichTask>) => {
     await updateTask.mutateAsync({ projectId, taskId: task.id, data });
@@ -212,12 +151,6 @@ export function TaskDetailDrawer({
           <SheetTitle className="text-left font-semibold text-lg mt-2">
             {task.title}
           </SheetTitle>
-          {hasBlocker && (
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded px-2 py-1">
-              <AlertTriangle className="h-3 w-3 shrink-0" />
-              This task is blocked by a dependency
-            </div>
-          )}
         </SheetHeader>
 
         <ScrollArea className="flex-1 px-6 py-4">
@@ -356,31 +289,6 @@ export function TaskDetailDrawer({
               </div>
             </div>
 
-            {fieldChanges.length > 0 && (
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-amber-400">
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    Changes since opened
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-6 text-[10px] px-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-                    onClick={handleRevert}
-                    disabled={revertPending}
-                  >
-                    {revertPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Revert"}
-                  </Button>
-                </div>
-                <ul className="space-y-0.5">
-                  {fieldChanges.map((c) => (
-                    <li key={c} className="text-xs text-amber-300/80">• {c}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
             <Separator />
 
             <div>
@@ -439,22 +347,6 @@ export function TaskDetailDrawer({
                   <Plus className="h-3.5 w-3.5 mr-1" /> Add subtask
                 </Button>
               )}
-            </div>
-
-            <Separator />
-
-            <div>
-              <div className="flex items-center gap-1.5 mb-3">
-                <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Links &amp; Dependencies</Label>
-              </div>
-              <TaskDependencies
-                taskId={task.id}
-                dependencies={depData}
-                allTasks={(allTasks ?? []).map((t) => ({ id: t.id, title: t.title }))}
-                onAddDependency={handleAddDep}
-                onRemoveDependency={handleRemoveDep}
-              />
             </div>
 
             <Separator />

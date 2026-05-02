@@ -28,6 +28,7 @@ import type {
   AiTextEditResponse,
   Asset,
   AssetEnhanceSuggestion,
+  AssetVersion,
   BalanceReport,
   ChangelogEntry,
   ChatMessage,
@@ -35,6 +36,7 @@ import type {
   ComplexityScore,
   ConflictReport,
   CreateAssetBody,
+  CreateAssetVersionBody,
   CreateEntityBody,
   CreateEntityPropertyBody,
   CreateNoteBody,
@@ -59,6 +61,8 @@ import type {
   ForkSnapshotBody,
   GenerateBlueprintBody,
   GenerateImageBody,
+  GenerateImageVariationsBody,
+  GenerateImageVariationsResponse,
   GraphLayout,
   HealthStatus,
   IngestTextBody,
@@ -83,7 +87,9 @@ import type {
   Rule,
   RuleEnhanceSuggestion,
   RuleLinkedEntity,
+  SelectAssetVariationBody,
   SendChatMessageBody,
+  SetAssetLinksBody,
   ShareLink,
   SimulatorResult,
   SimulatorRunBody,
@@ -7848,6 +7854,709 @@ export const useGenerateAssetImage = <
   TContext
 > => {
   return useMutation(getGenerateAssetImageMutationOptions(options));
+};
+
+/**
+ * @summary Generate N candidate images without saving to the asset
+ */
+export const getGenerateAssetImageVariationsUrl = (
+  projectId: number,
+  assetId: number,
+) => {
+  return `/api/projects/${projectId}/assets/${assetId}/generate-image-variations`;
+};
+
+export const generateAssetImageVariations = async (
+  projectId: number,
+  assetId: number,
+  generateImageVariationsBody: GenerateImageVariationsBody,
+  options?: RequestInit,
+): Promise<GenerateImageVariationsResponse> => {
+  return customFetch<GenerateImageVariationsResponse>(
+    getGenerateAssetImageVariationsUrl(projectId, assetId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(generateImageVariationsBody),
+    },
+  );
+};
+
+export const getGenerateAssetImageVariationsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateAssetImageVariations>>,
+    TError,
+    {
+      projectId: number;
+      assetId: number;
+      data: BodyType<GenerateImageVariationsBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateAssetImageVariations>>,
+  TError,
+  {
+    projectId: number;
+    assetId: number;
+    data: BodyType<GenerateImageVariationsBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["generateAssetImageVariations"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateAssetImageVariations>>,
+    {
+      projectId: number;
+      assetId: number;
+      data: BodyType<GenerateImageVariationsBody>;
+    }
+  > = (props) => {
+    const { projectId, assetId, data } = props ?? {};
+
+    return generateAssetImageVariations(
+      projectId,
+      assetId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateAssetImageVariationsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateAssetImageVariations>>
+>;
+export type GenerateAssetImageVariationsMutationBody =
+  BodyType<GenerateImageVariationsBody>;
+export type GenerateAssetImageVariationsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate N candidate images without saving to the asset
+ */
+export const useGenerateAssetImageVariations = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateAssetImageVariations>>,
+    TError,
+    {
+      projectId: number;
+      assetId: number;
+      data: BodyType<GenerateImageVariationsBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateAssetImageVariations>>,
+  TError,
+  {
+    projectId: number;
+    assetId: number;
+    data: BodyType<GenerateImageVariationsBody>;
+  },
+  TContext
+> => {
+  return useMutation(getGenerateAssetImageVariationsMutationOptions(options));
+};
+
+/**
+ * @summary Save a selected variation as the asset's current image
+ */
+export const getSelectAssetVariationUrl = (
+  projectId: number,
+  assetId: number,
+) => {
+  return `/api/projects/${projectId}/assets/${assetId}/select-variation`;
+};
+
+export const selectAssetVariation = async (
+  projectId: number,
+  assetId: number,
+  selectAssetVariationBody: SelectAssetVariationBody,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getSelectAssetVariationUrl(projectId, assetId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(selectAssetVariationBody),
+  });
+};
+
+export const getSelectAssetVariationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof selectAssetVariation>>,
+    TError,
+    {
+      projectId: number;
+      assetId: number;
+      data: BodyType<SelectAssetVariationBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof selectAssetVariation>>,
+  TError,
+  {
+    projectId: number;
+    assetId: number;
+    data: BodyType<SelectAssetVariationBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["selectAssetVariation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof selectAssetVariation>>,
+    {
+      projectId: number;
+      assetId: number;
+      data: BodyType<SelectAssetVariationBody>;
+    }
+  > = (props) => {
+    const { projectId, assetId, data } = props ?? {};
+
+    return selectAssetVariation(projectId, assetId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SelectAssetVariationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof selectAssetVariation>>
+>;
+export type SelectAssetVariationMutationBody =
+  BodyType<SelectAssetVariationBody>;
+export type SelectAssetVariationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save a selected variation as the asset's current image
+ */
+export const useSelectAssetVariation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof selectAssetVariation>>,
+    TError,
+    {
+      projectId: number;
+      assetId: number;
+      data: BodyType<SelectAssetVariationBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof selectAssetVariation>>,
+  TError,
+  {
+    projectId: number;
+    assetId: number;
+    data: BodyType<SelectAssetVariationBody>;
+  },
+  TContext
+> => {
+  return useMutation(getSelectAssetVariationMutationOptions(options));
+};
+
+/**
+ * @summary Replace the set of additional entities this asset is linked to
+ */
+export const getSetAssetLinksUrl = (projectId: number, assetId: number) => {
+  return `/api/projects/${projectId}/assets/${assetId}/links`;
+};
+
+export const setAssetLinks = async (
+  projectId: number,
+  assetId: number,
+  setAssetLinksBody: SetAssetLinksBody,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getSetAssetLinksUrl(projectId, assetId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setAssetLinksBody),
+  });
+};
+
+export const getSetAssetLinksMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setAssetLinks>>,
+    TError,
+    { projectId: number; assetId: number; data: BodyType<SetAssetLinksBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setAssetLinks>>,
+  TError,
+  { projectId: number; assetId: number; data: BodyType<SetAssetLinksBody> },
+  TContext
+> => {
+  const mutationKey = ["setAssetLinks"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setAssetLinks>>,
+    { projectId: number; assetId: number; data: BodyType<SetAssetLinksBody> }
+  > = (props) => {
+    const { projectId, assetId, data } = props ?? {};
+
+    return setAssetLinks(projectId, assetId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetAssetLinksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setAssetLinks>>
+>;
+export type SetAssetLinksMutationBody = BodyType<SetAssetLinksBody>;
+export type SetAssetLinksMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Replace the set of additional entities this asset is linked to
+ */
+export const useSetAssetLinks = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setAssetLinks>>,
+    TError,
+    { projectId: number; assetId: number; data: BodyType<SetAssetLinksBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setAssetLinks>>,
+  TError,
+  { projectId: number; assetId: number; data: BodyType<SetAssetLinksBody> },
+  TContext
+> => {
+  return useMutation(getSetAssetLinksMutationOptions(options));
+};
+
+export const getListAssetVersionsUrl = (projectId: number, assetId: number) => {
+  return `/api/projects/${projectId}/assets/${assetId}/versions`;
+};
+
+export const listAssetVersions = async (
+  projectId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<AssetVersion[]> => {
+  return customFetch<AssetVersion[]>(
+    getListAssetVersionsUrl(projectId, assetId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAssetVersionsQueryKey = (
+  projectId: number,
+  assetId: number,
+) => {
+  return [`/api/projects/${projectId}/assets/${assetId}/versions`] as const;
+};
+
+export const getListAssetVersionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssetVersions>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetVersions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAssetVersionsQueryKey(projectId, assetId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAssetVersions>>
+  > = ({ signal }) =>
+    listAssetVersions(projectId, assetId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(projectId && assetId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssetVersions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAssetVersionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssetVersions>>
+>;
+export type ListAssetVersionsQueryError = ErrorType<unknown>;
+
+export function useListAssetVersions<
+  TData = Awaited<ReturnType<typeof listAssetVersions>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetVersions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetVersionsQueryOptions(
+    projectId,
+    assetId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Snapshot the asset's current image into version history
+ */
+export const getCreateAssetVersionUrl = (
+  projectId: number,
+  assetId: number,
+) => {
+  return `/api/projects/${projectId}/assets/${assetId}/versions`;
+};
+
+export const createAssetVersion = async (
+  projectId: number,
+  assetId: number,
+  createAssetVersionBody: CreateAssetVersionBody,
+  options?: RequestInit,
+): Promise<AssetVersion> => {
+  return customFetch<AssetVersion>(
+    getCreateAssetVersionUrl(projectId, assetId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createAssetVersionBody),
+    },
+  );
+};
+
+export const getCreateAssetVersionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAssetVersion>>,
+    TError,
+    {
+      projectId: number;
+      assetId: number;
+      data: BodyType<CreateAssetVersionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAssetVersion>>,
+  TError,
+  {
+    projectId: number;
+    assetId: number;
+    data: BodyType<CreateAssetVersionBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createAssetVersion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAssetVersion>>,
+    {
+      projectId: number;
+      assetId: number;
+      data: BodyType<CreateAssetVersionBody>;
+    }
+  > = (props) => {
+    const { projectId, assetId, data } = props ?? {};
+
+    return createAssetVersion(projectId, assetId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAssetVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAssetVersion>>
+>;
+export type CreateAssetVersionMutationBody = BodyType<CreateAssetVersionBody>;
+export type CreateAssetVersionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Snapshot the asset's current image into version history
+ */
+export const useCreateAssetVersion = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAssetVersion>>,
+    TError,
+    {
+      projectId: number;
+      assetId: number;
+      data: BodyType<CreateAssetVersionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAssetVersion>>,
+  TError,
+  {
+    projectId: number;
+    assetId: number;
+    data: BodyType<CreateAssetVersionBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateAssetVersionMutationOptions(options));
+};
+
+export const getRestoreAssetVersionUrl = (
+  projectId: number,
+  assetId: number,
+  versionId: number,
+) => {
+  return `/api/projects/${projectId}/assets/${assetId}/versions/${versionId}/restore`;
+};
+
+export const restoreAssetVersion = async (
+  projectId: number,
+  assetId: number,
+  versionId: number,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(
+    getRestoreAssetVersionUrl(projectId, assetId, versionId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRestoreAssetVersionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreAssetVersion>>,
+    TError,
+    { projectId: number; assetId: number; versionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restoreAssetVersion>>,
+  TError,
+  { projectId: number; assetId: number; versionId: number },
+  TContext
+> => {
+  const mutationKey = ["restoreAssetVersion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restoreAssetVersion>>,
+    { projectId: number; assetId: number; versionId: number }
+  > = (props) => {
+    const { projectId, assetId, versionId } = props ?? {};
+
+    return restoreAssetVersion(projectId, assetId, versionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestoreAssetVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restoreAssetVersion>>
+>;
+
+export type RestoreAssetVersionMutationError = ErrorType<unknown>;
+
+export const useRestoreAssetVersion = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreAssetVersion>>,
+    TError,
+    { projectId: number; assetId: number; versionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restoreAssetVersion>>,
+  TError,
+  { projectId: number; assetId: number; versionId: number },
+  TContext
+> => {
+  return useMutation(getRestoreAssetVersionMutationOptions(options));
+};
+
+export const getDeleteAssetVersionUrl = (
+  projectId: number,
+  assetId: number,
+  versionId: number,
+) => {
+  return `/api/projects/${projectId}/assets/${assetId}/versions/${versionId}`;
+};
+
+export const deleteAssetVersion = async (
+  projectId: number,
+  assetId: number,
+  versionId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteAssetVersionUrl(projectId, assetId, versionId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteAssetVersionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAssetVersion>>,
+    TError,
+    { projectId: number; assetId: number; versionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAssetVersion>>,
+  TError,
+  { projectId: number; assetId: number; versionId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAssetVersion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAssetVersion>>,
+    { projectId: number; assetId: number; versionId: number }
+  > = (props) => {
+    const { projectId, assetId, versionId } = props ?? {};
+
+    return deleteAssetVersion(projectId, assetId, versionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAssetVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAssetVersion>>
+>;
+
+export type DeleteAssetVersionMutationError = ErrorType<unknown>;
+
+export const useDeleteAssetVersion = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAssetVersion>>,
+    TError,
+    { projectId: number; assetId: number; versionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAssetVersion>>,
+  TError,
+  { projectId: number; assetId: number; versionId: number },
+  TContext
+> => {
+  return useMutation(getDeleteAssetVersionMutationOptions(options));
 };
 
 export const getRunSimulatorUrl = (projectId: number) => {

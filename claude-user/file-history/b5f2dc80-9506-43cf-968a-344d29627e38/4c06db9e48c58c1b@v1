@@ -17,14 +17,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, Edit2, Trash2, CheckSquare, MoreHorizontal, X, CalendarDays,
   Table as TableIcon, Columns3,
-  Check, XCircle, BookTemplate, Loader2,
+  Check, XCircle,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { TaskCard } from "./task-card";
 import { TaskDetailDrawer } from "./task-detail-drawer";
 import { TaskFiltersBar } from "./task-filters";
-import { TASK_TEMPLATES, type TaskTemplate } from "@/lib/task-templates";
 import {
   STATUS_LABELS,
   STATUS_COLORS,
@@ -58,8 +57,6 @@ export function Tasks({ projectId }: TasksProps) {
   const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
   const [detailTask, setDetailTask] = useState<RichTask | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [applyingTemplate, setApplyingTemplate] = useState<string | null>(null);
   const [formData, setFormData] = useState({ title: "", description: "", status: "backlog" as TaskStatus });
 
   const { data: tasks, isLoading } = useListRichTasks(projectId, filter, sort);
@@ -87,27 +84,6 @@ export function Tasks({ projectId }: TasksProps) {
     setShowAdd(false);
     setFormData({ title: "", description: "", status: "backlog" });
     qc.invalidateQueries({ queryKey: getListRichTasksQueryKey(projectId) });
-  };
-
-  const handleApplyTemplate = async (template: TaskTemplate) => {
-    setApplyingTemplate(template.id);
-    try {
-      for (const t of template.tasks) {
-        await createTask.mutateAsync({
-          projectId,
-          data: {
-            title: t.title,
-            description: t.description ?? "",
-            status: (t.status === "in-progress" ? "in_progress" : t.status) as TaskStatus,
-            priority: t.priority,
-          },
-        });
-      }
-      qc.invalidateQueries({ queryKey: getListRichTasksQueryKey(projectId) });
-      setShowTemplates(false);
-    } finally {
-      setApplyingTemplate(null);
-    }
   };
 
   const handleBulkDelete = async () => {
@@ -188,14 +164,6 @@ export function Tasks({ projectId }: TasksProps) {
                 <CalendarDays className="h-4 w-4" />
               </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowTemplates((v) => !v)}
-              className={showTemplates ? "bg-muted" : ""}
-            >
-              <BookTemplate className="h-4 w-4 mr-1" /> Templates
-            </Button>
             {!showAdd && (
               <Button onClick={() => setShowAdd(true)} size="sm" data-testid="add-task-button">
                 <Plus className="h-4 w-4 mr-1" /> Add Task
@@ -203,50 +171,6 @@ export function Tasks({ projectId }: TasksProps) {
             )}
           </div>
         </div>
-
-        {showTemplates && (
-          <div className="border border-border rounded-xl bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm">Apply Task Template</h3>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowTemplates(false)}><X className="h-4 w-4" /></Button>
-            </div>
-            <p className="text-xs text-muted-foreground">Choose a template to batch-create a set of related tasks in Backlog.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {TASK_TEMPLATES.map((tmpl) => (
-                <div
-                  key={tmpl.id}
-                  className="border border-border rounded-lg p-3 bg-background hover:border-primary/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <div>
-                      <p className="text-sm font-medium">{tmpl.name}</p>
-                      <p className="text-xs text-muted-foreground">{tmpl.description}</p>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0">{tmpl.tasks.length} tasks</span>
-                  </div>
-                  <ul className="text-xs text-muted-foreground space-y-0.5 mb-3 pl-2">
-                    {tmpl.tasks.slice(0, 3).map((t) => (
-                      <li key={t.title} className="list-disc list-inside truncate">{t.title}</li>
-                    ))}
-                    {tmpl.tasks.length > 3 && <li className="list-disc list-inside text-muted-foreground/60">+{tmpl.tasks.length - 3} more…</li>}
-                  </ul>
-                  <Button
-                    size="sm"
-                    className="w-full h-7 text-xs"
-                    onClick={() => handleApplyTemplate(tmpl)}
-                    disabled={applyingTemplate !== null}
-                  >
-                    {applyingTemplate === tmpl.id ? (
-                      <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Creating…</>
-                    ) : (
-                      <><Plus className="h-3 w-3 mr-1" /> Apply</>
-                    )}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <TaskFiltersBar
           filter={filter}

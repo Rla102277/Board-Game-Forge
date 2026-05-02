@@ -1575,6 +1575,145 @@ paths:
               schema:
                 $ref: "#/components/schemas/Asset"
 
+  /projects/{projectId}/assets/{assetId}/generate-image-variations:
+    post:
+      operationId: generateAssetImageVariations
+      tags: [assets]
+      summary: Generate N candidate images without saving to the asset
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateImageVariationsBody"
+      responses:
+        "200":
+          description: Candidate image data URLs for user to pick from
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateImageVariationsResponse"
+
+  /projects/{projectId}/assets/{assetId}/select-variation:
+    post:
+      operationId: selectAssetVariation
+      tags: [assets]
+      summary: Save a selected variation as the asset's current image
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SelectAssetVariationBody"
+      responses:
+        "200":
+          description: Updated asset with selected image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /projects/{projectId}/assets/{assetId}/links:
+    put:
+      operationId: setAssetLinks
+      tags: [assets]
+      summary: Replace the set of additional entities this asset is linked to
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetAssetLinksBody"
+      responses:
+        "200":
+          description: Updated asset with new linkedEntityIds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /projects/{projectId}/assets/{assetId}/versions:
+    get:
+      operationId: listAssetVersions
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: Version history (most recent first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetVersion"
+    post:
+      operationId: createAssetVersion
+      tags: [assets]
+      summary: Snapshot the asset's current image into version history
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetVersionBody"
+      responses:
+        "201":
+          description: Created version snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetVersion"
+
+  /projects/{projectId}/assets/{assetId}/versions/{versionId}/restore:
+    post:
+      operationId: restoreAssetVersion
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Asset updated with restored version's image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /projects/{projectId}/assets/{assetId}/versions/{versionId}:
+    delete:
+      operationId: deleteAssetVersion
+      tags: [assets]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/AssetId"
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Version deleted
+
   /projects/{projectId}/simulator/run:
     post:
       operationId: runSimulator
@@ -3208,13 +3347,89 @@ components:
           type: [integer, "null"]
         groupDisplayOrder:
           type: [integer, "null"]
+        linkedEntityIds:
+          type: array
+          items:
+            type: integer
+          description: Additional entities this asset is linked to (in addition to the primary entityId). Empty array if none.
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-      required: [id, projectId, name, kind, quantity, status, createdAt, updatedAt]
+      required: [id, projectId, name, kind, quantity, status, linkedEntityIds, createdAt, updatedAt]
+
+    AssetVersion:
+      type: object
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: integer
+        versionLabel:
+          type: [string, "null"]
+        imageDataUrl:
+          type: [string, "null"]
+        imagePrompt:
+          type: [string, "null"]
+        notes:
+          type: [string, "null"]
+        createdByUserId:
+          type: [integer, "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, assetId, createdAt]
+
+    CreateAssetVersionBody:
+      type: object
+      properties:
+        versionLabel:
+          type: string
+        notes:
+          type: string
+
+    SetAssetLinksBody:
+      type: object
+      required: [entityIds]
+      properties:
+        entityIds:
+          type: array
+          items:
+            type: integer
+          description: Replaces the asset's link set (additional entities beyond primary entityId).
+
+    GenerateImageVariationsBody:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+        n:
+          type: integer
+          minimum: 1
+          maximum: 4
+          description: Number of candidate images to generate (1-4). Defaults to 1.
+
+    GenerateImageVariationsResponse:
+      type: object
+      required: [candidates]
+      properties:
+        candidates:
+          type: array
+          items:
+            type: string
+          description: Array of base64 data URLs (NOT yet saved to the asset).
+
+    SelectAssetVariationBody:
+      type: object
+      required: [dataUrl]
+      properties:
+        dataUrl:
+          type: string
+        prompt:
+          type: string
 
     CreateAssetBody:
       type: object

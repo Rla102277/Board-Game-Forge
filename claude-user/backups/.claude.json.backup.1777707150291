@@ -1,21 +1,21 @@
 {
-  "numStartups": 13,
+  "numStartups": 14,
   "installMethod": "global",
   "tipsHistory": {
     "new-user-warmup": 9,
     "plan-mode-for-complex-tasks": 12,
     "terminal-setup": 11,
-    "color-when-multi-clauding": 2,
+    "color-when-multi-clauding": 14,
     "memory-command": 3,
     "theme-command": 3,
     "status-line": 3,
-    "prompt-queue": 8,
+    "prompt-queue": 13,
     "enter-to-steer-in-relatime": 3,
     "todo-list": 3,
-    "ide-upsell-external-terminal": 9,
-    "install-github-app": 3,
-    "install-slack-app": 4,
-    "drag-and-drop-images": 4,
+    "ide-upsell-external-terminal": 13,
+    "install-github-app": 13,
+    "install-slack-app": 14,
+    "drag-and-drop-images": 14,
     "double-esc-code-restore": 4,
     "continue": 4,
     "shift-tab": 4,
@@ -496,9 +496,9 @@
         "workspace.tsx"
       ],
       "exampleFilesGeneratedAt": 1777391945446,
-      "lastHintSessionId": "bd489faf-dbc3-4477-8628-3a9e91b925fe",
-      "lastSessionFirstPrompt": "look at all of the bible and rewrite it with details and text to make it match the current version",
-      "lastSessionModified": 1777700944229,
+      "lastHintSessionId": "b5f2dc80-9506-43cf-968a-344d29627e38",
+      "lastSessionFirstPrompt": "PLAYERS TAB (Characters / Archetypes) What It Does: Define player types and their starting resources. Grade: B What Works ✅  Create player types (Warrior, Mage, Rogue, etc.) Define starting resources ",
+      "lastSessionModified": 1777704650427,
       "lastCost": 0,
       "lastAPIDuration": 0,
       "lastAPIDurationWithoutRetries": 0,
@@ -566,7 +566,7 @@
         "amount_minor_units": null,
         "currency": null
       },
-      "timestamp": 1777700836530
+      "timestamp": 1777704629554
     }
   },
   "cachedExtraUsageDisabledReason": "out_of_credits",

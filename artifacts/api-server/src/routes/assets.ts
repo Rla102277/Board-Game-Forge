@@ -1,6 +1,13 @@
 import { Router, type IRouter } from "express";
-import { and, eq, desc, asc } from "drizzle-orm";
-import { db, assets, entities, projects } from "@workspace/db";
+import { and, eq, desc, asc, inArray, sql } from "drizzle-orm";
+import {
+  db,
+  assets,
+  assetEntityLinks,
+  assetVersions,
+  entities,
+  projects,
+} from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 import {
   complete,
@@ -25,6 +32,7 @@ async function generateImageWithRetry(
     model: "gpt-image-1";
     prompt: string;
     size: "1024x1024" | "1024x1536" | "1536x1024" | "auto";
+    n?: number;
   },
 ): Promise<ImageGenerateResponse> {
   let lastErr: unknown;
@@ -78,9 +86,6 @@ function mapImageProviderError(err: unknown): { status: number; message: string 
     }
     return { status, message: err.message || "Image generation failed" };
   }
-  // Non-APIError failures that survived retries (e.g. ECONNRESET, ETIMEDOUT,
-  // EAI_AGAIN, generic "fetch failed") are upstream-availability issues from
-  // the user's perspective, not bugs on our side — surface as 503 too.
   if (
     err instanceof Error &&
     /(ECONNRESET|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket hang up)/i.test(err.message)
@@ -94,6 +99,44 @@ function mapImageProviderError(err: unknown): { status: number; message: string 
   return { status: 500, message: "Image generation failed" };
 }
 
+// ─── Helpers for linkedEntityIds ─────────────────────────────────────────────
+
+type AssetRow = typeof assets.$inferSelect;
+
+async function fetchLinkedEntityIdsForAssets(
+  assetIds: number[],
+): Promise<Map<number, number[]>> {
+  const map = new Map<number, number[]>();
+  if (assetIds.length === 0) return map;
+  const rows = await db
+    .select({ assetId: assetEntityLinks.assetId, entityId: assetEntityLinks.entityId })
+    .from(assetEntityLinks)
+    .where(inArray(assetEntityLinks.assetId, assetIds));
+  for (const r of rows) {
+    const list = map.get(r.assetId) ?? [];
+    list.push(r.entityId);
+    map.set(r.assetId, list);
+  }
+  return map;
+}
+
+async function getLinkedEntityIds(assetId: number): Promise<number[]> {
+  const rows = await db
+    .select({ entityId: assetEntityLinks.entityId })
+    .from(assetEntityLinks)
+    .where(eq(assetEntityLinks.assetId, assetId));
+  return rows.map((r) => r.entityId);
+}
+
+function withLinks(
+  asset: AssetRow,
+  linkedEntityIds: number[],
+): AssetRow & { linkedEntityIds: number[] } {
+  return { ...asset, linkedEntityIds };
+}
+
+// ─── Asset CRUD ──────────────────────────────────────────────────────────────
+
 router.get("/projects/:projectId/assets", async (req, res): Promise<void> => {
   const params = schemas.ListAssetsParams.safeParse(req.params);
   if (!params.success) {
@@ -105,7 +148,9 @@ router.get("/projects/:projectId/assets", async (req, res): Promise<void> => {
     .from(assets)
     .where(eq(assets.projectId, params.data.projectId))
     .orderBy(asc(assets.displayOrder), desc(assets.createdAt));
-  res.json(schemas.ListAssetsResponse.parse(rows));
+  const linksMap = await fetchLinkedEntityIdsForAssets(rows.map((r) => r.id));
+  const enriched = rows.map((r) => withLinks(r, linksMap.get(r.id) ?? []));
+  res.json(schemas.ListAssetsResponse.parse(enriched));
 });
 
 router.post("/projects/:projectId/assets", async (req, res): Promise<void> => {
@@ -123,7 +168,7 @@ router.post("/projects/:projectId/assets", async (req, res): Promise<void> => {
     .insert(assets)
     .values({ ...parsed.data, projectId: params.data.projectId })
     .returning();
-  res.status(201).json(row);
+  res.status(201).json(withLinks(row, []));
 });
 
 router.patch(
@@ -139,21 +184,41 @@ router.patch(
       res.status(400).json({ error: parsed.error.message });
       return;
     }
-    const [row] = await db
-      .update(assets)
-      .set(parsed.data)
-      .where(
-        and(
-          eq(assets.id, params.data.assetId),
-          eq(assets.projectId, params.data.projectId),
-        ),
-      )
-      .returning();
+    // If the primary entityId is being changed, also remove any matching
+    // additional link so the link set never duplicates the new primary.
+    const row = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(assets)
+        .set(parsed.data)
+        .where(
+          and(
+            eq(assets.id, params.data.assetId),
+            eq(assets.projectId, params.data.projectId),
+          ),
+        )
+        .returning();
+      if (!updated) return null;
+      // Whenever entityId is touched (set or cleared), reconcile links.
+      if (Object.prototype.hasOwnProperty.call(parsed.data, "entityId")) {
+        if (updated.entityId != null) {
+          await tx
+            .delete(assetEntityLinks)
+            .where(
+              and(
+                eq(assetEntityLinks.assetId, updated.id),
+                eq(assetEntityLinks.entityId, updated.entityId),
+              ),
+            );
+        }
+      }
+      return updated;
+    });
     if (!row) {
       res.status(404).json({ error: "Asset not found" });
       return;
     }
-    res.json(schemas.UpdateAssetResponse.parse(row));
+    const links = await getLinkedEntityIds(row.id);
+    res.json(schemas.UpdateAssetResponse.parse(withLinks(row, links)));
   },
 );
 
@@ -176,6 +241,72 @@ router.delete(
     res.sendStatus(204);
   },
 );
+
+// ─── PUT /assets/:id/links — replace additional entity links ─────────────────
+
+router.put(
+  "/projects/:projectId/assets/:assetId/links",
+  async (req, res): Promise<void> => {
+    const params = schemas.SetAssetLinksParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.SetAssetLinksBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [asset] = await db
+      .select()
+      .from(assets)
+      .where(
+        and(
+          eq(assets.id, params.data.assetId),
+          eq(assets.projectId, params.data.projectId),
+        ),
+      );
+    if (!asset) {
+      res.status(404).json({ error: "Asset not found" });
+      return;
+    }
+    // De-duplicate, drop primary entityId from the link set (it's tracked separately),
+    // and verify all referenced entities belong to this project.
+    const requested = Array.from(new Set(parsed.data.entityIds)).filter(
+      (id) => id !== asset.entityId,
+    );
+    if (requested.length > 0) {
+      const valid = await db
+        .select({ id: entities.id })
+        .from(entities)
+        .where(
+          and(
+            inArray(entities.id, requested),
+            eq(entities.projectId, params.data.projectId),
+          ),
+        );
+      if (valid.length !== requested.length) {
+        res
+          .status(400)
+          .json({ error: "One or more entityIds do not belong to this project" });
+        return;
+      }
+    }
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(assetEntityLinks)
+        .where(eq(assetEntityLinks.assetId, asset.id));
+      if (requested.length > 0) {
+        await tx.insert(assetEntityLinks).values(
+          requested.map((entityId) => ({ assetId: asset.id, entityId })),
+        );
+      }
+    });
+    res.json(withLinks(asset, requested));
+  },
+);
+
+// ─── AI describe (flavor text) ───────────────────────────────────────────────
 
 router.post(
   "/projects/:projectId/assets/:assetId/describe",
@@ -222,13 +353,16 @@ Write a vivid 1-2 sentence flavor text quote (under 200 chars), evocative and on
         .set({ flavorText: flavor })
         .where(eq(assets.id, asset.id))
         .returning();
-      res.json(updated);
+      const links = await getLinkedEntityIds(updated.id);
+      res.json(withLinks(updated, links));
     } catch (err) {
       req.log.error({ err }, "describe asset failed");
       res.status(500).json({ error: "AI describe failed" });
     }
   },
 );
+
+// ─── AI image generation: single (existing, returns saved asset) ─────────────
 
 router.post(
   "/projects/:projectId/assets/:assetId/generate-image",
@@ -277,7 +411,8 @@ router.post(
         .set({ imageDataUrl: dataUrl, imagePrompt: parsed.data.prompt })
         .where(eq(assets.id, asset.id))
         .returning();
-      res.json(updated);
+      const links = await getLinkedEntityIds(updated.id);
+      res.json(withLinks(updated, links));
     } catch (err) {
       if (err instanceof AiProviderDisabledError) {
         res.status(503).json({ error: err.message, provider: err.provider });
@@ -292,6 +427,279 @@ router.post(
     }
   },
 );
+
+// ─── AI image variations: generate N candidates without saving ───────────────
+
+router.post(
+  "/projects/:projectId/assets/:assetId/generate-image-variations",
+  async (req, res): Promise<void> => {
+    const params = schemas.GenerateAssetImageVariationsParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.GenerateAssetImageVariationsBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [asset] = await db
+      .select()
+      .from(assets)
+      .where(
+        and(
+          eq(assets.id, params.data.assetId),
+          eq(assets.projectId, params.data.projectId),
+        ),
+      );
+    if (!asset) {
+      res.status(404).json({ error: "Asset not found" });
+      return;
+    }
+    const n = Math.max(1, Math.min(4, parsed.data.n ?? 1));
+    try {
+      const { client } = await getOpenAiImageClient(req);
+      const response = await generateImageWithRetry(req, client, {
+        model: "gpt-image-1",
+        prompt: parsed.data.prompt,
+        size: "1024x1024",
+        n,
+      });
+      const candidates = (response.data ?? [])
+        .map((d) => d?.b64_json)
+        .filter((b): b is string => Boolean(b))
+        .map((b) => `data:image/png;base64,${b}`);
+      if (candidates.length === 0) {
+        req.log.warn({ assetId: asset.id }, "generate-image-variations: empty response");
+        res.status(502).json({
+          error: "AI image provider returned no candidates. Please try again.",
+        });
+        return;
+      }
+      res.json({ candidates });
+    } catch (err) {
+      if (err instanceof AiProviderDisabledError) {
+        res.status(503).json({ error: err.message, provider: err.provider });
+        return;
+      }
+      const mapped = mapImageProviderError(err);
+      req.log.error(
+        { err, mappedStatus: mapped.status },
+        "generate-image-variations failed",
+      );
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  },
+);
+
+// ─── Save selected variation as the asset's current image ────────────────────
+
+router.post(
+  "/projects/:projectId/assets/:assetId/select-variation",
+  async (req, res): Promise<void> => {
+    const params = schemas.SelectAssetVariationParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.SelectAssetVariationBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    if (!/^data:image\/[a-zA-Z+.-]+;base64,/.test(parsed.data.dataUrl)) {
+      res.status(400).json({ error: "dataUrl must be a base64 image data URL" });
+      return;
+    }
+    const [asset] = await db
+      .select()
+      .from(assets)
+      .where(
+        and(
+          eq(assets.id, params.data.assetId),
+          eq(assets.projectId, params.data.projectId),
+        ),
+      );
+    if (!asset) {
+      res.status(404).json({ error: "Asset not found" });
+      return;
+    }
+    const updateSet: { imageDataUrl: string; imagePrompt?: string } = {
+      imageDataUrl: parsed.data.dataUrl,
+    };
+    if (parsed.data.prompt) updateSet.imagePrompt = parsed.data.prompt;
+    const [updated] = await db
+      .update(assets)
+      .set(updateSet)
+      .where(eq(assets.id, asset.id))
+      .returning();
+    const links = await getLinkedEntityIds(updated.id);
+    res.json(withLinks(updated, links));
+  },
+);
+
+// ─── Asset version history ───────────────────────────────────────────────────
+
+router.get(
+  "/projects/:projectId/assets/:assetId/versions",
+  async (req, res): Promise<void> => {
+    const params = schemas.ListAssetVersionsParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    // Verify asset belongs to project before exposing versions
+    const [asset] = await db
+      .select({ id: assets.id })
+      .from(assets)
+      .where(
+        and(
+          eq(assets.id, params.data.assetId),
+          eq(assets.projectId, params.data.projectId),
+        ),
+      );
+    if (!asset) {
+      res.status(404).json({ error: "Asset not found" });
+      return;
+    }
+    const rows = await db
+      .select()
+      .from(assetVersions)
+      .where(eq(assetVersions.assetId, asset.id))
+      .orderBy(desc(assetVersions.createdAt));
+    res.json(schemas.ListAssetVersionsResponse.parse(rows));
+  },
+);
+
+router.post(
+  "/projects/:projectId/assets/:assetId/versions",
+  async (req, res): Promise<void> => {
+    const params = schemas.CreateAssetVersionParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.CreateAssetVersionBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [asset] = await db
+      .select()
+      .from(assets)
+      .where(
+        and(
+          eq(assets.id, params.data.assetId),
+          eq(assets.projectId, params.data.projectId),
+        ),
+      );
+    if (!asset) {
+      res.status(404).json({ error: "Asset not found" });
+      return;
+    }
+    if (!asset.imageDataUrl) {
+      res
+        .status(400)
+        .json({ error: "Asset has no current image to snapshot" });
+      return;
+    }
+    const [snap] = await db
+      .insert(assetVersions)
+      .values({
+        assetId: asset.id,
+        versionLabel: parsed.data.versionLabel ?? null,
+        imageDataUrl: asset.imageDataUrl,
+        imagePrompt: asset.imagePrompt ?? null,
+        notes: parsed.data.notes ?? null,
+        createdByUserId: req.appUserId ?? null,
+      })
+      .returning();
+    res.status(201).json(snap);
+  },
+);
+
+router.post(
+  "/projects/:projectId/assets/:assetId/versions/:versionId/restore",
+  async (req, res): Promise<void> => {
+    const params = schemas.RestoreAssetVersionParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [asset] = await db
+      .select()
+      .from(assets)
+      .where(
+        and(
+          eq(assets.id, params.data.assetId),
+          eq(assets.projectId, params.data.projectId),
+        ),
+      );
+    if (!asset) {
+      res.status(404).json({ error: "Asset not found" });
+      return;
+    }
+    const [version] = await db
+      .select()
+      .from(assetVersions)
+      .where(
+        and(
+          eq(assetVersions.id, params.data.versionId),
+          eq(assetVersions.assetId, asset.id),
+        ),
+      );
+    if (!version) {
+      res.status(404).json({ error: "Version not found" });
+      return;
+    }
+    const [updated] = await db
+      .update(assets)
+      .set({
+        imageDataUrl: version.imageDataUrl,
+        imagePrompt: version.imagePrompt,
+      })
+      .where(eq(assets.id, asset.id))
+      .returning();
+    const links = await getLinkedEntityIds(updated.id);
+    res.json(withLinks(updated, links));
+  },
+);
+
+router.delete(
+  "/projects/:projectId/assets/:assetId/versions/:versionId",
+  async (req, res): Promise<void> => {
+    const params = schemas.DeleteAssetVersionParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    // Verify asset belongs to project, then delete only versions of that asset
+    const [asset] = await db
+      .select({ id: assets.id })
+      .from(assets)
+      .where(
+        and(
+          eq(assets.id, params.data.assetId),
+          eq(assets.projectId, params.data.projectId),
+        ),
+      );
+    if (!asset) {
+      res.status(404).json({ error: "Asset not found" });
+      return;
+    }
+    await db
+      .delete(assetVersions)
+      .where(
+        and(
+          eq(assetVersions.id, params.data.versionId),
+          eq(assetVersions.assetId, asset.id),
+        ),
+      );
+    res.sendStatus(204);
+  },
+);
+
+// ─── AI enhance (returns suggestion only, not saved) ─────────────────────────
 
 router.post(
   "/projects/:projectId/assets/:assetId/enhance",
@@ -372,5 +780,8 @@ Output JUST the JSON object.`,
     }
   },
 );
+
+// Silence unused-imports warning when sql helper is unused
+void sql;
 
 export default router;

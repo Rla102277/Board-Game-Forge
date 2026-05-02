@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   useListAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useAiEnhanceAsset,
+  useGenerateAssetImageVariations, useSelectAssetVariation, useSetAssetLinks,
   useGetProject, useUpdateProject, getListAssetsQueryKey, getGetProjectQueryKey,
   useListEntities, useCreateEntity, useUpdateEntity, useDeleteEntity,
   useAiGenerateEntities, useAiEnhanceEntity,
@@ -14,7 +15,7 @@ import {
   Plus, Trash2, ImageIcon, Edit2, Sparkles, Download, Loader2, Wand2, Save, BookOpen,
   Layers, Square, Circle, Dice5, User, Map as MapIcon, Package, Tag, Check, X, RefreshCw,
   ChevronDown, ChevronRight, Settings, Pencil, Copy, FileText, Activity, Eye, TableIcon,
-  GitBranch, Zap, LayoutGrid, Library, Images,
+  GitBranch, Zap, LayoutGrid, Library, Images, Printer, Link2,
 } from "lucide-react";
 import { buildLinks, CoverageGaps, EntityGraph, EntityNodeInspector, ComponentBrowser, PropertyDictionary, RuleEntityLinks } from "./component-graph";
 import { ComponentLibraryView } from "./component-library";
@@ -43,6 +44,8 @@ import { DieFaceDesigner } from "./die-face-designer";
 import { VariantManager } from "./variant-manager";
 import { ComponentBOM } from "./component-bom";
 import { Entities } from "@/components/workspace/entities";
+import { AssetVersions } from "./asset-versions";
+import { PrintSheet } from "./print-sheet";
 
 
 type ComponentKind = { id: string; label: string; kind: string; icon: React.ComponentType<{ className?: string }>; promptHint: string };
@@ -534,6 +537,18 @@ function AssetsView({
   // Inspector sheet
   const [inspectorAssetId, setInspectorAssetId] = useState<number | null>(null);
   const inspectorAsset = assets?.find((a) => a.id === inspectorAssetId) ?? null;
+  // Print sheet dialog
+  const [printSheetOpen, setPrintSheetOpen] = useState(false);
+  // AI image variations picker
+  const [variationsState, setVariationsState] = useState<{
+    assetId: number;
+    prompt: string;
+    candidates: string[];
+  } | null>(null);
+  const [generatingVariations, setGeneratingVariations] = useState(false);
+  const [pickingVariationIdx, setPickingVariationIdx] = useState<number | null>(null);
+  const generateVariationsMut = useGenerateAssetImageVariations();
+  const selectVariationMut = useSelectAssetVariation();
 
   useEffect(() => {
     localStorage.setItem("gameforge:groupByType", String(groupByType));
@@ -1357,6 +1372,21 @@ function AssetsView({
               Generate missing images
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => setPrintSheetOpen(true)}
+            disabled={!assets?.some((a) => a.imageDataUrl)}
+            title={
+              assets?.some((a) => a.imageDataUrl)
+                ? "Open print sheet to lay out and print cards"
+                : "Generate or upload at least one image first"
+            }
+            data-testid="open-print-sheet"
+          >
+            <Printer className="h-3.5 w-3.5" /> Print sheet
+          </Button>
           <Button variant="outline" size="sm" onClick={() => { setAddFormKind("card"); setShowAddForm((v) => !v); }} className="gap-1.5 text-xs" data-testid="add-asset-button">
             <Plus className="h-3.5 w-3.5" /> Manual asset
           </Button>
@@ -1647,8 +1677,31 @@ function AssetsView({
               asset={inspectorAsset}
               entities={entities ?? []}
               projectId={projectId}
-              isGenerating={generating === inspectorAsset.id}
+              isGenerating={generating === inspectorAsset.id || (generatingVariations && variationsState?.assetId === inspectorAsset.id)}
               onGenerateImage={(prompt) => generateImage(inspectorAsset.id, prompt)}
+              onGenerateVariations={async (prompt, n) => {
+                setGeneratingVariations(true);
+                try {
+                  const res = await generateVariationsMut.mutateAsync({
+                    projectId,
+                    assetId: inspectorAsset.id,
+                    data: { prompt, n },
+                  });
+                  setVariationsState({
+                    assetId: inspectorAsset.id,
+                    prompt,
+                    candidates: res.candidates,
+                  });
+                } catch (err) {
+                  toast({
+                    title: "Variations failed",
+                    description: err instanceof Error ? err.message : String(err),
+                    variant: "destructive",
+                  });
+                } finally {
+                  setGeneratingVariations(false);
+                }
+              }}
               onDownload={() => {
                 if (!inspectorAsset.imageDataUrl) return;
                 const link = document.createElement("a");
@@ -1673,6 +1726,84 @@ function AssetsView({
           )}
         </SheetContent>
       </Sheet>
+
+      {/* AI image variations picker */}
+      <Dialog
+        open={!!variationsState}
+        onOpenChange={(v) => { if (!v) { setVariationsState(null); setPickingVariationIdx(null); } }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" /> Pick a variation
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {variationsState?.candidates.length ?? 0} candidate{(variationsState?.candidates.length ?? 0) === 1 ? "" : "s"} for "{variationsState?.prompt.slice(0, 80)}{(variationsState?.prompt.length ?? 0) > 80 ? "…" : ""}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            {variationsState?.candidates.map((dataUrl, idx) => {
+              const picking = pickingVariationIdx === idx;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  className="relative group rounded-lg overflow-hidden border-2 border-border hover:border-primary transition-colors disabled:opacity-50"
+                  disabled={pickingVariationIdx !== null}
+                  onClick={async () => {
+                    if (!variationsState) return;
+                    setPickingVariationIdx(idx);
+                    try {
+                      await selectVariationMut.mutateAsync({
+                        projectId,
+                        assetId: variationsState.assetId,
+                        data: { dataUrl, prompt: variationsState.prompt },
+                      });
+                      refresh();
+                      toast({ title: "Variation saved" });
+                      setVariationsState(null);
+                    } catch (err) {
+                      toast({
+                        title: "Save failed",
+                        description: err instanceof Error ? err.message : String(err),
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setPickingVariationIdx(null);
+                    }
+                  }}
+                >
+                  <img src={dataUrl} alt={`Variation ${idx + 1}`} className="w-full aspect-square object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                    {picking ? (
+                      <Loader2 className="h-8 w-8 animate-spin text-white" />
+                    ) : (
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-primary-foreground rounded-full px-3 py-1 text-xs font-semibold flex items-center gap-1">
+                        <Check className="h-3 w-3" /> Use this
+                      </span>
+                    )}
+                  </div>
+                  <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
+                    #{idx + 1}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVariationsState(null)} disabled={pickingVariationIdx !== null}>
+              Discard all
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print sheet */}
+      <PrintSheet
+        open={printSheetOpen}
+        onClose={() => setPrintSheetOpen(false)}
+        assets={assets ?? []}
+      />
     </div>
   );
 }
@@ -2261,13 +2392,14 @@ function AssetCard({
 
 function ComponentInspector({
   asset, entities, projectId, isGenerating,
-  onGenerateImage, onDownload, onDelete, onUpdated, fetchEnhance, applyEnhance, onGamma, onClose,
+  onGenerateImage, onGenerateVariations, onDownload, onDelete, onUpdated, fetchEnhance, applyEnhance, onGamma, onClose,
 }: {
   asset: Asset;
   entities: Entity[];
   projectId: number;
   isGenerating: boolean;
   onGenerateImage: (prompt: string) => void;
+  onGenerateVariations: (prompt: string, n: number) => Promise<void>;
   onDownload: () => void;
   onDelete: () => Promise<void>;
   onUpdated: () => void;
@@ -2278,6 +2410,7 @@ function ComponentInspector({
 }) {
   const { toast } = useToast();
   const updateAsset = useUpdateAsset();
+  const setLinksMut = useSetAssetLinks();
   const qc = useQueryClient();
   const [editForm, setEditForm] = useState({
     name: asset.name, kind: asset.kind, description: asset.description ?? "",
@@ -2288,6 +2421,42 @@ function ComponentInspector({
   const [saving, setSaving] = useState(false);
   const [imagePromptOpen, setImagePromptOpen] = useState(false);
   const [imagePrompt, setImagePrompt] = useState(asset.imagePrompt || "");
+  const [variationCount, setVariationCount] = useState<1 | 2 | 3 | 4>(1);
+  const [linkPickerOpen, setLinkPickerOpen] = useState(false);
+  const [savingLinks, setSavingLinks] = useState(false);
+
+  // The asset's "additional links" set. Excludes the primary entityId from the list of chips.
+  const additionalLinkIds = useMemo(
+    () => (asset.linkedEntityIds ?? []).filter((id) => id !== asset.entityId),
+    [asset.linkedEntityIds, asset.entityId],
+  );
+  const linkedEntities = useMemo(() => {
+    const byId = new Map(entities.map((e) => [e.id, e]));
+    return additionalLinkIds.map((id) => byId.get(id)).filter((e): e is Entity => !!e);
+  }, [additionalLinkIds, entities]);
+  // Entities that aren't already linked (and aren't the primary)
+  const linkableEntities = useMemo(() => {
+    const taken = new Set<number>(additionalLinkIds);
+    if (asset.entityId) taken.add(asset.entityId);
+    return entities.filter((e) => !taken.has(e.id));
+  }, [entities, additionalLinkIds, asset.entityId]);
+
+  const updateLinks = async (nextIds: number[]) => {
+    setSavingLinks(true);
+    try {
+      await setLinksMut.mutateAsync({
+        projectId,
+        assetId: asset.id,
+        data: { entityIds: nextIds },
+      });
+      qc.invalidateQueries({ queryKey: getListAssetsQueryKey(projectId) });
+      onUpdated();
+    } catch (err) {
+      toast({ title: "Link update failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setSavingLinks(false);
+    }
+  };
   const [showEnhance, setShowEnhance] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [suggestion, setSuggestion] = useState<AssetEnhanceSuggestion | null>(null);
@@ -2438,14 +2607,63 @@ function ComponentInspector({
               className="text-xs resize-none"
               autoFocus
             />
-            <div className="flex justify-end gap-2">
-              <Button size="sm" variant="ghost" className="text-xs" onClick={() => setImagePromptOpen(false)}>Cancel</Button>
-              <Button size="sm" className="gap-1.5 text-xs" onClick={() => { onGenerateImage(imagePrompt); setImagePromptOpen(false); }} disabled={!imagePrompt.trim()}>
-                <Sparkles className="h-3 w-3" /> Generate
-              </Button>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Label className="text-xs text-muted-foreground">Variations:</Label>
+                {([1, 2, 3, 4] as const).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setVariationCount(n)}
+                    className={`h-6 w-6 text-xs rounded border ${
+                      variationCount === n
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-pressed={variationCount === n}
+                    data-testid={`variation-count-${n}`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1.5">
+                <Button size="sm" variant="ghost" className="text-xs" onClick={() => setImagePromptOpen(false)}>Cancel</Button>
+                <Button
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  disabled={!imagePrompt.trim() || isGenerating}
+                  onClick={async () => {
+                    const prompt = imagePrompt;
+                    setImagePromptOpen(false);
+                    if (variationCount === 1) {
+                      onGenerateImage(prompt);
+                    } else {
+                      await onGenerateVariations(prompt, variationCount);
+                    }
+                  }}
+                  data-testid="generate-image-button"
+                >
+                  {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {variationCount === 1 ? "Generate" : `Generate ${variationCount}`}
+                </Button>
+              </div>
             </div>
+            <p className="text-[10px] text-muted-foreground">
+              {variationCount === 1
+                ? "Replaces the current image directly."
+                : `Generates ${variationCount} candidates — pick one in the picker, the rest are discarded.`}
+            </p>
           </div>
         )}
+
+        {/* Version history (collapsible) */}
+        <AssetVersions
+          projectId={projectId}
+          assetId={asset.id}
+          currentImageDataUrl={asset.imageDataUrl}
+          assetName={asset.name}
+        />
 
         {/* Metadata fields */}
         <div className="space-y-3">
@@ -2484,7 +2702,7 @@ function ComponentInspector({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Linked Entity</Label>
+              <Label className="text-xs">Primary entity</Label>
               <Select value={editForm.entityId || "none"} onValueChange={(v) => { const val = v === "none" ? "" : v; setEditForm((f) => ({ ...f, entityId: val })); saveField({ entityId: val ? parseInt(val) : undefined }); }}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="None" /></SelectTrigger>
                 <SelectContent>
@@ -2493,6 +2711,76 @@ function ComponentInspector({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Additional linked entities (multi-component reuse) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs flex items-center gap-1">
+                <Link2 className="h-3 w-3" /> Also used by
+              </Label>
+              <button
+                type="button"
+                onClick={() => setLinkPickerOpen((v) => !v)}
+                className="text-[10px] text-primary hover:underline"
+                disabled={savingLinks}
+                data-testid="open-link-picker"
+              >
+                {linkPickerOpen ? "Done" : "Add link"}
+              </button>
+            </div>
+            {linkedEntities.length === 0 && !linkPickerOpen && (
+              <p className="text-[10px] text-muted-foreground italic">
+                Link this image to other components that share it.
+              </p>
+            )}
+            {linkedEntities.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {linkedEntities.map((e) => (
+                  <span
+                    key={e.id}
+                    className="inline-flex items-center gap-1 text-[10px] bg-secondary text-secondary-foreground rounded-full pl-2 pr-1 py-0.5"
+                    data-testid={`link-chip-${e.id}`}
+                  >
+                    <span>{getMeta(e.type).icon}</span>
+                    <span className="truncate max-w-[120px]">{e.name}</span>
+                    <button
+                      type="button"
+                      className="ml-0.5 rounded-full hover:bg-secondary-foreground/20 p-0.5 disabled:opacity-50"
+                      onClick={() => updateLinks(additionalLinkIds.filter((id) => id !== e.id))}
+                      disabled={savingLinks}
+                      aria-label={`Remove link to ${e.name}`}
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {linkPickerOpen && (
+              <div className="border border-border rounded-md p-1.5 bg-background max-h-40 overflow-y-auto space-y-0.5">
+                {linkableEntities.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground p-2 text-center italic">
+                    No more entities to link.
+                  </p>
+                ) : (
+                  linkableEntities.map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      className="w-full text-left flex items-center gap-2 p-1.5 rounded text-xs hover:bg-muted/50 disabled:opacity-50"
+                      disabled={savingLinks}
+                      onClick={() => updateLinks([...additionalLinkIds, e.id])}
+                      data-testid={`link-add-${e.id}`}
+                    >
+                      <span>{getMeta(e.type).icon}</span>
+                      <span className="truncate">{e.name}</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">{e.type}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1">

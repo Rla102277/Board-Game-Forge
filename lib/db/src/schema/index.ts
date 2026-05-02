@@ -11,6 +11,8 @@ export * from "./aiProviderSettings";
 export * from "./workspaceAiSettings";
 export * from "./researchItems";
 export * from "./assets";
+export * from "./assetEntityLinks";
+export * from "./assetVersions";
 export * from "./playtestSessions";
 export * from "./playtestFeedback";
 export * from "./storyboardNodes";

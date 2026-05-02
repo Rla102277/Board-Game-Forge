@@ -62,3 +62,9 @@ GameForge is a pnpm workspace monorepo using TypeScript, comprising three main a
 - **framer-motion:** Animation library.
 - **react-markdown + remark-gfm:** For Markdown rendering.
 - **Gamma API v1.0 Client:** For Kickstarter section integration.
+
+## Assets tab features (post-audit)
+- **Multi-component linking**: `asset_entity_links(asset_id, entity_id)` join table; primary `assets.entity_id` retained for back-compat. `PUT /assets/:id/links` replaces the link set transactionally with project-scope validation. PATCH on `entityId` reconciles links to avoid duplicating the new primary. UI: chip picker in ComponentInspector.
+- **Manual asset versioning**: `asset_versions(id, asset_id, version_label, image_data_url, image_prompt, notes, created_by_user_id, created_at)`. GET/POST/restore/DELETE endpoints. UI: `asset-versions.tsx` collapsible list with snapshot dialog, restore, delete, download.
+- **AI image variations**: `POST /assets/:id/generate-image-variations {prompt, n: 1..4}` returns candidates without writing; `POST /assets/:id/select-variation {dataUrl, prompt?}` commits the chosen one. UI: N selector (1–4) in image prompt panel + 2×2 picker dialog.
+- **Print sheet**: `print-sheet.tsx` — Letter/A4, card presets (Poker/Bridge/Tarot/Mini/Square/Custom), 150/300/600 DPI with **real canvas rasterization** at print time, configurable bleed/cut-line, respect-quantity. Toolbar button `data-testid="open-print-sheet"`. `@page margin: 0` + internal padding to avoid double-margin.

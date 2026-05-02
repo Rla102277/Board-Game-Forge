@@ -746,8 +746,56 @@ export interface Asset {
   displayOrder?: number | null;
   /** @nullable */
   groupDisplayOrder?: number | null;
+  /** Additional entities this asset is linked to (in addition to the primary entityId). Empty array if none. */
+  linkedEntityIds: number[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AssetVersion {
+  id: number;
+  assetId: number;
+  /** @nullable */
+  versionLabel?: string | null;
+  /** @nullable */
+  imageDataUrl?: string | null;
+  /** @nullable */
+  imagePrompt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  createdByUserId?: number | null;
+  createdAt: string;
+}
+
+export interface CreateAssetVersionBody {
+  versionLabel?: string;
+  notes?: string;
+}
+
+export interface SetAssetLinksBody {
+  /** Replaces the asset's link set (additional entities beyond primary entityId). */
+  entityIds: number[];
+}
+
+export interface GenerateImageVariationsBody {
+  prompt: string;
+  /**
+   * Number of candidate images to generate (1-4). Defaults to 1.
+   * @minimum 1
+   * @maximum 4
+   */
+  n?: number;
+}
+
+export interface GenerateImageVariationsResponse {
+  /** Array of base64 data URLs (NOT yet saved to the asset). */
+  candidates: string[];
+}
+
+export interface SelectAssetVariationBody {
+  dataUrl: string;
+  prompt?: string;
 }
 
 export interface CreateAssetBody {
