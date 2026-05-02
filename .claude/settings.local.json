@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc *)",
-      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(sed -n '455,490p' /home/runner/workspace/artifacts/api-server/src/routes/rules.ts)",
+      "Bash(sed -n '200,260p' /home/runner/workspace/artifacts/api-server/src/routes/entities.ts)"
     ]
   }
 }

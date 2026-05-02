@@ -73,14 +73,6 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "Workshop",
-    defaultOpen: true,
-    items: [
-      { id: "assets-entities", label: "Components",     icon: ImageIcon,    statKey: "assetCount",     shortcut: "4" },
-      { id: "players",        label: "Players",          icon: Users,        statKey: "playerCount",    shortcut: "3" },
-    ],
-  },
-  {
     label: "Rules & Flow",
     defaultOpen: true,
     items: [
@@ -88,6 +80,14 @@ const NAV_GROUPS = [
       { id: "rulebook",       label: "Rulebook",         icon: BookOpen,     statKey: null,             shortcut: null },
       { id: "turn-structure", label: "Turn Structure",   icon: Clock,        statKey: null,             shortcut: null },
       { id: "layout",         label: "Layout",           icon: Grid3X3,      statKey: null,             shortcut: null },
+    ],
+  },
+  {
+    label: "Workshop",
+    defaultOpen: true,
+    items: [
+      { id: "assets-entities", label: "Components",     icon: ImageIcon,    statKey: "assetCount",     shortcut: "4" },
+      { id: "players",        label: "Players",          icon: Users,        statKey: "playerCount",    shortcut: "3" },
     ],
   },
   {
