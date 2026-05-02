@@ -976,3 +976,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend }: OverviewPro
     </div>
   );
 }
+
+export function GameIdentity(props: GameIdentityProps) {
+  return <Overview {...props} />;
+}

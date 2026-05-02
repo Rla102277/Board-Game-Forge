@@ -20,8 +20,7 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 // Lazy load workspace components for code splitting
-const Overview = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.default } as any)));
-const GameIdentity = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.GameIdentity })));
+const Overview = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.Overview })));
 const Research = lazy(() => import("@/components/workspace/research").then(m => ({ default: m.Research })));
 const Ontology = lazy(() => import("@/components/workspace/ontology").then(m => ({ default: m.Ontology })));
 const AssetsEntities = lazy(() => import("@/components/workspace/assets-entities").then(m => ({ default: m.AssetsEntities })));
@@ -231,7 +230,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       case "identity": return (
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
-            <GameIdentity projectId={projectId} onPromptSend={setChatPrompt} />
+            <Overview projectId={projectId} onPromptSend={setChatPrompt} />
           </Suspense>
         </ErrorBoundary>
       );
