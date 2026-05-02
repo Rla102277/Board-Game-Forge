@@ -290,8 +290,6 @@ export interface Entity {
   /** @nullable */
   stats?: string | null;
   /** @nullable */
-  status?: string | null;
-  /** @nullable */
   color?: string | null;
   /** @nullable */
   relatedTo?: string | null;
@@ -299,6 +297,7 @@ export interface Entity {
   lore?: string | null;
   /** @nullable */
   designNotes?: string | null;
+  status: string;
   /** @nullable */
   displayOrder?: number | null;
   createdAt: string;
@@ -472,6 +471,10 @@ export interface AiGenerateRulesResult {
   narrativeApplied: boolean;
 }
 
+export type PlayerBehaviorProfile = { [key: string]: unknown } | null;
+
+export type PlayerRelationshipsItem = { [key: string]: unknown };
+
 export interface Player {
   id: number;
   projectId: number;
@@ -503,10 +506,8 @@ export interface Player {
   arc?: string | null;
   /** @nullable */
   displayOrder?: number | null;
-  /** @nullable */
-  behaviorProfile?: Record<string, unknown> | null;
-  /** @nullable */
-  relationships?: Record<string, unknown>[] | null;
+  behaviorProfile?: PlayerBehaviorProfile;
+  relationships?: PlayerRelationshipsItem[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -555,6 +556,7 @@ export interface AiTextEditResponse {
 export type CreatePlayerBodyBehaviorProfile = { [key: string]: unknown };
 
 export type CreatePlayerBodyRelationshipsItem = { [key: string]: unknown };
+
 export interface CreatePlayerBody {
   name: string;
   playerType?: string;
@@ -571,31 +573,36 @@ export interface CreatePlayerBody {
   flaw?: string;
   arc?: string;
   displayOrder?: number;
-  behaviorProfile?: Record<string, unknown>;
-  relationships?: Record<string, unknown>[];
+  behaviorProfile?: CreatePlayerBodyBehaviorProfile;
+  relationships?: CreatePlayerBodyRelationshipsItem[];
 }
+
+export type UpdatePlayerBodyBehaviorProfile = { [key: string]: unknown };
+
+export type UpdatePlayerBodyRelationshipsItem = { [key: string]: unknown };
 
 export interface UpdatePlayerBody {
   name?: string;
   playerType?: string;
-  role?: string | null;
-  archetype?: string | null;
-  description?: string | null;
-  strategy?: string | null;
-  startingResources?: string | null;
-  victoryCondition?: string | null;
-  specialAbility?: string | null;
-  playstyle?: string | null;
-  faction?: string | null;
-  motivation?: string | null;
-  flaw?: string | null;
-  arc?: string | null;
+  role?: string;
+  archetype?: string;
+  description?: string;
+  strategy?: string;
+  startingResources?: string;
+  victoryCondition?: string;
+  specialAbility?: string;
+  playstyle?: string;
+  faction?: string;
+  motivation?: string;
+  flaw?: string;
+  arc?: string;
   displayOrder?: number;
-  behaviorProfile?: Record<string, unknown> | null;
-  relationships?: Record<string, unknown>[] | null;
+  behaviorProfile?: UpdatePlayerBodyBehaviorProfile;
+  relationships?: UpdatePlayerBodyRelationshipsItem[];
 }
 
 export interface ReorderPlayersBody {
+  /** Ordered list of player IDs reflecting the desired display order */
   playerIds: number[];
 }
 
@@ -717,9 +724,8 @@ export interface Asset {
   imageDataUrl?: string | null;
   /** @nullable */
   imagePrompt?: string | null;
-  quantity?: number;
-  /** @nullable */
-  status?: string | null;
+  quantity: number;
+  status: string;
   /** @nullable */
   componentDetails?: string | null;
   /** @nullable */
@@ -970,16 +976,6 @@ export interface EntityRule {
   createdAt: string;
 }
 
-export interface RuleLinkedEntity {
-  id: number;
-  name: string;
-  type: string;
-  /** @nullable */
-  subtype?: string | null;
-  /** @nullable */
-  color?: string | null;
-}
-
 export interface NodePosition {
   x: number;
   y: number;
@@ -996,6 +992,55 @@ export type UpdateGraphLayoutBodyPositions = { [key: string]: NodePosition };
 
 export interface UpdateGraphLayoutBody {
   positions: UpdateGraphLayoutBodyPositions;
+}
+
+export type DesignerArtifactData = { [key: string]: unknown };
+
+export interface DesignerArtifact {
+  projectId: number;
+  kind: string;
+  data: DesignerArtifactData;
+}
+
+export type UpdateDesignerArtifactBodyData = { [key: string]: unknown };
+
+export interface UpdateDesignerArtifactBody {
+  data: UpdateDesignerArtifactBodyData;
+}
+
+export type ReferenceGameGameData = { [key: string]: unknown } | null;
+
+export interface ReferenceGame {
+  id: number;
+  projectId: number;
+  name: string;
+  gameData?: ReferenceGameGameData;
+  /** @nullable */
+  borrowing?: string | null;
+  /** @nullable */
+  avoiding?: string | null;
+  /** @nullable */
+  researchId?: number | null;
+  /** @nullable */
+  position?: number | null;
+  createdAt: string;
+}
+
+export interface CreateReferenceGameBody {
+  name: string;
+  borrowing?: string;
+  avoiding?: string;
+  position?: number;
+}
+
+export type UpdateReferenceGameBodyGameData = { [key: string]: unknown } | null;
+
+export interface UpdateReferenceGameBody {
+  borrowing?: string;
+  avoiding?: string;
+  position?: number;
+  gameData?: UpdateReferenceGameBodyGameData;
+  researchId?: number;
 }
 
 /**
@@ -1017,78 +1062,3 @@ export type ListChatMessagesParams = {
 export type ClearChatMessagesParams = {
   tab?: TabParameter;
 };
-
-export interface PlaytestReportActionItem {
-  text: string;
-  /** @nullable */
-  linkedTaskId?: number | null;
-  /** @nullable */
-  done?: boolean | null;
-}
-
-export interface PlaytestReport {
-  id: number;
-  projectId: number;
-  date: string;
-  /** @nullable */
-  attendees?: string[] | null;
-  /** @nullable */
-  rating?: number | null;
-  /** @nullable */
-  whatWorked?: string | null;
-  /** @nullable */
-  whatBroke?: string | null;
-  /** @nullable */
-  actionItems?: PlaytestReportActionItem[] | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreatePlaytestReportBody {
-  date?: string;
-  attendees?: string[];
-  rating?: number;
-  whatWorked?: string;
-  whatBroke?: string;
-  actionItems?: PlaytestReportActionItem[];
-}
-
-export interface UpdatePlaytestReportBody {
-  date?: string;
-  attendees?: string[] | null;
-  rating?: number | null;
-  whatWorked?: string | null;
-  whatBroke?: string | null;
-  actionItems?: PlaytestReportActionItem[] | null;
-}
-
-export interface ReferenceGame {
-  id: number;
-  projectId: number;
-  name: string;
-  gameData?: { [key: string]: unknown } | null;
-  /** @nullable */
-  borrowing?: string | null;
-  /** @nullable */
-  avoiding?: string | null;
-  /** @nullable */
-  researchId?: number | null;
-  /** @nullable */
-  position?: number | null;
-  createdAt: string;
-}
-
-export interface CreateReferenceGameBody {
-  name: string;
-  borrowing?: string;
-  avoiding?: string;
-  position?: number;
-}
-
-export interface UpdateReferenceGameBody {
-  borrowing?: string;
-  avoiding?: string;
-  position?: number;
-  gameData?: { [key: string]: unknown } | null;
-  researchId?: number;
-}

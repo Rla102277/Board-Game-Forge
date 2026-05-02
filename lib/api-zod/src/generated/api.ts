@@ -169,7 +169,7 @@ export const GetProjectResponse = zod.object({
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
   referenceGames: zod.string().nullish(),
-  designPhase: zod.string().default("concept"),
+  designPhase: zod.string(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -194,10 +194,10 @@ export const UpdateProjectBody = zod.object({
   blueprint: zod.string().optional(),
   narrative: zod.string().optional(),
   winCondition: zod.string().optional(),
-  eliminationRule: zod.string().optional(),
-  designPhase: zod.string().optional(),
   turnPhases: zod.string().optional(),
+  eliminationRule: zod.string().optional(),
   referenceGames: zod.string().optional(),
+  designPhase: zod.string().optional(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -221,7 +221,7 @@ export const UpdateProjectResponse = zod.object({
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
   referenceGames: zod.string().nullish(),
-  designPhase: zod.string().default("concept"),
+  designPhase: zod.string(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -232,6 +232,110 @@ export const UpdateProjectResponse = zod.object({
 });
 
 export const DeleteProjectParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+/**
+ * @summary Get a designer artifact by kind for a project
+ */
+export const GetDesignerArtifactParams = zod.object({
+  projectId: zod.coerce.number(),
+  kind: zod.coerce.string(),
+});
+
+export const GetDesignerArtifactResponse = zod.object({
+  projectId: zod.number(),
+  kind: zod.string(),
+  data: zod.record(zod.string(), zod.unknown()),
+});
+
+/**
+ * @summary Upsert a designer artifact by kind for a project
+ */
+export const UpdateDesignerArtifactParams = zod.object({
+  projectId: zod.coerce.number(),
+  kind: zod.coerce.string(),
+});
+
+export const UpdateDesignerArtifactBody = zod.object({
+  data: zod.record(zod.string(), zod.unknown()),
+});
+
+export const UpdateDesignerArtifactResponse = zod.object({
+  projectId: zod.number(),
+  kind: zod.string(),
+  data: zod.record(zod.string(), zod.unknown()),
+});
+
+/**
+ * @summary List soft-deleted projects (recycle bin)
+ */
+export const ListTrashedProjectsResponseItem = zod.object({
+  id: zod.number(),
+  ownerUserId: zod.number().nullish(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  gameType: zod.string().nullish(),
+  genre: zod.string().nullish(),
+  playerCount: zod.string().nullish(),
+  targetDuration: zod.string().nullish(),
+  complexityScore: zod.number().nullish(),
+  blueprint: zod.string().nullish(),
+  narrative: zod.string().nullish(),
+  winCondition: zod.string().nullish(),
+  turnPhases: zod.string().nullish(),
+  eliminationRule: zod.string().nullish(),
+  referenceGames: zod.string().nullish(),
+  designPhase: zod.string(),
+  overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
+  designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
+  decisionLog: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  mechanicFingerprint: zod.record(zod.string(), zod.unknown()).nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListTrashedProjectsResponse = zod.array(
+  ListTrashedProjectsResponseItem,
+);
+
+/**
+ * @summary Restore a soft-deleted project
+ */
+export const RestoreProjectParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const RestoreProjectResponse = zod.object({
+  id: zod.number(),
+  ownerUserId: zod.number().nullish(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  gameType: zod.string().nullish(),
+  genre: zod.string().nullish(),
+  playerCount: zod.string().nullish(),
+  targetDuration: zod.string().nullish(),
+  complexityScore: zod.number().nullish(),
+  blueprint: zod.string().nullish(),
+  narrative: zod.string().nullish(),
+  winCondition: zod.string().nullish(),
+  turnPhases: zod.string().nullish(),
+  eliminationRule: zod.string().nullish(),
+  referenceGames: zod.string().nullish(),
+  designPhase: zod.string(),
+  overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
+  designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
+  decisionLog: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  mechanicFingerprint: zod.record(zod.string(), zod.unknown()).nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Permanently delete a soft-deleted project (irreversible)
+ */
+export const PurgeProjectParams = zod.object({
   projectId: zod.coerce.number(),
 });
 
@@ -295,7 +399,6 @@ export const GetProjectStatsResponse = zod.object({
   researchCount: zod.number(),
   assetCount: zod.number(),
   playtestCount: zod.number(),
-  playtestReportCount: zod.number(),
 });
 
 /**
@@ -538,6 +641,66 @@ export const AiGenerateResearchResponse = zod.array(
   AiGenerateResearchResponseItem,
 );
 
+export const ListReferenceGamesParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ListReferenceGamesResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  gameData: zod.record(zod.string(), zod.unknown()).nullish(),
+  borrowing: zod.string().nullish(),
+  avoiding: zod.string().nullish(),
+  researchId: zod.number().nullish(),
+  position: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListReferenceGamesResponse = zod.array(
+  ListReferenceGamesResponseItem,
+);
+
+export const CreateReferenceGameParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const CreateReferenceGameBody = zod.object({
+  name: zod.string(),
+  borrowing: zod.string().optional(),
+  avoiding: zod.string().optional(),
+  position: zod.number().optional(),
+});
+
+export const UpdateReferenceGameParams = zod.object({
+  projectId: zod.coerce.number(),
+  referenceGameId: zod.coerce.number(),
+});
+
+export const UpdateReferenceGameBody = zod.object({
+  borrowing: zod.string().optional(),
+  avoiding: zod.string().optional(),
+  position: zod.number().optional(),
+  gameData: zod.record(zod.string(), zod.unknown()).nullish(),
+  researchId: zod.number().optional(),
+});
+
+export const UpdateReferenceGameResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  gameData: zod.record(zod.string(), zod.unknown()).nullish(),
+  borrowing: zod.string().nullish(),
+  avoiding: zod.string().nullish(),
+  researchId: zod.number().nullish(),
+  position: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+export const DeleteReferenceGameParams = zod.object({
+  projectId: zod.coerce.number(),
+  referenceGameId: zod.coerce.number(),
+});
+
 export const ListEntitiesParams = zod.object({
   projectId: zod.coerce.number(),
 });
@@ -555,7 +718,7 @@ export const ListEntitiesResponseItem = zod.object({
   relatedTo: zod.string().nullish(),
   lore: zod.string().nullish(),
   designNotes: zod.string().nullish(),
-  status: zod.string().default("draft"),
+  status: zod.string(),
   displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -577,7 +740,6 @@ export const CreateEntityBody = zod.object({
   relatedTo: zod.string().optional(),
   lore: zod.string().optional(),
   designNotes: zod.string().optional(),
-  status: zod.string().optional(),
 });
 
 export const UpdateEntityParams = zod.object({
@@ -592,11 +754,11 @@ export const UpdateEntityBody = zod.object({
   parentEntityId: zod.number().nullish(),
   description: zod.string().optional(),
   stats: zod.string().optional(),
+  status: zod.string().optional(),
   color: zod.string().optional(),
   relatedTo: zod.string().optional(),
   lore: zod.string().optional(),
   designNotes: zod.string().optional(),
-  status: zod.string().optional(),
   displayOrder: zod.number().optional(),
 });
 
@@ -613,7 +775,7 @@ export const UpdateEntityResponse = zod.object({
   relatedTo: zod.string().nullish(),
   lore: zod.string().nullish(),
   designNotes: zod.string().nullish(),
-  status: zod.string().default("draft"),
+  status: zod.string(),
   displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -639,9 +801,15 @@ export const AiGenerateEntitiesResponseItem = zod.object({
   name: zod.string(),
   type: zod.string(),
   subtype: zod.string().nullish(),
+  parentEntityId: zod.number().nullish(),
   description: zod.string().nullish(),
   stats: zod.string().nullish(),
+  color: zod.string().nullish(),
+  relatedTo: zod.string().nullish(),
+  lore: zod.string().nullish(),
+  designNotes: zod.string().nullish(),
   status: zod.string(),
+  displayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -668,6 +836,39 @@ export const AiEnhanceEntityResponse = zod.object({
   ),
 });
 
+/**
+ * @summary List rules linked to a specific entity
+ */
+export const ListEntityRulesParams = zod.object({
+  projectId: zod.coerce.number(),
+  entityId: zod.coerce.number(),
+});
+
+export const ListEntityRulesResponseItem = zod.object({
+  id: zod.number(),
+  entityId: zod.number(),
+  ruleId: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+export const ListEntityRulesResponse = zod.array(ListEntityRulesResponseItem);
+
+/**
+ * @summary Link a rule to an entity
+ */
+export const LinkEntityRuleParams = zod.object({
+  projectId: zod.coerce.number(),
+  entityId: zod.coerce.number(),
+  ruleId: zod.coerce.number(),
+});
+
+/**
+ * @summary Remove a rule link from an entity
+ */
+export const UnlinkEntityRuleParams = zod.object({
+  projectId: zod.coerce.number(),
+  entityId: zod.coerce.number(),
+  ruleId: zod.coerce.number(),
+});
 
 export const ListProjectEntityPropertiesParams = zod.object({
   projectId: zod.coerce.number(),
@@ -825,6 +1026,19 @@ export const DeleteRuleParams = zod.object({
   ruleId: zod.coerce.number(),
 });
 
+export const ListRuleEntitiesParams = zod.object({
+  projectId: zod.coerce.number(),
+  ruleId: zod.coerce.number(),
+});
+
+export const ListRuleEntitiesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  type: zod.string(),
+  subtype: zod.string().nullish(),
+  color: zod.string().nullish(),
+});
+export const ListRuleEntitiesResponse = zod.array(ListRuleEntitiesResponseItem);
 
 export const AiGenerateRulesParams = zod.object({
   projectId: zod.coerce.number(),
@@ -922,8 +1136,8 @@ export const ListPlayersResponseItem = zod.object({
   flaw: zod.string().nullish(),
   arc: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
-  behaviorProfile: zod.record(zod.unknown()).nullish(),
-  relationships: zod.array(zod.record(zod.unknown())).nullish(),
+  behaviorProfile: zod.record(zod.string(), zod.unknown()).nullish(),
+  relationships: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -949,8 +1163,8 @@ export const CreatePlayerBody = zod.object({
   flaw: zod.string().optional(),
   arc: zod.string().optional(),
   displayOrder: zod.number().optional(),
-  behaviorProfile: zod.record(zod.unknown()).optional(),
-  relationships: zod.array(zod.record(zod.unknown())).optional(),
+  behaviorProfile: zod.record(zod.string(), zod.unknown()).optional(),
+  relationships: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
 });
 
 export const UpdatePlayerParams = zod.object({
@@ -961,21 +1175,21 @@ export const UpdatePlayerParams = zod.object({
 export const UpdatePlayerBody = zod.object({
   name: zod.string().optional(),
   playerType: zod.string().optional(),
-  role: zod.string().nullish(),
-  archetype: zod.string().nullish(),
-  description: zod.string().nullish(),
-  strategy: zod.string().nullish(),
-  startingResources: zod.string().nullish(),
-  victoryCondition: zod.string().nullish(),
-  specialAbility: zod.string().nullish(),
-  playstyle: zod.string().nullish(),
-  faction: zod.string().nullish(),
-  motivation: zod.string().nullish(),
-  flaw: zod.string().nullish(),
-  arc: zod.string().nullish(),
+  role: zod.string().optional(),
+  archetype: zod.string().optional(),
+  description: zod.string().optional(),
+  strategy: zod.string().optional(),
+  startingResources: zod.string().optional(),
+  victoryCondition: zod.string().optional(),
+  specialAbility: zod.string().optional(),
+  playstyle: zod.string().optional(),
+  faction: zod.string().optional(),
+  motivation: zod.string().optional(),
+  flaw: zod.string().optional(),
+  arc: zod.string().optional(),
   displayOrder: zod.number().optional(),
-  behaviorProfile: zod.record(zod.unknown()).nullish(),
-  relationships: zod.array(zod.record(zod.unknown())).nullish(),
+  behaviorProfile: zod.record(zod.string(), zod.unknown()).optional(),
+  relationships: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
 });
 
 export const updatePlayerResponsePlayerTypeDefault = `Character`;
@@ -998,8 +1212,8 @@ export const UpdatePlayerResponse = zod.object({
   flaw: zod.string().nullish(),
   arc: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
-  behaviorProfile: zod.record(zod.unknown()).nullish(),
-  relationships: zod.array(zod.record(zod.unknown())).nullish(),
+  behaviorProfile: zod.record(zod.string(), zod.unknown()).nullish(),
+  relationships: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1008,6 +1222,48 @@ export const DeletePlayerParams = zod.object({
   projectId: zod.coerce.number(),
   playerId: zod.coerce.number(),
 });
+
+/**
+ * @summary Reorder the player roster by providing an ordered array of player IDs
+ */
+export const ReorderPlayersParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const ReorderPlayersBody = zod.object({
+  playerIds: zod
+    .array(zod.number())
+    .describe(
+      "Ordered list of player IDs reflecting the desired display order",
+    ),
+});
+
+export const reorderPlayersResponsePlayerTypeDefault = `Character`;
+
+export const ReorderPlayersResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  name: zod.string(),
+  playerType: zod.string().default(reorderPlayersResponsePlayerTypeDefault),
+  role: zod.string().nullish(),
+  archetype: zod.string().nullish(),
+  description: zod.string().nullish(),
+  strategy: zod.string().nullish(),
+  startingResources: zod.string().nullish(),
+  victoryCondition: zod.string().nullish(),
+  specialAbility: zod.string().nullish(),
+  playstyle: zod.string().nullish(),
+  faction: zod.string().nullish(),
+  motivation: zod.string().nullish(),
+  flaw: zod.string().nullish(),
+  arc: zod.string().nullish(),
+  displayOrder: zod.number().nullish(),
+  behaviorProfile: zod.record(zod.string(), zod.unknown()).nullish(),
+  relationships: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ReorderPlayersResponse = zod.array(ReorderPlayersResponseItem);
 
 export const AiGeneratePlayersParams = zod.object({
   projectId: zod.coerce.number(),
@@ -1304,8 +1560,8 @@ export const ListAssetsResponseItem = zod.object({
   flavorText: zod.string().nullish(),
   imageDataUrl: zod.string().nullish(),
   imagePrompt: zod.string().nullish(),
-  quantity: zod.number().default(1),
-  status: zod.string().default("draft"),
+  quantity: zod.number(),
+  status: zod.string(),
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
   groupDisplayOrder: zod.number().nullish(),
@@ -1359,8 +1615,8 @@ export const UpdateAssetResponse = zod.object({
   flavorText: zod.string().nullish(),
   imageDataUrl: zod.string().nullish(),
   imagePrompt: zod.string().nullish(),
-  quantity: zod.number().default(1),
-  status: zod.string().default("draft"),
+  quantity: zod.number(),
+  status: zod.string(),
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
   groupDisplayOrder: zod.number().nullish(),
@@ -1425,10 +1681,11 @@ export const AiDescribeAssetResponse = zod.object({
   flavorText: zod.string().nullish(),
   imageDataUrl: zod.string().nullish(),
   imagePrompt: zod.string().nullish(),
-  quantity: zod.number().default(1),
-  status: zod.string().default("draft"),
+  quantity: zod.number(),
+  status: zod.string(),
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
+  groupDisplayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1453,10 +1710,11 @@ export const GenerateAssetImageResponse = zod.object({
   flavorText: zod.string().nullish(),
   imageDataUrl: zod.string().nullish(),
   imagePrompt: zod.string().nullish(),
-  quantity: zod.number().default(1),
-  status: zod.string().default("draft"),
+  quantity: zod.number(),
+  status: zod.string(),
   componentDetails: zod.string().nullish(),
   displayOrder: zod.number().nullish(),
+  groupDisplayOrder: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1781,137 +2039,4 @@ export const GenerateExportResponse = zod.object({
   contentType: zod.string(),
   content: zod.string(),
   filename: zod.string(),
-});
-
-export const ReorderPlayersParams = zod.object({
-  projectId: zod.coerce.number(),
-});
-
-export const ReorderPlayersBody = zod.object({
-  playerIds: zod.array(zod.number()),
-});
-
-export const ReorderPlayersResponseItem = zod.object({
-  id: zod.number(),
-  projectId: zod.number(),
-  name: zod.string(),
-  playerType: zod.string().nullish(),
-  role: zod.string().nullish(),
-  archetype: zod.string().nullish(),
-  description: zod.string().nullish(),
-  strategy: zod.string().nullish(),
-  startingResources: zod.string().nullish(),
-  victoryCondition: zod.string().nullish(),
-  specialAbility: zod.string().nullish(),
-  playstyle: zod.string().nullish(),
-  faction: zod.string().nullish(),
-  motivation: zod.string().nullish(),
-  flaw: zod.string().nullish(),
-  arc: zod.string().nullish(),
-  displayOrder: zod.number().nullish(),
-  behaviorProfile: zod.record(zod.unknown()).nullish(),
-  relationships: zod.array(zod.record(zod.unknown())).nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-export const ReorderPlayersResponse = zod.array(ReorderPlayersResponseItem);
-
-export const PlaytestReportActionItem = zod.object({
-  text: zod.string(),
-  linkedTaskId: zod.number().nullish(),
-  done: zod.boolean().nullish(),
-});
-
-export const PlaytestReportItem = zod.object({
-  id: zod.number(),
-  projectId: zod.number(),
-  date: zod.coerce.date(),
-  attendees: zod.array(zod.string()).nullish(),
-  rating: zod.number().nullish(),
-  whatWorked: zod.string().nullish(),
-  whatBroke: zod.string().nullish(),
-  actionItems: zod.array(PlaytestReportActionItem).nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-
-export const ListPlaytestReportsParams = zod.object({
-  projectId: zod.coerce.number(),
-});
-export const ListPlaytestReportsResponse = zod.array(PlaytestReportItem);
-
-export const CreatePlaytestReportParams = zod.object({
-  projectId: zod.coerce.number(),
-});
-export const CreatePlaytestReportBody = zod.object({
-  date: zod.string().optional(),
-  attendees: zod.array(zod.string()).optional(),
-  rating: zod.number().min(1).max(5).optional(),
-  whatWorked: zod.string().optional(),
-  whatBroke: zod.string().optional(),
-  actionItems: zod.array(PlaytestReportActionItem).optional(),
-});
-
-export const UpdatePlaytestReportParams = zod.object({
-  projectId: zod.coerce.number(),
-  reportId: zod.coerce.number(),
-});
-export const UpdatePlaytestReportBody = zod.object({
-  date: zod.string().optional(),
-  attendees: zod.array(zod.string()).nullable().optional(),
-  rating: zod.number().min(1).max(5).nullable().optional(),
-  whatWorked: zod.string().nullable().optional(),
-  whatBroke: zod.string().nullable().optional(),
-  actionItems: zod.array(PlaytestReportActionItem).nullable().optional(),
-});
-
-export const DeletePlaytestReportParams = zod.object({
-  projectId: zod.coerce.number(),
-  reportId: zod.coerce.number(),
-});
-
-export const ListReferenceGamesParams = zod.object({
-  projectId: zod.coerce.number(),
-});
-
-export const ReferenceGameItem = zod.object({
-  id: zod.number(),
-  projectId: zod.number(),
-  name: zod.string(),
-  gameData: zod.record(zod.string(), zod.unknown()).nullish(),
-  borrowing: zod.string().nullish(),
-  avoiding: zod.string().nullish(),
-  researchId: zod.number().nullish(),
-  position: zod.number().nullish(),
-  createdAt: zod.coerce.date(),
-});
-export const ListReferenceGamesResponse = zod.array(ReferenceGameItem);
-
-export const CreateReferenceGameParams = zod.object({
-  projectId: zod.coerce.number(),
-});
-
-export const CreateReferenceGameBody = zod.object({
-  name: zod.string(),
-  borrowing: zod.string().optional(),
-  avoiding: zod.string().optional(),
-  position: zod.number().optional(),
-});
-
-export const UpdateReferenceGameParams = zod.object({
-  projectId: zod.coerce.number(),
-  referenceGameId: zod.coerce.number(),
-});
-
-export const UpdateReferenceGameBody = zod.object({
-  borrowing: zod.string().optional(),
-  avoiding: zod.string().optional(),
-  position: zod.number().optional(),
-  gameData: zod.record(zod.string(), zod.unknown()).nullish(),
-  researchId: zod.number().optional(),
-});
-
-export const DeleteReferenceGameParams = zod.object({
-  projectId: zod.coerce.number(),
-  referenceGameId: zod.coerce.number(),
 });

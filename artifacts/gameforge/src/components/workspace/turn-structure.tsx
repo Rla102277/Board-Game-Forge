@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useGetProject } from "@workspace/api-client-react";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 import {
   Clock, Plus, Trash2, GripVertical, ChevronRight, ChevronDown,
   GitBranch, Layers, ArrowRight, Play, Zap, AlertTriangle,
@@ -107,28 +108,14 @@ const DEFAULT_STRUCTURE = (): TurnStructure => ({
   gameEndTrigger: "A player reaches the target score or all victory cards are claimed.",
 });
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function loadStructure(projectId: number): TurnStructure {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY(projectId));
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return DEFAULT_STRUCTURE();
-}
-
-function saveStructure(projectId: number, structure: TurnStructure) {
-  try {
-    localStorage.setItem(STORAGE_KEY(projectId), JSON.stringify(structure));
-  } catch { /* ignore */ }
-}
-
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function TurnStructureVisualizer({ projectId }: { projectId: number }) {
   const { toast } = useToast();
   const { data: project } = useGetProject(projectId);
-  const [structure, setStructure] = useState<TurnStructure>(() => loadStructure(projectId));
+  const { state: structure, setState: persist } = useDesignerArtifact<TurnStructure>(
+    projectId, "turn-structure", DEFAULT_STRUCTURE, STORAGE_KEY,
+  );
   const [expandedPhaseId, setExpandedPhaseId] = useState<string | null>(null);
   const [editingActionId, setEditingActionId] = useState<string | null>(null);
   const [playerCounts, setPlayerCounts] = useState<number[]>([2, 3, 4]);
@@ -146,11 +133,6 @@ export function TurnStructureVisualizer({ projectId }: { projectId: number }) {
       }
     }
   }, [project?.playerCount]);
-
-  const persist = useCallback((next: TurnStructure) => {
-    setStructure(next);
-    saveStructure(projectId, next);
-  }, [projectId]);
 
   const addPhase = () => {
     const newPhase: TurnPhase = {

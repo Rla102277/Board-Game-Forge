@@ -14,11 +14,11 @@ export interface Entity {
   /** @nullable */
   subtype?: string | null;
   /** @nullable */
+  parentEntityId?: number | null;
+  /** @nullable */
   description?: string | null;
   /** @nullable */
   stats?: string | null;
-  /** @nullable */
-  status?: string | null;
   /** @nullable */
   color?: string | null;
   /** @nullable */
@@ -27,6 +27,7 @@ export interface Entity {
   lore?: string | null;
   /** @nullable */
   designNotes?: string | null;
+  status: string;
   /** @nullable */
   displayOrder?: number | null;
   createdAt: Date;

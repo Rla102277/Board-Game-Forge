@@ -73,6 +73,34 @@ const MIGRATIONS = [
       ALTER TABLE projects DROP COLUMN reference_games;
     END IF;
   END $$`,
+  // 0016 – generic designer artifacts table (replaces 9 localStorage-only features)
+  `CREATE TABLE IF NOT EXISTS designer_artifacts (
+    id serial PRIMARY KEY,
+    project_id integer NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    kind text NOT NULL,
+    data jsonb NOT NULL DEFAULT '{}',
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS designer_artifacts_project_kind_unique ON designer_artifacts (project_id, kind)`,
+  `CREATE INDEX IF NOT EXISTS designer_artifacts_project_id_idx ON designer_artifacts (project_id)`,
+  // 0017 – performance indexes on hot foreign keys
+  `CREATE INDEX IF NOT EXISTS entities_project_id_idx ON entities (project_id)`,
+  `CREATE INDEX IF NOT EXISTS rules_project_id_idx ON rules (project_id)`,
+  `CREATE INDEX IF NOT EXISTS players_project_id_idx ON players (project_id)`,
+  `CREATE INDEX IF NOT EXISTS assets_project_id_idx ON assets (project_id)`,
+  `CREATE INDEX IF NOT EXISTS research_items_project_id_idx ON research_items (project_id)`,
+  `CREATE INDEX IF NOT EXISTS notes_project_id_idx ON notes (project_id)`,
+  `CREATE INDEX IF NOT EXISTS tasks_project_id_idx ON tasks (project_id)`,
+  `CREATE INDEX IF NOT EXISTS chat_messages_project_id_idx ON chat_messages (project_id)`,
+  `CREATE INDEX IF NOT EXISTS comments_project_id_idx ON comments (project_id)`,
+  `CREATE INDEX IF NOT EXISTS playtest_sessions_project_id_idx ON playtest_sessions (project_id)`,
+  // 0018 – sort indexes for ordered list views
+  `CREATE INDEX IF NOT EXISTS entities_project_order_idx ON entities (project_id, display_order)`,
+  `CREATE INDEX IF NOT EXISTS players_project_order_idx ON players (project_id, display_order)`,
+  `CREATE INDEX IF NOT EXISTS assets_project_order_idx ON assets (project_id, display_order)`,
+  // 0019 – soft-delete column + index for project list filtering
+  `ALTER TABLE projects ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,
+  `CREATE INDEX IF NOT EXISTS projects_deleted_at_idx ON projects (deleted_at) WHERE deleted_at IS NULL`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {

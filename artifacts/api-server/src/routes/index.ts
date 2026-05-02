@@ -31,6 +31,8 @@ import sharesRouter from "./shares";
 import notificationsRouter from "./notifications";
 import graphLayoutRouter from "./graphLayout";
 import playtestReportsRouter from "./playtestReports";
+import designerArtifactsRouter from "./designerArtifacts";
+import trashRouter from "./trash";
 import {
   requireAuth,
   requireProjectAccess,
@@ -86,6 +88,8 @@ router.use(collaborationRouter);
 router.use(sharesRouter);
 router.use(graphLayoutRouter);
 router.use(playtestReportsRouter);
+router.use(designerArtifactsRouter);
+router.use(trashRouter);
 
 // User-scoped (not project-scoped) authenticated routes
 router.use("/notifications", requireAuth);

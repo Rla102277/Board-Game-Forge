@@ -54,6 +54,10 @@ tags:
     description: Entity-rule link operations
   - name: graph-layout
     description: Component graph layout persistence operations
+  - name: designer-artifacts
+    description: Generic per-project designer artifact persistence (rulebook, turn structure, blind playtest, scaling matrix, layout, cost estimator, scoring curve, card templates, graph layout)
+  - name: trash
+    description: Soft-deleted project recycle bin operations
 paths:
   /healthz:
     get:
@@ -250,6 +254,91 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /projects/{projectId}/artifacts/{kind}:
+    get:
+      operationId: getDesignerArtifact
+      tags: [designer-artifacts]
+      summary: Get a designer artifact by kind for a project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Designer artifact (returns empty data object when not yet saved)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignerArtifact"
+    put:
+      operationId: updateDesignerArtifact
+      tags: [designer-artifacts]
+      summary: Upsert a designer artifact by kind for a project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDesignerArtifactBody"
+      responses:
+        "200":
+          description: Saved designer artifact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DesignerArtifact"
+
+  /trash/projects:
+    get:
+      operationId: listTrashedProjects
+      tags: [trash]
+      summary: List soft-deleted projects (recycle bin)
+      responses:
+        "200":
+          description: Trashed projects (newest deletions first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}/restore:
+    post:
+      operationId: restoreProject
+      tags: [trash]
+      summary: Restore a soft-deleted project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Restored project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}/purge:
+    delete:
+      operationId: purgeProject
+      tags: [trash]
+      summary: Permanently delete a soft-deleted project (irreversible)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "204":
+          description: Permanently deleted
 
   /projects/{projectId}/graph-layout:
     get:
@@ -888,49 +977,6 @@ paths:
         "204":
           description: Deleted
 
-  /projects/{projectId}/entities/{entityId}/rules:
-    get:
-      operationId: listEntityRules
-      tags: [entities]
-      parameters:
-        - $ref: "#/components/parameters/ProjectId"
-        - $ref: "#/components/parameters/EntityId"
-      responses:
-        "200":
-          description: Rules linked to this entity
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/EntityRuleLink"
-
-  /projects/{projectId}/entities/{entityId}/rules/{ruleId}:
-    post:
-      operationId: linkEntityRule
-      tags: [entities]
-      parameters:
-        - $ref: "#/components/parameters/ProjectId"
-        - $ref: "#/components/parameters/EntityId"
-        - $ref: "#/components/parameters/RuleId"
-      responses:
-        "201":
-          description: Link created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EntityRuleLink"
-    delete:
-      operationId: unlinkEntityRule
-      tags: [entities]
-      parameters:
-        - $ref: "#/components/parameters/ProjectId"
-        - $ref: "#/components/parameters/EntityId"
-        - $ref: "#/components/parameters/RuleId"
-      responses:
-        "204":
-          description: Unlinked
-
   /projects/{projectId}/rules:
     get:
       operationId: listRules
@@ -1046,24 +1092,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RuleEnhanceSuggestion"
-
-  /projects/{projectId}/rules/{ruleId}/entities:
-    get:
-      operationId: listRuleEntities
-      tags: [entity-rules]
-      summary: List entities linked to a specific rule
-      parameters:
-        - $ref: "#/components/parameters/ProjectId"
-        - $ref: "#/components/parameters/RuleId"
-      responses:
-        "200":
-          description: List of linked entities (lightweight view)
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RuleLinkedEntity"
 
   /projects/{projectId}/rules/conflict-check:
     post:
@@ -3556,21 +3584,6 @@ components:
           format: date-time
       required: [id, entityId, ruleId, createdAt]
 
-    RuleLinkedEntity:
-      type: object
-      properties:
-        id:
-          type: integer
-        name:
-          type: string
-        type:
-          type: string
-        subtype:
-          type: [string, "null"]
-        color:
-          type: [string, "null"]
-      required: [id, name, type]
-
     NodePosition:
       type: object
       properties:
@@ -3599,6 +3612,26 @@ components:
           additionalProperties:
             $ref: "#/components/schemas/NodePosition"
       required: [positions]
+
+    DesignerArtifact:
+      type: object
+      properties:
+        projectId:
+          type: integer
+        kind:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+      required: [projectId, kind, data]
+
+    UpdateDesignerArtifactBody:
+      type: object
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+      required: [data]
 
     ReferenceGame:
       type: object

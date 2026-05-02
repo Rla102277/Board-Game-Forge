@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { TrendingUp, AlertTriangle, Plus, Trash2, ChevronDown, ChevronRight, Zap } from "lucide-react";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
+import { TrendingUp, AlertTriangle, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,8 +12,7 @@ interface Session { id: string; date: string; playerCount: number; scoresByTurn:
 interface State { sessions: Session[]; threshold: number; }
 
 const STORAGE = (pid: number) => `gameforge.scoring-curve.${pid}`;
-const load = (pid: number): State => { try { const r = localStorage.getItem(STORAGE(pid)); if (r) return JSON.parse(r); } catch {} return { sessions: [], threshold: 15 }; };
-const save = (pid: number, s: State) => { try { localStorage.setItem(STORAGE(pid), JSON.stringify(s)); } catch {} };
+const makeDefault = (): State => ({ sessions: [], threshold: 15 });
 
 function compute(session: Session) {
   if (session.scoresByTurn.length < 2) return { avg: 0, max: 0, runaway: false, pred: false, lead: 0 };
@@ -29,15 +29,13 @@ function compute(session: Session) {
 }
 
 export function ScoringCurve({ projectId }: { projectId: number }) {
-  const [state, setState] = useState<State>(() => load(projectId));
+  const { state, setState: persist } = useDesignerArtifact<State>(projectId, "scoring-curve", makeDefault, STORAGE);
   const [ex, setEx] = useState<string | null>(null);
-  const persist = (n: State) => { setState(n); save(projectId, n); };
 
   const addS = () => { const s: Session = { id: crypto.randomUUID(), date: new Date().toISOString().split("T")[0], playerCount: 3, scoresByTurn: [] }; persist({ ...state, sessions: [...state.sessions, s] }); setEx(s.id); };
   const delS = (id: string) => { persist({ ...state, sessions: state.sessions.filter(s => s.id !== id) }); if (ex === id) setEx(null); };
   const updS = (id: string, u: Partial<Session>) => persist({ ...state, sessions: state.sessions.map(s => s.id === id ? { ...s, ...u } : s) });
-  const addT = (sid: string) => { const s = state.sessions.find(x => x.id === sid); if (!s) return; const nt = (s.scoresByTurn[s.scoresByTurn.length - 1]?.turn || 0) + 1; const prev = s.scoresByTurn[s.scoresByTurn.length - 1]?.scores || Array.from({ length: s.playerCount }, () => 0); const next = prev.map(v => Math.max(0, v + Math.floor(Math.random() * 8) - 1)); updS(sid, { scoresByTurn: [...s.scoresByTurn, { turn: nt, scores: next }] }); };
-  const mock = (sid: string) => { const s = state.sessions.find(x => x.id === sid); if (!s) return; const arr: TurnScore[] = []; let sc = Array.from({ length: s.playerCount }, () => Math.floor(Math.random() * 10)); for (let t = 0; t < 8; t++) { sc = sc.map(v => v + Math.floor(Math.random() * 8) - 1); arr.push({ turn: t + 1, scores: [...sc] }); } updS(sid, { scoresByTurn: arr }); };
+  const addT = (sid: string) => { const s = state.sessions.find(x => x.id === sid); if (!s) return; const nt = (s.scoresByTurn[s.scoresByTurn.length - 1]?.turn || 0) + 1; const prev = s.scoresByTurn[s.scoresByTurn.length - 1]?.scores || Array.from({ length: s.playerCount }, () => 0); updS(sid, { scoresByTurn: [...s.scoresByTurn, { turn: nt, scores: [...prev] }] }); };
   const updScore = (sid: string, ti: number, pi: number, val: number) => { const s = state.sessions.find(x => x.id === sid); if (!s) return; updS(sid, { scoresByTurn: s.scoresByTurn.map((t, i) => i === ti ? { ...t, scores: t.scores.map((v, j) => j === pi ? val : v) } : t) }); };
 
   const ov = useMemo(() => { if (!state.sessions.length) return null; const d = state.sessions.map(compute); const a = +(d.reduce((x, y) => x + y.avg, 0) / d.length).toFixed(1); return { a, rp: Math.round(d.filter(x => x.runaway).length / d.length * 100), pp: Math.round(d.filter(x => x.pred).length / d.length * 100), t: state.sessions.length }; }, [state.sessions]);
@@ -59,7 +57,7 @@ export function ScoringCurve({ projectId }: { projectId: number }) {
             <CardHeader className="pb-2 cursor-pointer" onClick={()=>setEx(isEx?null:s.id)}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">{isEx?<ChevronDown className="h-4 w-4 text-muted-foreground"/>:<ChevronRight className="h-4 w-4 text-muted-foreground"/>}<div><CardTitle className="text-sm">{s.date} — {s.playerCount}P</CardTitle><CardDescription>{s.scoresByTurn.length} turns</CardDescription></div></div>
-                <div className="flex items-center gap-2">{st.pred&&<Badge className="bg-red-500/20 text-red-400 border-red-500/30 gap-1"><AlertTriangle className="h-3 w-3"/> Pred</Badge>}{st.runaway&&<Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 gap-1"><TrendingUp className="h-3 w-3"/> Runaway</Badge>}<Button size="sm" variant="outline" onClick={e=>{e.stopPropagation();mock(s.id);}} className="h-7 gap-1"><Zap className="h-3 w-3"/> Mock</Button><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={e=>{e.stopPropagation();delS(s.id);}}><Trash2 className="h-3.5 w-3.5"/></Button></div>
+                <div className="flex items-center gap-2">{st.pred&&<Badge className="bg-red-500/20 text-red-400 border-red-500/30 gap-1"><AlertTriangle className="h-3 w-3"/> Pred</Badge>}{st.runaway&&<Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 gap-1"><TrendingUp className="h-3 w-3"/> Runaway</Badge>}<Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={e=>{e.stopPropagation();delS(s.id);}}><Trash2 className="h-3.5 w-3.5"/></Button></div>
               </div>
             </CardHeader>
             {isEx && (
@@ -67,7 +65,7 @@ export function ScoringCurve({ projectId }: { projectId: number }) {
                 <div className="flex items-center gap-3"><Label className="text-xs">Players</Label><Input type="number" min={2} value={s.playerCount} onChange={e=>updS(s.id,{playerCount:parseInt(e.target.value)||2})} className="h-8 text-sm w-20"/></div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between"><h4 className="text-sm font-medium">Turn Scores</h4><Button size="sm" variant="outline" onClick={()=>addT(s.id)} className="h-7 gap-1"><Plus className="h-3 w-3"/> Turn</Button></div>
-                  {s.scoresByTurn.length === 0 && <div className="text-sm text-muted-foreground">No turns. Add manually or generate mock data.</div>}
+                  {s.scoresByTurn.length === 0 && <div className="text-sm text-muted-foreground">No turns yet. Click "Turn" to add the first row.</div>}
                   <div className="space-y-2">
                     {s.scoresByTurn.map((t, ti) => (
                       <div key={t.turn} className="flex items-center gap-3">

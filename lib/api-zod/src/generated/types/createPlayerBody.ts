@@ -5,9 +5,12 @@
  * GameForge API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CreatePlayerBodyBehaviorProfile } from "./createPlayerBodyBehaviorProfile";
+import type { CreatePlayerBodyRelationshipsItem } from "./createPlayerBodyRelationshipsItem";
 
 export interface CreatePlayerBody {
   name: string;
+  playerType?: string;
   role?: string;
   archetype?: string;
   description?: string;
@@ -16,4 +19,11 @@ export interface CreatePlayerBody {
   victoryCondition?: string;
   specialAbility?: string;
   playstyle?: string;
+  faction?: string;
+  motivation?: string;
+  flaw?: string;
+  arc?: string;
+  displayOrder?: number;
+  behaviorProfile?: CreatePlayerBodyBehaviorProfile;
+  relationships?: CreatePlayerBodyRelationshipsItem[];
 }

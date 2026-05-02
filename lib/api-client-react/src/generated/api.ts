@@ -41,18 +41,19 @@ import type {
   CreatePlayerBody,
   CreatePlaytestSessionBody,
   CreateProjectBody,
+  CreateReferenceGameBody,
   CreateResearchBody,
   CreateRuleBody,
   CreateSnapshotBody,
   CreateStoryboardNodeBody,
   CreateTaskBody,
   DashboardSummary,
+  DesignerArtifact,
   DuplicateProjectBody,
   Entity,
   EntityEnhanceSuggestion,
   EntityProperty,
   EntityRule,
-  EntityRuleLink,
   ExportResult,
   ForbiddenResponse,
   ForkSnapshotBody,
@@ -68,15 +69,14 @@ import type {
   Note,
   Player,
   PlaytestFeedback,
-  PlaytestReport,
   PlaytestSession,
   PlaythroughBody,
-  CreatePlaytestReportBody,
-  UpdatePlaytestReportBody,
   Project,
   ProjectSnapshot,
   ProjectStats,
   PublicFeedbackProject,
+  ReferenceGame,
+  ReorderPlayersBody,
   ResearchItem,
   RestoreSnapshotResponse,
   Rule,
@@ -92,6 +92,7 @@ import type {
   UpdateAdminUserBody,
   UpdateAiSettingsBody,
   UpdateAssetBody,
+  UpdateDesignerArtifactBody,
   UpdateEntityBody,
   UpdateEntityPropertyBody,
   UpdateGraphLayoutBody,
@@ -99,14 +100,11 @@ import type {
   UpdatePlayerBody,
   UpdatePlaytestSessionBody,
   UpdateProjectBody,
+  UpdateReferenceGameBody,
   UpdateResearchBody,
   UpdateRuleBody,
   UpdateStoryboardNodeBody,
   UpdateTaskBody,
-  ReorderPlayersBody,
-  ReferenceGame,
-  CreateReferenceGameBody,
-  UpdateReferenceGameBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1152,6 +1150,466 @@ export const useDeleteProject = <
   TContext
 > => {
   return useMutation(getDeleteProjectMutationOptions(options));
+};
+
+/**
+ * @summary Get a designer artifact by kind for a project
+ */
+export const getGetDesignerArtifactUrl = (projectId: number, kind: string) => {
+  return `/api/projects/${projectId}/artifacts/${kind}`;
+};
+
+export const getDesignerArtifact = async (
+  projectId: number,
+  kind: string,
+  options?: RequestInit,
+): Promise<DesignerArtifact> => {
+  return customFetch<DesignerArtifact>(
+    getGetDesignerArtifactUrl(projectId, kind),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetDesignerArtifactQueryKey = (
+  projectId: number,
+  kind: string,
+) => {
+  return [`/api/projects/${projectId}/artifacts/${kind}`] as const;
+};
+
+export const getGetDesignerArtifactQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDesignerArtifact>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  kind: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDesignerArtifact>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetDesignerArtifactQueryKey(projectId, kind);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDesignerArtifact>>
+  > = ({ signal }) =>
+    getDesignerArtifact(projectId, kind, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(projectId && kind),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDesignerArtifact>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDesignerArtifactQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDesignerArtifact>>
+>;
+export type GetDesignerArtifactQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a designer artifact by kind for a project
+ */
+
+export function useGetDesignerArtifact<
+  TData = Awaited<ReturnType<typeof getDesignerArtifact>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  kind: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDesignerArtifact>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDesignerArtifactQueryOptions(
+    projectId,
+    kind,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upsert a designer artifact by kind for a project
+ */
+export const getUpdateDesignerArtifactUrl = (
+  projectId: number,
+  kind: string,
+) => {
+  return `/api/projects/${projectId}/artifacts/${kind}`;
+};
+
+export const updateDesignerArtifact = async (
+  projectId: number,
+  kind: string,
+  updateDesignerArtifactBody: UpdateDesignerArtifactBody,
+  options?: RequestInit,
+): Promise<DesignerArtifact> => {
+  return customFetch<DesignerArtifact>(
+    getUpdateDesignerArtifactUrl(projectId, kind),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateDesignerArtifactBody),
+    },
+  );
+};
+
+export const getUpdateDesignerArtifactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDesignerArtifact>>,
+    TError,
+    {
+      projectId: number;
+      kind: string;
+      data: BodyType<UpdateDesignerArtifactBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDesignerArtifact>>,
+  TError,
+  {
+    projectId: number;
+    kind: string;
+    data: BodyType<UpdateDesignerArtifactBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateDesignerArtifact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDesignerArtifact>>,
+    {
+      projectId: number;
+      kind: string;
+      data: BodyType<UpdateDesignerArtifactBody>;
+    }
+  > = (props) => {
+    const { projectId, kind, data } = props ?? {};
+
+    return updateDesignerArtifact(projectId, kind, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDesignerArtifactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDesignerArtifact>>
+>;
+export type UpdateDesignerArtifactMutationBody =
+  BodyType<UpdateDesignerArtifactBody>;
+export type UpdateDesignerArtifactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upsert a designer artifact by kind for a project
+ */
+export const useUpdateDesignerArtifact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDesignerArtifact>>,
+    TError,
+    {
+      projectId: number;
+      kind: string;
+      data: BodyType<UpdateDesignerArtifactBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateDesignerArtifact>>,
+  TError,
+  {
+    projectId: number;
+    kind: string;
+    data: BodyType<UpdateDesignerArtifactBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateDesignerArtifactMutationOptions(options));
+};
+
+/**
+ * @summary List soft-deleted projects (recycle bin)
+ */
+export const getListTrashedProjectsUrl = () => {
+  return `/api/trash/projects`;
+};
+
+export const listTrashedProjects = async (
+  options?: RequestInit,
+): Promise<Project[]> => {
+  return customFetch<Project[]>(getListTrashedProjectsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTrashedProjectsQueryKey = () => {
+  return [`/api/trash/projects`] as const;
+};
+
+export const getListTrashedProjectsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrashedProjects>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTrashedProjects>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTrashedProjectsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTrashedProjects>>
+  > = ({ signal }) => listTrashedProjects({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTrashedProjects>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTrashedProjectsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrashedProjects>>
+>;
+export type ListTrashedProjectsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List soft-deleted projects (recycle bin)
+ */
+
+export function useListTrashedProjects<
+  TData = Awaited<ReturnType<typeof listTrashedProjects>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTrashedProjects>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTrashedProjectsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Restore a soft-deleted project
+ */
+export const getRestoreProjectUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/restore`;
+};
+
+export const restoreProject = async (
+  projectId: number,
+  options?: RequestInit,
+): Promise<Project> => {
+  return customFetch<Project>(getRestoreProjectUrl(projectId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRestoreProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreProject>>,
+    TError,
+    { projectId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restoreProject>>,
+  TError,
+  { projectId: number },
+  TContext
+> => {
+  const mutationKey = ["restoreProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restoreProject>>,
+    { projectId: number }
+  > = (props) => {
+    const { projectId } = props ?? {};
+
+    return restoreProject(projectId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestoreProjectMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restoreProject>>
+>;
+
+export type RestoreProjectMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Restore a soft-deleted project
+ */
+export const useRestoreProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreProject>>,
+    TError,
+    { projectId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restoreProject>>,
+  TError,
+  { projectId: number },
+  TContext
+> => {
+  return useMutation(getRestoreProjectMutationOptions(options));
+};
+
+/**
+ * @summary Permanently delete a soft-deleted project (irreversible)
+ */
+export const getPurgeProjectUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/purge`;
+};
+
+export const purgeProject = async (
+  projectId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getPurgeProjectUrl(projectId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getPurgeProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof purgeProject>>,
+    TError,
+    { projectId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof purgeProject>>,
+  TError,
+  { projectId: number },
+  TContext
+> => {
+  const mutationKey = ["purgeProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof purgeProject>>,
+    { projectId: number }
+  > = (props) => {
+    const { projectId } = props ?? {};
+
+    return purgeProject(projectId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PurgeProjectMutationResult = NonNullable<
+  Awaited<ReturnType<typeof purgeProject>>
+>;
+
+export type PurgeProjectMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Permanently delete a soft-deleted project (irreversible)
+ */
+export const usePurgeProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof purgeProject>>,
+    TError,
+    { projectId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof purgeProject>>,
+  TError,
+  { projectId: number },
+  TContext
+> => {
+  return useMutation(getPurgeProjectMutationOptions(options));
 };
 
 /**
@@ -2770,6 +3228,367 @@ export const useAiGenerateResearch = <
   TContext
 > => {
   return useMutation(getAiGenerateResearchMutationOptions(options));
+};
+
+export const getListReferenceGamesUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/reference-games`;
+};
+
+export const listReferenceGames = async (
+  projectId: number,
+  options?: RequestInit,
+): Promise<ReferenceGame[]> => {
+  return customFetch<ReferenceGame[]>(getListReferenceGamesUrl(projectId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListReferenceGamesQueryKey = (projectId: number) => {
+  return [`/api/projects/${projectId}/reference-games`] as const;
+};
+
+export const getListReferenceGamesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listReferenceGames>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listReferenceGames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListReferenceGamesQueryKey(projectId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listReferenceGames>>
+  > = ({ signal }) =>
+    listReferenceGames(projectId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listReferenceGames>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListReferenceGamesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listReferenceGames>>
+>;
+export type ListReferenceGamesQueryError = ErrorType<unknown>;
+
+export function useListReferenceGames<
+  TData = Awaited<ReturnType<typeof listReferenceGames>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listReferenceGames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListReferenceGamesQueryOptions(projectId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getCreateReferenceGameUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/reference-games`;
+};
+
+export const createReferenceGame = async (
+  projectId: number,
+  createReferenceGameBody: CreateReferenceGameBody,
+  options?: RequestInit,
+): Promise<ReferenceGame> => {
+  return customFetch<ReferenceGame>(getCreateReferenceGameUrl(projectId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createReferenceGameBody),
+  });
+};
+
+export const getCreateReferenceGameMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReferenceGame>>,
+    TError,
+    { projectId: number; data: BodyType<CreateReferenceGameBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createReferenceGame>>,
+  TError,
+  { projectId: number; data: BodyType<CreateReferenceGameBody> },
+  TContext
+> => {
+  const mutationKey = ["createReferenceGame"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createReferenceGame>>,
+    { projectId: number; data: BodyType<CreateReferenceGameBody> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return createReferenceGame(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateReferenceGameMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createReferenceGame>>
+>;
+export type CreateReferenceGameMutationBody = BodyType<CreateReferenceGameBody>;
+export type CreateReferenceGameMutationError = ErrorType<unknown>;
+
+export const useCreateReferenceGame = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReferenceGame>>,
+    TError,
+    { projectId: number; data: BodyType<CreateReferenceGameBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createReferenceGame>>,
+  TError,
+  { projectId: number; data: BodyType<CreateReferenceGameBody> },
+  TContext
+> => {
+  return useMutation(getCreateReferenceGameMutationOptions(options));
+};
+
+export const getUpdateReferenceGameUrl = (
+  projectId: number,
+  referenceGameId: number,
+) => {
+  return `/api/projects/${projectId}/reference-games/${referenceGameId}`;
+};
+
+export const updateReferenceGame = async (
+  projectId: number,
+  referenceGameId: number,
+  updateReferenceGameBody: UpdateReferenceGameBody,
+  options?: RequestInit,
+): Promise<ReferenceGame> => {
+  return customFetch<ReferenceGame>(
+    getUpdateReferenceGameUrl(projectId, referenceGameId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateReferenceGameBody),
+    },
+  );
+};
+
+export const getUpdateReferenceGameMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateReferenceGame>>,
+    TError,
+    {
+      projectId: number;
+      referenceGameId: number;
+      data: BodyType<UpdateReferenceGameBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateReferenceGame>>,
+  TError,
+  {
+    projectId: number;
+    referenceGameId: number;
+    data: BodyType<UpdateReferenceGameBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateReferenceGame"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateReferenceGame>>,
+    {
+      projectId: number;
+      referenceGameId: number;
+      data: BodyType<UpdateReferenceGameBody>;
+    }
+  > = (props) => {
+    const { projectId, referenceGameId, data } = props ?? {};
+
+    return updateReferenceGame(
+      projectId,
+      referenceGameId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateReferenceGameMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateReferenceGame>>
+>;
+export type UpdateReferenceGameMutationBody = BodyType<UpdateReferenceGameBody>;
+export type UpdateReferenceGameMutationError = ErrorType<unknown>;
+
+export const useUpdateReferenceGame = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateReferenceGame>>,
+    TError,
+    {
+      projectId: number;
+      referenceGameId: number;
+      data: BodyType<UpdateReferenceGameBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateReferenceGame>>,
+  TError,
+  {
+    projectId: number;
+    referenceGameId: number;
+    data: BodyType<UpdateReferenceGameBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateReferenceGameMutationOptions(options));
+};
+
+export const getDeleteReferenceGameUrl = (
+  projectId: number,
+  referenceGameId: number,
+) => {
+  return `/api/projects/${projectId}/reference-games/${referenceGameId}`;
+};
+
+export const deleteReferenceGame = async (
+  projectId: number,
+  referenceGameId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteReferenceGameUrl(projectId, referenceGameId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteReferenceGameMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteReferenceGame>>,
+    TError,
+    { projectId: number; referenceGameId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteReferenceGame>>,
+  TError,
+  { projectId: number; referenceGameId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteReferenceGame"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteReferenceGame>>,
+    { projectId: number; referenceGameId: number }
+  > = (props) => {
+    const { projectId, referenceGameId } = props ?? {};
+
+    return deleteReferenceGame(projectId, referenceGameId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteReferenceGameMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteReferenceGame>>
+>;
+
+export type DeleteReferenceGameMutationError = ErrorType<unknown>;
+
+export const useDeleteReferenceGame = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteReferenceGame>>,
+    TError,
+    { projectId: number; referenceGameId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteReferenceGame>>,
+  TError,
+  { projectId: number; referenceGameId: number },
+  TContext
+> => {
+  return useMutation(getDeleteReferenceGameMutationOptions(options));
 };
 
 export const getListEntitiesUrl = (projectId: number) => {
@@ -4631,9 +5450,6 @@ export const useAiEnhanceRule = <
   return useMutation(getAiEnhanceRuleMutationOptions(options));
 };
 
-/**
- * @summary List entities linked to a specific rule
- */
 export const getConflictCheckRulesUrl = (projectId: number) => {
   return `/api/projects/${projectId}/rules/conflict-check`;
 };
@@ -5034,6 +5850,93 @@ export const useDeletePlayer = <
   return useMutation(getDeletePlayerMutationOptions(options));
 };
 
+/**
+ * @summary Reorder the player roster by providing an ordered array of player IDs
+ */
+export const getReorderPlayersUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/players/reorder`;
+};
+
+export const reorderPlayers = async (
+  projectId: number,
+  reorderPlayersBody: ReorderPlayersBody,
+  options?: RequestInit,
+): Promise<Player[]> => {
+  return customFetch<Player[]>(getReorderPlayersUrl(projectId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderPlayersBody),
+  });
+};
+
+export const getReorderPlayersMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderPlayers>>,
+    TError,
+    { projectId: number; data: BodyType<ReorderPlayersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reorderPlayers>>,
+  TError,
+  { projectId: number; data: BodyType<ReorderPlayersBody> },
+  TContext
+> => {
+  const mutationKey = ["reorderPlayers"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reorderPlayers>>,
+    { projectId: number; data: BodyType<ReorderPlayersBody> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return reorderPlayers(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReorderPlayersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reorderPlayers>>
+>;
+export type ReorderPlayersMutationBody = BodyType<ReorderPlayersBody>;
+export type ReorderPlayersMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reorder the player roster by providing an ordered array of player IDs
+ */
+export const useReorderPlayers = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderPlayers>>,
+    TError,
+    { projectId: number; data: BodyType<ReorderPlayersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reorderPlayers>>,
+  TError,
+  { projectId: number; data: BodyType<ReorderPlayersBody> },
+  TContext
+> => {
+  return useMutation(getReorderPlayersMutationOptions(options));
+};
+
 export const getAiGeneratePlayersUrl = (projectId: number) => {
   return `/api/projects/${projectId}/players/ai-generate`;
 };
@@ -5198,87 +6101,6 @@ export const useAiEnhancePlayer = <
   TContext
 > => {
   return useMutation(getAiEnhancePlayerMutationOptions(options));
-};
-
-export const getReorderPlayersUrl = (projectId: number) => {
-  return `/api/projects/${projectId}/players/reorder`;
-};
-
-export const reorderPlayers = async (
-  projectId: number,
-  reorderPlayersBody: ReorderPlayersBody,
-  options?: RequestInit,
-): Promise<Player[]> => {
-  return customFetch<Player[]>(getReorderPlayersUrl(projectId), {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(reorderPlayersBody),
-  });
-};
-
-export const getReorderPlayersMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof reorderPlayers>>,
-    TError,
-    { projectId: number; data: BodyType<ReorderPlayersBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof reorderPlayers>>,
-  TError,
-  { projectId: number; data: BodyType<ReorderPlayersBody> },
-  TContext
-> => {
-  const mutationKey = ["reorderPlayers"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey } };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof reorderPlayers>>,
-    { projectId: number; data: BodyType<ReorderPlayersBody> }
-  > = (props) => {
-    const { projectId, data } = props ?? {};
-
-    return reorderPlayers(projectId, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type ReorderPlayersMutationResult = NonNullable<
-  Awaited<ReturnType<typeof reorderPlayers>>
->;
-export type ReorderPlayersMutationBody = BodyType<ReorderPlayersBody>;
-export type ReorderPlayersMutationError = ErrorType<unknown>;
-
-export const useReorderPlayers = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof reorderPlayers>>,
-    TError,
-    { projectId: number; data: BodyType<ReorderPlayersBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof reorderPlayers>>,
-  TError,
-  { projectId: number; data: BodyType<ReorderPlayersBody> },
-  TContext
-> => {
-  return useMutation(getReorderPlayersMutationOptions(options));
 };
 
 export const getListNotesUrl = (projectId: number) => {
@@ -8539,667 +9361,4 @@ export const useGenerateExport = <
   TContext
 > => {
   return useMutation(getGenerateExportMutationOptions(options));
-};
-
-export const getListPlaytestReportsUrl = (projectId: number) => {
-  return `/api/projects/${projectId}/playtest-reports`;
-};
-
-export const listPlaytestReports = async (
-  projectId: number,
-  options?: RequestInit,
-): Promise<PlaytestReport[]> => {
-  return customFetch<PlaytestReport[]>(getListPlaytestReportsUrl(projectId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getListPlaytestReportsQueryKey = (projectId: number) => {
-  return [`/api/projects/${projectId}/playtest-reports`] as const;
-};
-
-export const getListPlaytestReportsQueryOptions = <
-  TData = Awaited<ReturnType<typeof listPlaytestReports>>,
-  TError = ErrorType<unknown>,
->(
-  projectId: number,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listPlaytestReports>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey =
-    queryOptions?.queryKey ?? getListPlaytestReportsQueryKey(projectId);
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof listPlaytestReports>>
-  > = ({ signal }) =>
-    listPlaytestReports(projectId, { signal, ...requestOptions });
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!projectId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof listPlaytestReports>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type ListPlaytestReportsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listPlaytestReports>>
->;
-export type ListPlaytestReportsQueryError = ErrorType<unknown>;
-
-export function useListPlaytestReports<
-  TData = Awaited<ReturnType<typeof listPlaytestReports>>,
-  TError = ErrorType<unknown>,
->(
-  projectId: number,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listPlaytestReports>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListPlaytestReportsQueryOptions(projectId, options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-export const getCreatePlaytestReportUrl = (projectId: number) => {
-  return `/api/projects/${projectId}/playtest-reports`;
-};
-
-export const createPlaytestReport = async (
-  projectId: number,
-  createPlaytestReportBody: CreatePlaytestReportBody,
-  options?: RequestInit,
-): Promise<PlaytestReport> => {
-  return customFetch<PlaytestReport>(getCreatePlaytestReportUrl(projectId), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(createPlaytestReportBody),
-  });
-};
-
-export const getCreatePlaytestReportMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createPlaytestReport>>,
-    TError,
-    { projectId: number; data: BodyType<CreatePlaytestReportBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createPlaytestReport>>,
-  TError,
-  { projectId: number; data: BodyType<CreatePlaytestReportBody> },
-  TContext
-> => {
-  const mutationKey = ["createPlaytestReport"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createPlaytestReport>>,
-    { projectId: number; data: BodyType<CreatePlaytestReportBody> }
-  > = (props) => {
-    const { projectId, data } = props ?? {};
-    return createPlaytestReport(projectId, data, requestOptions);
-  };
-  return { mutationFn, ...mutationOptions };
-};
-
-export type CreatePlaytestReportMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createPlaytestReport>>
->;
-export type CreatePlaytestReportMutationBody = BodyType<CreatePlaytestReportBody>;
-export type CreatePlaytestReportMutationError = ErrorType<unknown>;
-
-export const useCreatePlaytestReport = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createPlaytestReport>>,
-    TError,
-    { projectId: number; data: BodyType<CreatePlaytestReportBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof createPlaytestReport>>,
-  TError,
-  { projectId: number; data: BodyType<CreatePlaytestReportBody> },
-  TContext
-> => {
-  return useMutation(getCreatePlaytestReportMutationOptions(options));
-};
-
-export const getUpdatePlaytestReportUrl = (
-  projectId: number,
-  reportId: number,
-) => {
-  return `/api/projects/${projectId}/playtest-reports/${reportId}`;
-};
-
-export const updatePlaytestReport = async (
-  projectId: number,
-  reportId: number,
-  updatePlaytestReportBody: UpdatePlaytestReportBody,
-  options?: RequestInit,
-): Promise<PlaytestReport> => {
-  return customFetch<PlaytestReport>(
-    getUpdatePlaytestReportUrl(projectId, reportId),
-    {
-      ...options,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(updatePlaytestReportBody),
-    },
-  );
-};
-
-export const getUpdatePlaytestReportMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updatePlaytestReport>>,
-    TError,
-    { projectId: number; reportId: number; data: BodyType<UpdatePlaytestReportBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof updatePlaytestReport>>,
-  TError,
-  { projectId: number; reportId: number; data: BodyType<UpdatePlaytestReportBody> },
-  TContext
-> => {
-  const mutationKey = ["updatePlaytestReport"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof updatePlaytestReport>>,
-    { projectId: number; reportId: number; data: BodyType<UpdatePlaytestReportBody> }
-  > = (props) => {
-    const { projectId, reportId, data } = props ?? {};
-    return updatePlaytestReport(projectId, reportId, data, requestOptions);
-  };
-  return { mutationFn, ...mutationOptions };
-};
-
-export type UpdatePlaytestReportMutationResult = NonNullable<
-  Awaited<ReturnType<typeof updatePlaytestReport>>
->;
-export type UpdatePlaytestReportMutationBody = BodyType<UpdatePlaytestReportBody>;
-export type UpdatePlaytestReportMutationError = ErrorType<unknown>;
-
-export const useUpdatePlaytestReport = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updatePlaytestReport>>,
-    TError,
-    { projectId: number; reportId: number; data: BodyType<UpdatePlaytestReportBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof updatePlaytestReport>>,
-  TError,
-  { projectId: number; reportId: number; data: BodyType<UpdatePlaytestReportBody> },
-  TContext
-> => {
-  return useMutation(getUpdatePlaytestReportMutationOptions(options));
-};
-
-export const getDeletePlaytestReportUrl = (
-  projectId: number,
-  reportId: number,
-) => {
-  return `/api/projects/${projectId}/playtest-reports/${reportId}`;
-};
-
-export const deletePlaytestReport = async (
-  projectId: number,
-  reportId: number,
-  options?: RequestInit,
-): Promise<void> => {
-  return customFetch<void>(
-    getDeletePlaytestReportUrl(projectId, reportId),
-    { ...options, method: "DELETE" },
-  );
-};
-
-export const getDeletePlaytestReportMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    void,
-    TError,
-    { projectId: number; reportId: number },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  void,
-  TError,
-  { projectId: number; reportId: number },
-  TContext
-> => {
-  const mutationKey = ["deletePlaytestReport"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-  const mutationFn: MutationFunction<
-    void,
-    { projectId: number; reportId: number }
-  > = (props) => {
-    const { projectId, reportId } = props ?? {};
-    return deletePlaytestReport(projectId, reportId, requestOptions as RequestInit);
-  };
-  return { mutationFn, ...mutationOptions };
-};
-
-export type DeletePlaytestReportMutationResult = NonNullable<void>;
-export type DeletePlaytestReportMutationError = ErrorType<unknown>;
-
-export const useDeletePlaytestReport = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    void,
-    TError,
-    { projectId: number; reportId: number },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  void,
-  TError,
-  { projectId: number; reportId: number },
-  TContext
-> => {
-  return useMutation(getDeletePlaytestReportMutationOptions(options));
-};
-
-export const getListReferenceGamesUrl = (projectId: number) => {
-  return `/api/projects/${projectId}/reference-games`;
-};
-
-export const listReferenceGames = async (
-  projectId: number,
-  options?: RequestInit,
-): Promise<ReferenceGame[]> => {
-  return customFetch<ReferenceGame[]>(getListReferenceGamesUrl(projectId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getListReferenceGamesQueryKey = (projectId: number) => {
-  return [`/api/projects/${projectId}/reference-games`] as const;
-};
-
-export const getListReferenceGamesQueryOptions = <
-  TData = Awaited<ReturnType<typeof listReferenceGames>>,
-  TError = ErrorType<unknown>,
->(
-  projectId: number,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listReferenceGames>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey =
-    queryOptions?.queryKey ?? getListReferenceGamesQueryKey(projectId);
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof listReferenceGames>>
-  > = ({ signal }) =>
-    listReferenceGames(projectId, { signal, ...requestOptions });
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!projectId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof listReferenceGames>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type ListReferenceGamesQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listReferenceGames>>
->;
-export type ListReferenceGamesQueryError = ErrorType<unknown>;
-
-export function useListReferenceGames<
-  TData = Awaited<ReturnType<typeof listReferenceGames>>,
-  TError = ErrorType<unknown>,
->(
-  projectId: number,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listReferenceGames>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListReferenceGamesQueryOptions(projectId, options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-export const getCreateReferenceGameUrl = (projectId: number) => {
-  return `/api/projects/${projectId}/reference-games`;
-};
-
-export const createReferenceGame = async (
-  projectId: number,
-  createReferenceGameBody: CreateReferenceGameBody,
-  options?: RequestInit,
-): Promise<ReferenceGame> => {
-  return customFetch<ReferenceGame>(getCreateReferenceGameUrl(projectId), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(createReferenceGameBody),
-  });
-};
-
-export const getCreateReferenceGameMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createReferenceGame>>,
-    TError,
-    { projectId: number; data: BodyType<CreateReferenceGameBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createReferenceGame>>,
-  TError,
-  { projectId: number; data: BodyType<CreateReferenceGameBody> },
-  TContext
-> => {
-  const mutationKey = ["createReferenceGame"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createReferenceGame>>,
-    { projectId: number; data: BodyType<CreateReferenceGameBody> }
-  > = (props) => {
-    const { projectId, data } = props ?? {};
-    return createReferenceGame(projectId, data, requestOptions);
-  };
-  return { mutationFn, ...mutationOptions };
-};
-
-export type CreateReferenceGameMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createReferenceGame>>
->;
-export type CreateReferenceGameMutationBody = BodyType<CreateReferenceGameBody>;
-export type CreateReferenceGameMutationError = ErrorType<unknown>;
-
-export const useCreateReferenceGame = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createReferenceGame>>,
-    TError,
-    { projectId: number; data: BodyType<CreateReferenceGameBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof createReferenceGame>>,
-  TError,
-  { projectId: number; data: BodyType<CreateReferenceGameBody> },
-  TContext
-> => {
-  return useMutation(getCreateReferenceGameMutationOptions(options));
-};
-
-export const getUpdateReferenceGameUrl = (
-  projectId: number,
-  referenceGameId: number,
-) => {
-  return `/api/projects/${projectId}/reference-games/${referenceGameId}`;
-};
-
-export const updateReferenceGame = async (
-  projectId: number,
-  referenceGameId: number,
-  updateReferenceGameBody: UpdateReferenceGameBody,
-  options?: RequestInit,
-): Promise<ReferenceGame> => {
-  return customFetch<ReferenceGame>(
-    getUpdateReferenceGameUrl(projectId, referenceGameId),
-    {
-      ...options,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(updateReferenceGameBody),
-    },
-  );
-};
-
-export const getUpdateReferenceGameMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updateReferenceGame>>,
-    TError,
-    {
-      projectId: number;
-      referenceGameId: number;
-      data: BodyType<UpdateReferenceGameBody>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof updateReferenceGame>>,
-  TError,
-  {
-    projectId: number;
-    referenceGameId: number;
-    data: BodyType<UpdateReferenceGameBody>;
-  },
-  TContext
-> => {
-  const mutationKey = ["updateReferenceGame"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof updateReferenceGame>>,
-    {
-      projectId: number;
-      referenceGameId: number;
-      data: BodyType<UpdateReferenceGameBody>;
-    }
-  > = (props) => {
-    const { projectId, referenceGameId, data } = props ?? {};
-    return updateReferenceGame(
-      projectId,
-      referenceGameId,
-      data,
-      requestOptions,
-    );
-  };
-  return { mutationFn, ...mutationOptions };
-};
-
-export type UpdateReferenceGameMutationResult = NonNullable<
-  Awaited<ReturnType<typeof updateReferenceGame>>
->;
-export type UpdateReferenceGameMutationBody =
-  BodyType<UpdateReferenceGameBody>;
-export type UpdateReferenceGameMutationError = ErrorType<unknown>;
-
-export const useUpdateReferenceGame = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updateReferenceGame>>,
-    TError,
-    {
-      projectId: number;
-      referenceGameId: number;
-      data: BodyType<UpdateReferenceGameBody>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof updateReferenceGame>>,
-  TError,
-  {
-    projectId: number;
-    referenceGameId: number;
-    data: BodyType<UpdateReferenceGameBody>;
-  },
-  TContext
-> => {
-  return useMutation(getUpdateReferenceGameMutationOptions(options));
-};
-
-export const getDeleteReferenceGameUrl = (
-  projectId: number,
-  referenceGameId: number,
-) => {
-  return `/api/projects/${projectId}/reference-games/${referenceGameId}`;
-};
-
-export const deleteReferenceGame = async (
-  projectId: number,
-  referenceGameId: number,
-  options?: RequestInit,
-): Promise<void> => {
-  return customFetch<void>(
-    getDeleteReferenceGameUrl(projectId, referenceGameId),
-    {
-      ...options,
-      method: "DELETE",
-    },
-  );
-};
-
-export const getDeleteReferenceGameMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteReferenceGame>>,
-    TError,
-    { projectId: number; referenceGameId: number },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof deleteReferenceGame>>,
-  TError,
-  { projectId: number; referenceGameId: number },
-  TContext
-> => {
-  const mutationKey = ["deleteReferenceGame"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof deleteReferenceGame>>,
-    { projectId: number; referenceGameId: number }
-  > = (props) => {
-    const { projectId, referenceGameId } = props ?? {};
-    return deleteReferenceGame(projectId, referenceGameId, requestOptions);
-  };
-  return { mutationFn, ...mutationOptions };
-};
-
-export type DeleteReferenceGameMutationResult = NonNullable<
-  Awaited<ReturnType<typeof deleteReferenceGame>>
->;
-export type DeleteReferenceGameMutationError = ErrorType<unknown>;
-
-export const useDeleteReferenceGame = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteReferenceGame>>,
-    TError,
-    { projectId: number; referenceGameId: number },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof deleteReferenceGame>>,
-  TError,
-  { projectId: number; referenceGameId: number },
-  TContext
-> => {
-  return useMutation(getDeleteReferenceGameMutationOptions(options));
 };

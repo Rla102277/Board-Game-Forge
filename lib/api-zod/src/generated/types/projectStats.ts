@@ -16,5 +16,4 @@ export interface ProjectStats {
   researchCount: number;
   assetCount: number;
   playtestCount: number;
-  playtestReportCount: number;
 }

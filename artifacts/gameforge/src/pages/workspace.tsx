@@ -4,7 +4,7 @@ import { useGetProject, useGetProjectStats, useDeleteProject, useUpdateProject, 
 import { useUser, useClerk } from "@clerk/react";
 import {
   Layout, Users, FileText, CheckSquare, ChevronLeft, Gamepad2, Activity, MoreVertical, Trash2,
-  BookOpen, Network, Dice5, ImageIcon, MapPin, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
+  BookOpen, Network, Dice5, ImageIcon, Scale, Download, User as UserIcon, LogOut, Shield, GraduationCap,
   MessageSquare, History, Share2, Clock, BarChart3, EyeOff, Grid3X3, TrendingUp, ChevronRight, Pencil, ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,6 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 const Overview = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.Overview })));
 const GameIdentity = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.GameIdentity })));
 const Research = lazy(() => import("@/components/workspace/research").then(m => ({ default: m.Research })));
-const Ontology = lazy(() => import("@/components/workspace/ontology").then(m => ({ default: m.Ontology })));
 const AssetsEntities = lazy(() => import("@/components/workspace/assets-entities").then(m => ({ default: m.AssetsEntities })));
 const Players = lazy(() => import("@/components/workspace/players").then(m => ({ default: m.Players })));
 const Rules = lazy(() => import("@/components/workspace/rules").then(m => ({ default: m.Rules })));
@@ -32,7 +31,6 @@ const Playtesting = lazy(() => import("@/components/workspace/playtesting").then
 const Notes = lazy(() => import("@/components/workspace/notes").then(m => ({ default: m.Notes })));
 const Tasks = lazy(() => import("@/components/workspace/tasks").then(m => ({ default: m.Tasks })));
 const Balance = lazy(() => import("@/components/workspace/balance").then(m => ({ default: m.Balance })));
-const DesignPipeline = lazy(() => import("@/components/workspace/design-pipeline").then(m => ({ default: m.DesignPipeline })));
 const Exports = lazy(() => import("@/components/workspace/exports").then(m => ({ default: m.Exports })));
 const MembersDirectory = lazy(() => import("@/components/workspace/members-directory").then(m => ({ default: m.MembersDirectory })));
 const ChatPanel = lazy(() => import("@/components/workspace/chat-panel").then(m => ({ default: m.ChatPanel })));
@@ -45,7 +43,6 @@ const LayoutEditor = lazy(() => import("@/components/workspace/layout-editor").t
 const ScoringCurve = lazy(() => import("@/components/workspace/scoring-curve").then(m => ({ default: m.ScoringCurve })));
 const CollaborationPresence = lazy(() => import("@/components/collaboration/cursor-indicators").then(m => ({ default: m.CollaborationPresence })));
 const CursorIndicators = lazy(() => import("@/components/collaboration/cursor-indicators").then(m => ({ default: m.CursorIndicators })));
-const PresenceAvatars = lazy(() => import("@/components/collaboration/presence-avatars").then(m => ({ default: m.PresenceAvatars })));
 const ActivityFeed = lazy(() => import("@/components/collaboration/activity-feed").then(m => ({ default: m.ActivityFeed })));
 const CommentsPanel = lazy(() => import("@/components/collaboration/comments-panel").then(m => ({ default: m.CommentsPanel })));
 const VersionHistory = lazy(() => import("@/components/collaboration/version-history").then(m => ({ default: m.VersionHistory })));
@@ -112,7 +109,6 @@ const NAV_GROUPS = [
     defaultOpen: false,
     items: [
       { id: "export",         label: "Exports",          icon: Download,     statKey: null,             shortcut: "8" },
-      { id: "design-pipeline",label: "Design Pipeline",  icon: MapPin,       statKey: null,             shortcut: null },
     ],
   },
   {
@@ -242,13 +238,6 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           </Suspense>
         </ErrorBoundary>
       );
-      case "ontology": return (
-        <ErrorBoundary>
-          <Suspense fallback={loadingFallback}>
-            <Ontology projectId={projectId} onJump={setActiveSection} />
-          </Suspense>
-        </ErrorBoundary>
-      );
       case "assets-entities": return (
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
@@ -337,13 +326,6 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
         <ErrorBoundary>
           <Suspense fallback={loadingFallback}>
             <Tasks projectId={projectId} />
-          </Suspense>
-        </ErrorBoundary>
-      );
-      case "design-pipeline": return (
-        <ErrorBoundary>
-          <Suspense fallback={loadingFallback}>
-            <DesignPipeline projectId={projectId} />
           </Suspense>
         </ErrorBoundary>
       );
@@ -543,9 +525,6 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           <span>/</span>
           <span className="text-primary">{ALL_SECTION_LABELS[activeSection] ?? activeSection}</span>
           <div className="ml-auto flex items-center gap-2">
-            <Suspense fallback={null}>
-              <PresenceAvatars projectId={projectId} />
-            </Suspense>
             <Suspense fallback={null}>
               <NotificationBell />
             </Suspense>

@@ -1,11 +1,10 @@
-import { useMemo } from "react";
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3 } from "lucide-react";
+import { useComputeComplexity } from "@workspace/api-client-react";
 
 interface ComplexityScoreProps {
-  ruleCount: number;
-  entityCount: number;
-  playerCount?: string | null;
+  projectId: number;
   playtestCount?: number;
 }
 
@@ -20,32 +19,34 @@ const REFS    = [
   "Arkham Horror, Twilight Imperium",
 ];
 
-function score(count: number, thresholds: number[]): number {
-  for (let i = 0; i < thresholds.length; i++) {
-    if (count <= thresholds[i]) return i + 1;
+export function ComplexityScore({ projectId, playtestCount }: ComplexityScoreProps) {
+  const compute = useComputeComplexity();
+  const mutate = compute.mutate;
+
+  useEffect(() => {
+    mutate({ projectId });
+  }, [projectId, mutate]);
+
+  if (compute.isPending || !compute.data) {
+    return (
+      <Card>
+        <CardHeader className="py-3 px-4 border-b border-border">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" /> Design Complexity
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 py-6">
+          <p className="text-xs text-muted-foreground text-center italic">
+            {compute.isError ? "Could not compute complexity." : "Computing complexity score…"}
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
-  return 5;
-}
 
-export function ComplexityScore({ ruleCount, entityCount, playerCount, playtestCount }: ComplexityScoreProps) {
-  const { overall, factors } = useMemo(() => {
-    const ruleS   = score(ruleCount,   [5, 15, 30, 50]);
-    const entityS = score(entityCount, [10, 25, 50, 100]);
-
-    const pcNums  = (playerCount ?? "").match(/\d+/g)?.map(Number) ?? [2];
-    const pcSpread = pcNums.length >= 2 ? pcNums[pcNums.length - 1] - pcNums[0] : 0;
-    const playerS = score(pcSpread, [0, 1, 3, 5]);
-
-    const factors = [
-      { label: "Rules",      score: ruleS,   detail: `${ruleCount} rules`   },
-      { label: "Components", score: entityS, detail: `${entityCount} components` },
-      { label: "Player range", score: playerS, detail: playerCount || "unknown" },
-    ];
-
-    const avg = factors.reduce((s, f) => s + f.score, 0) / factors.length;
-    return { overall: Math.round(avg * 10) / 10, factors };
-  }, [ruleCount, entityCount, playerCount]);
-
+  // Server returns score on a 0-100 scale; map to 1-5 tier.
+  const overall100 = compute.data.score;
+  const overall = Math.max(1, Math.min(5, 1 + (overall100 / 100) * 4));
   const tier  = Math.round(overall);
   const label = LABELS[tier]  ?? "—";
   const color = COLORS[tier]  ?? "text-white";
@@ -71,7 +72,6 @@ export function ComplexityScore({ ruleCount, entityCount, playerCount, playtestC
           </p>
         </div>
 
-        {/* Gradient bar */}
         <div>
           <div className="h-2 w-full rounded-full overflow-hidden bg-gradient-to-r from-emerald-900 via-yellow-900 to-red-900">
             <div
@@ -84,22 +84,24 @@ export function ComplexityScore({ ruleCount, entityCount, playerCount, playtestC
           </div>
         </div>
 
-        {/* Factor breakdown */}
         <div className="space-y-2">
-          {factors.map(f => (
-            <div key={f.label} className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground w-24 shrink-0">{f.label}</span>
-              <div className="flex gap-0.5 shrink-0">
-                {[1, 2, 3, 4, 5].map(n => (
-                  <span
-                    key={n}
-                    className={`h-1.5 w-5 rounded-sm transition-colors ${n <= f.score ? "bg-primary" : "bg-border"}`}
-                  />
-                ))}
+          {compute.data.breakdown.map(b => {
+            const factorScore = Math.max(1, Math.min(5, Math.round(1 + (b.value / 100) * 4)));
+            return (
+              <div key={b.factor} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-24 shrink-0 capitalize">{b.factor}</span>
+                <div className="flex gap-0.5 shrink-0">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <span
+                      key={n}
+                      className={`h-1.5 w-5 rounded-sm transition-colors ${n <= factorScore ? "bg-primary" : "bg-border"}`}
+                    />
+                  ))}
+                </div>
+                <span className="text-[10px] text-muted-foreground truncate">{b.value.toFixed(0)}</span>
               </div>
-              <span className="text-[10px] text-muted-foreground truncate">{f.detail}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {playtestCount !== undefined && playtestCount > 0 && (
@@ -109,7 +111,7 @@ export function ComplexityScore({ ruleCount, entityCount, playerCount, playtestC
         )}
 
         <p className="text-[10px] text-muted-foreground/60 italic">
-          BGG-style estimate based on rules, components, and player range.
+          Server-computed estimate based on your project's rules, components, and player range.
         </p>
       </CardContent>
     </Card>

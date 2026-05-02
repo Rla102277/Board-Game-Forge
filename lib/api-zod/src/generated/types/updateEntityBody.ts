@@ -14,10 +14,10 @@ export interface UpdateEntityBody {
   parentEntityId?: number | null;
   description?: string;
   stats?: string;
+  status?: string;
   color?: string;
   relatedTo?: string;
   lore?: string;
   designNotes?: string;
-  status?: string;
   displayOrder?: number;
 }

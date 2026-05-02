@@ -215,6 +215,10 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
     decisions: "idle", playtest: "idle", bible: "idle", phase: "idle",
   });
   const sectionTimers = useRef<Partial<Record<SectionKey, ReturnType<typeof setTimeout>>>>({});
+  const sectionSaveSeqRef = useRef<Record<SectionKey, number>>({
+    hero: 0, fingerprint: 0, problems: 0,
+    decisions: 0, playtest: 0, bible: 0, phase: 0,
+  });
 
   /* ── Per-column jsonb state ────────────────────────────────────── */
   const [heroMeta,     setHeroMeta]     = useState<HeroMeta>({});
@@ -271,11 +275,16 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
   const save = (patch: Parameters<typeof updateProject.mutate>[0]["data"], section: SectionKey) => {
     setSectionSaveStatus((s) => ({ ...s, [section]: "saving" }));
     if (sectionTimers.current[section]) clearTimeout(sectionTimers.current[section]);
+    const seq = ++sectionSaveSeqRef.current[section];
     updateProject.mutate(
       { projectId, data: patch },
       {
-        onSuccess: () => {
+        onSettled: () => {
+          if (seq !== sectionSaveSeqRef.current[section]) return;
           qc.invalidateQueries({ queryKey: getGetProjectQueryKey(projectId) });
+        },
+        onSuccess: () => {
+          if (seq !== sectionSaveSeqRef.current[section]) return;
           setSectionSaveStatus((s) => ({ ...s, [section]: "saved" }));
           sectionTimers.current[section] = setTimeout(
             () => setSectionSaveStatus((s) => ({ ...s, [section]: "idle" })),
@@ -283,6 +292,7 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
           );
         },
         onError: (err) => {
+          if (seq !== sectionSaveSeqRef.current[section]) return;
           setSectionSaveStatus((s) => ({ ...s, [section]: "idle" }));
           toast({ title: "Section save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
         },
@@ -703,23 +713,10 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
             </Card>
 
             {/* Design Complexity */}
-            {stats ? (
-              <ComplexityScore
-                ruleCount={(stats as any).ruleCount ?? 0}
-                entityCount={(stats as any).entityCount ?? 0}
-                playerCount={form.playerCount}
-                playtestCount={(stats as any).playtestCount ?? 0}
-              />
-            ) : (
-              <Card>
-                <CardHeader className="py-3 px-4 border-b border-border">
-                  <CardTitle className="text-sm font-semibold">Design Complexity</CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 py-6">
-                  <p className="text-xs text-muted-foreground text-center italic">Loading complexity score…</p>
-                </CardContent>
-              </Card>
-            )}
+            <ComplexityScore
+              projectId={projectId}
+              playtestCount={(stats as any)?.playtestCount ?? 0}
+            />
           </div>
 
           {/* Secondary sections — Design Problems / Decision Log / Next Playtest */}

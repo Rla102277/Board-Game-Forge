@@ -1,8 +1,8 @@
 import { Link, useLocation } from "wouter";
-import { Plus, LayoutDashboard, Activity, Gamepad2, Folder, Trash2, Settings, MoreVertical, User as UserIcon, LogOut, Shield } from "lucide-react";
+import { Plus, LayoutDashboard, Activity, Gamepad2, Folder, Trash2, Settings, MoreVertical, User as UserIcon, LogOut, Shield, RotateCcw, AlertTriangle } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { useState } from "react";
-import { useListProjects, useGetDashboardSummary, useGetRecentActivity, useCreateProject, useDeleteProject, getListProjectsQueryKey, getGetDashboardSummaryQueryKey, getGetRecentActivityQueryKey } from "@workspace/api-client-react";
+import { useListProjects, useGetDashboardSummary, useGetRecentActivity, useCreateProject, useDeleteProject, useListTrashedProjects, useRestoreProject, usePurgeProject, getListProjectsQueryKey, getGetDashboardSummaryQueryKey, getGetRecentActivityQueryKey, getListTrashedProjectsQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,11 +26,46 @@ export default function Home() {
 
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
+  const restoreProject = useRestoreProject();
+  const purgeProject = usePurgeProject();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createData, setCreateData] = useState({ name: "", description: "", gameType: "", genre: "", playerCount: "", targetDuration: "" });
 
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [projectToPurge, setProjectToPurge] = useState<number | null>(null);
+
+  const { data: trashedProjects, isLoading: trashedLoading } = useListTrashedProjects({
+    query: { enabled: isTrashOpen, queryKey: getListTrashedProjectsQueryKey() },
+  });
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetRecentActivityQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListTrashedProjectsQueryKey() });
+  };
+
+  const handleRestore = async (projectId: number) => {
+    try {
+      await restoreProject.mutateAsync({ projectId });
+      invalidateAll();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handlePurge = async () => {
+    if (!projectToPurge) return;
+    try {
+      await purgeProject.mutateAsync({ projectId: projectToPurge });
+      setProjectToPurge(null);
+      invalidateAll();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +107,9 @@ export default function Home() {
             <p className="text-muted-foreground mt-2 text-lg">Your AI-powered board game design studio.</p>
           </div>
           <div className="flex items-center gap-3">
+            <Button variant="outline" size="lg" className="gap-2" onClick={() => setIsTrashOpen(true)}>
+              <Trash2 className="h-5 w-5" /> Recycle Bin
+            </Button>
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
                 <Button size="lg" className="gap-2">
@@ -314,15 +352,90 @@ export default function Home() {
       <AlertDialog open={!!projectToDelete} onOpenChange={(o) => !o && setProjectToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Move to Recycle Bin?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this project and all of its entities, rules, players, notes, and tasks. This action cannot be undone.
+              This project will be moved to the Recycle Bin. You can restore it later, or permanently delete it from the bin.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {deleteProject.isPending ? "Deleting..." : "Delete"}
+              {deleteProject.isPending ? "Moving..." : "Move to bin"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isTrashOpen} onOpenChange={setIsTrashOpen}>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Trash2 className="h-5 w-5" /> Recycle Bin</DialogTitle>
+            <DialogDescription>
+              Soft-deleted projects. Restore to bring them back, or purge to delete forever.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 max-h-[60vh] overflow-y-auto">
+            {trashedLoading ? (
+              <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
+            ) : trashedProjects && trashedProjects.length > 0 ? (
+              <div className="space-y-2">
+                {trashedProjects.map(p => (
+                  <Card key={p.id} className="bg-card border-card-border">
+                    <CardContent className="p-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate">{p.name}</div>
+                        <div className="text-xs text-muted-foreground line-clamp-1">{p.description || "No description"}</div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => handleRestore(p.id)}
+                          disabled={restoreProject.isPending}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" /> Restore
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-destructive hover:text-destructive"
+                          onClick={() => setProjectToPurge(p.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Purge
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                <Trash2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                The Recycle Bin is empty.
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTrashOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!projectToPurge} onOpenChange={(o) => !o && setProjectToPurge(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Permanently delete?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the project and all of its data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePurge} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {purgeProject.isPending ? "Purging..." : "Purge forever"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

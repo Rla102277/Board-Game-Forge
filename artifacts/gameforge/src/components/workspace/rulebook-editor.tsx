@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 import {
   useGetProject,
   useListRules,
@@ -69,11 +70,9 @@ const META: Record<string, { color: string; borderColor: string }> = {
   custom:     { color: "bg-muted text-muted-foreground",                            borderColor: "border-l-border"         },
 };
 
-function load(pid: number): RulebookState {
-  try { const r = localStorage.getItem(STORAGE(pid)); if (r) return JSON.parse(r); } catch {}
+function makeDefault(): RulebookState {
   return { sections: DEFAULT_SECTIONS(), glossary: [], title: "Rulebook", version: "1.0", notes: "" };
 }
-function save(pid: number, s: RulebookState) { try { localStorage.setItem(STORAGE(pid), JSON.stringify(s)); } catch {} }
 
 function detectTerms(text: string): Map<string, number> {
   const m = new Map<string, number>();
@@ -148,13 +147,13 @@ function GammaModal({ open, content, gammaUrl, onClose }: {
 
 export function RulebookEditor({ projectId }: { projectId: number }) {
   const { toast } = useToast();
-  const [state, setState] = useState<RulebookState>(() => load(projectId));
+  const { state, setState: persist } = useDesignerArtifact<RulebookState>(
+    projectId, "rulebook", makeDefault, STORAGE,
+  );
   const [expanded, setExpanded] = useState<string | null>(null);
   const [tab, setTab] = useState<"outline" | "glossary" | "preview">("outline");
   const [syncing, setSyncing] = useState(false);
   const [gammaModal, setGammaModal] = useState<{ open: boolean; content: string; gammaUrl?: string }>({ open: false, content: "" });
-
-  const persist = (next: RulebookState) => { setState(next); save(projectId, next); };
 
   const { data: project } = useGetProject(projectId);
   const { data: rules }   = useListRules(projectId);

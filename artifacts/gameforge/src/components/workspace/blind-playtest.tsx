@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useGetProject } from "@workspace/api-client-react";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 import { EyeOff, Plus, Trash2, CheckCircle2, XCircle, Clock, BookOpen, AlertTriangle, BarChart3, ChevronDown, ChevronRight, Play, HelpCircle, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,17 +21,15 @@ interface Session {
 interface State { protocolEnabled: boolean; rulebookVersion: string; rulebookUrl: string; protocolNotes: string; questions: Question[]; sessions: Session[]; }
 
 const STORAGE = (pid: number) => `gameforge.blind-playtest.${pid}`;
-const load = (pid: number): State => { try { const r = localStorage.getItem(STORAGE(pid)); if (r) return JSON.parse(r); } catch {} return { protocolEnabled: false, rulebookVersion: "1.0", rulebookUrl: "", protocolNotes: "", questions: [ { id: crypto.randomUUID(), question: "What is the win condition?", correctAnswer: "", section: "objective" }, { id: crypto.randomUUID(), question: "How do you set up the board?", correctAnswer: "", section: "setup" } ], sessions: [] }; };
-const save = (pid: number, s: State) => { try { localStorage.setItem(STORAGE(pid), JSON.stringify(s)); } catch {} };
+const makeDefault = (): State => ({ protocolEnabled: false, rulebookVersion: "1.0", rulebookUrl: "", protocolNotes: "", questions: [ { id: crypto.randomUUID(), question: "What is the win condition?", correctAnswer: "", section: "objective" }, { id: crypto.randomUUID(), question: "How do you set up the board?", correctAnswer: "", section: "setup" } ], sessions: [] });
 const calcScore = (s: Session) => s.questions.length ? Math.round(s.questions.filter(q => q.correct).length / s.questions.length * 100) : 0;
 const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
 
 export function BlindPlaytestFramework({ projectId }: { projectId: number }) {
   const { data: project } = useGetProject(projectId);
-  const [state, setState] = useState<State>(() => load(projectId));
+  const { state, setState: persist } = useDesignerArtifact<State>(projectId, "blind-playtest", makeDefault, STORAGE);
   const [tab, setTab] = useState<"protocol" | "sessions" | "analysis">("protocol");
   const [expanded, setExpanded] = useState<string | null>(null);
-  const persist = (next: State) => { setState(next); save(projectId, next); };
   const addQ = () => persist({ ...state, questions: [...state.questions, { id: crypto.randomUUID(), question: "", correctAnswer: "", section: "other" }] });
   const updQ = (id: string, u: Partial<Question>) => persist({ ...state, questions: state.questions.map(q => q.id === id ? { ...q, ...u } : q) });
   const delQ = (id: string) => persist({ ...state, questions: state.questions.filter(q => q.id !== id) });

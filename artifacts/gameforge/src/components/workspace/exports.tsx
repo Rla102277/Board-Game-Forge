@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useListChangelog } from "@workspace/api-client-react";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 import { Download, FileText, FileJson, Package, History, Mail, Layout,
   Sparkles, Loader2, ExternalLink, RefreshCw, Trash2, BookOpen, Presentation, Palette, FileBadge, DollarSign, Plus, Trash2 as TrashIcon,
 } from "lucide-react";
@@ -59,12 +60,12 @@ const COST_DEFAULT: ComponentItem[] = [
   { id: "3", name: "Tokens (wood)", count: 30, unitCost: 0.03, type: "token" },
   { id: "4", name: "Box", count: 1, unitCost: 1.50, type: "box" },
 ];
-function loadCost(pid: number): CostState { try { const r = localStorage.getItem(COST_STORAGE(pid)); if (r) return JSON.parse(r); } catch {} return { components: COST_DEFAULT, margin: 30, copies: 1000 }; }
-function saveCost(pid: number, s: CostState) { try { localStorage.setItem(COST_STORAGE(pid), JSON.stringify(s)); } catch {} }
+const makeCostDefault = (): CostState => ({ components: COST_DEFAULT, margin: 30, copies: 1000 });
 
 function CostEstimator({ projectId }: { projectId: number }) {
-  const [state, setState] = useState<CostState>(() => loadCost(projectId));
-  const persist = (n: CostState) => { setState(n); saveCost(projectId, n); };
+  const { state, setState: persist } = useDesignerArtifact<CostState>(
+    projectId, "cost-estimator", makeCostDefault, COST_STORAGE,
+  );
   const materials = state.components.reduce((a, c) => a + c.count * c.unitCost, 0);
   const perUnit = materials * (1 + state.margin / 100);
   const total = perUnit * state.copies;

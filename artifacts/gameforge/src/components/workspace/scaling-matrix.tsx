@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useGetProject, useListEntities } from "@workspace/api-client-react";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 import { Users, Plus, Trash2, Clock, Zap, CheckCircle2, XCircle, Gauge, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -22,16 +23,12 @@ const STORAGE_KEY = (projectId: number) => `gameforge.scaling-matrix.${projectId
 const DENSITY: Record<number,string> = {1:"Solitary",2:"Low",3:"Medium",4:"High",5:"Constant"};
 const COMPLEXITY: Record<number,string> = {1:"Very Light",2:"Light",3:"Medium",4:"Heavy",5:"Very Heavy"};
 
-function loadMatrix(projectId: number): ScalingMatrix {
-  try { const raw = localStorage.getItem(STORAGE_KEY(projectId)); if (raw) return JSON.parse(raw); } catch {}
+function makeDefault(): ScalingMatrix {
   return { configs: [2,3,4,5,6].map(count => ({
     count, supported: count <=4, componentMultiplier: count <=4 ? 1 : 1.5,
     estimatedDuration: count*15+30, interactionDensity: (count<=2?2:count<=4?3:4) as 1|2|3|4|5,
     downtimePerPlayer: count<=3?2:4, complexity: 3 as 1|2|3|4|5, winVariance: "medium" as "low"|"medium"|"high", notes:"", recommended: count===3||count===4,
   })), baseComponentCount: 60, scalingNotes: "" };
-}
-function saveMatrix(projectId: number, matrix: ScalingMatrix) {
-  try { localStorage.setItem(STORAGE_KEY(projectId), JSON.stringify(matrix)); } catch {}
 }
 function scoreColor(pct: number) { return pct >= 0.7 ? "text-emerald-400" : pct >= 0.4 ? "text-amber-400" : "text-red-400"; }
 function scoreBg(pct: number) { return pct >= 0.7 ? "bg-emerald-500" : pct >= 0.4 ? "bg-amber-500" : "bg-red-500"; }
@@ -39,10 +36,10 @@ function scoreBg(pct: number) { return pct >= 0.7 ? "bg-emerald-500" : pct >= 0.
 export function ScalingMatrixVisualizer({ projectId }: { projectId: number }) {
   const { data: project } = useGetProject(projectId);
   const { data: entities } = useListEntities(projectId);
-  const [matrix, setMatrix] = useState<ScalingMatrix>(() => loadMatrix(projectId));
+  const { state: matrix, setState: persist } = useDesignerArtifact<ScalingMatrix>(
+    projectId, "scaling-matrix", makeDefault, STORAGE_KEY,
+  );
   const [sel, setSel] = useState<number|null>(null);
-
-  const persist = (next: ScalingMatrix) => { setMatrix(next); saveMatrix(projectId, next); };
   const update = (count: number, u: Partial<PlayerCountConfig>) =>
     persist({...matrix, configs: matrix.configs.map(c => c.count===count?{...c,...u}:c)});
 

@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useGetProject } from "@workspace/api-client-react";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 import { Grid3X3, Plus, Trash2, Move, ZoomIn, ZoomOut, Eye, Layers, Square, Circle, Hexagon, Diamond, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,24 +32,22 @@ interface LayoutState {
 const STORAGE = (pid: number) => `gameforge.layout.${pid}`;
 const COLORS = ["#ef4444","#f97316","#f59e0b","#84cc16","#22c55e","#10b981","#06b6d4","#3b82f6","#8b5cf6","#d946ef","#f43f5e","#78716c"];
 
-function load(pid: number): LayoutState {
-  try { const r = localStorage.getItem(STORAGE(pid)); if (r) return JSON.parse(r); } catch {}
+function makeDefault(): LayoutState {
   return { zones: [
     { id: crypto.randomUUID(), name: "Main Board", x: 2, y: 2, w: 8, h: 6, color: "#3b82f6", type: "board", label: "Board" },
     { id: crypto.randomUUID(), name: "Draw Deck", x: 11, y: 2, w: 2, h: 3, color: "#22c55e", type: "deck", label: "Deck" },
     { id: crypto.randomUUID(), name: "Discard", x: 11, y: 6, w: 2, h: 2, color: "#ef4444", type: "discard", label: "Discard" },
   ], gridSize: 40, width: 16, height: 10, showGrid: true };
 }
-function save(pid: number, s: LayoutState) { try { localStorage.setItem(STORAGE(pid), JSON.stringify(s)); } catch {} }
 
 export function LayoutEditor({ projectId }: { projectId: number }) {
-  const [state, setState] = useState<LayoutState>(() => load(projectId));
+  const { state, setState: persist } = useDesignerArtifact<LayoutState>(
+    projectId, "layout", makeDefault, STORAGE,
+  );
   const [selected, setSelected] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-
-  const persist = (next: LayoutState) => { setState(next); save(projectId, next); };
 
   const addZone = () => {
     const z: Zone = { id: crypto.randomUUID(), name: "New Zone", x: 1, y: 1, w: 3, h: 2, color: COLORS[state.zones.length % COLORS.length], type: "custom", label: "Zone" };
