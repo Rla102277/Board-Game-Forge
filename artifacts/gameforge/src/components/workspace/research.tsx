@@ -11,6 +11,7 @@ import {
 import { parseMechanic } from "@/lib/mechanic-parser";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 import {
   Heart, Sparkles, Plus, X, Wand2, Loader2, GripVertical, Trash2, Search,
   ExternalLink, Edit2, Tag, Lightbulb, Compass, StickyNote, TrendingUp,
@@ -75,12 +76,28 @@ interface CompGame {
 /* ── helpers ─────────────────────────────────────────────────────────── */
 
 
-const COMP_KEY = (pid: number) => `gameforge.comp.${pid}`;
-function loadComp(pid: number): CompGame[] {
-  try { const r = localStorage.getItem(COMP_KEY(pid)); return r ? JSON.parse(r) : []; } catch { return []; }
+const LEGACY_COMP_KEY = (pid: number) => `gameforge.comp.${pid}`;
+const COMPETITORS_ARTIFACT_KIND = "competitors";
+
+type CompetitorsArtifact = { games: CompGame[] };
+
+// Legacy importer: stored value used to be a bare CompGame[] array;
+// wrap it inside { games: [...] } so it matches the artifact JSONB shape.
+// Cleanup runs only after the server-side upsert succeeds.
+function importCompLegacy(pid: number): CompetitorsArtifact | null {
+  try {
+    const raw = localStorage.getItem(LEGACY_COMP_KEY(pid));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const games = Array.isArray(parsed) ? (parsed as CompGame[]) : [];
+    if (games.length === 0) return null;
+    return { games };
+  } catch {
+    return null;
+  }
 }
-function saveComp(pid: number, list: CompGame[]) {
-  try { localStorage.setItem(COMP_KEY(pid), JSON.stringify(list)); } catch {}
+function cleanupCompLegacy(pid: number): void {
+  try { localStorage.removeItem(LEGACY_COMP_KEY(pid)); } catch { /* ignore */ }
 }
 
 const QUICK_QUESTIONS = [
@@ -1264,10 +1281,19 @@ function InspirationShelf({ projectId, workspaceSlug }: { projectId: number; wor
 }
 
 function GamesToKnow({ projectId }: { projectId: number }) {
-  const [games, setGames] = useState<CompGame[]>(() => loadComp(projectId));
+  // Use cleanupCompLegacy so the legacy key is only removed after the upsert succeeds.
+  const { state: artifact, setState: setArtifact } = useDesignerArtifact<CompetitorsArtifact>(
+    projectId,
+    COMPETITORS_ARTIFACT_KIND,
+    () => ({ games: [] }),
+    undefined,
+    importCompLegacy,
+    cleanupCompLegacy,
+  );
+  const games = artifact.games;
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const persist = (next: CompGame[]) => { setGames(next); saveComp(projectId, next); };
+  const persist = (next: CompGame[]) => { setArtifact({ games: next }); };
 
   const add = () => {
     const g: CompGame = {

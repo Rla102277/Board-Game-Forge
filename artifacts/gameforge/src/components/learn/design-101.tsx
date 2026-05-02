@@ -9,8 +9,9 @@ import {
   BookOpen,
 } from "lucide-react";
 import { LearnChat } from "./learn-chat";
+import { useUserArtifact } from "@/hooks/use-user-artifact";
 
-const STORAGE_KEY = "gameforge.learn.design101.completed";
+const LEGACY_STORAGE_KEY = "gameforge.learn.design101.completed";
 
 type Lesson = {
   id: string;
@@ -622,24 +623,30 @@ export function Design101Content({ initialChapterId }: { initialChapterId?: stri
     const idx = LESSONS.findIndex((l) => l.id === initialChapterId);
     return idx >= 0 ? idx : 0;
   });
-  const [completed, setCompleted] = useState<Set<string>>(() => new Set());
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setCompleted(new Set(JSON.parse(raw)));
-    } catch {/* ignore */}
-  }, []);
-
-  const persist = (next: Set<string>) => {
-    setCompleted(next);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...next])); } catch {/* ignore */}
-  };
+  // Per-user design-101 completion artifact: { completed: string[] }
+  const { state: designArtifact, setState: setDesignArtifact } = useUserArtifact<{ completed: string[] }>(
+    "learn-design101-completed",
+    () => ({ completed: [] }),
+    undefined,
+    () => {
+      try {
+        const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.length === 0) return null;
+        return { completed: (parsed as unknown[]).filter((s): s is string => typeof s === "string") };
+      } catch { return null; }
+    },
+    () => { try { localStorage.removeItem(LEGACY_STORAGE_KEY); } catch { /* ignore */ } },
+  );
+  const completed = useMemo(() => new Set(designArtifact.completed), [designArtifact.completed]);
 
   const toggleComplete = (id: string) => {
-    const next = new Set(completed);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    persist(next);
+    setDesignArtifact((prev) => {
+      const next = new Set(prev.completed);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return { completed: [...next] };
+    });
   };
 
   const progress = useMemo(() => Math.round((completed.size / LESSONS.length) * 100), [completed]);

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 import { useToast } from "@/hooks/use-toast";
 import { AiEditTextarea } from "@/components/workspace/ai-edit-textarea";
 import { ProjectVersions } from "@/components/workspace/project-versions";
@@ -524,6 +525,48 @@ const PHASE_GUIDE_DATA: Record<string, {
   },
 };
 
+// Phase-guide artifact stores all phases in a single row keyed by phase id:
+//   { [phase: string]: Record<string, boolean> }
+// (The collapsed/expanded UI pref stays in localStorage – it's a Category A UI pref.)
+type PhaseGuideArtifact = Record<string, Record<string, boolean>>;
+
+// One-time legacy import: scan all known phases for `gameforge:phase-guide:{pid}:{phase}` keys
+// and roll them up into the consolidated artifact. Removes legacy keys on success.
+function importPhaseGuideLegacy(pid: number): PhaseGuideArtifact | null {
+  const out: PhaseGuideArtifact = {};
+  const importedKeys: string[] = [];
+  for (const p of DESIGN_PHASES) {
+    const key = `gameforge:phase-guide:${pid}:${p.value}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, boolean>;
+        if (parsed && typeof parsed === "object") {
+          out[p.value] = parsed;
+          importedKeys.push(key);
+        }
+      }
+    } catch { /* ignore */ }
+  }
+  if (Object.keys(out).length === 0) return null;
+  // Stash the keys so cleanupPhaseGuideLegacy can remove them post-save.
+  pendingPhaseGuideKeys.set(JSON.stringify(out), importedKeys);
+  return out;
+}
+
+// Cache of legacy keys awaiting deletion (parser → cleanup handoff).
+const pendingPhaseGuideKeys = new Map<string, string[]>();
+function cleanupPhaseGuideLegacy(pid: number): void {
+  // Best-effort: re-derive the keys we would have removed and clear them all.
+  // Even if the cache lookup misses, this catches everything.
+  for (const p of DESIGN_PHASES) {
+    const k = `gameforge.phase-guide.${p.value}.${pid}`;
+    try { localStorage.removeItem(k); } catch { /* ignore */ }
+  }
+  // Clear any cached entries to avoid leaks.
+  pendingPhaseGuideKeys.clear();
+}
+
 function PhaseGuide({
   projectId, phase, metrics, onAdvancePhase,
 }: {
@@ -532,29 +575,26 @@ function PhaseGuide({
   metrics: PhaseMetrics;
   onAdvancePhase: (nextPhase: string) => void;
 }) {
-  const storageKey = `gameforge:phase-guide:${projectId}:${phase}`;
-
-  const [checked, setChecked] = useState<Record<string, boolean>>(() => {
-    try { const raw = localStorage.getItem(storageKey); return raw ? JSON.parse(raw) : {}; }
-    catch { return {}; }
-  });
+  const { state: artifact, setState: setArtifact } = useDesignerArtifact<PhaseGuideArtifact>(
+    projectId,
+    "phase-guide",
+    () => ({}),
+    undefined,
+    importPhaseGuideLegacy,
+    cleanupPhaseGuideLegacy,
+  );
+  const checked = artifact[phase] ?? {};
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(`gameforge:phase-guide-collapsed:${projectId}`) === "true"; }
     catch { return false; }
   });
 
-  useEffect(() => {
-    try { const raw = localStorage.getItem(storageKey); setChecked(raw ? JSON.parse(raw) : {}); }
-    catch { setChecked({}); }
-  }, [storageKey]);
-
   const toggleCheck = (key: string, isAuto: boolean) => {
     if (isAuto) return;
-    setChecked((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
-      return next;
+    setArtifact((prev) => {
+      const prevPhase = prev[phase] ?? {};
+      return { ...prev, [phase]: { ...prevPhase, [key]: !prevPhase[key] } };
     });
   };
 

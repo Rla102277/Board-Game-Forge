@@ -268,6 +268,34 @@ export const UpdateDesignerArtifactResponse = zod.object({
 });
 
 /**
+ * @summary Get a per-user artifact by kind
+ */
+export const GetUserArtifactParams = zod.object({
+  kind: zod.coerce.string(),
+});
+
+export const GetUserArtifactResponse = zod.object({
+  kind: zod.string(),
+  data: zod.record(zod.string(), zod.unknown()),
+});
+
+/**
+ * @summary Upsert a per-user artifact by kind
+ */
+export const UpdateUserArtifactParams = zod.object({
+  kind: zod.coerce.string(),
+});
+
+export const UpdateUserArtifactBody = zod.object({
+  data: zod.record(zod.string(), zod.unknown()),
+});
+
+export const UpdateUserArtifactResponse = zod.object({
+  kind: zod.string(),
+  data: zod.record(zod.string(), zod.unknown()),
+});
+
+/**
  * @summary List soft-deleted projects (recycle bin)
  */
 export const ListTrashedProjectsResponseItem = zod.object({

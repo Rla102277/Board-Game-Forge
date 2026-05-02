@@ -142,3 +142,7 @@ export * from "./updateResearchBody";
 export * from "./updateRuleBody";
 export * from "./updateStoryboardNodeBody";
 export * from "./updateTaskBody";
+export * from "./updateUserArtifactBody";
+export * from "./updateUserArtifactBodyData";
+export * from "./userArtifact";
+export * from "./userArtifactData";

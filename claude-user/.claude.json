@@ -1,5 +1,5 @@
 {
-  "numStartups": 16,
+  "numStartups": 17,
   "installMethod": "global",
   "tipsHistory": {
     "new-user-warmup": 9,
@@ -569,7 +569,7 @@
         "amount_minor_units": null,
         "currency": null
       },
-      "timestamp": 1777739188381
+      "timestamp": 1777745149667
     }
   },
   "cachedExtraUsageDisabledReason": "out_of_credits",

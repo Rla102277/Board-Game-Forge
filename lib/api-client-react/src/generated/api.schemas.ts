@@ -1070,6 +1070,19 @@ export interface UpdateDesignerArtifactBody {
   data: UpdateDesignerArtifactBodyData;
 }
 
+export type UserArtifactData = { [key: string]: unknown };
+
+export interface UserArtifact {
+  kind: string;
+  data: UserArtifactData;
+}
+
+export type UpdateUserArtifactBodyData = { [key: string]: unknown };
+
+export interface UpdateUserArtifactBody {
+  data: UpdateUserArtifactBodyData;
+}
+
 export type ReferenceGameGameData = { [key: string]: unknown } | null;
 
 export interface ReferenceGame {

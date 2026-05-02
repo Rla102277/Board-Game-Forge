@@ -33,3 +33,4 @@ export * from "./graphLayouts";
 export * from "./playtestReports";
 export * from "./referenceGames";
 export * from "./designerArtifacts";
+export * from "./userArtifacts";

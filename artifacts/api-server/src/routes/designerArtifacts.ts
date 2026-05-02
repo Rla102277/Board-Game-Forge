@@ -14,6 +14,12 @@ const ALLOWED_KINDS = new Set([
   "scoring-curve",
   "card-templates",
   "graph-layout",
+  // Added in 0023 (Category B localStorage → DB migration)
+  "competitors",
+  "phase-guide",
+  "rules-narrative",
+  "players-narrative",
+  "graph-filters",
 ]);
 
 const KIND_RE = /^[a-z][a-z0-9-]{1,63}$/;

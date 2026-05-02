@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ALL_COMPONENT_TYPES, type ComponentType } from "@/lib/game-component-types";
 import { COMPONENT_DOCS } from "@/lib/component-docs";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 
 function typeBadge(type: string) {
   return COMPONENT_DOCS[type as ComponentType]?.badge ?? "bg-gray-500/20 text-gray-400 border-gray-500/30";
@@ -341,7 +342,8 @@ function localStorageKey(projectId: number): string {
   return `gameforge-graph-positions-project-${projectId}`;
 }
 
-function filterStorageKey(projectId: number): string {
+// Legacy localStorage key for filters (used for one-time import only).
+function legacyFilterStorageKey(projectId: number): string {
   return `gameforge-graph-filters-project-${projectId}`;
 }
 
@@ -353,38 +355,14 @@ type PersistedFilters = {
   alwaysShowLabels?: boolean;
 };
 
-function loadFilters(projectId: number): PersistedFilters | null {
-  try {
-    const raw = localStorage.getItem(filterStorageKey(projectId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PersistedFilters;
-    if (!Array.isArray(parsed.activeTypes) || typeof parsed.minWeight !== "number") return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function saveFilters(
-  projectId: number,
-  activeTypes: Set<string>,
-  minWeight: number,
-  showNeighborsOnly: boolean,
-  neighborDepth: number,
-  alwaysShowLabels: boolean,
-) {
-  try {
-    const data: PersistedFilters = {
-      activeTypes: [...activeTypes],
-      minWeight,
-      showNeighborsOnly,
-      neighborDepth,
-      alwaysShowLabels,
-    };
-    localStorage.setItem(filterStorageKey(projectId), JSON.stringify(data));
-  } catch {
-    // ignore storage errors
-  }
+function defaultFilters(): PersistedFilters {
+  return {
+    activeTypes: [...ALL_COMPONENT_TYPES],
+    minWeight: 2,
+    showNeighborsOnly: false,
+    neighborDepth: 1,
+    alwaysShowLabels: false,
+  };
 }
 
 function loadLocalPositions(projectId: number): Map<number, { x: number; y: number }> {
@@ -438,49 +416,75 @@ export function EntityGraph({
     [entities],
   );
 
-  const [activeTypes, setActiveTypes] = useState<Set<string>>(() => {
-    const saved = loadFilters(projectId);
-    return saved ? new Set(saved.activeTypes) : new Set(ALL_COMPONENT_TYPES);
-  });
-  const [alwaysShowLabels, setAlwaysShowLabels] = useState<boolean>(() => {
-    const saved = loadFilters(projectId);
-    return saved?.alwaysShowLabels ?? false;
-  });
-  const [focusedNodeId, setFocusedNodeId] = useState<number | null>(null);
-  const [showNeighborsOnly, setShowNeighborsOnly] = useState<boolean>(() => {
-    const saved = loadFilters(projectId);
-    return saved?.showNeighborsOnly ?? false;
-  });
-  const [neighborDepth, setNeighborDepth] = useState<number>(() => {
-    const saved = loadFilters(projectId);
-    return saved?.neighborDepth ?? 1;
-  });
-  const [minWeight, setMinWeight] = useState<number>(() => {
-    const saved = loadFilters(projectId);
-    return saved ? saved.minWeight : 2;
-  });
+  // Filters live in the consolidated `graph-filters` designer artifact (per-project).
+  // One-time legacy import from the old `gameforge-graph-filters-project-{id}` localStorage key.
+  const { state: filters, setState: setFilters } = useDesignerArtifact<PersistedFilters>(
+    projectId,
+    "graph-filters",
+    defaultFilters,
+    legacyFilterStorageKey,
+  );
 
-  // Single effect handles both project-switch (load) and filter-change (save).
-  // Using a ref to track the last projectId we loaded for prevents the project-switch
-  // render (which carries the old state + new projectId) from overwriting the new
-  // project's stored filters before the rehydrated state arrives.
+  const activeTypes = useMemo(() => new Set(filters.activeTypes), [filters.activeTypes]);
+  const alwaysShowLabels = filters.alwaysShowLabels ?? false;
+  const showNeighborsOnly = filters.showNeighborsOnly ?? false;
+  const neighborDepth = filters.neighborDepth ?? 1;
+  const minWeight = filters.minWeight;
+
+  // React-style setters: accept either a value or a functional updater.
+  const setActiveTypes = useCallback(
+    (next: Set<string> | ((prev: Set<string>) => Set<string>)) => {
+      setFilters((prev) => {
+        const prevSet = new Set(prev.activeTypes);
+        const nextSet = typeof next === "function" ? next(prevSet) : next;
+        return { ...prev, activeTypes: [...nextSet] };
+      });
+    },
+    [setFilters],
+  );
+  const setAlwaysShowLabels = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) =>
+      setFilters((prev) => {
+        const cur = prev.alwaysShowLabels ?? false;
+        return { ...prev, alwaysShowLabels: typeof next === "function" ? next(cur) : next };
+      }),
+    [setFilters],
+  );
+  const setShowNeighborsOnly = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) =>
+      setFilters((prev) => {
+        const cur = prev.showNeighborsOnly ?? false;
+        return { ...prev, showNeighborsOnly: typeof next === "function" ? next(cur) : next };
+      }),
+    [setFilters],
+  );
+  const setNeighborDepth = useCallback(
+    (next: number | ((prev: number) => number)) =>
+      setFilters((prev) => {
+        const cur = prev.neighborDepth ?? 1;
+        return { ...prev, neighborDepth: typeof next === "function" ? next(cur) : next };
+      }),
+    [setFilters],
+  );
+  const setMinWeight = useCallback(
+    (next: number | ((prev: number) => number)) =>
+      setFilters((prev) => ({
+        ...prev,
+        minWeight: typeof next === "function" ? next(prev.minWeight) : next,
+      })),
+    [setFilters],
+  );
+
+  const [focusedNodeId, setFocusedNodeId] = useState<number | null>(null);
+
+  // Reset focused node when project changes.
   const filterProjectRef = useRef(projectId);
   useEffect(() => {
     if (filterProjectRef.current !== projectId) {
-      // Project switched: reload filters for the new project, do not save yet.
       filterProjectRef.current = projectId;
-      const saved = loadFilters(projectId);
-      setActiveTypes(saved ? new Set(saved.activeTypes) : new Set(ALL_COMPONENT_TYPES));
-      setMinWeight(saved ? saved.minWeight : 2);
-      setShowNeighborsOnly(saved?.showNeighborsOnly ?? false);
-      setNeighborDepth(saved?.neighborDepth ?? 1);
-      setAlwaysShowLabels(saved?.alwaysShowLabels ?? false);
       setFocusedNodeId(null);
-    } else {
-      // Same project, filters changed: persist them.
-      saveFilters(projectId, activeTypes, minWeight, showNeighborsOnly, neighborDepth, alwaysShowLabels);
     }
-  }, [projectId, activeTypes, minWeight, showNeighborsOnly, neighborDepth, alwaysShowLabels]);
+  }, [projectId]);
 
   const allActive = presentTypes.every((t) => activeTypes.has(t));
 

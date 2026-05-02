@@ -32,6 +32,7 @@ import notificationsRouter from "./notifications";
 import graphLayoutRouter from "./graphLayout";
 import playtestReportsRouter from "./playtestReports";
 import designerArtifactsRouter from "./designerArtifacts";
+import userArtifactsRouter from "./userArtifacts";
 import trashRouter from "./trash";
 import analysisRouter from "./analysis";
 import {
@@ -96,5 +97,8 @@ router.use(analysisRouter);
 // User-scoped (not project-scoped) authenticated routes
 router.use("/notifications", requireAuth);
 router.use(notificationsRouter);
+
+router.use("/me/artifacts", requireAuth);
+router.use(userArtifactsRouter);
 
 export default router;

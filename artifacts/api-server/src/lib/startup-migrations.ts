@@ -125,6 +125,17 @@ const MIGRATIONS = [
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE INDEX IF NOT EXISTS asset_versions_asset_id_idx ON asset_versions (asset_id, created_at DESC)`,
+  // 0023 – per-user artifacts table (Category B localStorage → DB migration)
+  // Used by Learn (chat history per topic, bible chapter completion, design-101 lesson completion)
+  `CREATE TABLE IF NOT EXISTS user_artifacts (
+    id serial PRIMARY KEY,
+    app_user_id integer NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    kind text NOT NULL,
+    data jsonb NOT NULL DEFAULT '{}',
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS user_artifacts_user_kind_unique ON user_artifacts (app_user_id, kind)`,
+  `CREATE INDEX IF NOT EXISTS user_artifacts_app_user_id_idx ON user_artifacts (app_user_id)`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {

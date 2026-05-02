@@ -113,6 +113,8 @@ import type {
   UpdateRuleBody,
   UpdateStoryboardNodeBody,
   UpdateTaskBody,
+  UpdateUserArtifactBody,
+  UserArtifact,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1375,6 +1377,180 @@ export const useUpdateDesignerArtifact = <
   TContext
 > => {
   return useMutation(getUpdateDesignerArtifactMutationOptions(options));
+};
+
+/**
+ * @summary Get a per-user artifact by kind
+ */
+export const getGetUserArtifactUrl = (kind: string) => {
+  return `/api/me/artifacts/${kind}`;
+};
+
+export const getUserArtifact = async (
+  kind: string,
+  options?: RequestInit,
+): Promise<UserArtifact> => {
+  return customFetch<UserArtifact>(getGetUserArtifactUrl(kind), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUserArtifactQueryKey = (kind: string) => {
+  return [`/api/me/artifacts/${kind}`] as const;
+};
+
+export const getGetUserArtifactQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserArtifact>>,
+  TError = ErrorType<unknown>,
+>(
+  kind: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserArtifact>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetUserArtifactQueryKey(kind);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserArtifact>>> = ({
+    signal,
+  }) => getUserArtifact(kind, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!kind,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUserArtifact>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUserArtifactQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUserArtifact>>
+>;
+export type GetUserArtifactQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a per-user artifact by kind
+ */
+
+export function useGetUserArtifact<
+  TData = Awaited<ReturnType<typeof getUserArtifact>>,
+  TError = ErrorType<unknown>,
+>(
+  kind: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserArtifact>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserArtifactQueryOptions(kind, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upsert a per-user artifact by kind
+ */
+export const getUpdateUserArtifactUrl = (kind: string) => {
+  return `/api/me/artifacts/${kind}`;
+};
+
+export const updateUserArtifact = async (
+  kind: string,
+  updateUserArtifactBody: UpdateUserArtifactBody,
+  options?: RequestInit,
+): Promise<UserArtifact> => {
+  return customFetch<UserArtifact>(getUpdateUserArtifactUrl(kind), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateUserArtifactBody),
+  });
+};
+
+export const getUpdateUserArtifactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateUserArtifact>>,
+    TError,
+    { kind: string; data: BodyType<UpdateUserArtifactBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateUserArtifact>>,
+  TError,
+  { kind: string; data: BodyType<UpdateUserArtifactBody> },
+  TContext
+> => {
+  const mutationKey = ["updateUserArtifact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateUserArtifact>>,
+    { kind: string; data: BodyType<UpdateUserArtifactBody> }
+  > = (props) => {
+    const { kind, data } = props ?? {};
+
+    return updateUserArtifact(kind, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateUserArtifactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateUserArtifact>>
+>;
+export type UpdateUserArtifactMutationBody = BodyType<UpdateUserArtifactBody>;
+export type UpdateUserArtifactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upsert a per-user artifact by kind
+ */
+export const useUpdateUserArtifact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateUserArtifact>>,
+    TError,
+    { kind: string; data: BodyType<UpdateUserArtifactBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateUserArtifact>>,
+  TError,
+  { kind: string; data: BodyType<UpdateUserArtifactBody> },
+  TContext
+> => {
+  return useMutation(getUpdateUserArtifactMutationOptions(options));
 };
 
 /**

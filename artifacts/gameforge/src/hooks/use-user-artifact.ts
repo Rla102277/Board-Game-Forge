@@ -1,38 +1,39 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  useGetDesignerArtifact,
-  useUpdateDesignerArtifact,
+  useGetUserArtifact,
+  useUpdateUserArtifact,
 } from "@workspace/api-client-react";
 
 /**
- * Hook for per-project designer artifacts that live in the
- * `designer_artifacts` table. Replaces the old localStorage-only pattern.
+ * Hook for per-user artifacts that live in the `user_artifacts` table.
+ * Mirrors `useDesignerArtifact` but is scoped to the signed-in user
+ * instead of a project. Used for cross-project user state such as
+ * Learn chat history, Bible chapter completion, and Design-101 progress.
  *
  * Behavior:
- *  - On mount, fetches the artifact from the server.
+ *  - On mount, fetches the artifact for the current user from the server.
  *  - One-time legacy import: if the server returns an empty artifact (`{}`)
- *    and `legacyKey` returns a non-empty localStorage value, that value is
+ *    and `legacyKey()` returns a non-empty localStorage value, that value is
  *    pushed to the server and the localStorage key is then removed.
  *  - `setState` is synchronous + debounced: the in-memory state updates
  *    immediately, and the server is updated 500ms after the last change.
  *
  * Generic T must be a JSON-serializable object (matches the JSONB column).
  */
-export function useDesignerArtifact<T extends object>(
-  projectId: number,
+export function useUserArtifact<T extends object>(
   kind: string,
   getDefault: () => T,
-  legacyKey?: (projectId: number) => string,
-  legacyImport?: (projectId: number) => T | null,
-  legacyCleanup?: (projectId: number) => void,
+  legacyKey?: () => string,
+  legacyImport?: () => T | null,
+  legacyCleanup?: () => void,
 ): {
   state: T;
   setState: (next: T | ((prev: T) => T)) => void;
   isLoading: boolean;
   isSaving: boolean;
 } {
-  const { data: serverRow, isLoading } = useGetDesignerArtifact(projectId, kind);
-  const updateMutation = useUpdateDesignerArtifact();
+  const { data: serverRow, isLoading } = useGetUserArtifact(kind);
+  const updateMutation = useUpdateUserArtifact();
 
   const [state, setStateRaw] = useState<T>(getDefault);
   const hydratedRef = useRef(false);
@@ -56,19 +57,18 @@ export function useDesignerArtifact<T extends object>(
       return;
     }
 
-    // Server is empty — try custom multi-key legacy import first
     if (legacyImport) {
       try {
-        const parsed = legacyImport(projectId);
+        const parsed = legacyImport();
         if (parsed && Object.keys(parsed as Record<string, unknown>).length > 0) {
           setStateRaw(parsed);
           updateMutation.mutate(
-            { projectId, kind, data: { data: parsed as unknown as Record<string, unknown> } },
+            { kind, data: { data: parsed as unknown as Record<string, unknown> } },
             {
               onSuccess: () => {
                 lastSavedRef.current = JSON.stringify(parsed);
                 if (legacyCleanup) {
-                  try { legacyCleanup(projectId); } catch { /* ignore */ }
+                  try { legacyCleanup(); } catch { /* ignore */ }
                 }
               },
             },
@@ -78,19 +78,17 @@ export function useDesignerArtifact<T extends object>(
       } catch { /* ignore corrupt legacy data */ }
     }
 
-    // Server is empty — try legacy localStorage import
     if (legacyKey) {
       try {
-        const raw = localStorage.getItem(legacyKey(projectId));
+        const raw = localStorage.getItem(legacyKey());
         if (raw) {
           const parsed = JSON.parse(raw) as T;
           setStateRaw(parsed);
-          // Push legacy data to server, then remove the localStorage key
           updateMutation.mutate(
-            { projectId, kind, data: { data: parsed as unknown as Record<string, unknown> } },
+            { kind, data: { data: parsed as unknown as Record<string, unknown> } },
             {
               onSuccess: () => {
-                try { localStorage.removeItem(legacyKey(projectId)); } catch { /* ignore */ }
+                try { localStorage.removeItem(legacyKey()); } catch { /* ignore */ }
                 lastSavedRef.current = JSON.stringify(parsed);
               },
             },
@@ -100,7 +98,6 @@ export function useDesignerArtifact<T extends object>(
       } catch { /* ignore corrupt legacy data */ }
     }
 
-    // No server data and no legacy data — start with the default
     const def = getDefault();
     setStateRaw(def);
     lastSavedRef.current = JSON.stringify(def);
@@ -112,8 +109,6 @@ export function useDesignerArtifact<T extends object>(
     setStateRaw((prev) => {
       const computed = typeof next === "function" ? (next as (p: T) => T)(prev) : next;
       const serialized = JSON.stringify(computed);
-
-      // Skip if unchanged
       if (serialized === lastSavedRef.current) return computed;
       lastSavedRef.current = serialized;
 
@@ -122,10 +117,9 @@ export function useDesignerArtifact<T extends object>(
       setIsSaving(true);
       saveTimerRef.current = setTimeout(() => {
         updateMutation.mutate(
-          { projectId, kind, data: { data: computed as unknown as Record<string, unknown> } },
+          { kind, data: { data: computed as unknown as Record<string, unknown> } },
           {
             onSettled: () => {
-              // Only clear isSaving if this is the most recent save
               if (seq === saveSeqRef.current) setIsSaving(false);
             },
           },
@@ -136,7 +130,6 @@ export function useDesignerArtifact<T extends object>(
     });
   };
 
-  // ── Cleanup pending save on unmount ──────────────────────────────────────
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);

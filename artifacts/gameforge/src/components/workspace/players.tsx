@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useListPlayers, useCreatePlayer, useUpdatePlayer, useDeletePlayer,
   useAiEnhancePlayer, useReorderPlayers, getListPlayersQueryKey, type Player,
@@ -26,6 +26,7 @@ import { PLAYER_TYPE_COLORS } from "@/lib/player-colors";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 
 // ─── Type system ──────────────────────────────────────────────────────────────
 
@@ -741,17 +742,37 @@ export function Players({ projectId }: PlayersProps) {
   const [typeFilter, setTypeFilter] = useState<PlayerType | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<PlayerType>>(new Set());
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
-  const [narrativeEnhancedIds, setNarrativeEnhancedIds] = useState<Set<number>>(() => {
-    try {
-      const raw = localStorage.getItem(`gameforge:narrative-player-ids:${projectId}`);
-      return raw ? new Set(JSON.parse(raw) as number[]) : new Set();
-    } catch { return new Set(); }
-  });
-
-  useEffect(() => {
-    try { localStorage.setItem(`gameforge:narrative-player-ids:${projectId}`, JSON.stringify([...narrativeEnhancedIds])); }
-    catch { /* quota exceeded – ignore */ }
-  }, [narrativeEnhancedIds, projectId]);
+  // Players-narrative artifact: stored as `{ enhanced: number[] }` in the JSONB column.
+  const { state: narrativeArtifact, setState: setNarrativeArtifact } = useDesignerArtifact<
+    { enhanced: number[] }
+  >(
+    projectId,
+    "players-narrative",
+    () => ({ enhanced: [] }),
+    undefined,
+    (pid: number) => {
+      try {
+        const raw = localStorage.getItem(`gameforge:narrative-player-ids:${pid}`);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.length === 0) return null;
+        return { enhanced: (parsed as unknown[]).filter((n): n is number => typeof n === "number") };
+      } catch { return null; }
+    },
+    (pid: number) => {
+      try { localStorage.removeItem(`gameforge:narrative-player-ids:${pid}`); } catch { /* ignore */ }
+    },
+  );
+  const narrativeEnhancedIds = useMemo(() => new Set(narrativeArtifact.enhanced), [narrativeArtifact.enhanced]);
+  const setNarrativeEnhancedIds = useCallback(
+    (updater: (prev: Set<number>) => Set<number>) => {
+      setNarrativeArtifact((prev) => {
+        const nextSet = updater(new Set(prev.enhanced));
+        return { enhanced: [...nextSet] };
+      });
+    },
+    [setNarrativeArtifact],
+  );
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);

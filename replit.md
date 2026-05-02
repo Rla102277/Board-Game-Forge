@@ -51,7 +51,13 @@ The architecture follows a contract-first API approach, where the OpenAPI spec (
 - `workspaces`: Organizational containers.
 - `workspace_members`: User-workspace membership.
 - `projects`: Game designs with extensive metadata.
+- `designer_artifacts`: Per-project JSONB key/value rows for tab-local UI state that needs to follow the project across devices (one row per `(project_id, kind)`). Allowed kinds include `competitors`, `phase-guide`, `rules-narrative`, `players-narrative`, `graph-filters`, plus the original designer-tab kinds.
+- `user_artifacts`: Per-user JSONB key/value rows for cross-project user state (one row per `(app_user_id, kind)`). Kinds: `learn-chat`, `learn-bible-completed`, `learn-design101-completed`.
 - Various other tables for game design elements (entities, rules, players, assets, notes), collaboration (tasks, comments, activity feed), and system functionalities (project snapshots, chat messages, AI settings).
+
+**Persistence pattern — designer/user artifacts:**
+- All non-trivial UI state that used to live in `localStorage` (e.g., narrative-mode rule selection, per-phase guide checklists, competitor lists, learn-mode chat history and chapter completion) is persisted server-side under `designer_artifacts` (per-project) or `user_artifacts` (per-user). Endpoints follow the contract `GET/PUT /api/projects/:projectId/designer-artifacts/:kind` and `GET/PUT /api/me/artifacts/:kind`, both auth-gated and Zod-validated against an allowlist of `kind` values.
+- Frontend access goes through two mirror hooks: `useDesignerArtifact(projectId, kind, getDefault, legacyKey?, legacyImport?, legacyCleanup?)` and `useUserArtifact(kind, getDefault, legacyKey?, legacyImport?, legacyCleanup?)`. Both lazy-hydrate from the server, expose synchronous `state`/`setState` with debounced (500ms) writes, and de-dupe no-op saves via a `lastSavedRef` JSON fingerprint. The optional `legacyImport` callback parses old multi-key localStorage shapes; the matching `legacyCleanup` callback is invoked **only after the server upsert succeeds** so a transient save failure cannot drop migrated data. Pure UI prefs (view modes, collapse state, onboarding-tour completion) intentionally remain in `localStorage`/`sessionStorage` and are not migrated.
 
 ## External Dependencies
 - **Clerk:** Authentication and user management.

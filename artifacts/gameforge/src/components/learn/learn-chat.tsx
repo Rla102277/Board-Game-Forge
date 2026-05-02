@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, Send, Sparkles, Loader2, Trash2 } from "lucide-react";
+import { useUserArtifact } from "@/hooks/use-user-artifact";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -15,7 +16,8 @@ interface LearnChatProps {
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const MAX_PERSISTED_MESSAGES = 40;
 
-function storageKey(topicId: string) {
+// Legacy localStorage key (per topic). Kept for one-time migration on first load.
+function legacyStorageKey(topicId: string) {
   return `gameforge.learn.chat.${topicId}`;
 }
 
@@ -25,36 +27,61 @@ function isValidMsg(x: unknown): x is Msg {
   return (r.role === "user" || r.role === "assistant") && typeof r.content === "string";
 }
 
+type ChatArtifact = Record<string, Msg[]>;
+
 export function LearnChat({ topicId, topicTitle, starterQuestions = [] }: LearnChatProps) {
-  const [messages, setMessages] = useState<Msg[]>([]);
+  // Per-user chat artifact: all topic histories share one row keyed by topicId.
+  const { state: chatArtifact, setState: setChatArtifact, isLoading: isChatLoading } =
+    useUserArtifact<ChatArtifact>("learn-chat", () => ({}));
+  const messages = useMemo<Msg[]>(
+    () => (chatArtifact[topicId] ?? []).filter(isValidMsg).slice(-MAX_PERSISTED_MESSAGES),
+    [chatArtifact, topicId],
+  );
+  const setMessages = (next: Msg[] | ((prev: Msg[]) => Msg[])) => {
+    setChatArtifact((prev) => {
+      const cur = prev[topicId] ?? [];
+      const computed = typeof next === "function" ? next(cur) : next;
+      return { ...prev, [topicId]: computed.slice(-MAX_PERSISTED_MESSAGES) };
+    });
+  };
+
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Load persisted history per topic.
+  // One-time legacy import per topic: gated on hydration completion to avoid
+  // racing with the server fetch (which would otherwise overwrite remote data
+  // with a partial topic-only payload). Only runs when the artifact has nothing
+  // for this topic AND localStorage still holds the old per-topic key.
+  const importedTopicsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    setError(null);
-    setDraft("");
-    try {
-      const raw = localStorage.getItem(storageKey(topicId));
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(parsed)) {
-        setMessages(parsed.filter(isValidMsg).slice(-MAX_PERSISTED_MESSAGES));
-      } else {
-        setMessages([]);
-      }
-    } catch {
-      setMessages([]);
+    if (isChatLoading) return; // wait for server hydration
+    if (importedTopicsRef.current.has(topicId)) return;
+    if (chatArtifact[topicId] && chatArtifact[topicId].length > 0) {
+      importedTopicsRef.current.add(topicId);
+      return;
     }
-  }, [topicId]);
-
-  useEffect(() => {
     try {
-      const trimmed = messages.slice(-MAX_PERSISTED_MESSAGES);
-      localStorage.setItem(storageKey(topicId), JSON.stringify(trimmed));
-    } catch {/* ignore */}
-  }, [messages, topicId]);
+      const raw = localStorage.getItem(legacyStorageKey(topicId));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter(isValidMsg).slice(-MAX_PERSISTED_MESSAGES);
+          if (valid.length > 0) {
+            // Merge against current hydrated artifact so we never clobber other topics.
+            setChatArtifact((prev) => ({ ...prev, [topicId]: valid }));
+          }
+        }
+        try { localStorage.removeItem(legacyStorageKey(topicId)); } catch { /* ignore */ }
+      }
+    } catch { /* ignore corrupt legacy data */ }
+    importedTopicsRef.current.add(topicId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isChatLoading, topicId, chatArtifact[topicId]?.length]);
+
+  // Reset transient UI when topic changes.
+  useEffect(() => { setError(null); setDraft(""); }, [topicId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -95,7 +122,6 @@ export function LearnChat({ topicId, topicTitle, starterQuestions = [] }: LearnC
   const clear = () => {
     setMessages([]);
     setError(null);
-    try { localStorage.removeItem(storageKey(topicId)); } catch {/* ignore */}
   };
 
   const showStarters = useMemo(() => messages.length === 0 && starterQuestions.length > 0, [messages, starterQuestions]);

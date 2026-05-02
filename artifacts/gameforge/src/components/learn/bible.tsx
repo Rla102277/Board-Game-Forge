@@ -10,8 +10,9 @@ import {
   Lightbulb, Flag, Compass, StickyNote, GitBranch, ListChecks,
 } from "lucide-react";
 import { LearnChat } from "./learn-chat";
+import { useUserArtifact } from "@/hooks/use-user-artifact";
 
-const STORAGE_KEY = "gameforge.learn.bible.completed";
+const LEGACY_STORAGE_KEY = "gameforge.learn.bible.completed";
 
 type Section = { heading: string; points: string[] };
 
@@ -1013,24 +1014,30 @@ export function BibleContent({ initialChapterId }: { initialChapterId?: string }
     const idx = CHAPTERS.findIndex((c) => c.id === initialChapterId);
     return idx >= 0 ? idx : 0;
   });
-  const [completed, setCompleted] = useState<Set<string>>(() => new Set());
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setCompleted(new Set(JSON.parse(raw)));
-    } catch {/* ignore */}
-  }, []);
-
-  const persist = (next: Set<string>) => {
-    setCompleted(next);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...next])); } catch {/* ignore */}
-  };
+  // Per-user bible completion artifact: { completed: string[] }
+  const { state: bibleArtifact, setState: setBibleArtifact } = useUserArtifact<{ completed: string[] }>(
+    "learn-bible-completed",
+    () => ({ completed: [] }),
+    undefined,
+    () => {
+      try {
+        const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.length === 0) return null;
+        return { completed: (parsed as unknown[]).filter((s): s is string => typeof s === "string") };
+      } catch { return null; }
+    },
+    () => { try { localStorage.removeItem(LEGACY_STORAGE_KEY); } catch { /* ignore */ } },
+  );
+  const completed = useMemo(() => new Set(bibleArtifact.completed), [bibleArtifact.completed]);
 
   const toggleComplete = (id: string) => {
-    const next = new Set(completed);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    persist(next);
+    setBibleArtifact((prev) => {
+      const next = new Set(prev.completed);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return { completed: [...next] };
+    });
   };
 
   const progress = useMemo(() => Math.round((completed.size / CHAPTERS.length) * 100), [completed]);

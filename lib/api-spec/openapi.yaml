@@ -56,6 +56,8 @@ tags:
     description: Component graph layout persistence operations
   - name: designer-artifacts
     description: Generic per-project designer artifact persistence (rulebook, turn structure, blind playtest, scaling matrix, layout, cost estimator, scoring curve, card templates, graph layout)
+  - name: user-artifacts
+    description: Generic per-user artifact persistence (learn chat history, learn-bible completion, design-101 completion)
   - name: analysis
     description: AI-powered design analysis operations
   - name: trash
@@ -300,6 +302,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DesignerArtifact"
+
+  /me/artifacts/{kind}:
+    get:
+      operationId: getUserArtifact
+      tags: [user-artifacts]
+      summary: Get a per-user artifact by kind
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User artifact (returns empty data object when not yet saved)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserArtifact"
+    put:
+      operationId: updateUserArtifact
+      tags: [user-artifacts]
+      summary: Upsert a per-user artifact by kind
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserArtifactBody"
+      responses:
+        "200":
+          description: Saved user artifact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserArtifact"
 
   /trash/projects:
     get:
@@ -3901,6 +3945,24 @@ components:
       required: [projectId, kind, data]
 
     UpdateDesignerArtifactBody:
+      type: object
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+      required: [data]
+
+    UserArtifact:
+      type: object
+      properties:
+        kind:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+      required: [kind, data]
+
+    UpdateUserArtifactBody:
       type: object
       properties:
         data:

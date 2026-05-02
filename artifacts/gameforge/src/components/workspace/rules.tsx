@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 
 interface RulesProps {
   projectId: number;
@@ -87,28 +88,72 @@ export function Rules({ projectId }: RulesProps) {
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
-  const [narrativeRuleIds, setNarrativeRuleIds] = useState<Set<number>>(() => {
-    try {
-      const raw = localStorage.getItem(`gameforge:narrative-rule-ids:${projectId}`);
-      return raw ? new Set(JSON.parse(raw) as number[]) : new Set();
-    } catch { return new Set(); }
-  });
-  const [narrativeEnhanceRuleIds, setNarrativeEnhanceRuleIds] = useState<Set<number>>(() => {
-    try {
-      const raw = localStorage.getItem(`gameforge:narrative-enhance-rule-ids:${projectId}`);
-      return raw ? new Set(JSON.parse(raw) as number[]) : new Set();
-    } catch { return new Set(); }
-  });
+  // Rules-narrative artifact consolidates two old localStorage sets:
+  //   { narrative: number[]; enhance: number[] }
+  // Set<number> is exposed to the rest of the component via useMemo so the
+  // existing `narrativeRuleIds.has(id)` calls keep working unchanged.
+  const { state: narrativeArtifact, setState: setNarrativeArtifact } = useDesignerArtifact<
+    { narrative: number[]; enhance: number[] }
+  >(
+    projectId,
+    "rules-narrative",
+    () => ({ narrative: [], enhance: [] }),
+    undefined,
+    (pid) => {
+      const out: { narrative: number[]; enhance: number[] } = { narrative: [], enhance: [] };
+      const keys = [
+        { key: `gameforge:narrative-rule-ids:${pid}`, target: "narrative" as const },
+        { key: `gameforge:narrative-enhance-rule-ids:${pid}`, target: "enhance" as const },
+      ];
+      let found = false;
+      for (const { key, target } of keys) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              out[target] = parsed.filter((n) => typeof n === "number");
+              found = true;
+            }
+          }
+        } catch { /* ignore */ }
+      }
+      if (!found) return null;
+      return out;
+    },
+    (pid) => {
+      // Cleanup runs only after the server-side upsert succeeds.
+      const keys = [
+        `gameforge:narrative-rule-ids:${pid}`,
+        `gameforge:narrative-enhance-rule-ids:${pid}`,
+      ];
+      for (const key of keys) {
+        try { localStorage.removeItem(key); } catch { /* ignore */ }
+      }
+    },
+  );
 
-  useEffect(() => {
-    try { localStorage.setItem(`gameforge:narrative-rule-ids:${projectId}`, JSON.stringify([...narrativeRuleIds])); }
-    catch { /* quota exceeded – ignore */ }
-  }, [narrativeRuleIds, projectId]);
+  const narrativeRuleIds = useMemo(() => new Set(narrativeArtifact.narrative), [narrativeArtifact.narrative]);
+  const narrativeEnhanceRuleIds = useMemo(() => new Set(narrativeArtifact.enhance), [narrativeArtifact.enhance]);
 
-  useEffect(() => {
-    try { localStorage.setItem(`gameforge:narrative-enhance-rule-ids:${projectId}`, JSON.stringify([...narrativeEnhanceRuleIds])); }
-    catch { /* quota exceeded – ignore */ }
-  }, [narrativeEnhanceRuleIds, projectId]);
+  const setNarrativeRuleIds = useCallback(
+    (updater: (prev: Set<number>) => Set<number>) => {
+      setNarrativeArtifact((prev) => {
+        const nextSet = updater(new Set(prev.narrative));
+        return { ...prev, narrative: [...nextSet] };
+      });
+    },
+    [setNarrativeArtifact],
+  );
+  const setNarrativeEnhanceRuleIds = useCallback(
+    (updater: (prev: Set<number>) => Set<number>) => {
+      setNarrativeArtifact((prev) => {
+        const nextSet = updater(new Set(prev.enhance));
+        return { ...prev, enhance: [...nextSet] };
+      });
+    },
+    [setNarrativeArtifact],
+  );
 
   const [filter, setFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
