@@ -162,6 +162,57 @@ router.post(
         description: "Added a comment",
       });
 
+      // ─── @-mention notifications ─────────────────────────────────────────
+      // Parse @FullName tokens, match against app users, and notify each
+      // mentioned user (excluding the comment author).
+      try {
+        const mentionMatches = [
+          ...content.matchAll(/@([A-Za-z][A-Za-z0-9_-]*(?:\s+[A-Za-z][A-Za-z0-9_-]*)?)/g),
+        ];
+        if (mentionMatches.length > 0) {
+          const candidates = [...new Set(mentionMatches.map((m) => m[1].trim().toLowerCase()))];
+          const everyone = await db
+            .select({ id: appUsers.id, firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email })
+            .from(appUsers);
+          const mentioned = new Set<number>();
+          for (const cand of candidates) {
+            for (const u of everyone) {
+              if (u.id === userId) continue;
+              const full = [u.firstName, u.lastName].filter(Boolean).join(" ").trim().toLowerCase();
+              const first = (u.firstName ?? "").trim().toLowerCase();
+              const emailLocal = (u.email ?? "").split("@")[0].toLowerCase();
+              if ((full && (full === cand || cand.startsWith(full))) ||
+                  (first && first === cand) ||
+                  (emailLocal && emailLocal === cand)) {
+                mentioned.add(u.id);
+              }
+            }
+          }
+          if (mentioned.size > 0) {
+            const author = (await getUsersById([userId])).get(userId);
+            const authorName = author
+              ? [author.firstName, author.lastName].filter(Boolean).join(" ") || author.email || "Someone"
+              : "Someone";
+            const snippet = content.length > 100 ? content.slice(0, 97) + "…" : content;
+            const { notifications: notifTbl } = await import("@workspace/db");
+            await db.insert(notifTbl).values(
+              [...mentioned].map((mid) => ({
+                userId: mid,
+                projectId,
+                type: "mention" as const,
+                title: `${authorName} mentioned you`,
+                message: snippet,
+                entityType: entityType || "general",
+                entityId: entityId ?? null,
+                actorUserId: userId,
+              })),
+            );
+          }
+        }
+      } catch (mErr) {
+        req.log.warn({ err: mErr }, "mention notification creation failed (non-fatal)");
+      }
+
       const authors = await getUsersById([newComment.authorId]);
       res.json({
         ...newComment,

@@ -314,6 +314,63 @@ router.patch("/projects/:projectId/tasks/:taskId", async (req, res): Promise<voi
           ).onConflictDoNothing();
         }
       }
+
+      // ─── Automation rules ───────────────────────────────────────────────
+      // Evaluate user-defined rules stored in the `tasks-automations`
+      // designer artifact. v1 supports "when status changes [to X], notify Y".
+      try {
+        const { designerArtifacts: daTbl, notifications: notifTbl } = await import("@workspace/db");
+        const [row] = await db
+          .select()
+          .from(daTbl)
+          .where(and(eq(daTbl.projectId, projectId), eq(daTbl.kind, "tasks-automations")));
+        const data = row?.data as { rules?: Array<{
+          id: string;
+          name: string;
+          enabled: boolean;
+          trigger: { type: string; toStatus?: string };
+          action: { type: string; target: string; userId?: number };
+        }> } | undefined;
+        const rules = data?.rules ?? [];
+        const triggered = rules.filter((r) =>
+          r.enabled &&
+          r.trigger?.type === "status_change" &&
+          (!r.trigger.toStatus || r.trigger.toStatus === "any" || r.trigger.toStatus === task.status),
+        );
+        if (triggered.length > 0) {
+          const currentAssignees = (
+            await db.select({ userId: taskAssignees.userId }).from(taskAssignees).where(eq(taskAssignees.taskId, taskId))
+          ).map((r) => r.userId);
+          const notifRows: Array<typeof notifTbl.$inferInsert> = [];
+          for (const r of triggered) {
+            if (r.action?.type !== "notify") continue;
+            const targets = new Set<number>();
+            if (r.action.target === "assignees") {
+              currentAssignees.forEach((id) => { if (id !== uid) targets.add(id); });
+            } else if (r.action.target === "user" && typeof r.action.userId === "number") {
+              if (r.action.userId !== uid) targets.add(r.action.userId);
+            }
+            for (const t of targets) {
+              notifRows.push({
+                userId: t,
+                projectId,
+                type: "system",
+                title: `Automation: ${r.name}`,
+                message: `"${task.title}" → ${task.status}`,
+                entityType: "task",
+                entityId: task.id,
+                actorUserId: uid,
+                metadata: { automationId: r.id, ruleName: r.name },
+              });
+            }
+          }
+          if (notifRows.length > 0) {
+            await db.insert(notifTbl).values(notifRows);
+          }
+        }
+      } catch (aErr) {
+        req.log.warn({ err: aErr }, "automation evaluation failed (non-fatal)");
+      }
     } else if (newAssignees.length > 0) {
       await logActivity(
         projectId,

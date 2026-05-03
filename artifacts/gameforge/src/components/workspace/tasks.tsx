@@ -23,8 +23,9 @@ import {
   Plus, Edit2, Trash2, CheckSquare, MoreHorizontal, X, CalendarDays,
   Table as TableIcon, Columns3, LayoutDashboard, UserCheck,
   Check, XCircle, BookTemplate, Loader2, Bookmark, Save,
-  GanttChartSquare, Users, ChevronRight, ChevronDown,
+  GanttChartSquare, Users, ChevronRight, ChevronDown, Zap,
 } from "lucide-react";
+import { AutomationsDialog } from "./automations-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { TaskCard } from "./task-card";
@@ -126,6 +127,7 @@ export function Tasks({ projectId }: TasksProps) {
   const [detailTask, setDetailTask] = useState<RichTask | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showAutomations, setShowAutomations] = useState(false);
   const [applyingTemplate, setApplyingTemplate] = useState<string | null>(null);
   const [formData, setFormData] = useState({ title: "", description: "", status: "backlog" as TaskStatus });
 
@@ -504,6 +506,17 @@ export function Tasks({ projectId }: TasksProps) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => setShowAutomations(true)}
+              title="Automations"
+              data-testid="automations-button"
+            >
+              <Zap className="h-3.5 w-3.5 text-amber-400" />
+              Automations
+            </Button>
             <div className="flex items-center border rounded-md overflow-hidden">
               <Button
                 variant={view === "kanban" ? "secondary" : "ghost"}
@@ -1182,6 +1195,12 @@ export function Tasks({ projectId }: TasksProps) {
         open={!!detailTask}
         onOpenChange={(open) => !open && setDetailTask(null)}
         projectId={projectId}
+      />
+
+      <AutomationsDialog
+        projectId={projectId}
+        open={showAutomations}
+        onOpenChange={setShowAutomations}
       />
     </div>
   );

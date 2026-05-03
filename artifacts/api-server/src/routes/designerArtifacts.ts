@@ -22,6 +22,9 @@ const ALLOWED_KINDS = new Set([
   "graph-filters",
   // Monday.com-style Tasks board prefs (group-by, my-work, view).
   "tasks-board-prefs",
+  // Wave 2 final: per-project automation rules
+  // (e.g. "when status → done, notify assignees").
+  "tasks-automations",
 ]);
 
 const KIND_RE = /^[a-z][a-z0-9-]{1,63}$/;

@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   MessageSquare, AtSign, UserCheck, AlertTriangle, GitCommit,
   UserPlus, Circle, CheckCheck, Trash2, Bell, Activity,
-  Search, Filter, Inbox,
+  Search, Filter, Inbox, FolderOpen, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -184,6 +184,8 @@ export function UnifiedInbox({ projectId }: { projectId: number }) {
   const [activeTab, setActiveTab] = useState<TabId>("all");
   const [search, setSearch] = useState("");
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [groupByProject, setGroupByProject] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const { data: notifications, isLoading: notifsLoading } = useListNotifications();
   const { data: activity, isLoading: activityLoading } = useListActivity(projectId, 100);
@@ -298,6 +300,17 @@ export function UnifiedInbox({ projectId }: { projectId: number }) {
           <Bell className="h-3.5 w-3.5" />
           Unread only
         </Button>
+        <Button
+          variant={groupByProject ? "default" : "outline"}
+          size="sm"
+          className="h-8 text-xs gap-1.5 shrink-0"
+          onClick={() => setGroupByProject(v => !v)}
+          title="Group notifications by project"
+          data-testid="inbox-group-by-project"
+        >
+          <FolderOpen className="h-3.5 w-3.5" />
+          Group by project
+        </Button>
       </div>
 
       {/* Tab bar */}
@@ -335,19 +348,61 @@ export function UnifiedInbox({ projectId }: { projectId: number }) {
           ) : (
             filteredActivity.map(e => <ActivityCard key={e.id} entry={e} />)
           )
+        ) : filteredNotifs.length === 0 ? (
+          <Empty tab={activeTab} />
+        ) : groupByProject ? (
+          // ─── Grouped by project ────────────────────────────────────────
+          (() => {
+            const groups = new Map<string, { name: string; items: NotificationItem[] }>();
+            for (const n of filteredNotifs) {
+              const key = n.projectId != null ? `p:${n.projectId}` : "none";
+              const name = n.projectName ?? "No project";
+              if (!groups.has(key)) groups.set(key, { name, items: [] });
+              groups.get(key)!.items.push(n);
+            }
+            const ordered = [...groups.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
+            return ordered.map(([key, g]) => {
+              const isCollapsed = collapsed.has(key);
+              const unread = g.items.filter(n => !n.read).length;
+              return (
+                <div key={key}>
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed(prev => {
+                      const next = new Set(prev);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      return next;
+                    })}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground bg-muted/20 hover:bg-muted/40 border-b border-border/40 sticky top-0 z-10"
+                  >
+                    {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    <span className="truncate flex-1 text-left">{g.name}</span>
+                    <span className="text-[10px] text-muted-foreground/70">
+                      {g.items.length}
+                      {unread > 0 && <span className="ml-1 text-primary">· {unread} unread</span>}
+                    </span>
+                  </button>
+                  {!isCollapsed && g.items.map(n => (
+                    <NotifCard
+                      key={n.id}
+                      n={n}
+                      onMarkRead={id => markRead.mutateAsync(id)}
+                      onDelete={id => deleteNotif.mutateAsync(id)}
+                    />
+                  ))}
+                </div>
+              );
+            });
+          })()
         ) : (
-          filteredNotifs.length === 0 ? (
-            <Empty tab={activeTab} />
-          ) : (
-            filteredNotifs.map(n => (
-              <NotifCard
-                key={n.id}
-                n={n}
-                onMarkRead={id => markRead.mutateAsync(id)}
-                onDelete={id => deleteNotif.mutateAsync(id)}
-              />
-            ))
-          )
+          filteredNotifs.map(n => (
+            <NotifCard
+              key={n.id}
+              n={n}
+              onMarkRead={id => markRead.mutateAsync(id)}
+              onDelete={id => deleteNotif.mutateAsync(id)}
+            />
+          ))
         )}
       </div>
     </div>
