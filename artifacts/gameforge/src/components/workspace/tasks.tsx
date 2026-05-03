@@ -22,7 +22,7 @@ import {
 import {
   Plus, Edit2, Trash2, CheckSquare, MoreHorizontal, X, CalendarDays,
   Table as TableIcon, Columns3, LayoutDashboard, UserCheck,
-  Check, XCircle, BookTemplate, Loader2,
+  Check, XCircle, BookTemplate, Loader2, Bookmark, Save,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
@@ -45,6 +45,7 @@ import {
   type TaskPriority,
 } from "@/lib/collaboration-types";
 import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface TasksProps {
   projectId: number;
@@ -69,16 +70,30 @@ interface TaskGroup {
   statusKey?: TaskStatus;
 }
 
+interface SavedView {
+  id: string;
+  name: string;
+  view: ViewMode;
+  groupBy: GroupBy;
+  myWorkOnly: boolean;
+  filter: TaskFilter;
+  sort: TaskSort;
+}
+
 interface BoardPrefs {
   groupBy: GroupBy;
   myWorkOnly: boolean;
   view: ViewMode;
+  views?: SavedView[];
+  activeViewId?: string | null;
 }
 
 const DEFAULT_PREFS: BoardPrefs = {
   groupBy: "status",
   myWorkOnly: false,
   view: "kanban",
+  views: [],
+  activeViewId: null,
 };
 
 export function Tasks({ projectId }: TasksProps) {
@@ -137,6 +152,89 @@ export function Tasks({ projectId }: TasksProps) {
           qc.invalidateQueries({ queryKey: getListRichTasksQueryKey(projectId) }),
       },
     );
+  };
+
+  // ─── Drag & drop on Kanban board ─────────────────────────────────────────
+  const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
+
+  const handleDropOnGroup = (group: TaskGroup) => {
+    const taskId = draggedTaskId;
+    setDraggedTaskId(null);
+    setDragOverGroupId(null);
+    if (taskId == null || groupBy === "none") return;
+    const task = visibleTasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    let data: Partial<RichTask> | null = null;
+    if (groupBy === "status" && group.statusKey && task.status !== group.statusKey) {
+      data = { status: group.statusKey };
+    } else if (groupBy === "priority" && task.priority !== group.id) {
+      data = { priority: group.id as TaskPriority };
+    } else if (groupBy === "assignee") {
+      if (group.id === "unassigned") {
+        if (task.assigneeIds.length > 0) data = { assigneeIds: [] };
+      } else {
+        const uid = parseInt(group.id.slice(1), 10);
+        if (!Number.isNaN(uid) && !task.assigneeIds.includes(uid)) {
+          data = { assigneeIds: [...task.assigneeIds, uid] };
+        }
+      }
+    } else if (groupBy === "category") {
+      const newCat = group.id === "Uncategorized" ? null : group.id;
+      if ((task.category ?? null) !== newCat) data = { category: newCat };
+    }
+    if (!data) return;
+    updateTask.mutate(
+      { projectId, taskId, data },
+      {
+        onSuccess: () =>
+          qc.invalidateQueries({ queryKey: getListRichTasksQueryKey(projectId) }),
+      },
+    );
+  };
+
+  // ─── Saved Views ─────────────────────────────────────────────────────────
+  const savedViews = prefs.views ?? [];
+  const activeViewId = prefs.activeViewId ?? null;
+
+  const handleSaveView = () => {
+    const name = window.prompt("Name this view (e.g. 'My open work')")?.trim();
+    if (!name) return;
+    const newView: SavedView = {
+      id: `v_${Date.now()}`,
+      name,
+      view,
+      groupBy,
+      myWorkOnly,
+      filter,
+      sort,
+    };
+    setPrefs((p) => ({
+      ...p,
+      views: [...(p.views ?? []), newView],
+      activeViewId: newView.id,
+    }));
+  };
+
+  const handleApplyView = (v: SavedView) => {
+    setFilter(v.filter);
+    setSort(v.sort);
+    setPrefs((p) => ({
+      ...p,
+      view: v.view,
+      groupBy: v.groupBy,
+      myWorkOnly: v.myWorkOnly,
+      activeViewId: v.id,
+    }));
+  };
+
+  const handleDeleteView = (id: string) => {
+    setPrefs((p) => ({
+      ...p,
+      views: (p.views ?? []).filter((v) => v.id !== id),
+      activeViewId: p.activeViewId === id ? null : p.activeViewId,
+    }));
   };
 
   const allTags = useMemo(() => {
@@ -328,6 +426,69 @@ export function Tasks({ projectId }: TasksProps) {
                 </Select>
               </div>
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  data-testid="saved-views-button"
+                >
+                  <Bookmark className="h-3.5 w-3.5" />
+                  {savedViews.find((v) => v.id === activeViewId)?.name ?? "Views"}
+                  {savedViews.length > 0 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      ({savedViews.length})
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {savedViews.length === 0 && (
+                  <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                    No saved views yet.
+                  </div>
+                )}
+                {savedViews.map((v) => (
+                  <DropdownMenuItem
+                    key={v.id}
+                    className="flex items-center justify-between gap-2 group"
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleApplyView(v);
+                    }}
+                  >
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      {v.id === activeViewId && (
+                        <Check className="h-3 w-3 shrink-0" />
+                      )}
+                      <span className="truncate">{v.name}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="opacity-0 group-hover:opacity-100 hover:text-destructive shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteView(v.id);
+                      }}
+                      title="Delete view"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    handleSaveView();
+                  }}
+                  className="border-t mt-1 pt-1.5 text-primary font-medium"
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  Save current view…
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <div className="flex items-center border rounded-md overflow-hidden">
               <Button
                 variant={view === "kanban" ? "secondary" : "ghost"}
@@ -511,10 +672,31 @@ export function Tasks({ projectId }: TasksProps) {
               {groups.map((group) => {
                 const doneCount = group.tasks.filter((t) => t.status === "done").length;
                 const pct = group.tasks.length > 0 ? Math.round((doneCount / group.tasks.length) * 100) : 0;
+                const isDropTarget = dragOverGroupId === group.id && groupBy !== "none";
                 return (
                   <div
                     key={group.id}
-                    className="bg-sidebar rounded-xl p-3 flex flex-col gap-3 max-h-full border border-border min-w-[260px] w-[260px] shrink-0"
+                    className={cn(
+                      "bg-sidebar rounded-xl p-3 flex flex-col gap-3 max-h-full border min-w-[260px] w-[260px] shrink-0 transition-colors",
+                      isDropTarget
+                        ? "border-primary border-2 bg-primary/5"
+                        : "border-border",
+                    )}
+                    onDragOver={(e) => {
+                      if (draggedTaskId == null || groupBy === "none") return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (dragOverGroupId !== group.id) setDragOverGroupId(group.id);
+                    }}
+                    onDragLeave={(e) => {
+                      // Only clear when leaving the column entirely (not a child).
+                      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                      if (dragOverGroupId === group.id) setDragOverGroupId(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleDropOnGroup(group);
+                    }}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="font-semibold text-sm flex items-center gap-2 min-w-0">
@@ -540,7 +722,7 @@ export function Tasks({ projectId }: TasksProps) {
                         />
                       </div>
                     )}
-                    <div className="flex flex-col gap-2 overflow-y-auto pr-1">
+                    <div className="flex flex-col gap-2 overflow-y-auto pr-1 min-h-[60px]">
                       {group.tasks.map((task) => (
                         <TaskCard
                           key={task.id}
@@ -549,12 +731,27 @@ export function Tasks({ projectId }: TasksProps) {
                           isSelected={selectedTasks.has(task.id)}
                           onClick={() => setDetailTask(task)}
                           onSelectToggle={() => toggleSelect(task.id)}
+                          draggable={groupBy !== "none"}
+                          onDragStart={(id) => setDraggedTaskId(id)}
+                          onDragEnd={() => {
+                            setDraggedTaskId(null);
+                            setDragOverGroupId(null);
+                          }}
                         />
                       ))}
                       {group.tasks.length === 0 && (
-                        <div className="border border-dashed border-border rounded-lg p-4 flex flex-col items-center justify-center text-center opacity-50">
+                        <div
+                          className={cn(
+                            "border border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center transition-colors",
+                            isDropTarget
+                              ? "border-primary text-primary opacity-100"
+                              : "border-border opacity-50",
+                          )}
+                        >
                           <CheckSquare className="h-6 w-6 text-muted-foreground mb-1" />
-                          <p className="text-xs text-muted-foreground">No tasks</p>
+                          <p className="text-xs text-muted-foreground">
+                            {isDropTarget ? "Drop here" : "No tasks"}
+                          </p>
                         </div>
                       )}
                     </div>
