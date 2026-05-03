@@ -20,6 +20,8 @@ const ALLOWED_KINDS = new Set([
   "rules-narrative",
   "players-narrative",
   "graph-filters",
+  // Monday.com-style Tasks board prefs (group-by, my-work, view).
+  "tasks-board-prefs",
 ]);
 
 const KIND_RE = /^[a-z][a-z0-9-]{1,63}$/;

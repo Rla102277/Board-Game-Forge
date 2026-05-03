@@ -24,6 +24,7 @@ export interface RichTask {
   parentTaskId: number | null;
   estimatedHours: number | null;
   actualHours: number | null;
+  category?: string | null;
   createdAt: string;
   updatedAt: string;
 }

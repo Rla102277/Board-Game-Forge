@@ -7,6 +7,8 @@ import {
   useListProjectUsers,
   getListRichTasksQueryKey,
 } from "@/hooks/use-collaboration";
+import { useGetMe } from "@workspace/api-client-react";
+import { useDesignerArtifact } from "@/hooks/use-designer-artifact";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +17,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   Plus, Edit2, Trash2, CheckSquare, MoreHorizontal, X, CalendarDays,
-  Table as TableIcon, Columns3,
+  Table as TableIcon, Columns3, LayoutDashboard, UserCheck,
   Check, XCircle, BookTemplate, Loader2,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -24,15 +29,20 @@ import { useQueryClient } from "@tanstack/react-query";
 import { TaskCard } from "./task-card";
 import { TaskDetailDrawer } from "./task-detail-drawer";
 import { TaskFiltersBar } from "./task-filters";
+import { TasksDashboard } from "./tasks-dashboard";
+import {
+  StatusPill,
+  MONDAY_STATUS_LABEL,
+  MONDAY_STATUS_ORDER,
+} from "./status-pill";
 import { TASK_TEMPLATES, type TaskTemplate } from "@/lib/task-templates";
 import {
-  STATUS_LABELS,
-  STATUS_COLORS,
   PRIORITY_COLORS,
   type RichTask,
   type TaskFilter,
   type TaskSort,
   type TaskStatus,
+  type TaskPriority,
 } from "@/lib/collaboration-types";
 import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from "date-fns";
 
@@ -40,19 +50,57 @@ interface TasksProps {
   projectId: number;
 }
 
-type ViewMode = "kanban" | "table" | "calendar";
+type ViewMode = "kanban" | "table" | "calendar" | "dashboard";
+type GroupBy = "status" | "priority" | "assignee" | "category" | "none";
 
-const COLUMNS: { id: TaskStatus; label: string }[] = [
-  { id: "backlog", label: "Backlog" },
-  { id: "in_progress", label: "In Progress" },
-  { id: "review", label: "Review" },
-  { id: "blocked", label: "Blocked" },
-  { id: "done", label: "Done" },
-];
+const PRIORITY_ORDER: TaskPriority[] = ["urgent", "high", "medium", "low"];
+const PRIORITY_LABEL: Record<TaskPriority, string> = {
+  urgent: "Urgent",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
+interface TaskGroup {
+  id: string;
+  label: string;
+  tasks: RichTask[];
+  // Optional Monday-style status header for the column.
+  statusKey?: TaskStatus;
+}
+
+interface BoardPrefs {
+  groupBy: GroupBy;
+  myWorkOnly: boolean;
+  view: ViewMode;
+}
+
+const DEFAULT_PREFS: BoardPrefs = {
+  groupBy: "status",
+  myWorkOnly: false,
+  view: "kanban",
+};
 
 export function Tasks({ projectId }: TasksProps) {
   const qc = useQueryClient();
-  const [view, setView] = useState<ViewMode>("kanban");
+  const { data: me } = useGetMe();
+  const currentUserId = me?.id ?? null;
+
+  // Persisted board prefs (group-by, my-work, view) per project.
+  const { state: prefs, setState: setPrefs } = useDesignerArtifact<BoardPrefs>(
+    projectId,
+    "tasks-board-prefs",
+    () => DEFAULT_PREFS,
+  );
+  const view = prefs.view;
+  // Use updater form so rapid sequential toggles (e.g. My-work then Group-by)
+  // don't clobber each other through stale closure refs to `prefs`.
+  const setView = (v: ViewMode) => setPrefs((p) => ({ ...p, view: v }));
+  const groupBy = prefs.groupBy;
+  const setGroupBy = (g: GroupBy) => setPrefs((p) => ({ ...p, groupBy: g }));
+  const myWorkOnly = prefs.myWorkOnly;
+  const setMyWorkOnly = (b: boolean) => setPrefs((p) => ({ ...p, myWorkOnly: b }));
+
   const [filter, setFilter] = useState<TaskFilter>({});
   const [sort, setSort] = useState<TaskSort>({ field: "createdAt", direction: "desc" });
   const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
@@ -67,6 +115,29 @@ export function Tasks({ projectId }: TasksProps) {
   const createTask = useCreateRichTask();
   const updateTask = useUpdateRichTask();
   const deleteTask = useDeleteRichTask();
+
+  // Apply "My work" filter on top of server-filtered tasks.
+  const visibleTasks = useMemo<RichTask[]>(() => {
+    if (!tasks) return [];
+    if (!myWorkOnly || !currentUserId) return tasks;
+    return tasks.filter((t) => t.assigneeIds.includes(currentUserId));
+  }, [tasks, myWorkOnly, currentUserId]);
+
+  const myWorkCount = useMemo(() => {
+    if (!tasks || !currentUserId) return 0;
+    return tasks.filter((t) => t.assigneeIds.includes(currentUserId)).length;
+  }, [tasks, currentUserId]);
+
+  // Quickly change a task's status from the board / table.
+  const handleQuickStatus = (task: RichTask, next: TaskStatus) => {
+    updateTask.mutate(
+      { projectId, taskId: task.id, data: { status: next } },
+      {
+        onSuccess: () =>
+          qc.invalidateQueries({ queryKey: getListRichTasksQueryKey(projectId) }),
+      },
+    );
+  };
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -141,12 +212,68 @@ export function Tasks({ projectId }: TasksProps) {
     setSelectedTasks(new Set(allSelected ? [] : allIds));
   };
 
-  const groupedTasks = useMemo(() => {
-    return COLUMNS.reduce((acc, col) => {
-      acc[col.id] = tasks?.filter((t) => t.status === col.id) ?? [];
-      return acc;
-    }, {} as Record<TaskStatus, RichTask[]>);
-  }, [tasks]);
+  // Dynamic grouping driven by `groupBy`. Each group has an id + label + tasks
+  // and (for status mode) a `statusKey` so the column header can render the
+  // colored Monday pill.
+  const groups = useMemo<TaskGroup[]>(() => {
+    if (groupBy === "status") {
+      return MONDAY_STATUS_ORDER.map((s) => ({
+        id: s,
+        label: MONDAY_STATUS_LABEL[s],
+        statusKey: s,
+        tasks: visibleTasks.filter((t) => t.status === s),
+      }));
+    }
+    if (groupBy === "priority") {
+      return PRIORITY_ORDER.map((p) => ({
+        id: p,
+        label: PRIORITY_LABEL[p],
+        tasks: visibleTasks.filter((t) => t.priority === p),
+      }));
+    }
+    if (groupBy === "assignee") {
+      const userMap = new Map<number, RichTask[]>();
+      const unassigned: RichTask[] = [];
+      visibleTasks.forEach((t) => {
+        if (t.assigneeIds.length === 0) {
+          unassigned.push(t);
+        } else {
+          t.assigneeIds.forEach((uid) => {
+            const cur = userMap.get(uid) ?? [];
+            cur.push(t);
+            userMap.set(uid, cur);
+          });
+        }
+      });
+      const userGroups: TaskGroup[] = Array.from(userMap.entries()).map(
+        ([uid, ts]) => {
+          const u = users?.find((x) => x.id === uid);
+          const name =
+            (u && [u.firstName, u.lastName].filter(Boolean).join(" ")) ||
+            u?.email ||
+            `User ${uid}`;
+          return { id: `u${uid}`, label: name, tasks: ts };
+        },
+      );
+      return [
+        ...userGroups.sort((a, b) => b.tasks.length - a.tasks.length),
+        { id: "unassigned", label: "Unassigned", tasks: unassigned },
+      ];
+    }
+    if (groupBy === "category") {
+      const map = new Map<string, RichTask[]>();
+      visibleTasks.forEach((t) => {
+        const key = t.category || "Uncategorized";
+        const cur = map.get(key) ?? [];
+        cur.push(t);
+        map.set(key, cur);
+      });
+      return Array.from(map.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([cat, ts]) => ({ id: cat, label: cat, tasks: ts }));
+    }
+    return [{ id: "all", label: "All tasks", tasks: visibleTasks }];
+  }, [groupBy, visibleTasks, users]);
 
   const calendarDays = useMemo(() => {
     const now = new Date();
@@ -162,12 +289,52 @@ export function Tasks({ projectId }: TasksProps) {
             {tasks && <Badge variant="secondary" className="text-xs">{tasks.length} total</Badge>}
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant={myWorkOnly ? "default" : "outline"}
+              size="sm"
+              className="h-8"
+              onClick={() => setMyWorkOnly(!myWorkOnly)}
+              data-testid="my-work-toggle"
+              disabled={!currentUserId}
+              title={currentUserId ? undefined : "Sign in to filter to your tasks"}
+            >
+              <UserCheck className="h-3.5 w-3.5 mr-1" />
+              My work
+              {myWorkCount > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full bg-background/30">
+                  {myWorkCount}
+                </span>
+              )}
+            </Button>
+            {view !== "dashboard" && view !== "calendar" && (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Group by
+                </span>
+                <Select
+                  value={groupBy}
+                  onValueChange={(v) => setGroupBy(v as GroupBy)}
+                >
+                  <SelectTrigger className="h-8 w-[120px] text-xs" data-testid="group-by-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="status">Status</SelectItem>
+                    <SelectItem value="priority">Priority</SelectItem>
+                    <SelectItem value="assignee">Assignee</SelectItem>
+                    <SelectItem value="category">Category</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex items-center border rounded-md overflow-hidden">
               <Button
                 variant={view === "kanban" ? "secondary" : "ghost"}
                 size="sm"
                 className="rounded-none h-8 px-2"
                 onClick={() => setView("kanban")}
+                title="Board"
               >
                 <Columns3 className="h-4 w-4" />
               </Button>
@@ -176,6 +343,7 @@ export function Tasks({ projectId }: TasksProps) {
                 size="sm"
                 className="rounded-none h-8 px-2"
                 onClick={() => setView("table")}
+                title="Table"
               >
                 <TableIcon className="h-4 w-4" />
               </Button>
@@ -184,8 +352,18 @@ export function Tasks({ projectId }: TasksProps) {
                 size="sm"
                 className="rounded-none h-8 px-2"
                 onClick={() => setView("calendar")}
+                title="Calendar"
               >
                 <CalendarDays className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === "dashboard" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-none h-8 px-2"
+                onClick={() => setView("dashboard")}
+                title="Dashboard"
+              >
+                <LayoutDashboard className="h-4 w-4" />
               </Button>
             </div>
             <Button
@@ -265,15 +443,15 @@ export function Tasks({ projectId }: TasksProps) {
             </Button>
             <div className="flex-1" />
             <div className="flex items-center gap-1">
-              {COLUMNS.map((col) => (
+              {MONDAY_STATUS_ORDER.map((s) => (
                 <Button
-                  key={col.id}
+                  key={s}
                   size="sm"
                   variant="ghost"
                   className="h-7 text-[10px] px-2"
-                  onClick={() => handleBulkStatus(col.id)}
+                  onClick={() => handleBulkStatus(s)}
                 >
-                  Move to {col.label}
+                  Move to {MONDAY_STATUS_LABEL[s]}
                 </Button>
               ))}
               <Button
@@ -320,39 +498,69 @@ export function Tasks({ projectId }: TasksProps) {
         </div>
       ) : (
         <>
+          {view === "dashboard" && (
+            <TasksDashboard
+              tasks={visibleTasks}
+              users={users ?? []}
+              onSelectTask={setDetailTask}
+            />
+          )}
+
           {view === "kanban" && (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1 items-start overflow-x-auto pb-2">
-              {COLUMNS.map((col) => (
-                <div key={col.id} className="bg-sidebar rounded-xl p-3 flex flex-col gap-3 max-h-full border border-border min-w-[260px]">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      {STATUS_LABELS[col.id]}
-                      <span className="bg-background text-muted-foreground text-xs px-2 py-0.5 rounded-full border border-border">{groupedTasks[col.id].length}</span>
-                    </h3>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-background" onClick={() => setShowAdd(true)}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-col gap-2 overflow-y-auto pr-1">
-                    {groupedTasks[col.id].map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        users={users ?? []}
-                        isSelected={selectedTasks.has(task.id)}
-                        onClick={() => setDetailTask(task)}
-                        onSelectToggle={() => toggleSelect(task.id)}
-                      />
-                    ))}
-                    {groupedTasks[col.id].length === 0 && (
-                      <div className="border border-dashed border-border rounded-lg p-4 flex flex-col items-center justify-center text-center opacity-50">
-                        <CheckSquare className="h-6 w-6 text-muted-foreground mb-1" />
-                        <p className="text-xs text-muted-foreground">No tasks</p>
+            <div className="flex gap-4 flex-1 items-start overflow-x-auto pb-2">
+              {groups.map((group) => {
+                const doneCount = group.tasks.filter((t) => t.status === "done").length;
+                const pct = group.tasks.length > 0 ? Math.round((doneCount / group.tasks.length) * 100) : 0;
+                return (
+                  <div
+                    key={group.id}
+                    className="bg-sidebar rounded-xl p-3 flex flex-col gap-3 max-h-full border border-border min-w-[260px] w-[260px] shrink-0"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-semibold text-sm flex items-center gap-2 min-w-0">
+                        {group.statusKey ? (
+                          <StatusPill status={group.statusKey} size="sm" />
+                        ) : (
+                          <span className="truncate">{group.label}</span>
+                        )}
+                        <span className="bg-background text-muted-foreground text-xs px-2 py-0.5 rounded-full border border-border shrink-0">
+                          {group.tasks.length}
+                        </span>
+                      </h3>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-background shrink-0" onClick={() => setShowAdd(true)}>
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {group.tasks.length > 0 && (
+                      <div className="h-1 bg-background/60 rounded-full overflow-hidden -mt-1">
+                        <div
+                          className="h-full bg-emerald-500 transition-all"
+                          style={{ width: `${pct}%` }}
+                          title={`${pct}% done`}
+                        />
                       </div>
                     )}
+                    <div className="flex flex-col gap-2 overflow-y-auto pr-1">
+                      {group.tasks.map((task) => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          users={users ?? []}
+                          isSelected={selectedTasks.has(task.id)}
+                          onClick={() => setDetailTask(task)}
+                          onSelectToggle={() => toggleSelect(task.id)}
+                        />
+                      ))}
+                      {group.tasks.length === 0 && (
+                        <div className="border border-dashed border-border rounded-lg p-4 flex flex-col items-center justify-center text-center opacity-50">
+                          <CheckSquare className="h-6 w-6 text-muted-foreground mb-1" />
+                          <p className="text-xs text-muted-foreground">No tasks</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -400,10 +608,12 @@ export function Tasks({ projectId }: TasksProps) {
                         <div className="font-medium text-sm">{task.title}</div>
                         {task.description && <div className="text-xs text-muted-foreground line-clamp-1">{task.description}</div>}
                       </td>
-                      <td className="p-2">
-                        <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[task.status]}`}>
-                          {STATUS_LABELS[task.status]}
-                        </Badge>
+                      <td className="p-2" onClick={(e) => e.stopPropagation()}>
+                        <StatusPill
+                          status={task.status}
+                          size="sm"
+                          onChange={(next) => handleQuickStatus(task, next)}
+                        />
                       </td>
                       <td className="p-2">
                         <Badge variant="outline" className={`text-[10px] ${PRIORITY_COLORS[task.priority]}`}>

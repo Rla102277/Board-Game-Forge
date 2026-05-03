@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { PRIORITY_COLORS, STATUS_COLORS, type RichTask, type CollaboratorUser } from "@/lib/collaboration-types";
+import { PRIORITY_COLORS, type RichTask, type CollaboratorUser } from "@/lib/collaboration-types";
+import { StatusPill } from "./status-pill";
 import { Calendar, Clock, MessageSquare, CheckSquare, GripVertical } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -96,9 +97,7 @@ export function TaskCard({
           <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-normal ${PRIORITY_COLORS[task.priority]}`}>
             {task.priority}
           </Badge>
-          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-normal ${STATUS_COLORS[task.status]}`}>
-            {task.status.replace("_", " ")}
-          </Badge>
+          <StatusPill status={task.status} size="sm" />
         </div>
 
         <div className="flex items-center justify-between pt-0.5">

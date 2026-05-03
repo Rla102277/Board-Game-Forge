@@ -145,7 +145,7 @@ router.post("/projects/:projectId/tasks", async (req, res): Promise<void> => {
       projectId,
       title: rest.title,
       description: rest.description ?? null,
-      status: rest.status ?? "todo",
+      status: rest.status ?? "backlog",
       priority: rest.priority ?? "medium",
       category: rest.category ?? null,
       tags: tags ?? [],
@@ -223,6 +223,14 @@ router.patch("/projects/:projectId/tasks/:taskId", async (req, res): Promise<voi
     category?: string | null;
   };
 
+  // Snapshot the task BEFORE updating so we can diff `status` for the activity
+  // feed and notify on key transitions (e.g. → done).
+  const [previous] = await db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
+  if (!previous) { res.status(404).json({ error: "Task not found" }); return; }
+
   const updateFields: Record<string, unknown> = { ...rest };
   if (tags !== undefined) updateFields.tags = tags;
   if (parentTaskId !== undefined) updateFields.parentTaskId = parentTaskId;
@@ -239,18 +247,24 @@ router.patch("/projects/:projectId/tasks/:taskId", async (req, res): Promise<voi
   if (!task) { res.status(404).json({ error: "Task not found" }); return; }
 
   // Sync assignees if provided
+  let newAssignees: number[] = [];
   if (assigneeIds !== undefined) {
+    const previousAssignees = (
+      await db.select({ userId: taskAssignees.userId }).from(taskAssignees).where(eq(taskAssignees.taskId, taskId))
+    ).map((r) => r.userId);
     await db.delete(taskAssignees).where(eq(taskAssignees.taskId, taskId));
     if (assigneeIds.length > 0) {
       await db.insert(taskAssignees).values(assigneeIds.map((uid) => ({ taskId, userId: uid }))).onConflictDoNothing();
     }
-    // Notify newly assigned users
-    if (uid && assigneeIds.length > 0) {
-      const otherAssignees = assigneeIds.filter((id) => id !== uid);
-      if (otherAssignees.length > 0) {
+    const prevSet = new Set(previousAssignees);
+    newAssignees = assigneeIds.filter((id) => !prevSet.has(id));
+    // Notify newly added assignees only.
+    if (uid && newAssignees.length > 0) {
+      const others = newAssignees.filter((id) => id !== uid);
+      if (others.length > 0) {
         const { notifications } = await import("@workspace/db");
         await db.insert(notifications).values(
-          otherAssignees.map((assigneeUid) => ({
+          others.map((assigneeUid) => ({
             userId: assigneeUid,
             projectId,
             type: "assignment",
@@ -266,7 +280,54 @@ router.patch("/projects/:projectId/tasks/:taskId", async (req, res): Promise<voi
   }
 
   if (uid) {
-    await logActivity(projectId, uid, "updated", "task", task.id, task.title, `Updated task "${task.title}"`);
+    const statusChanged = rest.status !== undefined && rest.status !== previous.status;
+    if (statusChanged) {
+      await logActivity(
+        projectId,
+        uid,
+        "updated",
+        "task",
+        task.id,
+        task.title,
+        `Changed status of "${task.title}" from ${previous.status} to ${task.status}`,
+        { field: "status", from: previous.status, to: task.status },
+      );
+
+      // Notify all current assignees (except actor) when a task is marked Done.
+      if (task.status === "done") {
+        const currentAssignees = (
+          await db.select({ userId: taskAssignees.userId }).from(taskAssignees).where(eq(taskAssignees.taskId, taskId))
+        ).map((r) => r.userId).filter((id) => id !== uid);
+        if (currentAssignees.length > 0) {
+          const { notifications } = await import("@workspace/db");
+          await db.insert(notifications).values(
+            currentAssignees.map((assigneeUid) => ({
+              userId: assigneeUid,
+              projectId,
+              type: "status_change",
+              title: "A task was marked Done",
+              message: `"${task.title}" was marked Done`,
+              entityType: "task",
+              entityId: task.id,
+              actorUserId: uid,
+            })),
+          ).onConflictDoNothing();
+        }
+      }
+    } else if (newAssignees.length > 0) {
+      await logActivity(
+        projectId,
+        uid,
+        "assigned",
+        "task",
+        task.id,
+        task.title,
+        `Assigned ${newAssignees.length} new ${newAssignees.length === 1 ? "person" : "people"} to "${task.title}"`,
+        { addedAssigneeIds: newAssignees },
+      );
+    } else {
+      await logActivity(projectId, uid, "updated", "task", task.id, task.title, `Updated task "${task.title}"`);
+    }
   }
 
   const [rich] = await buildRichTasks([task]);

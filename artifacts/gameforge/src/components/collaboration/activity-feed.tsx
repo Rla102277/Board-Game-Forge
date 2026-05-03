@@ -6,7 +6,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Activity, MessageSquare, ArrowRight, Plus, Trash2, Pencil, UserPlus, GitCommit } from "lucide-react";
 import { useListActivity } from "@/hooks/use-collaboration";
 import { formatDistanceToNow } from "date-fns";
-import type { ActivityLogEntry, ActivityAction } from "@/lib/collaboration-types";
+import type { ActivityLogEntry, ActivityAction, TaskStatus } from "@/lib/collaboration-types";
+import { StatusPill, MONDAY_STATUS_ORDER } from "@/components/workspace/status-pill";
+
+const TASK_STATUS_SET = new Set<string>(MONDAY_STATUS_ORDER);
+
+function StatusDiff({ metadata }: { metadata: Record<string, unknown> }) {
+  if (!metadata || metadata.field !== "status") return null;
+  const from = typeof metadata.from === "string" ? metadata.from : null;
+  const to = typeof metadata.to === "string" ? metadata.to : null;
+  if (!from || !to || !TASK_STATUS_SET.has(from) || !TASK_STATUS_SET.has(to)) {
+    return null;
+  }
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <StatusPill status={from as TaskStatus} size="sm" />
+      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+      <StatusPill status={to as TaskStatus} size="sm" />
+    </div>
+  );
+}
 
 interface ActivityFeedProps {
   projectId: number;
@@ -116,6 +135,7 @@ function ActivityItem({ entry }: { entry: ActivityLogEntry }) {
           </span>
           <span className="text-sm truncate">{entry.entityTitle ?? entry.entityType}</span>
         </div>
+        <StatusDiff metadata={entry.metadata} />
         <div className="text-xs text-muted-foreground mt-0.5">
           {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
         </div>
