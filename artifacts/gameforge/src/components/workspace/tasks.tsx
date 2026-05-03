@@ -23,6 +23,7 @@ import {
   Plus, Edit2, Trash2, CheckSquare, MoreHorizontal, X, CalendarDays,
   Table as TableIcon, Columns3, LayoutDashboard, UserCheck,
   Check, XCircle, BookTemplate, Loader2, Bookmark, Save,
+  GanttChartSquare, Users, ChevronRight, ChevronDown,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,14 +45,17 @@ import {
   type TaskStatus,
   type TaskPriority,
 } from "@/lib/collaboration-types";
-import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from "date-fns";
+import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, addDays, isWeekend, subDays } from "date-fns";
+import { Fragment } from "react";
 import { cn } from "@/lib/utils";
+import { MONDAY_STATUS_BG } from "./status-pill";
+import { useListSubtasks, useCreateSubtask, useToggleSubtask, useDeleteSubtask } from "@/hooks/use-collaboration";
 
 interface TasksProps {
   projectId: number;
 }
 
-type ViewMode = "kanban" | "table" | "calendar" | "dashboard";
+type ViewMode = "kanban" | "table" | "calendar" | "dashboard" | "timeline" | "workload";
 type GroupBy = "status" | "priority" | "assignee" | "category" | "none";
 
 const PRIORITY_ORDER: TaskPriority[] = ["urgent", "high", "medium", "low"];
@@ -192,6 +196,17 @@ export function Tasks({ projectId }: TasksProps) {
           qc.invalidateQueries({ queryKey: getListRichTasksQueryKey(projectId) }),
       },
     );
+  };
+
+  // ─── Expanded subtasks in table view ─────────────────────────────────────
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(new Set());
+  const toggleExpanded = (id: number) => {
+    setExpandedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   // ─── Saved Views ─────────────────────────────────────────────────────────
@@ -518,6 +533,26 @@ export function Tasks({ projectId }: TasksProps) {
                 <CalendarDays className="h-4 w-4" />
               </Button>
               <Button
+                variant={view === "timeline" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-none h-8 px-2"
+                onClick={() => setView("timeline")}
+                title="Timeline"
+                data-testid="view-timeline-button"
+              >
+                <GanttChartSquare className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === "workload" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-none h-8 px-2"
+                onClick={() => setView("workload")}
+                title="Workload"
+                data-testid="view-workload-button"
+              >
+                <Users className="h-4 w-4" />
+              </Button>
+              <Button
                 variant={view === "dashboard" ? "secondary" : "ghost"}
                 size="sm"
                 className="rounded-none h-8 px-2"
@@ -778,6 +813,7 @@ export function Tasks({ projectId }: TasksProps) {
                         </div>
                       </button>
                     </th>
+                    <th className="p-2 w-8"></th>
                     <th className="p-2 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">Task</th>
                     <th className="p-2 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">Status</th>
                     <th className="p-2 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">Priority</th>
@@ -789,8 +825,8 @@ export function Tasks({ projectId }: TasksProps) {
                 </thead>
                 <tbody className="divide-y">
                   {tasks?.map((task) => (
+                    <Fragment key={task.id}>
                     <tr
-                      key={task.id}
                       className={`hover:bg-muted/30 transition-colors cursor-pointer ${selectedTasks.has(task.id) ? "bg-primary/5" : ""}`}
                       onClick={() => setDetailTask(task)}
                     >
@@ -800,6 +836,17 @@ export function Tasks({ projectId }: TasksProps) {
                         }`}>
                           {selectedTasks.has(task.id) && <Check className="h-3 w-3" />}
                         </div>
+                      </td>
+                      <td className="p-1" onClick={(e) => { e.stopPropagation(); toggleExpanded(task.id); }}>
+                        <button
+                          className="h-5 w-5 rounded hover:bg-muted flex items-center justify-center text-muted-foreground"
+                          title="Show sub-items"
+                          data-testid={`task-expand-${task.id}`}
+                        >
+                          {expandedTaskIds.has(task.id)
+                            ? <ChevronDown className="h-3.5 w-3.5" />
+                            : <ChevronRight className="h-3.5 w-3.5" />}
+                        </button>
                       </td>
                       <td className="p-2">
                         <div className="font-medium text-sm">{task.title}</div>
@@ -857,11 +904,240 @@ export function Tasks({ projectId }: TasksProps) {
                         </DropdownMenu>
                       </td>
                     </tr>
+                    {expandedTaskIds.has(task.id) && (
+                      <tr className="bg-muted/20">
+                        <td colSpan={9} className="p-0">
+                          <SubtaskRow taskId={task.id} projectId={projectId} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
+
+          {view === "timeline" && (() => {
+            const start = subDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 0);
+            const days = eachDayOfInterval({ start, end: addDays(start, 13) });
+            const datedTasks = (visibleTasks ?? []).filter((t) => t.dueDate);
+            const inWindow = datedTasks.filter((t) => {
+              const d = new Date(t.dueDate!);
+              return days.some((x) => isSameDay(x, d));
+            });
+            const outOfWindow = datedTasks.length - inWindow.length;
+            const undated = (visibleTasks?.length ?? 0) - datedTasks.length;
+            return (
+              <div className="border rounded-lg overflow-auto bg-card">
+                <div
+                  className="grid"
+                  style={{ gridTemplateColumns: `260px repeat(14, minmax(54px, 1fr))` }}
+                >
+                  <div className="bg-muted/50 border-b border-r p-2 text-[11px] uppercase text-muted-foreground font-medium sticky left-0 z-10">
+                    Task
+                  </div>
+                  {days.map((d) => (
+                    <div
+                      key={d.toISOString()}
+                      className={cn(
+                        "border-b border-r p-1 text-center",
+                        isToday(d) && "bg-primary/10",
+                        isWeekend(d) && !isToday(d) && "bg-muted/30",
+                      )}
+                    >
+                      <div className="text-[10px] text-muted-foreground uppercase">
+                        {format(d, "EEE")}
+                      </div>
+                      <div
+                        className={cn(
+                          "text-sm font-semibold",
+                          isToday(d) && "text-primary",
+                        )}
+                      >
+                        {format(d, "d")}
+                      </div>
+                    </div>
+                  ))}
+                  {inWindow.length === 0 && (
+                    <div className="col-span-full p-10 text-center text-sm text-muted-foreground">
+                      No tasks with due dates in this window.
+                    </div>
+                  )}
+                  {inWindow.map((task) => {
+                    const dueIdx = days.findIndex((d) =>
+                      isSameDay(d, new Date(task.dueDate!)),
+                    );
+                    return (
+                      <Fragment key={task.id}>
+                        <button
+                          onClick={() => setDetailTask(task)}
+                          className="border-b border-r p-2 text-left text-xs hover:bg-muted/30 sticky left-0 bg-card z-10 min-w-0"
+                        >
+                          <div className="font-medium truncate">{task.title}</div>
+                          <div className="mt-1">
+                            <StatusPill status={task.status} size="sm" />
+                          </div>
+                        </button>
+                        {days.map((d, i) => (
+                          <div
+                            key={i}
+                            className={cn(
+                              "border-b border-r relative h-14",
+                              isToday(d) && "bg-primary/5",
+                              isWeekend(d) && !isToday(d) && "bg-muted/20",
+                            )}
+                          >
+                            {i === dueIdx && (
+                              <button
+                                onClick={() => setDetailTask(task)}
+                                className={cn(
+                                  "absolute inset-1 rounded-md text-[10px] text-white px-2 py-1 truncate text-left font-medium hover:opacity-90 transition-opacity shadow-sm",
+                                  MONDAY_STATUS_BG[task.status],
+                                )}
+                                title={task.title}
+                              >
+                                {task.title}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </Fragment>
+                    );
+                  })}
+                </div>
+                {(outOfWindow > 0 || undated > 0) && (
+                  <div className="px-3 py-2 border-t bg-muted/20 text-[11px] text-muted-foreground flex gap-3">
+                    {outOfWindow > 0 && <span>{outOfWindow} dated task{outOfWindow === 1 ? "" : "s"} outside this window</span>}
+                    {undated > 0 && <span>{undated} task{undated === 1 ? "" : "s"} without a due date</span>}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {view === "workload" && (() => {
+            const start = startOfWeek(new Date(), { weekStartsOn: 1 });
+            const days = eachDayOfInterval({ start, end: addDays(start, 13) });
+            // Active people = anyone assigned to at least one visible task
+            const activeUserIds = Array.from(
+              new Set((visibleTasks ?? []).flatMap((t) => t.assigneeIds)),
+            );
+            const activeUsers = activeUserIds
+              .map((id) => users?.find((u) => u.id === id))
+              .filter((u): u is NonNullable<typeof u> => !!u);
+            const intensityClass = (n: number) => {
+              if (n === 0) return "bg-card text-muted-foreground/50";
+              if (n === 1) return "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300";
+              if (n === 2) return "bg-emerald-500/40 text-emerald-900 dark:text-emerald-100";
+              if (n === 3) return "bg-amber-500/50 text-amber-900 dark:text-amber-100";
+              if (n === 4) return "bg-orange-500/60 text-white";
+              return "bg-red-500/80 text-white";
+            };
+            return (
+              <div className="border rounded-lg overflow-auto bg-card">
+                <div
+                  className="grid"
+                  style={{ gridTemplateColumns: `220px repeat(14, minmax(48px, 1fr))` }}
+                >
+                  <div className="bg-muted/50 border-b border-r p-2 text-[11px] uppercase text-muted-foreground font-medium sticky left-0 z-10">
+                    Person
+                  </div>
+                  {days.map((d) => (
+                    <div
+                      key={d.toISOString()}
+                      className={cn(
+                        "border-b border-r p-1 text-center",
+                        isToday(d) && "bg-primary/10",
+                        isWeekend(d) && !isToday(d) && "bg-muted/30",
+                      )}
+                    >
+                      <div className="text-[10px] text-muted-foreground uppercase">
+                        {format(d, "EEE")}
+                      </div>
+                      <div className={cn("text-sm font-semibold", isToday(d) && "text-primary")}>
+                        {format(d, "d")}
+                      </div>
+                    </div>
+                  ))}
+                  {activeUsers.length === 0 && (
+                    <div className="col-span-full p-10 text-center text-sm text-muted-foreground">
+                      No assigned tasks to show workload for.
+                    </div>
+                  )}
+                  {activeUsers.map((u) => {
+                    const initial = (u.firstName?.[0] ?? u.email?.[0] ?? "?").toUpperCase();
+                    const totalLoad = (visibleTasks ?? []).filter(
+                      (t) => t.assigneeIds.includes(u.id) && t.status !== "done",
+                    ).length;
+                    return (
+                      <Fragment key={u.id}>
+                        <div className="border-b border-r p-2 sticky left-0 bg-card z-10 flex items-center gap-2 min-w-0">
+                          <div className="h-7 w-7 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-semibold shrink-0">
+                            {initial}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium truncate">
+                              {u.firstName || u.email}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {totalLoad} open
+                            </div>
+                          </div>
+                        </div>
+                        {days.map((d) => {
+                          const dayTasks = (visibleTasks ?? []).filter(
+                            (t) =>
+                              t.assigneeIds.includes(u.id) &&
+                              t.dueDate &&
+                              isSameDay(new Date(t.dueDate), d),
+                          );
+                          const n = dayTasks.length;
+                          return (
+                            <button
+                              key={d.toISOString()}
+                              type="button"
+                              disabled={n === 0}
+                              onClick={() => n === 1 && setDetailTask(dayTasks[0])}
+                              title={
+                                n === 0
+                                  ? ""
+                                  : dayTasks.map((t) => t.title).join("\n")
+                              }
+                              className={cn(
+                                "border-b border-r h-14 flex items-center justify-center text-sm font-semibold transition-colors",
+                                intensityClass(n),
+                                n > 0 && "hover:opacity-80 cursor-pointer",
+                              )}
+                            >
+                              {n > 0 ? n : ""}
+                            </button>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                </div>
+                <div className="px-3 py-2 border-t bg-muted/20 text-[11px] text-muted-foreground flex items-center gap-3">
+                  <span>Workload</span>
+                  <div className="flex items-center gap-1">
+                    {[0, 1, 2, 3, 4, 5].map((n) => (
+                      <div
+                        key={n}
+                        className={cn(
+                          "h-3 w-6 rounded text-[9px] flex items-center justify-center",
+                          intensityClass(n),
+                        )}
+                      >
+                        {n === 5 ? "5+" : n}
+                      </div>
+                    ))}
+                  </div>
+                  <span className="ml-auto">Click a single-task cell to open it</span>
+                </div>
+              </div>
+            );
+          })()}
 
           {view === "calendar" && (
             <div className="flex flex-col h-full">
@@ -907,6 +1183,123 @@ export function Tasks({ projectId }: TasksProps) {
         onOpenChange={(open) => !open && setDetailTask(null)}
         projectId={projectId}
       />
+    </div>
+  );
+}
+
+// ─── SubtaskRow: inline expandable sub-items panel for the table view ─────
+interface SubtaskRowProps {
+  taskId: number;
+  projectId: number;
+}
+
+function SubtaskRow({ taskId, projectId }: SubtaskRowProps) {
+  const { data: subtasks, isLoading } = useListSubtasks(taskId, projectId);
+  const createSubtask = useCreateSubtask();
+  const toggleSubtask = useToggleSubtask();
+  const deleteSubtask = useDeleteSubtask();
+  const [input, setInput] = useState("");
+
+  const handleAdd = async () => {
+    const title = input.trim();
+    if (!title) return;
+    setInput("");
+    await createSubtask.mutateAsync({ taskId, title, projectId });
+  };
+
+  const completed = subtasks?.filter((s) => s.completed).length ?? 0;
+  const total = subtasks?.length ?? 0;
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  return (
+    <div className="px-10 py-3" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+          Sub-items
+        </span>
+        {total > 0 && (
+          <>
+            <span className="text-[11px] text-muted-foreground">
+              {completed}/{total}
+            </span>
+            <div className="h-1 flex-1 max-w-[120px] bg-background rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 transition-all"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </>
+        )}
+      </div>
+      {isLoading && (
+        <div className="text-xs text-muted-foreground py-1">Loading…</div>
+      )}
+      <div className="space-y-1">
+        {subtasks?.map((sub) => (
+          <div
+            key={sub.id}
+            className="flex items-center gap-2 group rounded px-1 py-0.5 hover:bg-background/60"
+          >
+            <button
+              onClick={() =>
+                toggleSubtask.mutate({ subtaskId: sub.id, taskId, projectId })
+              }
+              className={cn(
+                "h-4 w-4 rounded border flex items-center justify-center shrink-0",
+                sub.completed
+                  ? "bg-emerald-500 border-emerald-500 text-white"
+                  : "border-muted-foreground hover:border-primary",
+              )}
+              data-testid={`subtask-toggle-${sub.id}`}
+            >
+              {sub.completed && <Check className="h-3 w-3" />}
+            </button>
+            <span
+              className={cn(
+                "text-xs flex-1",
+                sub.completed && "line-through text-muted-foreground",
+              )}
+            >
+              {sub.title}
+            </span>
+            <button
+              onClick={() =>
+                deleteSubtask.mutate({ subtaskId: sub.id, taskId, projectId })
+              }
+              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+              title="Delete sub-item"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleAdd();
+            }
+          }}
+          placeholder="+ Add sub-item"
+          className="flex-1 bg-transparent border-b border-border focus:border-primary outline-none text-xs py-1"
+          data-testid={`subtask-input-${taskId}`}
+        />
+        {input.trim() && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleAdd}
+            className="h-7 text-xs"
+          >
+            Add
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
