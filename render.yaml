@@ -2,7 +2,7 @@ services:
  - type: web
    name: gameforge-api
    runtime: node
-   buildCommand: npm install -g pnpm@10.21.1 && pnpm install && pnpm --filter @workspace/api-server run build
+   buildCommand: npm install -g pnpm@10.33.2 && pnpm install && pnpm --filter @workspace/api-server run build
    startCommand: node artifacts/api-server/dist/index.js
    envVars:
      - key: NODE_ENV
@@ -29,7 +29,7 @@ services:
  - type: web
    name: gameforge-web
    runtime: node
-   buildCommand: npm install -g pnpm@10.21.1 && pnpm install && pnpm --filter @workspace/gameforge run build && npm install -g serve
+   buildCommand: npm install -g pnpm@10.33.2 && pnpm install && pnpm --filter @workspace/gameforge run build && npm install -g serve
    startCommand: serve artifacts/gameforge/dist -p $PORT
    envVars:
      - key: VITE_CLERK_PUBLISHABLE_KEY
