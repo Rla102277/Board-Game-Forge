@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from './generated/api';
+import { customFetch } from './custom-fetch';
 
 export interface GameBoard {
   id: number;
@@ -36,6 +36,10 @@ export interface UpdateBoardRequest {
   canvasState?: any;
 }
 
+const getProjectBoardsUrl = (projectId: number) => `/api/projects/${projectId}/boards`;
+const getProjectBoardUrl = (projectId: number, boardId: number) => `/api/projects/${projectId}/boards/${boardId}`;
+const getDuplicateBoardUrl = (projectId: number, boardId: number) => `/api/projects/${projectId}/boards/${boardId}/duplicate`;
+
 // Query keys
 export const getBoardsQueryKey = (projectId: number) => ['boards', projectId];
 export const getBoardQueryKey = (projectId: number, boardId: number) => ['board', projectId, boardId];
@@ -45,10 +49,7 @@ export function useListBoards(projectId: number) {
   return useQuery({
     queryKey: getBoardsQueryKey(projectId),
     queryFn: async () => {
-      const response = await api.GET('/projects/{projectId}/boards', {
-        params: { path: { projectId } },
-      });
-      return response.data as GameBoard[];
+      return customFetch<GameBoard[]>(getProjectBoardsUrl(projectId));
     },
     enabled: !!projectId,
   });
@@ -58,10 +59,7 @@ export function useGetBoard(projectId: number, boardId: number) {
   return useQuery({
     queryKey: getBoardQueryKey(projectId, boardId),
     queryFn: async () => {
-      const response = await api.GET('/projects/{projectId}/boards/{boardId}', {
-        params: { path: { projectId, boardId } },
-      });
-      return response.data as GameBoard;
+      return customFetch<GameBoard>(getProjectBoardUrl(projectId, boardId));
     },
     enabled: !!projectId && !!boardId,
   });
@@ -72,11 +70,10 @@ export function useCreateBoard(projectId: number) {
 
   return useMutation({
     mutationFn: async (data: CreateBoardRequest) => {
-      const response = await api.POST('/projects/{projectId}/boards', {
-        params: { path: { projectId } },
+      return customFetch<GameBoard>(getProjectBoardsUrl(projectId), {
+        method: 'POST',
         body: data,
       });
-      return response.data as GameBoard;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getBoardsQueryKey(projectId) });
@@ -89,11 +86,10 @@ export function useUpdateBoard(projectId: number, boardId: number) {
 
   return useMutation({
     mutationFn: async (data: UpdateBoardRequest) => {
-      const response = await api.PATCH('/projects/{projectId}/boards/{boardId}', {
-        params: { path: { projectId, boardId } },
+      return customFetch<GameBoard>(getProjectBoardUrl(projectId, boardId), {
+        method: 'PATCH',
         body: data,
       });
-      return response.data as GameBoard;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getBoardsQueryKey(projectId) });
@@ -107,8 +103,8 @@ export function useDeleteBoard(projectId: number) {
 
   return useMutation({
     mutationFn: async (boardId: number) => {
-      await api.DELETE('/projects/{projectId}/boards/{boardId}', {
-        params: { path: { projectId, boardId } },
+      await customFetch<void>(getProjectBoardUrl(projectId, boardId), {
+        method: 'DELETE',
       });
     },
     onSuccess: () => {
@@ -122,11 +118,10 @@ export function useDuplicateBoard(projectId: number) {
 
   return useMutation({
     mutationFn: async ({ boardId, name }: { boardId: number; name?: string }) => {
-      const response = await api.POST('/projects/{projectId}/boards/{boardId}/duplicate', {
-        params: { path: { projectId, boardId } },
+      return customFetch<GameBoard>(getDuplicateBoardUrl(projectId, boardId), {
+        method: 'POST',
         body: { name },
       });
-      return response.data as GameBoard;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getBoardsQueryKey(projectId) });

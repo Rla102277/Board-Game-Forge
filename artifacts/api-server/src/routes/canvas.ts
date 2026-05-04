@@ -1,8 +1,6 @@
 import { Router } from 'express';
-import { requireAuth } from '../middlewares/auth';
-import { requireProjectAccess } from '../middlewares/projectAccess';
-import { db } from '../lib/db';
-import { gameBoardsTable } from '@workspace/db';
+import { requireAuth, requireProjectAccess } from '../middlewares/projectAuth';
+import { db, gameBoardsTable } from '@workspace/db';
 import { eq, and } from 'drizzle-orm';
 import type { Request, Response } from 'express';
 

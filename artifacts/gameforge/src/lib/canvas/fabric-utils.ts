@@ -248,5 +248,3 @@ export class CanvasManager {
     this.canvas.dispose();
   }
 }
-
-export { CanvasManager };

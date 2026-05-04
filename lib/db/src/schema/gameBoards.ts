@@ -1,6 +1,6 @@
 import { pgTable, serial, integer, text, jsonb, timestamp } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { projectsTable } from './projects';
+import { projects } from './projects';
 
 export const gameBoardsTable = pgTable('game_boards', {
   id: serial('id').primaryKey(),

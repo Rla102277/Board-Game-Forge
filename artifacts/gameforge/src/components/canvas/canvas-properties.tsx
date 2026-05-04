@@ -67,6 +67,9 @@ export function CanvasProperties({
           <Badge variant="secondary">{type}</Badge>
           <span className="text-xs text-muted-foreground">
             ID: {(selectedObject as any).id || 'N/A'}
+          </span>
+        </div>
+
         {/* Position */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">Position</Label>
