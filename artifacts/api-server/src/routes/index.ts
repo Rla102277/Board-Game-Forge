@@ -35,6 +35,7 @@ import designerArtifactsRouter from "./designerArtifacts";
 import userArtifactsRouter from "./userArtifacts";
 import trashRouter from "./trash";
 import analysisRouter from "./analysis";
+import canvasRouter from "./canvas";
 import {
   requireAuth,
   requireProjectAccess,
@@ -93,6 +94,7 @@ router.use(playtestReportsRouter);
 router.use(designerArtifactsRouter);
 router.use(trashRouter);
 router.use(analysisRouter);
+router.use(canvasRouter);
 
 // User-scoped (not project-scoped) authenticated routes
 router.use("/notifications", requireAuth);

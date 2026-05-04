@@ -1,6 +1,7 @@
 export * from "./projects";
 export * from "./entities";
 export * from "./entityProperties";
+export * from "./gameBoards";
 export * from "./rules";
 export * from "./players";
 export * from "./notes";

@@ -31,6 +31,7 @@ const GameIdentity = lazy(() => import("@/components/workspace/overview").then(m
 const Research = lazy(() => import("@/components/workspace/research").then(m => ({ default: m.Research })));
 const AssetsEntities = lazy(() => import("@/components/workspace/assets-entities").then(m => ({ default: m.AssetsEntities })));
 const GamePiecesOverview = lazy(() => import("@/components/workspace/game-pieces-overview").then(m => ({ default: m.GamePiecesOverview })));
+const CanvasTab = lazy(() => import("@/components/canvas-tab").then(m => ({ default: m.default })));
 const Players = lazy(() => import("@/components/workspace/players").then(m => ({ default: m.Players })));
 const Rules = lazy(() => import("@/components/workspace/rules").then(m => ({ default: m.Rules })));
 const Simulator = lazy(() => import("@/components/workspace/simulator").then(m => ({ default: m.Simulator })));
@@ -93,6 +94,7 @@ const STAGES: Stage[] = [
     items: [
       { id: "game-pieces",     label: "Game Pieces",       icon: Layers },
       { id: "assets-entities", label: "All Components",    icon: ImageIcon },
+      { id: "canvas",          label: "Visual Canvas",     icon: Grid3X3 },
       { id: "players",         label: "Players",           icon: Users },
     ],
   },
@@ -478,6 +480,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       case "research": return <ErrorBoundary><Suspense fallback={loadingFallback}><Research projectId={projectId} onPromptSend={setChatPrompt} workspaceSlug={params.workspaceSlug} /></Suspense></ErrorBoundary>;
       case "game-pieces": return <ErrorBoundary><Suspense fallback={loadingFallback}><GamePiecesOverview projectId={projectId} onChatPrompt={setChatPrompt} onNavigate={navigateTo} /></Suspense></ErrorBoundary>;
       case "assets-entities": return <ErrorBoundary><Suspense fallback={loadingFallback}><AssetsEntities projectId={projectId} onChatPrompt={setChatPrompt} /></Suspense></ErrorBoundary>;
+      case "canvas": return <ErrorBoundary><Suspense fallback={loadingFallback}><CanvasTab projectId={projectId} /></Suspense></ErrorBoundary>;
       case "players": return <ErrorBoundary><Suspense fallback={loadingFallback}><Players projectId={projectId} /></Suspense></ErrorBoundary>;
       case "rules": return <ErrorBoundary><Suspense fallback={loadingFallback}><Rules projectId={projectId} /></Suspense></ErrorBoundary>;
       case "rulebook": return <ErrorBoundary><Suspense fallback={loadingFallback}><RulebookEditor projectId={projectId} /></Suspense></ErrorBoundary>;
