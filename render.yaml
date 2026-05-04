@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: gameforge-api
+    runtime: node
+    rootDir: artifacts/api-server
+    buildCommand: cd ../.. && pnpm install && pnpm --filter @workspace/api-server run build
+    startCommand: node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_GENERATIVE_AI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GAMMA_API_KEY
+        sync: false
+      - key: PORT
+        value: "8080"
+
+  - type: web
+    name: gameforge-web
+    runtime: static
+    rootDir: artifacts/gameforge
+    buildCommand: cd ../.. && pnpm install && pnpm --filter @workspace/gameforge run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: VITE_API_URL
+        value: https://gameforge-api.onrender.com
