@@ -3,7 +3,7 @@ services:
     name: gameforge-api
     runtime: node
     buildCommand: corepack enable && corepack prepare pnpm@10.33.2 --activate && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server run build
-    startCommand: node artifacts/api-server/dist/index.mjs
+    startCommand: node artifacts/api-server/dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -13,15 +13,25 @@ services:
         sync: false
       - key: CLERK_PUBLISHABLE_KEY
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: AI_INTEGRATIONS_ANTHROPIC_BASE_URL
         sync: false
-      - key: OPENAI_API_KEY
+      - key: AI_INTEGRATIONS_ANTHROPIC_API_KEY
         sync: false
-      - key: GOOGLE_GENERATIVE_AI_API_KEY
+      - key: AI_INTEGRATIONS_OPENAI_BASE_URL
         sync: false
-      - key: OPENROUTER_API_KEY
+      - key: AI_INTEGRATIONS_OPENAI_API_KEY
+        sync: false
+      - key: AI_INTEGRATIONS_GEMINI_BASE_URL
+        sync: false
+      - key: AI_INTEGRATIONS_GEMINI_API_KEY
+        sync: false
+      - key: AI_INTEGRATIONS_OPENROUTER_BASE_URL
+        sync: false
+      - key: AI_INTEGRATIONS_OPENROUTER_API_KEY
         sync: false
       - key: GAMMA_API_KEY
+        sync: false
+      - key: SESSION_SECRET
         sync: false
       - key: PORT
         value: "8080"
@@ -29,12 +39,10 @@ services:
   - type: web
     name: gameforge-web
     runtime: node
-    buildCommand: corepack enable && corepack prepare pnpm@10.33.2 --activate && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/gameforge run build
-    startCommand: pnpm --filter @workspace/gameforge exec vite preview --config artifacts/gameforge/vite.config.ts --host 0.0.0.0 --port $PORT
+    buildCommand: corepack enable && corepack prepare pnpm@10.33.2 --activate && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/gameforge run build && npm install -g serve
+    startCommand: serve -s artifacts/gameforge/dist -l $PORT
     envVars:
-      - key: BASE_PATH
-        value: "/"
       - key: VITE_CLERK_PUBLISHABLE_KEY
         sync: false
       - key: VITE_API_URL
-        value: https://gameforge-api.onrender.com
+        value: https://gameforge-api-iy52.onrender.com
