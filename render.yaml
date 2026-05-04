@@ -2,7 +2,7 @@ services:
   - type: web
     name: gameforge-api
     runtime: node
-    buildCommand: corepack enable && corepack prepare pnpm@10.33.2 --activate && pnpm install && pnpm --filter @workspace/api-server run build
+    buildCommand: corepack enable && corepack prepare pnpm@10.33.2 --activate && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server run build
     startCommand: node artifacts/api-server/dist/index.js
     envVars:
       - key: NODE_ENV
@@ -29,7 +29,7 @@ services:
   - type: web
     name: gameforge-web
     runtime: node
-    buildCommand: corepack enable && corepack prepare pnpm@10.33.2 --activate && pnpm install && pnpm --filter @workspace/gameforge run build && npm install -g serve
+    buildCommand: corepack enable && corepack prepare pnpm@10.33.2 --activate && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/gameforge run build && npm install -g serve
     startCommand: serve artifacts/gameforge/dist -p $PORT
     envVars:
       - key: VITE_CLERK_PUBLISHABLE_KEY
