@@ -40,7 +40,7 @@ services:
     name: gameforge-web
     runtime: node
     buildCommand: corepack enable && corepack prepare pnpm@10.33.2 --activate && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/gameforge run build && npm install -g serve
-    startCommand: serve -s artifacts/gameforge/dist -l $PORT
+    startCommand: serve -s artifacts/gameforge/dist -l $PORT --single
     envVars:
       - key: VITE_CLERK_PUBLISHABLE_KEY
         sync: false
