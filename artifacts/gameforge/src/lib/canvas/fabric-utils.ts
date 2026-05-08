@@ -1,4 +1,5 @@
-import { Canvas, FabricObject, Rect, Circle, Triangle, Line, Textbox, Image as FabricImage } from 'fabric';
+// Fabric.js imports - use named imports for better tree-shaking
+import { Canvas, Rect, Circle, Triangle, Line, Textbox, FabricImage, FabricObject } from 'fabric';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface CanvasState {

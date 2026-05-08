@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import {
   db,
   projects,
@@ -64,21 +64,25 @@ router.post(
       db.select().from(referenceGames).where(eq(referenceGames.projectId, projectId)),
     ]);
 
+    // Single JOIN query to get all entity properties - avoids N+1 pattern
     const allProps = projectEntities.length > 0
       ? await db
-          .select()
-          .from(entityProperties)
-          .where(
-            eq(entityProperties.entityId, projectEntities[0]!.id),
-          )
-          .then(async (first) => {
-            const rest = await Promise.all(
-              projectEntities.slice(1).map((e) =>
-                db.select().from(entityProperties).where(eq(entityProperties.entityId, e.id)),
-              ),
-            );
-            return [first, ...rest].flat();
+          .select({
+            id: entityProperties.id,
+            entityId: entityProperties.entityId,
+            name: entityProperties.name,
+            dataType: entityProperties.dataType,
+            unit: entityProperties.unit,
+            value: entityProperties.value,
+            textValue: entityProperties.textValue,
+            minValue: entityProperties.minValue,
+            maxValue: entityProperties.maxValue,
+            defaultValue: entityProperties.defaultValue,
           })
+          .from(entityProperties)
+          .innerJoin(entities, eq(entities.id, entityProperties.entityId))
+          .where(eq(entities.projectId, projectId))
+          .orderBy(asc(entityProperties.id))
       : [];
 
     let balanceScore = 80;

@@ -136,6 +136,33 @@ const MIGRATIONS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS user_artifacts_user_kind_unique ON user_artifacts (app_user_id, kind)`,
   `CREATE INDEX IF NOT EXISTS user_artifacts_app_user_id_idx ON user_artifacts (app_user_id)`,
+  // 0024 – additional performance indexes for hot query paths
+  `CREATE INDEX IF NOT EXISTS entity_properties_entity_id_idx ON entity_properties (entity_id)`,
+  `CREATE INDEX IF NOT EXISTS comments_entity_lookup_idx ON comments (entity_type, entity_id)`,
+  `CREATE INDEX IF NOT EXISTS tasks_status_priority_idx ON tasks (project_id, status, priority)`,
+  `CREATE INDEX IF NOT EXISTS task_assignees_user_id_idx ON task_assignees (user_id)`,
+  `CREATE INDEX IF NOT EXISTS projects_workspace_slug_idx ON projects (workspace_id, slug) WHERE deleted_at IS NULL`,
+  `CREATE INDEX IF NOT EXISTS app_users_clerk_user_id_idx ON app_users (clerk_user_id)`,
+  `CREATE INDEX IF NOT EXISTS workspace_members_user_id_idx ON workspace_members (user_id)`,
+  `CREATE INDEX IF NOT EXISTS workspace_members_workspace_id_idx ON workspace_members (workspace_id)`,
+  // 0025 – partial indexes for active tasks (improves Kanban board queries)
+  `CREATE INDEX IF NOT EXISTS tasks_active_idx ON tasks (project_id, status) WHERE status NOT IN ('done', 'cancelled')`,
+  // 0026 – composite index for AI provider settings lookups
+  `CREATE INDEX IF NOT EXISTS ai_provider_settings_workspace_provider_idx ON ai_provider_settings (workspace_id, provider)`,
+  // 0027 – AI response cache table for persistent caching
+  `CREATE TABLE IF NOT EXISTS ai_response_cache (
+    id serial PRIMARY KEY,
+    cache_key text NOT NULL UNIQUE,
+    prompt_hash text NOT NULL,
+    model text NOT NULL,
+    response text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS ai_cache_key_idx ON ai_response_cache (cache_key)`,
+  `CREATE INDEX IF NOT EXISTS ai_cache_expires_idx ON ai_response_cache (expires_at) WHERE expires_at > now()`,
+  // 0028 – GIN index for project metadata JSONB queries
+  `CREATE INDEX IF NOT EXISTS projects_metadata_gin_idx ON projects USING GIN (overview_meta) WHERE overview_meta IS NOT NULL`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {

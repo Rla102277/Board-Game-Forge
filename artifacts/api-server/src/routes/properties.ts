@@ -159,12 +159,11 @@ router.post(
       res.status(404).json({ error: "Entity not found" });
       return;
     }
-    // Pull existing properties so AI doesn't suggest duplicates
-    const [project] = await db.select().from(projects).where(eq(projects.id, params.data.projectId));
-    const existingProps = await db
-      .select()
-      .from(entityProperties)
-      .where(eq(entityProperties.entityId, entity.id));
+    // Pull existing properties and project info in parallel for better performance
+    const [[project], existingProps] = await Promise.all([
+      db.select().from(projects).where(eq(projects.id, params.data.projectId)),
+      db.select().from(entityProperties).where(eq(entityProperties.entityId, entity.id)),
+    ]);
     const existingNames = existingProps.map((p) => p.name).join(", ") || "none";
     const narrativeLine = project?.narrative?.trim()
       ? `\nGame narrative: ${project.narrative.trim()}\n`

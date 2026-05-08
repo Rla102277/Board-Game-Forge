@@ -83,34 +83,102 @@ async function logActivity(
 }
 
 // ─── List tasks ──────────────────────────────────────────────────────────────
+// Supports server-side filtering: status[], priority[], assigneeIds[], tags[], search, dueBefore, dueAfter, sortBy, sortOrder
 router.get("/projects/:projectId/tasks", async (req, res): Promise<void> => {
   const projectId = parseProjectId(req);
   if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
 
-  const { status, priority, search, dueBefore, dueAfter, assigneeId } = req.query as Record<string, string | undefined>;
+  const {
+    status,
+    priority,
+    search,
+    dueBefore,
+    dueAfter,
+    assigneeId,
+    assigneeIds,
+    tags,
+    sortBy = "createdAt",
+    sortOrder = "asc",
+  } = req.query as Record<string, string | undefined>;
 
-  let query = db.select().from(tasks).where(eq(tasks.projectId, projectId)).$dynamic();
+  // Support comma-separated values for multi-filter (e.g., status=todo,in_progress)
+  const statuses = status?.split(",").filter(Boolean);
+  const priorities = priority?.split(",").filter(Boolean);
+  const assigneeIdList = assigneeIds?.split(",").map(Number).filter((n) => !isNaN(n));
+  const tagList = tags?.split(",").filter(Boolean);
 
   const conditions = [eq(tasks.projectId, projectId)];
-  if (status) conditions.push(eq(tasks.status, status));
-  if (priority) conditions.push(eq(tasks.priority, priority));
+
+  // Multi-status filter
+  if (statuses?.length === 1) {
+    conditions.push(eq(tasks.status, statuses[0]));
+  } else if (statuses && statuses.length > 1) {
+    conditions.push(inArray(tasks.status, statuses));
+  }
+
+  // Multi-priority filter
+  if (priorities?.length === 1) {
+    conditions.push(eq(tasks.priority, priorities[0]));
+  } else if (priorities && priorities.length > 1) {
+    conditions.push(inArray(tasks.priority, priorities));
+  }
+
   if (search) conditions.push(ilike(tasks.title, `%${search}%`));
   if (dueBefore) conditions.push(lte(tasks.dueDate, new Date(dueBefore)));
   if (dueAfter) conditions.push(gte(tasks.dueDate, new Date(dueAfter)));
 
-  let rows = await db
-    .select()
+  // Build base query
+  let query = db
+    .select({
+      id: tasks.id,
+      projectId: tasks.projectId,
+      parentTaskId: tasks.parentTaskId,
+      title: tasks.title,
+      description: tasks.description,
+      status: tasks.status,
+      priority: tasks.priority,
+      category: tasks.category,
+      tags: tasks.tags,
+      estimatedHours: tasks.estimatedHours,
+      actualHours: tasks.actualHours,
+      dueDate: tasks.dueDate,
+      createdAt: tasks.createdAt,
+      updatedAt: tasks.updatedAt,
+    })
     .from(tasks)
-    .where(and(...conditions))
-    .orderBy(asc(tasks.createdAt));
+    .where(and(...conditions));
 
-  // Filter by assignee if requested (post-query since it requires join)
-  if (assigneeId) {
-    const aid = parseInt(assigneeId, 10);
-    const assignedTaskIds = (
-      await db.select({ taskId: taskAssignees.taskId }).from(taskAssignees).where(eq(taskAssignees.userId, aid))
-    ).map((r) => r.taskId);
-    rows = rows.filter((r) => assignedTaskIds.includes(r.id));
+  // Apply sorting
+  const sortColumn = sortBy === "dueDate" ? tasks.dueDate :
+                    sortBy === "priority" ? tasks.priority :
+                    sortBy === "status" ? tasks.status :
+                    sortBy === "title" ? tasks.title :
+                    tasks.createdAt;
+  query = sortOrder === "desc" ? query.orderBy(desc(sortColumn)) : query.orderBy(asc(sortColumn));
+
+  let rows = await query;
+
+  // Server-side assignee filtering with JOIN for efficiency
+  const targetAssignees = assigneeIdList ?? (assigneeId ? [parseInt(assigneeId, 10)] : []);
+  if (targetAssignees.length > 0) {
+    // Get task IDs that have any of the specified assignees
+    const assignedTaskRows = await db
+      .select({ taskId: taskAssignees.taskId })
+      .from(taskAssignees)
+      .where(and(
+        inArray(taskAssignees.userId, targetAssignees),
+        inArray(taskAssignees.taskId, rows.map((r) => r.id))
+      ));
+    const assignedTaskIds = new Set(assignedTaskRows.map((r) => r.taskId));
+    rows = rows.filter((r) => assignedTaskIds.has(r.id));
+  }
+
+  // Server-side tag filtering
+  if (tagList && tagList.length > 0) {
+    rows = rows.filter((r) => {
+      const taskTags = (r.tags as string[]) ?? [];
+      return tagList.some((tag) => taskTags.includes(tag));
+    });
   }
 
   const rich = await buildRichTasks(rows);
