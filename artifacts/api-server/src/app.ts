@@ -1,7 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
-import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
 import { clerkMiddleware, getAuth } from "@clerk/express";
 import { and, eq } from "drizzle-orm";
@@ -13,56 +11,7 @@ import {
 import router from "./routes";
 import { logger } from "./lib/logger";
 
-// Rate limiting configurations
-const standardLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: { error: "Too many requests, please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Stricter rate limit for expensive AI endpoints
-const aiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 10, // 10 AI requests per minute per IP
-  message: { error: "AI rate limit exceeded. Please slow down." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Stricter rate limit for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 auth attempts per 15 minutes
-  message: { error: "Too many authentication attempts." },
-  skipSuccessfulRequests: true,
-});
-
 const app: Express = express();
-
-// Security headers via Helmet
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Required for some frontend frameworks
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-    },
-  },
-  crossOriginEmbedderPolicy: false, // Allow loading images from external sources
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true,
-  },
-}));
 
 app.use(
   pinoHttp({
@@ -85,15 +34,6 @@ app.use(
 );
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-
-// Apply standard rate limiting to all API routes
-app.use("/api", standardLimiter);
-
-// Apply stricter rate limiting to AI endpoints
-app.use("/api/projects/:projectId/ai-", aiLimiter);
-app.use("/api/projects/:projectId/enhance", aiLimiter);
-app.use("/api/projects/:projectId/generate-", aiLimiter);
-app.use("/api/projects/:projectId/simulate", aiLimiter);
 
 app.use(cors({ credentials: true, origin: true }));
 app.use(express.json({ limit: "10mb" }));
