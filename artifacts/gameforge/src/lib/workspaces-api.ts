@@ -1,5 +1,6 @@
 export function apiBase(): string {
-  return import.meta.env.BASE_URL.replace(/\/$/, "");
+  const base = import.meta.env.BASE_URL ?? "/";
+  return base.replace(/\/$/, "");
 }
 
 export interface Workspace {
