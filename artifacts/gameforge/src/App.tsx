@@ -1,4 +1,4 @@
-import { useEffect, useRef, lazy, Suspense } from "react";
+import { useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
@@ -6,42 +6,17 @@ import { dark } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import Workspace from "@/pages/workspace";
+import WorkspaceHome from "@/pages/workspace-home";
+import WorkspaceBySlug from "@/pages/workspace-by-slug";
+import Account from "@/pages/account";
+import Admin from "@/pages/admin";
+import LearnPage from "@/pages/learn";
 import Landing from "@/pages/landing";
+import PublicFeedback from "@/pages/public-feedback";
+import JoinWorkspace from "@/pages/join-workspace";
 
-// Lazy load heavy routes for code splitting
-const Workspace = lazy(() => import("@/pages/workspace"));
-const WorkspaceHome = lazy(() => import("@/pages/workspace-home"));
-const WorkspaceBySlug = lazy(() => import("@/pages/workspace-by-slug"));
-const Account = lazy(() => import("@/pages/account"));
-const Admin = lazy(() => import("@/pages/admin"));
-const LearnPage = lazy(() => import("@/pages/learn"));
-const PublicFeedback = lazy(() => import("@/pages/public-feedback"));
-const JoinWorkspace = lazy(() => import("@/pages/join-workspace"));
-
-// Simple loading fallback component
-function RouteLoadingFallback() {
-  return (
-    <div className="flex min-h-[100dvh] items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Loading...</div>
-    </div>
-  );
-}
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes - data considered fresh
-      gcTime: 10 * 60 * 1000,   // 10 minutes - garbage collection time
-      retry: 2,                 // Retry failed requests twice
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      refetchOnWindowFocus: false, // Disable aggressive refetching on tab focus
-      refetchOnReconnect: true,    // Refetch when network reconnects
-    },
-    mutations: {
-      retry: 1, // Retry mutations once
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
@@ -190,47 +165,27 @@ function Routes() {
       <Route path="/" component={HomeRedirect} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
-      <Route path="/feedback/:token">
-        {(params) => (
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <PublicFeedback />
-          </Suspense>
-        )}
-      </Route>
-      <Route path="/join/:code">
-        {(params) => (
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <JoinWorkspace />
-          </Suspense>
-        )}
-      </Route>
+      <Route path="/feedback/:token" component={PublicFeedback} />
+      <Route path="/join/:code" component={JoinWorkspace} />
       <Route path="/account">
         <ProtectedRoute>
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <Account />
-          </Suspense>
+          <Account />
         </ProtectedRoute>
       </Route>
       <Route path="/learn">
         <ProtectedRoute>
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <LearnPage />
-          </Suspense>
+          <LearnPage />
         </ProtectedRoute>
       </Route>
       <Route path="/admin">
         <ProtectedRoute>
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <Admin />
-          </Suspense>
+          <Admin />
         </ProtectedRoute>
       </Route>
       <Route path="/p/:projectId">
         {(params) => (
           <ProtectedRoute>
-            <Suspense fallback={<RouteLoadingFallback />}>
-              <Workspace key={params.projectId} />
-            </Suspense>
+            <Workspace key={params.projectId} />
           </ProtectedRoute>
         )}
       </Route>
@@ -240,9 +195,7 @@ function Routes() {
             <NotFound />
           ) : (
             <ProtectedRoute>
-              <Suspense fallback={<RouteLoadingFallback />}>
-                <WorkspaceBySlug key={`${params.workspaceSlug}/${params.projectSlug}`} />
-              </Suspense>
+              <WorkspaceBySlug key={`${params.workspaceSlug}/${params.projectSlug}`} />
             </ProtectedRoute>
           )
         }
@@ -253,9 +206,7 @@ function Routes() {
             <NotFound />
           ) : (
             <ProtectedRoute>
-              <Suspense fallback={<RouteLoadingFallback />}>
-                <WorkspaceHome key={params.workspaceSlug} />
-              </Suspense>
+              <WorkspaceHome key={params.workspaceSlug} />
             </ProtectedRoute>
           )
         }
