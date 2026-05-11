@@ -212,6 +212,8 @@ export async function complete(
 
   if (choice.provider === "openai" || choice.provider === "openrouter") {
     const client = choice.provider === "openai" ? clients.openai : clients.openrouter;
+    const keyPreview = process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? process.env.AI_INTEGRATIONS_OPENAI_API_KEY.slice(0, 10) + "..." : "NOT SET";
+    console.log(`[aiRouter] Using OpenAI client, key preview: ${keyPreview}`);
     const messages: Array<{ role: "system" | "user"; content: string }> = [];
     if (opts.system) messages.push({ role: "system", content: opts.system });
     messages.push({ role: "user", content: opts.prompt });
@@ -223,6 +225,7 @@ export async function complete(
       });
       return r.choices[0]?.message?.content ?? "";
     } catch (err: any) {
+      console.error(`[aiRouter] OpenAI API error:`, err?.message, err?.status);
       if (err?.status === 401) {
         throw new Error(`${choice.provider} API key invalid or expired`);
       }
