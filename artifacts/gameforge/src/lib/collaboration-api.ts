@@ -24,10 +24,27 @@ function apiBase(): string {
   return "";
 }
 
+async function getClerkToken(): Promise<string | null> {
+  try {
+    // @ts-ignore
+    const clerk = window.Clerk;
+    if (clerk && clerk.session) {
+      return await clerk.session.getToken();
+    }
+  } catch {}
+  return null;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = await getClerkToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (init?.headers) {
+    Object.entries(init.headers).forEach(([k, v]) => { if (typeof v === "string") headers[k] = v; });
+  }
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${apiBase()}/api${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers,
     ...init,
   });
   if (!res.ok) {

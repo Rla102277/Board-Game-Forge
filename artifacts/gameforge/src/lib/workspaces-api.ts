@@ -9,6 +9,20 @@ export function apiBase(): string {
   return "";
 }
 
+// Get Clerk token for cross-origin authentication
+async function getClerkToken(): Promise<string | null> {
+  try {
+    // @ts-ignore - Clerk may be available on window
+    const clerk = window.Clerk;
+    if (clerk && clerk.session) {
+      return await clerk.session.getToken();
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 export interface Workspace {
   id: number;
   slug: string;
@@ -60,9 +74,21 @@ export interface WorkspaceDetail {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = await getClerkToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (init?.headers) {
+    Object.entries(init.headers).forEach(([key, value]) => {
+      if (typeof value === "string") headers[key] = value;
+    });
+  }
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
   const res = await fetch(`${apiBase()}/api${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers,
     ...init,
   });
   if (!res.ok) {

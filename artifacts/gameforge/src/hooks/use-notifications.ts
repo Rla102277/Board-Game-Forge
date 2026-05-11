@@ -1,5 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 
+async function getClerkToken(): Promise<string | null> {
+  try {
+    // @ts-ignore
+    const clerk = window.Clerk;
+    if (clerk && clerk.session) {
+      return await clerk.session.getToken();
+    }
+  } catch {}
+  return null;
+}
+
 export interface Notification {
   id: string;
   type: "comment" | "mention" | "assignment" | "system";
@@ -23,8 +34,12 @@ export function useNotifications() {
     try {
       const apiUrl = import.meta.env.VITE_API_URL ?? "";
       const apiBase = apiUrl.replace(/\/$/, "");
+      const token = await getClerkToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
       const res = await fetch(`${apiBase}/api/notifications`, {
         credentials: "include",
+        headers,
       });
       if (res.ok) {
         const data = await res.json();
@@ -52,12 +67,17 @@ export function useNotifications() {
     }
   }, []);
 
-  const markAllAsRead = useCallback(async () => {
+  const markAllRead = useCallback(async () => {
     try {
-      const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "");
-      await fetch(`${apiBase}/api/notifications/read-all`, {
-        method: "PATCH",
+      const apiUrl = import.meta.env.VITE_API_URL ?? "";
+      const apiBase = apiUrl.replace(/\/$/, "");
+      const token = await getClerkToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      await fetch(`${apiBase}/api/notifications/mark-all-read`, {
+        method: "POST",
         credentials: "include",
+        headers,
       });
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
