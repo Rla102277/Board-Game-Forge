@@ -13,36 +13,38 @@ declare global {
   }
 }
 
-// TEMPORARY: Auth disabled for debugging cross-origin issues
+// Restored: Clerk authentication enabled
 export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
-    // TODO: Re-enable Clerk auth after fixing cross-origin JWT issues
     const auth = getAuth(req);
     const { userId } = auth;
 
-    if (userId) {
-      // Normal auth flow if user is logged in
-      try {
-        const [u] = await db
-          .select()
-          .from(appUsers)
-          .where(eq(appUsers.clerkUserId, userId));
-        if (u) {
-          req.appUserId = u.id;
-          req.appUserRole = u.role;
-          next();
-          return;
-        }
-      } catch (err) {
-        req.log.warn({ err }, "Failed to find user by clerkId, falling back");
-      }
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized - Please sign in" });
+      return;
     }
 
-    // Bypass mode: Get first admin user from DB
+    try {
+      const [u] = await db
+        .select()
+        .from(appUsers)
+        .where(eq(appUsers.clerkUserId, userId));
+      if (u) {
+        req.appUserId = u.id;
+        req.appUserRole = u.role;
+        next();
+        return;
+      }
+    } catch (err) {
+      req.log.warn({ err }, "Failed to find user by clerkId");
+    }
+
+    // User authenticated but not in database - create them
+    console.log("[auth] User authenticated but not in DB, creating app_user for:", userId);
     try {
       const [u] = await db
         .select()
