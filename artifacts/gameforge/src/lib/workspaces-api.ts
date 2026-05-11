@@ -1,6 +1,12 @@
 export function apiBase(): string {
-  const base = import.meta.env.BASE_URL ?? "/";
-  return base.replace(/\/$/, "");
+  // Use VITE_API_URL for separate frontend/backend deployment (e.g., Render)
+  // Falls back to empty string for same-domain or proxy setups
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return apiUrl.replace(/\/$/, "");
+  }
+  // Local dev with proxy - use relative path
+  return "";
 }
 
 export interface Workspace {

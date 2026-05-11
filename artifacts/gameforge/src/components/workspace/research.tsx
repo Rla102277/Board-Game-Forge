@@ -1669,7 +1669,8 @@ export function Research({ projectId, onPromptSend = () => {}, workspaceSlug }: 
     if (!ingestUrl && !ingestText) return;
     setIngesting(true);
     try {
-      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const apiUrl = import.meta.env.VITE_API_URL ?? "";
+      const base = apiUrl.replace(/\/$/, "");
       const prompt = ingestUrl
         ? `Summarize the source at this URL into a research note: ${ingestUrl}`
         : `Summarize the following text into a single research note:\n\n${ingestText}`;

@@ -179,7 +179,8 @@ export function ChatPanel({ projectId, defaultPrompt, onPromptClear, activeTab }
     });
 
     try {
-      const url = `${import.meta.env.BASE_URL}api/projects/${projectId}/chat/send`;
+      const apiUrl = import.meta.env.VITE_API_URL ?? "";
+      const url = `${apiUrl}/api/projects/${projectId}/chat/send`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

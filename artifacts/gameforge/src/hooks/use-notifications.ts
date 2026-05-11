@@ -21,7 +21,8 @@ export function useNotifications() {
 
   const loadNotifications = useCallback(async () => {
     try {
-      const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const apiUrl = import.meta.env.VITE_API_URL ?? "";
+      const apiBase = apiUrl.replace(/\/$/, "");
       const res = await fetch(`${apiBase}/api/notifications`, {
         credentials: "include",
       });

@@ -17,8 +17,11 @@ import type {
 } from "./collaboration-types";
 
 function apiBase(): string {
-  const base = import.meta.env.BASE_URL ?? "/";
-  return base.replace(/\/$/, "");
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return apiUrl.replace(/\/$/, "");
+  }
+  return "";
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {

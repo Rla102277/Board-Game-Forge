@@ -25,7 +25,11 @@ const COLORS = [
 ];
 
 function apiBase(): string {
-  return (import.meta as unknown as { env: { BASE_URL: string } }).env.BASE_URL.replace(/\/$/, "");
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return apiUrl.replace(/\/$/, "");
+  }
+  return "";
 }
 
 interface ParsedTopic {

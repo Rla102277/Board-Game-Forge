@@ -46,6 +46,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
+function apiBase(): string {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return apiUrl.replace(/\/$/, "");
+  }
+  return "";
+}
+
 const KINDS = ["card", "token", "board", "tile", "rulebook", "other"];
 
 type ComponentKind = {
@@ -118,8 +126,7 @@ export function Assets({ projectId }: { projectId: number }) {
   };
 
   const generateImageDirect = async (assetId: number, prompt: string): Promise<boolean> => {
-    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-    const res = await fetch(`${base}/api/projects/${projectId}/assets/${assetId}/generate-image`, {
+    const res = await fetch(`${apiBase()}/api/projects/${projectId}/assets/${assetId}/generate-image`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",

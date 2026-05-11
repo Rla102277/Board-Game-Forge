@@ -48,7 +48,11 @@ interface KickstarterAsset {
 }
 
 function apiBase() {
-  return import.meta.env.BASE_URL.replace(/\/$/, "");
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return apiUrl.replace(/\/$/, "");
+  }
+  return "";
 }
 
 interface ComponentItem { id: string; name: string; count: number; unitCost: number; type: "card" | "board" | "token" | "box" | "dice" | "booklet" | "other"; }
