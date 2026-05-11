@@ -234,14 +234,21 @@ export async function complete(
     return r.text ?? "";
   }
 
-  const message = await clients.anthropic.messages.create({
-    model: choice.model,
-    max_tokens: max,
-    system: opts.system,
-    messages: [{ role: "user", content: opts.prompt }],
-  });
-  const block = message.content[0];
-  return block && block.type === "text" ? block.text : "";
+  try {
+    const message = await clients.anthropic.messages.create({
+      model: choice.model,
+      max_tokens: max,
+      system: opts.system,
+      messages: [{ role: "user", content: opts.prompt }],
+    });
+    const block = message.content[0];
+    return block && block.type === "text" ? block.text : "";
+  } catch (err: any) {
+    if (err?.status === 401) {
+      throw new Error(`Anthropic API key invalid or expired`);
+    }
+    throw new Error(`Anthropic API error: ${err?.message || String(err)}`);
+  }
 }
 
 export interface StreamOptions {
@@ -308,23 +315,30 @@ export async function stream(
     return { provider: choice.provider, model: choice.model, text };
   }
 
-  const s = await clients.anthropic.messages.stream({
-    model: choice.model,
-    max_tokens: max,
-    system: opts.system,
-    messages: opts.messages,
-  });
-  for await (const event of s) {
-    if (
-      event.type === "content_block_delta" &&
-      event.delta.type === "text_delta"
-    ) {
-      const piece = event.delta.text;
-      text += piece;
-      opts.onChunk(piece);
+  try {
+    const s = await clients.anthropic.messages.stream({
+      model: choice.model,
+      max_tokens: max,
+      system: opts.system,
+      messages: opts.messages,
+    });
+    for await (const event of s) {
+      if (
+        event.type === "content_block_delta" &&
+        event.delta.type === "text_delta"
+      ) {
+        const piece = event.delta.text;
+        text += piece;
+        opts.onChunk(piece);
+      }
     }
+    return { provider: choice.provider, model: choice.model, text };
+  } catch (err: any) {
+    if (err?.status === 401) {
+      throw new Error(`Anthropic API key invalid or expired`);
+    }
+    throw new Error(`Anthropic API error: ${err?.message || String(err)}`);
   }
-  return { provider: choice.provider, model: choice.model, text };
 }
 
 export function tryParseJsonArray<T = unknown>(text: string): T[] {
