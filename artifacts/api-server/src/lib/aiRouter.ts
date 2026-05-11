@@ -126,11 +126,11 @@ export async function pickProvider(
     return { provider: "openai", model: "gpt-image-1" };
   }
   const pref = await getUserAiPreference(req);
-  // Default to OpenAI if user has no preference
+  // Default to Gemini Flash (free tier) if user has no preference
   if (!pref) {
     return {
-      provider: "openai",
-      model: defaultModelFor("openai", preferFast),
+      provider: "gemini",
+      model: defaultModelFor("gemini", preferFast),
     };
   }
   return {
