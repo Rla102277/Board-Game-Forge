@@ -126,11 +126,11 @@ export async function pickProvider(
     return { provider: "openai", model: "gpt-image-1" };
   }
   const pref = await getUserAiPreference(req);
-  // Narrative still defaults to Anthropic if user has no preference, since it's the most reliable for streaming.
+  // Default to OpenAI if user has no preference
   if (!pref) {
     return {
-      provider: "anthropic",
-      model: defaultModelFor("anthropic", preferFast),
+      provider: "openai",
+      model: defaultModelFor("openai", preferFast),
     };
   }
   return {
@@ -212,36 +212,57 @@ export async function complete(
 
   if (choice.provider === "openai" || choice.provider === "openrouter") {
     const client = choice.provider === "openai" ? clients.openai : clients.openrouter;
+    const keyPreview = process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? process.env.AI_INTEGRATIONS_OPENAI_API_KEY.slice(0, 10) + "..." : "NOT SET";
+    console.log(`[aiRouter] Using OpenAI client, key preview: ${keyPreview}`);
     const messages: Array<{ role: "system" | "user"; content: string }> = [];
     if (opts.system) messages.push({ role: "system", content: opts.system });
     messages.push({ role: "user", content: opts.prompt });
-    const r = await client.chat.completions.create({
-      model: choice.model,
-      max_completion_tokens: max,
-      messages,
-    });
-    return r.choices[0]?.message?.content ?? "";
+    try {
+      const r = await client.chat.completions.create({
+        model: choice.model,
+        max_completion_tokens: max,
+        messages,
+      });
+      return r.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      console.error(`[aiRouter] OpenAI API error:`, err?.message, err?.status);
+      if (err?.status === 401) {
+        throw new Error(`${choice.provider} API key invalid or expired`);
+      }
+      throw new Error(`${choice.provider} API error: ${err?.message || String(err)}`);
+    }
   }
 
   if (choice.provider === "gemini") {
-    const r = await clients.gemini.models.generateContent({
-      model: choice.model,
-      contents: opts.prompt,
-      config: opts.system
-        ? { systemInstruction: opts.system, maxOutputTokens: max }
-        : { maxOutputTokens: max },
-    });
-    return r.text ?? "";
+    try {
+      const r = await clients.gemini.models.generateContent({
+        model: choice.model,
+        contents: opts.prompt,
+        config: opts.system
+          ? { systemInstruction: opts.system, maxOutputTokens: max }
+          : { maxOutputTokens: max },
+      });
+      return r.text ?? "";
+    } catch (err: any) {
+      throw new Error(`Gemini API error: ${err?.message || String(err)}`);
+    }
   }
 
-  const message = await clients.anthropic.messages.create({
-    model: choice.model,
-    max_tokens: max,
-    system: opts.system,
-    messages: [{ role: "user", content: opts.prompt }],
-  });
-  const block = message.content[0];
-  return block && block.type === "text" ? block.text : "";
+  try {
+    const message = await clients.anthropic.messages.create({
+      model: choice.model,
+      max_tokens: max,
+      system: opts.system,
+      messages: [{ role: "user", content: opts.prompt }],
+    });
+    const block = message.content[0];
+    return block && block.type === "text" ? block.text : "";
+  } catch (err: any) {
+    if (err?.status === 401) {
+      throw new Error(`Anthropic API key invalid or expired`);
+    }
+    throw new Error(`Anthropic API error: ${err?.message || String(err)}`);
+  }
 }
 
 export interface StreamOptions {
@@ -271,60 +292,78 @@ export async function stream(
     const all: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
     if (opts.system) all.push({ role: "system", content: opts.system });
     for (const m of opts.messages) all.push(m);
-    const s = await client.chat.completions.create({
-      model: choice.model,
-      max_completion_tokens: max,
-      messages: all,
-      stream: true,
-    });
-    for await (const chunk of s) {
-      const piece = chunk.choices[0]?.delta?.content;
-      if (piece) {
-        text += piece;
-        opts.onChunk(piece);
+    try {
+      const s = await client.chat.completions.create({
+        model: choice.model,
+        max_completion_tokens: max,
+        messages: all,
+        stream: true,
+      });
+      for await (const chunk of s) {
+        const piece = chunk.choices[0]?.delta?.content;
+        if (piece) {
+          text += piece;
+          opts.onChunk(piece);
+        }
       }
+      return { provider: choice.provider, model: choice.model, text };
+    } catch (err: any) {
+      if (err?.status === 401) {
+        throw new Error(`${choice.provider} API key invalid or expired`);
+      }
+      throw new Error(`${choice.provider} API error: ${err?.message || String(err)}`);
     }
-    return { provider: choice.provider, model: choice.model, text };
   }
 
   if (choice.provider === "gemini") {
-    const stream = await clients.gemini.models.generateContentStream({
+    try {
+      const stream = await clients.gemini.models.generateContentStream({
+        model: choice.model,
+        contents: opts.messages.map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        })),
+        config: opts.system
+          ? { systemInstruction: opts.system, maxOutputTokens: max }
+          : { maxOutputTokens: max },
+      });
+      for await (const chunk of stream) {
+        const piece = chunk.text;
+        if (piece) {
+          text += piece;
+          opts.onChunk(piece);
+        }
+      }
+      return { provider: choice.provider, model: choice.model, text };
+    } catch (err: any) {
+      throw new Error(`Gemini API error: ${err?.message || String(err)}`);
+    }
+  }
+
+  try {
+    const s = await clients.anthropic.messages.stream({
       model: choice.model,
-      contents: opts.messages.map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      })),
-      config: opts.system
-        ? { systemInstruction: opts.system, maxOutputTokens: max }
-        : { maxOutputTokens: max },
+      max_tokens: max,
+      system: opts.system,
+      messages: opts.messages,
     });
-    for await (const chunk of stream) {
-      const piece = chunk.text;
-      if (piece) {
+    for await (const event of s) {
+      if (
+        event.type === "content_block_delta" &&
+        event.delta.type === "text_delta"
+      ) {
+        const piece = event.delta.text;
         text += piece;
         opts.onChunk(piece);
       }
     }
     return { provider: choice.provider, model: choice.model, text };
-  }
-
-  const s = await clients.anthropic.messages.stream({
-    model: choice.model,
-    max_tokens: max,
-    system: opts.system,
-    messages: opts.messages,
-  });
-  for await (const event of s) {
-    if (
-      event.type === "content_block_delta" &&
-      event.delta.type === "text_delta"
-    ) {
-      const piece = event.delta.text;
-      text += piece;
-      opts.onChunk(piece);
+  } catch (err: any) {
+    if (err?.status === 401) {
+      throw new Error(`Anthropic API key invalid or expired`);
     }
+    throw new Error(`Anthropic API error: ${err?.message || String(err)}`);
   }
-  return { provider: choice.provider, model: choice.model, text };
 }
 
 export function tryParseJsonArray<T = unknown>(text: string): T[] {

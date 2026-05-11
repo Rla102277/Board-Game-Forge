@@ -70,6 +70,14 @@ type AIEnhanceEntity = {
   suggestedProperties: { name: string; dataType: string; defaultValue?: string; reason: string }[];
 };
 
+function apiBase(): string {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return apiUrl.replace(/\/$/, "");
+  }
+  return "";
+}
+
 // ── Gamma prompt builders ─────────────────────────────────────────────────────
 
 function buildDeckPrompt(
@@ -1164,7 +1172,7 @@ function AssetsView({
   };
 
   const generateImageDirect = async (assetId: number, prompt: string) => {
-    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const base = apiBase();
     const res = await fetch(`${base}/api/projects/${projectId}/assets/${assetId}/generate-image`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

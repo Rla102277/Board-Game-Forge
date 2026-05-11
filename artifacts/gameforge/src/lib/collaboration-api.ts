@@ -17,13 +17,34 @@ import type {
 } from "./collaboration-types";
 
 function apiBase(): string {
-  return import.meta.env.BASE_URL.replace(/\/$/, "");
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return apiUrl.replace(/\/$/, "");
+  }
+  return "";
+}
+
+async function getClerkToken(): Promise<string | null> {
+  try {
+    // @ts-ignore
+    const clerk = window.Clerk;
+    if (clerk && clerk.session) {
+      return await clerk.session.getToken();
+    }
+  } catch {}
+  return null;
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = await getClerkToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (init?.headers) {
+    Object.entries(init.headers).forEach(([k, v]) => { if (typeof v === "string") headers[k] = v; });
+  }
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${apiBase()}/api${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers,
     ...init,
   });
   if (!res.ok) {
@@ -42,37 +63,25 @@ export async function listTasks(
   sort?: TaskSort,
 ): Promise<RichTask[]> {
   const params = new URLSearchParams();
-  if (filter?.status?.length) params.set("status", filter.status[0]);
-  if (filter?.priority?.length) params.set("priority", filter.priority[0]);
+
+  // Pass all filters to server - no client-side filtering needed
+  if (filter?.status?.length) params.set("status", filter.status.join(","));
+  if (filter?.priority?.length) params.set("priority", filter.priority.join(","));
+  if (filter?.tags?.length) params.set("tags", filter.tags.join(","));
+  if (filter?.assigneeIds?.length) params.set("assigneeIds", filter.assigneeIds.join(","));
   if (filter?.search) params.set("search", filter.search);
   if (filter?.dueBefore) params.set("dueBefore", filter.dueBefore);
   if (filter?.dueAfter) params.set("dueAfter", filter.dueAfter);
-  if (filter?.assigneeIds?.length) params.set("assigneeId", String(filter.assigneeIds[0]));
 
-  const qs = params.toString();
-  const tasks = await apiFetch<RichTask[]>(`/projects/${projectId}/tasks${qs ? `?${qs}` : ""}`);
-
-  // Client-side multi-filter (status/priority arrays, multiple assignees, tags)
-  let result = tasks;
-  if (filter?.status?.length) result = result.filter((t) => filter.status!.includes(t.status as never));
-  if (filter?.priority?.length) result = result.filter((t) => filter.priority!.includes(t.priority as never));
-  if (filter?.assigneeIds?.length) result = result.filter((t) => filter.assigneeIds!.some((id) => t.assigneeIds.includes(id)));
-  if (filter?.tags?.length) result = result.filter((t) => filter.tags!.some((tag) => t.tags.includes(tag)));
-
-  // Client-side sort
+  // Pass sorting to server
   if (sort) {
-    result = [...result].sort((a, b) => {
-      const aVal = a[sort.field as keyof RichTask] as string | null;
-      const bVal = b[sort.field as keyof RichTask] as string | null;
-      if (aVal == null && bVal == null) return 0;
-      if (aVal == null) return 1;
-      if (bVal == null) return -1;
-      const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-      return sort.direction === "asc" ? cmp : -cmp;
-    });
+    params.set("sortBy", sort.field);
+    params.set("sortOrder", sort.direction);
   }
 
-  return result;
+  const qs = params.toString();
+  // Server now handles all filtering and sorting - just return the result
+  return apiFetch<RichTask[]>(`/projects/${projectId}/tasks${qs ? `?${qs}` : ""}`);
 }
 
 export async function createTask(projectId: number, data: Partial<RichTask>): Promise<RichTask> {

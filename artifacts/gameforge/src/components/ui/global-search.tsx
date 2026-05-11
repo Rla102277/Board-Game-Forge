@@ -41,7 +41,8 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
 
       setLoading(true);
       try {
-        const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+        const apiUrl = import.meta.env.VITE_API_URL ?? "";
+        const apiBase = apiUrl.replace(/\/$/, "");
         const res = await fetch(`${apiBase}/api/search?q=${encodeURIComponent(query)}`, {
           credentials: "include",
         });

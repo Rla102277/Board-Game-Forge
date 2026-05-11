@@ -8,6 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
+function apiBase(): string {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return apiUrl.replace(/\/$/, "");
+  }
+  return "";
+}
+
 interface TurnPoint { turn: number; p10: number; p50: number; p90: number; }
 interface SimulatorResult {
   healthScore: number;
@@ -31,7 +39,7 @@ export function Simulator({ projectId }: { projectId: number }) {
   const runMonteCarlo = async () => {
     setRunning(true); setResult(null);
     try {
-      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const base = apiBase();
       const res = await fetch(`${base}/api/projects/${projectId}/simulator/run`, {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ iterations, turns: 20 }),
@@ -50,7 +58,7 @@ export function Simulator({ projectId }: { projectId: number }) {
     const ac = new AbortController();
     abortRef.current = ac;
     try {
-      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const base = apiBase();
       const res = await fetch(`${base}/api/projects/${projectId}/simulator/playthrough`, {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ focus: scenario || undefined }),
