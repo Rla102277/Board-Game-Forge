@@ -126,11 +126,11 @@ export async function pickProvider(
     return { provider: "openai", model: "gpt-image-1" };
   }
   const pref = await getUserAiPreference(req);
-  // Narrative still defaults to Anthropic if user has no preference, since it's the most reliable for streaming.
+  // Default to OpenAI if user has no preference
   if (!pref) {
     return {
-      provider: "anthropic",
-      model: defaultModelFor("anthropic", preferFast),
+      provider: "openai",
+      model: defaultModelFor("openai", preferFast),
     };
   }
   return {
@@ -215,23 +215,34 @@ export async function complete(
     const messages: Array<{ role: "system" | "user"; content: string }> = [];
     if (opts.system) messages.push({ role: "system", content: opts.system });
     messages.push({ role: "user", content: opts.prompt });
-    const r = await client.chat.completions.create({
-      model: choice.model,
-      max_completion_tokens: max,
-      messages,
-    });
-    return r.choices[0]?.message?.content ?? "";
+    try {
+      const r = await client.chat.completions.create({
+        model: choice.model,
+        max_completion_tokens: max,
+        messages,
+      });
+      return r.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      if (err?.status === 401) {
+        throw new Error(`${choice.provider} API key invalid or expired`);
+      }
+      throw new Error(`${choice.provider} API error: ${err?.message || String(err)}`);
+    }
   }
 
   if (choice.provider === "gemini") {
-    const r = await clients.gemini.models.generateContent({
-      model: choice.model,
-      contents: opts.prompt,
-      config: opts.system
-        ? { systemInstruction: opts.system, maxOutputTokens: max }
-        : { maxOutputTokens: max },
-    });
-    return r.text ?? "";
+    try {
+      const r = await clients.gemini.models.generateContent({
+        model: choice.model,
+        contents: opts.prompt,
+        config: opts.system
+          ? { systemInstruction: opts.system, maxOutputTokens: max }
+          : { maxOutputTokens: max },
+      });
+      return r.text ?? "";
+    } catch (err: any) {
+      throw new Error(`Gemini API error: ${err?.message || String(err)}`);
+    }
   }
 
   try {
@@ -278,41 +289,52 @@ export async function stream(
     const all: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
     if (opts.system) all.push({ role: "system", content: opts.system });
     for (const m of opts.messages) all.push(m);
-    const s = await client.chat.completions.create({
-      model: choice.model,
-      max_completion_tokens: max,
-      messages: all,
-      stream: true,
-    });
-    for await (const chunk of s) {
-      const piece = chunk.choices[0]?.delta?.content;
-      if (piece) {
-        text += piece;
-        opts.onChunk(piece);
+    try {
+      const s = await client.chat.completions.create({
+        model: choice.model,
+        max_completion_tokens: max,
+        messages: all,
+        stream: true,
+      });
+      for await (const chunk of s) {
+        const piece = chunk.choices[0]?.delta?.content;
+        if (piece) {
+          text += piece;
+          opts.onChunk(piece);
+        }
       }
+      return { provider: choice.provider, model: choice.model, text };
+    } catch (err: any) {
+      if (err?.status === 401) {
+        throw new Error(`${choice.provider} API key invalid or expired`);
+      }
+      throw new Error(`${choice.provider} API error: ${err?.message || String(err)}`);
     }
-    return { provider: choice.provider, model: choice.model, text };
   }
 
   if (choice.provider === "gemini") {
-    const stream = await clients.gemini.models.generateContentStream({
-      model: choice.model,
-      contents: opts.messages.map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      })),
-      config: opts.system
-        ? { systemInstruction: opts.system, maxOutputTokens: max }
-        : { maxOutputTokens: max },
-    });
-    for await (const chunk of stream) {
-      const piece = chunk.text;
-      if (piece) {
-        text += piece;
-        opts.onChunk(piece);
+    try {
+      const stream = await clients.gemini.models.generateContentStream({
+        model: choice.model,
+        contents: opts.messages.map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        })),
+        config: opts.system
+          ? { systemInstruction: opts.system, maxOutputTokens: max }
+          : { maxOutputTokens: max },
+      });
+      for await (const chunk of stream) {
+        const piece = chunk.text;
+        if (piece) {
+          text += piece;
+          opts.onChunk(piece);
+        }
       }
+      return { provider: choice.provider, model: choice.model, text };
+    } catch (err: any) {
+      throw new Error(`Gemini API error: ${err?.message || String(err)}`);
     }
-    return { provider: choice.provider, model: choice.model, text };
   }
 
   try {
