@@ -18,9 +18,11 @@ export async function requireAuth(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const { userId } = getAuth(req);
+  const auth = getAuth(req);
+  req.log.debug({ auth, headers: req.headers }, "Auth check debug");
+  const { userId } = auth;
   if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
+    res.status(401).json({ error: "Unauthorized - no userId" });
     return;
   }
   try {
