@@ -19,17 +19,36 @@ export async function requireAuth(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  // TODO: Re-enable Clerk auth after fixing cross-origin JWT issues
-  const auth = getAuth(req);
-  const { userId } = auth;
+  try {
+    // TODO: Re-enable Clerk auth after fixing cross-origin JWT issues
+    const auth = getAuth(req);
+    const { userId } = auth;
 
-  if (userId) {
-    // Normal auth flow if user is logged in
+    if (userId) {
+      // Normal auth flow if user is logged in
+      try {
+        const [u] = await db
+          .select()
+          .from(appUsers)
+          .where(eq(appUsers.clerkUserId, userId));
+        if (u) {
+          req.appUserId = u.id;
+          req.appUserRole = u.role;
+          next();
+          return;
+        }
+      } catch (err) {
+        req.log.warn({ err }, "Failed to find user by clerkId, falling back");
+      }
+    }
+
+    // Bypass mode: Get first admin user from DB
     try {
       const [u] = await db
         .select()
         .from(appUsers)
-        .where(eq(appUsers.clerkUserId, userId));
+        .where(eq(appUsers.role, "admin"))
+        .limit(1);
       if (u) {
         req.appUserId = u.id;
         req.appUserRole = u.role;
@@ -37,31 +56,17 @@ export async function requireAuth(
         return;
       }
     } catch (err) {
-      // Fall through to bypass mode
+      req.log.error({ err }, "Failed to find admin user");
     }
-  }
 
-  // Bypass mode: Get first admin user from DB
-  try {
-    const [u] = await db
-      .select()
-      .from(appUsers)
-      .where(eq(appUsers.role, "admin"))
-      .limit(1);
-    if (u) {
-      req.appUserId = u.id;
-      req.appUserRole = u.role;
-      next();
-      return;
-    }
-  } catch {
-    // ignore
+    // Last resort: use a placeholder (will fail some operations but allows UI to load)
+    req.appUserId = 1;
+    req.appUserRole = "admin";
+    next();
+  } catch (outerErr) {
+    req.log.error({ outerErr }, "Fatal error in requireAuth");
+    res.status(500).json({ error: "Internal auth error" });
   }
-
-  // Last resort: use a placeholder (will fail some operations but allows UI to load)
-  req.appUserId = 1;
-  req.appUserRole = "admin";
-  next();
 }
 
 export async function requireProjectAccess(
