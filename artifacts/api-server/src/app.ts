@@ -10,7 +10,6 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import path from "path";
 
 const app: Express = express();
 
@@ -139,14 +138,6 @@ app.use("/api", router);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
-});
-
-// Serve frontend static files in production
-app.use(express.static(path.join(__dirname, "../../../gameforge/dist/public")));
-
-// SPA fallback - serve index.html for all non-API routes
-app.get("*", (_req, res) => {
-  res.sendFile(path.join(__dirname, "../../../gameforge/dist/public/index.html"));
 });
 
 export default app;
