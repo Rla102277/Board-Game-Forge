@@ -615,6 +615,7 @@ router.post(
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.error("[generate] AI completion error:", msg);
       res.status(502).json({ error: `AI generation failed: ${msg}` });
       return;
     }
