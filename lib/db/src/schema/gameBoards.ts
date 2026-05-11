@@ -4,7 +4,7 @@ import { projects } from './projects';
 
 export const gameBoardsTable = pgTable('game_boards', {
   id: serial('id').primaryKey(),
-  projectId: integer('project_id').references(() => projectsTable.id, { onDelete: 'cascade' }),
+  projectId: integer('project_id').references(() => projects.id, { onDelete: 'cascade' }),
   name: text('name').notNull().default('Board 1'),
   width: integer('width').notNull().default(800),
   height: integer('height').notNull().default(600),

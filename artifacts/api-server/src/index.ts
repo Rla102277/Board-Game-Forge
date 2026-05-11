@@ -1,7 +1,18 @@
-import app from "./app";
-import { logger } from "./lib/logger";
-import { createWebSocketServer } from "./websocket-server";
-import { runStartupMigrations } from "./lib/startup-migrations";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Load environment variables from .env.development in development mode
+if (process.env.NODE_ENV === "development") {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const envPath = path.resolve(__dirname, "../.env.development");
+  dotenv.config({ path: envPath });
+}
+
+const { default: app } = await import("./app");
+const { logger } = await import("./lib/logger");
+const { createWebSocketServer } = await import("./websocket-server");
+const { runStartupMigrations } = await import("./lib/startup-migrations");
 
 const rawPort = process.env["PORT"];
 

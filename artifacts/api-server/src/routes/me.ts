@@ -1,13 +1,13 @@
 import { Router, type IRouter, type Request } from "express";
 import { eq } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import { db, appUsers, aiProviderSettings } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
+import { getAuthUnified } from "../lib/authUtils";
 
 const router: IRouter = Router();
 
 async function requireUser(req: Request) {
-  const { userId } = getAuth(req);
+  const { userId } = getAuthUnified(req);
   if (!userId) return null;
   const [u] = await db
     .select()

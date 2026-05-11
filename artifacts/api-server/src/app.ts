@@ -1,15 +1,21 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
-import { clerkMiddleware, getAuth } from "@clerk/express";
+import { clerkMiddleware } from "@clerk/express";
 import { and, eq } from "drizzle-orm";
 import { db, appUsers, workspaceMembers } from "@workspace/db";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
 } from "./middlewares/clerkProxyMiddleware";
+import { devAuthMiddleware } from "./middlewares/devAuthMiddleware";
+import { getAuthUnified } from "./lib/authUtils";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+// Use development auth middleware if Clerk is not properly configured
+const useDevAuth = process.env.NODE_ENV === "development" &&
+  (!process.env.CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISHABLE_KEY.includes("REPLACE"));
 
 const app: Express = express();
 
@@ -39,12 +45,18 @@ app.use(cors({ credentials: true, origin: true }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use(clerkMiddleware());
+// Use development auth or Clerk based on environment
+if (useDevAuth) {
+  logger.warn("Using development authentication (Clerk not configured)");
+  app.use(devAuthMiddleware());
+} else {
+  app.use(clerkMiddleware());
+}
 
 // Upsert authenticated user into app_users on every authenticated request.
 app.use(async (req: Request, _res: Response, next: NextFunction) => {
   try {
-    const { userId, sessionClaims } = getAuth(req);
+    const { userId, sessionClaims } = getAuthUnified(req);
     if (userId) {
       const claims = sessionClaims as
         | {

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
-import { getAuth } from "@clerk/express";
 import { and, eq } from "drizzle-orm";
 import { db, appUsers, projects, workspaceMembers } from "@workspace/db";
+import { getAuthUnified } from "../lib/authUtils";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -18,7 +18,7 @@ export async function requireAuth(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const { userId } = getAuth(req);
+  const { userId } = getAuthUnified(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;

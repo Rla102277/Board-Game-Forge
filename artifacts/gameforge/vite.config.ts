@@ -53,6 +53,16 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/api/__clerk': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,
