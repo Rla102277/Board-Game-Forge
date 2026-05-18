@@ -62,7 +62,7 @@ const DEFAULT_OPENAI_MODEL = "gpt-5.4";
 const DEFAULT_GEMINI_MODEL = "gemini-3-flash-preview";
 const FAST_GEMINI_MODEL = "gemini-3-flash-preview";
 const PRO_GEMINI_MODEL = "gemini-3.1-pro-preview";
-const DEFAULT_OPENROUTER_MODEL = "x-ai/grok-4-fast";
+const DEFAULT_OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
 
 export interface ModelOption {
   provider: AiProvider;
@@ -126,11 +126,11 @@ export async function pickProvider(
     return { provider: "openai", model: "gpt-image-1" };
   }
   const pref = await getUserAiPreference(req);
-  // Default to OpenAI if user has no preference
+  // Default to OpenRouter to avoid per-provider quota issues
   if (!pref) {
     return {
-      provider: "openai",
-      model: defaultModelFor("openai", preferFast),
+      provider: "openrouter",
+      model: defaultModelFor("openrouter", preferFast),
     };
   }
   return {
