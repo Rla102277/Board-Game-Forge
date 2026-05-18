@@ -343,7 +343,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
     () => projectIdProp ?? parseInt(params.projectId || "0", 10),
     [projectIdProp, params.projectId],
   );
-  const { data: project, isLoading: projectLoading } = useGetProject(projectId);
+  const { data: project, isLoading: projectLoading, error: projectError } = useGetProject(projectId);
   const { data: stats } = useGetProjectStats(projectId);
   const deleteProject = useDeleteProject();
   const updateProject = useUpdateProject();
@@ -442,7 +442,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
     try { localStorage.setItem("gameforge.advancedMode", "false"); } catch { /* ignore */ }
   };
 
-  if (projectLoading) {
+  if (projectLoading || (!project && !projectError)) {
     return <div className="h-screen w-full flex items-center justify-center bg-background text-foreground"><Skeleton className="h-32 w-64" /></div>;
   }
   if (!project) {
