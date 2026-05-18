@@ -163,6 +163,32 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS ai_cache_expires_idx ON ai_response_cache (expires_at)`,
   // 0028 – GIN index for project metadata JSONB queries
   `CREATE INDEX IF NOT EXISTS projects_metadata_gin_idx ON projects USING GIN (overview_meta) WHERE overview_meta IS NOT NULL`,
+  // 0029 – project_shares missing columns
+  `ALTER TABLE project_shares ADD COLUMN IF NOT EXISTS user_id integer REFERENCES app_users(id) ON DELETE CASCADE`,
+  `ALTER TABLE project_shares ADD COLUMN IF NOT EXISTS invited_email text`,
+  `ALTER TABLE project_shares ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'viewer'`,
+  `ALTER TABLE project_shares ADD COLUMN IF NOT EXISTS invited_by_user_id integer REFERENCES app_users(id)`,
+  `ALTER TABLE project_shares ADD COLUMN IF NOT EXISTS public_link boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE project_shares ADD COLUMN IF NOT EXISTS public_link_expiry timestamptz`,
+  `ALTER TABLE project_shares ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`,
+  // 0030 – activity_feed missing columns (entity_name, description, metadata)
+  `ALTER TABLE activity_feed ADD COLUMN IF NOT EXISTS entity_name text`,
+  `ALTER TABLE activity_feed ADD COLUMN IF NOT EXISTS description text`,
+  `ALTER TABLE activity_feed ADD COLUMN IF NOT EXISTS metadata jsonb`,
+  // 0031 – tasks missing columns
+  `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS category text`,
+  `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS tags jsonb DEFAULT '[]'::jsonb`,
+  `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS estimated_hours numeric(6,2)`,
+  `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS actual_hours numeric(6,2)`,
+  `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_task_id integer`,
+  // 0032 – notifications missing columns
+  `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS entity_type text`,
+  `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS entity_id integer`,
+  `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS action_url text`,
+  `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS actor_user_id integer REFERENCES app_users(id)`,
+  `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata jsonb`,
+  // 0033 – task_assignees missing assigned_at column
+  `ALTER TABLE task_assignees ADD COLUMN IF NOT EXISTS assigned_at timestamptz NOT NULL DEFAULT now()`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {
