@@ -62,7 +62,8 @@ const DEFAULT_OPENAI_MODEL = "gpt-5.4";
 const DEFAULT_GEMINI_MODEL = "gemini-3-flash-preview";
 const FAST_GEMINI_MODEL = "gemini-3-flash-preview";
 const PRO_GEMINI_MODEL = "gemini-3.1-pro-preview";
-const DEFAULT_OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
+const DEFAULT_OPENROUTER_MODEL = "google/gemini-2.0-flash-exp:free";
+const FALLBACK_OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
 
 export interface ModelOption {
   provider: AiProvider;
@@ -227,8 +228,20 @@ export async function complete(
       return content;
     } catch (err: any) {
       console.error(`[aiRouter] ${choice.provider} error:`, err?.message, err?.status, JSON.stringify(err?.error ?? {}));
+      if (err?.status === 429 && choice.provider === "openrouter" && choice.model !== FALLBACK_OPENROUTER_MODEL) {
+        console.log(`[aiRouter] 429 on ${choice.model}, falling back to ${FALLBACK_OPENROUTER_MODEL}`);
+        const r2 = await client.chat.completions.create({
+          model: FALLBACK_OPENROUTER_MODEL,
+          max_tokens: max,
+          messages,
+        });
+        return r2.choices[0]?.message?.content ?? "";
+      }
       if (err?.status === 401) {
         throw new Error(`${choice.provider} API key invalid or expired`);
+      }
+      if (err?.status === 429) {
+        throw new Error(`AI provider rate limit reached. Please try again in a moment.`);
       }
       throw new Error(`${choice.provider} API error: ${err?.message || String(err)}`);
     }
@@ -310,8 +323,26 @@ export async function stream(
       }
       return { provider: choice.provider, model: choice.model, text };
     } catch (err: any) {
+      console.error(`[aiRouter] stream ${choice.provider} error:`, err?.message, err?.status);
+      if (err?.status === 429 && choice.provider === "openrouter" && choice.model !== FALLBACK_OPENROUTER_MODEL) {
+        console.log(`[aiRouter] stream 429 on ${choice.model}, falling back to ${FALLBACK_OPENROUTER_MODEL}`);
+        const s2 = await client.chat.completions.create({
+          model: FALLBACK_OPENROUTER_MODEL,
+          max_tokens: max,
+          messages: all,
+          stream: true,
+        });
+        for await (const chunk of s2) {
+          const piece = chunk.choices[0]?.delta?.content;
+          if (piece) { text += piece; opts.onChunk(piece); }
+        }
+        return { provider: choice.provider, model: FALLBACK_OPENROUTER_MODEL, text };
+      }
       if (err?.status === 401) {
         throw new Error(`${choice.provider} API key invalid or expired`);
+      }
+      if (err?.status === 429) {
+        throw new Error(`AI provider rate limit reached. Please try again in a moment.`);
       }
       throw new Error(`${choice.provider} API error: ${err?.message || String(err)}`);
     }
