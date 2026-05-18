@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useParams, Redirect } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import Workspace from "@/pages/workspace";
-import { workspacesApi } from "@/lib/workspaces-api";
+import { workspacesApi, type WorkspaceProject } from "@/lib/workspaces-api";
+import { getGetProjectQueryKey } from "@workspace/api-client-react";
 
 export default function WorkspaceBySlug() {
   const params = useParams<{ workspaceSlug: string; projectSlug: string }>();
+  const queryClient = useQueryClient();
   const [resolvedId, setResolvedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,14 +20,17 @@ export default function WorkspaceBySlug() {
     setError(null);
     workspacesApi
       .resolveProject(params.workspaceSlug, params.projectSlug)
-      .then((p) => {
-        if (!cancelled) setResolvedId(p.id);
+      .then((p: WorkspaceProject) => {
+        if (!cancelled) {
+          queryClient.setQueryData(getGetProjectQueryKey(p.id), p);
+          setResolvedId(p.id);
+        }
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       });
     return () => { cancelled = true; };
-  }, [params.workspaceSlug, params.projectSlug]);
+  }, [params.workspaceSlug, params.projectSlug, queryClient]);
 
   if (error) {
     return (
