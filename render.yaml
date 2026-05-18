@@ -39,8 +39,8 @@ services:
   - type: web
     name: tableforgeweb
     runtime: node
-    buildCommand: npm install --prefix $HOME/.npm-global pnpm && export PATH=$HOME/.npm-global/bin:$PATH && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/gameforge run build
-    startCommand: pnpm --filter @workspace/gameforge exec vite preview --host 0.0.0.0 --port $PORT
+    buildCommand: npm install --prefix $HOME/.npm-global pnpm && export PATH=$HOME/.npm-global/bin:$PATH && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/gameforge run build && npm install -g serve --prefix $HOME/.npm-global
+    startCommand: $HOME/.npm-global/bin/serve -s artifacts/gameforge/dist/public -l $PORT
     envVars:
       - key: VITE_CLERK_PUBLISHABLE_KEY
         sync: false
