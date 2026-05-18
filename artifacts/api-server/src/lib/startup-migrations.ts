@@ -147,8 +147,8 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS workspace_members_workspace_id_idx ON workspace_members (workspace_id)`,
   // 0025 – partial indexes for active tasks (improves Kanban board queries)
   `CREATE INDEX IF NOT EXISTS tasks_active_idx ON tasks (project_id, status) WHERE status NOT IN ('done', 'cancelled')`,
-  // 0026 – composite index for AI provider settings lookups
-  `CREATE INDEX IF NOT EXISTS ai_provider_settings_workspace_provider_idx ON ai_provider_settings (workspace_id, provider)`,
+  // 0026 – index for AI provider settings lookups by user
+  `CREATE INDEX IF NOT EXISTS ai_provider_settings_user_id_idx ON ai_provider_settings (user_id)`,
   // 0027 – AI response cache table for persistent caching
   `CREATE TABLE IF NOT EXISTS ai_response_cache (
     id serial PRIMARY KEY,
@@ -160,7 +160,7 @@ const MIGRATIONS = [
     expires_at timestamptz NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS ai_cache_key_idx ON ai_response_cache (cache_key)`,
-  `CREATE INDEX IF NOT EXISTS ai_cache_expires_idx ON ai_response_cache (expires_at) WHERE expires_at > now()`,
+  `CREATE INDEX IF NOT EXISTS ai_cache_expires_idx ON ai_response_cache (expires_at)`,
   // 0028 – GIN index for project metadata JSONB queries
   `CREATE INDEX IF NOT EXISTS projects_metadata_gin_idx ON projects USING GIN (overview_meta) WHERE overview_meta IS NOT NULL`,
 ];
