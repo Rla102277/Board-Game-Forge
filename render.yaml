@@ -2,7 +2,7 @@ services:
   - type: web
     name: tableforgeapi
     runtime: node
-    buildCommand: corepack pnpm install --no-frozen-lockfile && corepack pnpm --filter @workspace/api-server run build
+    buildCommand: npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server run build
     startCommand: node artifacts/api-server/dist/index.mjs
     envVars:
       - key: NODE_ENV
@@ -39,8 +39,8 @@ services:
   - type: web
     name: tableforgeweb
     runtime: node
-    buildCommand: corepack pnpm install --no-frozen-lockfile && corepack pnpm --filter @workspace/gameforge run build
-    startCommand: corepack pnpm --filter @workspace/gameforge exec vite preview --host 0.0.0.0 --port $PORT
+    buildCommand: npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/gameforge run build
+    startCommand: pnpm --filter @workspace/gameforge exec vite preview --host 0.0.0.0 --port $PORT
     envVars:
       - key: VITE_CLERK_PUBLISHABLE_KEY
         sync: false
