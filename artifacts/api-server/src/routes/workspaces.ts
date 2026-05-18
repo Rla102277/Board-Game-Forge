@@ -547,14 +547,33 @@ async function insertGeneratedComponents(
   projectId: number,
   parsed: GeneratedGame,
 ): Promise<void> {
+  const ENTITY_TYPE_MAP: Record<string, string> = {
+    card: "Card", cards: "Card",
+    deck: "Deck", decks: "Deck",
+    token: "Token", tokens: "Token", piece: "Token", pieces: "Token", counter: "Token", resource: "Token",
+    meeple: "Meeple", meeples: "Meeple", pawn: "Meeple", pawns: "Meeple",
+    die: "Die", dice: "Die",
+    tile: "Tile", tiles: "Tile", hex: "Tile",
+    board: "Board", boards: "Board",
+    zone: "Zone", zones: "Zone", area: "Zone",
+    location: "Location", locations: "Location", space: "Location",
+    faction: "Faction", factions: "Faction", team: "Faction",
+    event: "Event", events: "Event",
+    ability: "Ability", abilities: "Ability",
+    other: "Token",
+  };
   if (Array.isArray(parsed.entities) && parsed.entities.length) {
     await tx.insert(entities).values(
-      parsed.entities.slice(0, 20).map((e) => ({
-        projectId,
-        name: String(e.name ?? "Entity").slice(0, 80),
-        type: String(e.type ?? "other").slice(0, 40),
-        description: e.description ? String(e.description) : null,
-      })),
+      parsed.entities.slice(0, 20).map((e) => {
+        const rawType = String(e.type ?? "token").trim().toLowerCase();
+        const mappedType = ENTITY_TYPE_MAP[rawType] ?? "Token";
+        return {
+          projectId,
+          name: String(e.name ?? "Entity").slice(0, 80),
+          type: mappedType,
+          description: e.description ? String(e.description) : null,
+        };
+      }),
     );
   }
   if (Array.isArray(parsed.rules) && parsed.rules.length) {
@@ -680,6 +699,8 @@ router.post(
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
+      req.log.error({ err: e }, `generate: save failed: ${msg}`);
+      console.error("[generate] save error:", msg, e);
       res.status(500).json({ error: `Could not save generated project: ${msg}` });
       return;
     }
