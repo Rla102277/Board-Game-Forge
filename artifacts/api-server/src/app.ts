@@ -52,9 +52,12 @@ const corsOptions = {
       process.env.FRONTEND_URL,
       "https://boardlab.games",
       "https://www.boardlab.games",
+      "https://tableforgeweb.onrender.com",
     ].filter(Boolean);
+
+    const isOnrender = origin?.endsWith(".onrender.com") ?? false;
     
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+    if (allowedOrigins.includes(origin) || isOnrender || process.env.NODE_ENV !== "production") {
       callback(null, true);
     } else {
       callback(new Error(`Origin ${origin} not allowed by CORS`));
