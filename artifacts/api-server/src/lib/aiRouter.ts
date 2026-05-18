@@ -212,20 +212,21 @@ export async function complete(
 
   if (choice.provider === "openai" || choice.provider === "openrouter") {
     const client = choice.provider === "openai" ? clients.openai : clients.openrouter;
-    const keyPreview = process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? process.env.AI_INTEGRATIONS_OPENAI_API_KEY.slice(0, 10) + "..." : "NOT SET";
-    console.log(`[aiRouter] Using OpenAI client, key preview: ${keyPreview}`);
+    console.log(`[aiRouter] Using ${choice.provider} with model: ${choice.model}`);
     const messages: Array<{ role: "system" | "user"; content: string }> = [];
     if (opts.system) messages.push({ role: "system", content: opts.system });
     messages.push({ role: "user", content: opts.prompt });
     try {
       const r = await client.chat.completions.create({
         model: choice.model,
-        max_completion_tokens: max,
+        max_tokens: max,
         messages,
       });
-      return r.choices[0]?.message?.content ?? "";
+      const content = r.choices[0]?.message?.content ?? "";
+      console.log(`[aiRouter] ${choice.provider} response length: ${content.length}`);
+      return content;
     } catch (err: any) {
-      console.error(`[aiRouter] OpenAI API error:`, err?.message, err?.status);
+      console.error(`[aiRouter] ${choice.provider} error:`, err?.message, err?.status, JSON.stringify(err?.error ?? {}));
       if (err?.status === 401) {
         throw new Error(`${choice.provider} API key invalid or expired`);
       }
@@ -289,13 +290,14 @@ export async function stream(
 
   if (choice.provider === "openai" || choice.provider === "openrouter") {
     const client = choice.provider === "openai" ? clients.openai : clients.openrouter;
+    console.log(`[aiRouter] Streaming with ${choice.provider} model: ${choice.model}`);
     const all: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
     if (opts.system) all.push({ role: "system", content: opts.system });
     for (const m of opts.messages) all.push(m);
     try {
       const s = await client.chat.completions.create({
         model: choice.model,
-        max_completion_tokens: max,
+        max_tokens: max,
         messages: all,
         stream: true,
       });
