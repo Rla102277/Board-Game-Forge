@@ -67,6 +67,7 @@ router.get("/projects/:projectId", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Project not found" });
     return;
   }
+  res.set("Cache-Control", "no-store");
   res.json(schemas.GetProjectResponse.parse(row));
 });
 

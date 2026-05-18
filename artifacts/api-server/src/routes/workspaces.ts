@@ -463,6 +463,7 @@ router.get(
       return;
     }
     const [proj] = await db.select().from(projects).where(and(eq(projects.id, found.id), isNull(projects.deletedAt)));
+    res.set("Cache-Control", "no-store");
     res.json(proj);
   },
 );
