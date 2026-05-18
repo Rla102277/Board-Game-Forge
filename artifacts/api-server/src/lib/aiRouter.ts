@@ -62,8 +62,8 @@ const DEFAULT_OPENAI_MODEL = "gpt-5.4";
 const DEFAULT_GEMINI_MODEL = "gemini-3-flash-preview";
 const FAST_GEMINI_MODEL = "gemini-3-flash-preview";
 const PRO_GEMINI_MODEL = "gemini-3.1-pro-preview";
-const DEFAULT_OPENROUTER_MODEL = "google/gemini-2.0-flash-exp:free";
-const FALLBACK_OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
+const DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash-lite";
+const FALLBACK_OPENROUTER_MODEL = "google/gemini-2.5-flash-lite:free";
 
 export interface ModelOption {
   provider: AiProvider;
