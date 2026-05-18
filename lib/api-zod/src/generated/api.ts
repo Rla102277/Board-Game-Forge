@@ -128,8 +128,7 @@ export const ListProjectsResponseItem = zod.object({
   winCondition: zod.string().nullish(),
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
-  referenceGames: zod.string().nullish(),
-  designPhase: zod.string(),
+  designPhase: zod.string().nullish(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -137,6 +136,11 @@ export const ListProjectsResponseItem = zod.object({
   mechanicFingerprint: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  deletedAt: zod.coerce.date().nullish(),
+  workspaceId: zod.number().nullish(),
+  slug: zod.string().nullish(),
+  forkedFromProjectId: zod.number().nullish(),
+  forkedFromSnapshotId: zod.number().nullish(),
 });
 export const ListProjectsResponse = zod.array(ListProjectsResponseItem);
 
@@ -168,8 +172,7 @@ export const GetProjectResponse = zod.object({
   winCondition: zod.string().nullish(),
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
-  referenceGames: zod.string().nullish(),
-  designPhase: zod.string(),
+  designPhase: zod.string().nullish(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -177,6 +180,11 @@ export const GetProjectResponse = zod.object({
   mechanicFingerprint: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  deletedAt: zod.coerce.date().nullish(),
+  workspaceId: zod.number().nullish(),
+  slug: zod.string().nullish(),
+  forkedFromProjectId: zod.number().nullish(),
+  forkedFromSnapshotId: zod.number().nullish(),
 });
 
 export const UpdateProjectParams = zod.object({
@@ -220,8 +228,7 @@ export const UpdateProjectResponse = zod.object({
   winCondition: zod.string().nullish(),
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
-  referenceGames: zod.string().nullish(),
-  designPhase: zod.string(),
+  designPhase: zod.string().nullish(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -229,6 +236,11 @@ export const UpdateProjectResponse = zod.object({
   mechanicFingerprint: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  deletedAt: zod.coerce.date().nullish(),
+  workspaceId: zod.number().nullish(),
+  slug: zod.string().nullish(),
+  forkedFromProjectId: zod.number().nullish(),
+  forkedFromSnapshotId: zod.number().nullish(),
 });
 
 export const DeleteProjectParams = zod.object({
