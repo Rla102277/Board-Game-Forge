@@ -403,24 +403,35 @@ export function tryParseJsonArray<T = unknown>(text: string): T[] {
   const cleaned = text
     .trim()
     .replace(/^```json\s*/i, "")
-    .replace(/^```/, "")
-    .replace(/```$/, "")
+    .replace(/^```\w*\s*/i, "")
+    .replace(/```\s*$/g, "")
     .trim();
-  try {
-    const v = JSON.parse(cleaned);
-    return Array.isArray(v) ? v : [];
-  } catch {
-    const match = cleaned.match(/\[[\s\S]*\]/);
-    if (match) {
-      try {
-        const v = JSON.parse(match[0]);
-        return Array.isArray(v) ? v : [];
-      } catch {
-        return [];
+  const tryParse = (s: string): T[] | null => {
+    try {
+      const v = JSON.parse(s);
+      if (Array.isArray(v)) return v;
+      // Unwrap common object wrappers: {items:[], components:[], entities:[], results:[], data:[]}
+      if (v && typeof v === "object") {
+        for (const key of ["items", "components", "entities", "results", "data", "cards", "list"]) {
+          if (Array.isArray(v[key])) return v[key];
+        }
+        // If object has exactly one key whose value is an array, use it
+        const keys = Object.keys(v);
+        if (keys.length === 1 && Array.isArray(v[keys[0]])) return v[keys[0]];
       }
-    }
-    return [];
+      return null;
+    } catch { return null; }
+  };
+  const result = tryParse(cleaned);
+  if (result) return result;
+  // Fallback: extract first JSON array from text
+  const match = cleaned.match(/\[[\s\S]*\]/);
+  if (match) {
+    const r = tryParse(match[0]);
+    if (r) return r;
   }
+  console.warn("[tryParseJsonArray] failed to parse, raw text:", cleaned.slice(0, 300));
+  return [];
 }
 
 export function tryParseJsonObject<T = Record<string, unknown>>(
