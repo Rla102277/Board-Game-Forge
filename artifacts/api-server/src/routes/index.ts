@@ -36,6 +36,7 @@ import userArtifactsRouter from "./userArtifacts";
 import trashRouter from "./trash";
 import analysisRouter from "./analysis";
 import canvasRouter from "./canvas";
+import presenceRouter from "./presence";
 import {
   requireAuth,
   requireProjectAccess,
@@ -95,6 +96,10 @@ router.use(designerArtifactsRouter);
 router.use(trashRouter);
 router.use(analysisRouter);
 router.use(canvasRouter);
+
+// Presence token (auth required)
+router.use("/presence", requireAuth);
+router.use(presenceRouter);
 
 // User-scoped (not project-scoped) authenticated routes
 router.use("/notifications", requireAuth);

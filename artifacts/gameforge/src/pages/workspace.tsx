@@ -11,6 +11,7 @@ import {
   Pencil, ClipboardList, Lock, Target, SlidersHorizontal, Zap, Inbox, Settings2, Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -24,6 +25,8 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { DesignBriefHeader } from "@/components/workspace/design-brief-header";
 import { WorkspaceTour, TourTriggerButton } from "@/components/workspace/workspace-tour";
 import { useWorkspaceTour } from "@/hooks/use-workspace-tour";
+import { useMyProjectRole } from "@/hooks/use-collaboration";
+import { useAblyPresence } from "@/hooks/use-ably-presence";
 
 // Lazy load workspace components for code splitting
 const Overview = lazy(() => import("@/components/workspace/overview").then(m => ({ default: m.Overview })));
@@ -347,6 +350,9 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
   const { data: stats } = useGetProjectStats(projectId);
   const deleteProject = useDeleteProject();
   const updateProject = useUpdateProject();
+  const { data: myRole } = useMyProjectRole(projectId);
+  const canManageProject = myRole?.canManageMembers ?? false;
+  const canEditProject = myRole?.canEdit ?? true;
 
   const [activeSection, setActiveSection] = useState<string>("overview");
   const [chatPrompt, setChatPrompt] = useState<string | undefined>();
@@ -364,6 +370,19 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
   const [isAdvancedMode, setIsAdvancedMode] = useState<boolean>(() => {
     try { return localStorage.getItem("gameforge.advancedMode") === "true"; } catch { return false; }
   });
+
+  const currentUserName = user
+    ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.primaryEmailAddress?.emailAddress || "You"
+    : "You";
+  const presentUsers = useAblyPresence({
+    projectId,
+    userId: user?.id ? parseInt(user.id, 10) : 0,
+    userName: currentUserName,
+    avatarUrl: user?.imageUrl ?? null,
+    section: activeSection,
+    enabled: !!user?.id && projectId > 0,
+  });
+  const otherPresentUsers = presentUsers.filter((p) => p.userId !== (user?.id ? parseInt(user.id, 10) : 0));
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -500,7 +519,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       case "comments": return <ErrorBoundary><Suspense fallback={loadingFallback}><CommentsPanel projectId={projectId} /></Suspense></ErrorBoundary>;
       case "activity": return <ErrorBoundary><Suspense fallback={loadingFallback}><ActivityFeed projectId={projectId} /></Suspense></ErrorBoundary>;
       case "versions": return <ErrorBoundary><Suspense fallback={loadingFallback}><VersionHistory projectId={projectId} /></Suspense></ErrorBoundary>;
-      case "members": return <ErrorBoundary><Suspense fallback={loadingFallback}><MembersDirectory projectId={projectId} /></Suspense></ErrorBoundary>;
+      case "members": return <ErrorBoundary><Suspense fallback={loadingFallback}><MembersDirectory projectId={projectId} canManage={canManageProject} /></Suspense></ErrorBoundary>;
       case "workspace-settings": return <ErrorBoundary><Suspense fallback={loadingFallback}><WorkspaceSettings projectId={projectId} projectName={project.name} /></Suspense></ErrorBoundary>;
       case "audit-log": return <ErrorBoundary><Suspense fallback={loadingFallback}><AuditLog projectId={projectId} /></Suspense></ErrorBoundary>;
       default: return null;
@@ -576,11 +595,13 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={openRenameDialog}><Pencil className="h-4 w-4 mr-2" /> Rename</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)}><Share2 className="h-4 w-4 mr-2" /> Share</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={() => setIsDeleteDialogOpen(true)}>
-                  <Trash2 className="h-4 w-4 mr-2" /> Delete Project
-                </DropdownMenuItem>
+                {canEditProject && <DropdownMenuItem onClick={openRenameDialog}><Pencil className="h-4 w-4 mr-2" /> Rename</DropdownMenuItem>}
+                {canManageProject && <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)}><Share2 className="h-4 w-4 mr-2" /> Share</DropdownMenuItem>}
+                {canManageProject && (
+                  <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={() => setIsDeleteDialogOpen(true)}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete Project
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -740,6 +761,31 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           <span>/</span>
           <span className="text-primary">{ALL_SECTION_LABELS[activeSection] ?? activeSection}</span>
           <div className="ml-auto flex items-center gap-2">
+            {otherPresentUsers.length > 0 && (
+              <div className="flex items-center -space-x-2">
+                {otherPresentUsers.slice(0, 5).map((p) => (
+                  <Tooltip key={p.userId}>
+                    <TooltipTrigger asChild>
+                      <Avatar className="h-7 w-7 border-2 border-background ring-2 ring-green-500/60 cursor-default">
+                        {p.avatarUrl && <AvatarImage src={p.avatarUrl} alt={p.userName} />}
+                        <AvatarFallback className="text-[10px] bg-green-900 text-green-300">
+                          {(p.userName[0] ?? "?").toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <span className="font-medium">{p.userName}</span>
+                      {p.section && <span className="text-muted-foreground ml-1">· {p.section}</span>}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+                {otherPresentUsers.length > 5 && (
+                  <div className="h-7 w-7 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] text-muted-foreground">
+                    +{otherPresentUsers.length - 5}
+                  </div>
+                )}
+              </div>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import { and, eq } from "drizzle-orm";
 import { db, projectShares, appUsers } from "@workspace/db";
+import { resolveProjectRole } from "../lib/resolveProjectRole";
 
 const router: IRouter = Router();
 
@@ -42,6 +43,9 @@ router.get("/projects/:projectId/shares", async (req, res): Promise<void> => {
 router.post("/projects/:projectId/shares", async (req, res): Promise<void> => {
   const projectId = parseInt(req.params.projectId as string, 10);
   const uid = getUID(req);
+  if (!uid) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const callerRole = await resolveProjectRole(uid, projectId);
+  if (callerRole !== "admin") { res.status(403).json({ error: "Only project admins can manage shares" }); return; }
   const { email, role, userId } = req.body as { email?: string; role?: string; userId?: number };
 
   if (!email && !userId) {
@@ -72,6 +76,10 @@ router.post("/projects/:projectId/shares", async (req, res): Promise<void> => {
 
 router.patch("/projects/:projectId/shares/:shareId", async (req, res): Promise<void> => {
   const projectId = parseInt(req.params.projectId as string, 10);
+  const uid = getUID(req);
+  if (!uid) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const callerRole = await resolveProjectRole(uid, projectId);
+  if (callerRole !== "admin") { res.status(403).json({ error: "Only project admins can manage shares" }); return; }
   const shareId = parseInt(req.params.shareId as string, 10);
   const { role, publicLink, publicLinkExpiry } = req.body as {
     role?: string;
@@ -96,6 +104,10 @@ router.patch("/projects/:projectId/shares/:shareId", async (req, res): Promise<v
 
 router.delete("/projects/:projectId/shares/:shareId", async (req, res): Promise<void> => {
   const projectId = parseInt(req.params.projectId as string, 10);
+  const uid = getUID(req);
+  if (!uid) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const callerRole = await resolveProjectRole(uid, projectId);
+  if (callerRole !== "admin") { res.status(403).json({ error: "Only project admins can manage shares" }); return; }
   const shareId = parseInt(req.params.shareId as string, 10);
   await db.delete(projectShares).where(and(eq(projectShares.id, shareId), eq(projectShares.projectId, projectId)));
   res.sendStatus(204);

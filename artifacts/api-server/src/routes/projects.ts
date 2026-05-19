@@ -17,6 +17,7 @@ import {
 } from "@workspace/db";
 import { getAuth } from "@clerk/express";
 import { schemas } from "@workspace/api-zod";
+import { resolveProjectRole } from "../lib/resolveProjectRole";
 
 const router: IRouter = Router();
 
@@ -69,6 +70,23 @@ router.get("/projects/:projectId", async (req, res): Promise<void> => {
   }
   res.set("Cache-Control", "no-store");
   res.json(schemas.GetProjectResponse.parse(row));
+});
+
+router.get("/projects/:projectId/my-role", async (req, res): Promise<void> => {
+  const userId = req.appUserId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const projectId = parseInt(req.params.projectId as string, 10);
+  if (isNaN(projectId)) { res.status(400).json({ error: "Invalid projectId" }); return; }
+  const role = await resolveProjectRole(userId, projectId);
+  if (!role) { res.status(403).json({ error: "No access" }); return; }
+  res.json({
+    role,
+    canEdit: role === "admin" || role === "editor",
+    canComment: role !== null,
+    canShare: role === "admin",
+    canDelete: role === "admin",
+    canManageMembers: role === "admin",
+  });
 });
 
 router.patch("/projects/:projectId", async (req, res): Promise<void> => {

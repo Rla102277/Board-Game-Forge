@@ -320,3 +320,23 @@ export function useListProjectUsers(projectId: number) {
     staleTime: 60_000,
   });
 }
+
+// ─── My resolved role for this project ───────────────────────────────────────
+
+export interface MyProjectRole {
+  role: "admin" | "editor" | "commenter" | "viewer";
+  canEdit: boolean;
+  canComment: boolean;
+  canShare: boolean;
+  canDelete: boolean;
+  canManageMembers: boolean;
+}
+
+export function useMyProjectRole(projectId: number) {
+  return useQuery<MyProjectRole>({
+    queryKey: ["my-project-role", projectId],
+    queryFn: () => api.getMyProjectRole(projectId),
+    enabled: projectId > 0,
+    staleTime: 60_000,
+  });
+}

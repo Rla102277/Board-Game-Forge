@@ -379,3 +379,18 @@ export async function listPresence(_projectId: number): Promise<PresenceUser[]> 
 export async function listProjectUsers(projectId: number): Promise<CollaboratorUser[]> {
   return apiFetch<CollaboratorUser[]>(`/projects/${projectId}/users`);
 }
+
+// ─── My resolved role ────────────────────────────────────────────────────────
+
+export interface MyProjectRole {
+  role: "admin" | "editor" | "commenter" | "viewer";
+  canEdit: boolean;
+  canComment: boolean;
+  canShare: boolean;
+  canDelete: boolean;
+  canManageMembers: boolean;
+}
+
+export async function getMyProjectRole(projectId: number): Promise<MyProjectRole> {
+  return apiFetch<MyProjectRole>(`/projects/${projectId}/my-role`);
+}
