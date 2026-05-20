@@ -37,6 +37,12 @@ export interface SubTask {
   createdAt: string;
 }
 
+export interface CommentReaction {
+  emoji: string;
+  count: number;
+  userIds: number[];
+}
+
 export interface TaskComment {
   id: number;
   entityType: "task" | "note" | "rule" | "asset" | "project";
@@ -45,6 +51,8 @@ export interface TaskComment {
   author: CollaboratorUser;
   content: string;
   mentions: number[];
+  resolved: boolean;
+  reactions: CommentReaction[];
   createdAt: string;
   updatedAt: string;
 }

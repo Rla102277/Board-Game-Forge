@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, eq, desc, asc, inArray } from "drizzle-orm";
+import { and, eq, desc, asc, inArray, sql } from "drizzle-orm";
 import {
   db,
   comments,
@@ -7,6 +7,30 @@ import {
   projectVersions,
   appUsers,
 } from "@workspace/db";
+
+type ReactionRow = { emoji: string; count: number; userIds: number[] };
+
+async function getReactionsForComments(
+  commentIds: number[],
+): Promise<Map<number, ReactionRow[]>> {
+  const map = new Map<number, ReactionRow[]>();
+  if (commentIds.length === 0) return map;
+  const rows = await db.execute<{ comment_id: number; emoji: string; count: string; user_ids: number[] }>(
+    sql.raw(`
+      SELECT comment_id, emoji, COUNT(*)::int AS count,
+             array_agg(user_id) AS user_ids
+      FROM comment_reactions
+      WHERE comment_id = ANY(ARRAY[${commentIds.join(",")}]::int[])
+      GROUP BY comment_id, emoji
+    `),
+  );
+  for (const r of rows.rows) {
+    const cid = Number(r.comment_id);
+    if (!map.has(cid)) map.set(cid, []);
+    map.get(cid)!.push({ emoji: r.emoji, count: Number(r.count), userIds: r.user_ids ?? [] });
+  }
+  return map;
+}
 
 const router: IRouter = Router();
 
@@ -94,9 +118,11 @@ router.post(
         .orderBy(asc(comments.createdAt));
 
       const authors = await getUsersById(allComments.map((c) => c.authorId));
+      const reactionsMap = await getReactionsForComments(allComments.map((c) => c.id));
 
       type EnrichedComment = (typeof allComments)[number] & {
         author: AuthorInfo;
+        reactions: ReactionRow[];
         replies: EnrichedComment[];
       };
       const enrichedById = new Map<number, EnrichedComment>();
@@ -106,6 +132,7 @@ router.post(
         enrichedById.set(c.id, {
           ...c,
           author: authors.get(c.authorId) ?? null,
+          reactions: reactionsMap.get(c.id) ?? [],
           replies: [],
         });
       }
@@ -217,6 +244,7 @@ router.post(
       res.json({
         ...newComment,
         author: authors.get(newComment.authorId) ?? null,
+        reactions: [],
         replies: [],
       });
     } catch (err) {
@@ -312,15 +340,60 @@ router.patch(
         entityId: commentId,
         description: resolved ? "Resolved a comment" : "Reopened a comment",
       });
+      const reactionsMap = await getReactionsForComments([updated.id]);
       const authors = await getUsersById([updated.authorId]);
       res.json({
         ...updated,
         author: authors.get(updated.authorId) ?? null,
+        reactions: reactionsMap.get(updated.id) ?? [],
         replies: [],
       });
     } catch (err) {
       req.log.error({ err }, "resolve comment failed");
       res.status(500).json({ error: "Failed to resolve comment" });
+    }
+  },
+);
+
+// Toggle a reaction (add if not present, remove if already added).
+router.post(
+  "/projects/:projectId/comments/:commentId/reactions",
+  async (req, res): Promise<void> => {
+    const userId = currentUserId(req);
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const commentId = parseRouteId(req, "commentId");
+    const { emoji } = req.body ?? {};
+    if (!emoji || typeof emoji !== "string") { res.status(400).json({ error: "emoji is required" }); return; }
+    try {
+      // Check if reaction already exists
+      const existing = await db.execute<{ id: number }>(
+        sql.raw(`SELECT id FROM comment_reactions WHERE comment_id=${commentId} AND user_id=${userId} AND emoji=${sql.raw("'" + emoji.replace(/'/g, "''") + "'")} LIMIT 1`),
+      );
+      if (existing.rows.length > 0) {
+        await db.execute(sql.raw(`DELETE FROM comment_reactions WHERE comment_id=${commentId} AND user_id=${userId} AND emoji='${emoji.replace(/'/g, "''")}' `));
+      } else {
+        await db.execute(sql.raw(`INSERT INTO comment_reactions (comment_id, user_id, emoji) VALUES (${commentId}, ${userId}, '${emoji.replace(/'/g, "''")}') ON CONFLICT DO NOTHING`));
+      }
+      const reactionsMap = await getReactionsForComments([commentId]);
+      res.json(reactionsMap.get(commentId) ?? []);
+    } catch (err) {
+      req.log.error({ err }, "toggle reaction failed");
+      res.status(500).json({ error: "Failed to toggle reaction" });
+    }
+  },
+);
+
+// List reactions for a comment.
+router.get(
+  "/projects/:projectId/comments/:commentId/reactions",
+  async (req, res): Promise<void> => {
+    if (!currentUserId(req)) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const commentId = parseRouteId(req, "commentId");
+    try {
+      const reactionsMap = await getReactionsForComments([commentId]);
+      res.json(reactionsMap.get(commentId) ?? []);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to list reactions" });
     }
   },
 );

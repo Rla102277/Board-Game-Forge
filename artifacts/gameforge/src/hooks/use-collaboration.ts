@@ -198,6 +198,30 @@ export function useDeleteComment() {
   });
 }
 
+export function useResolveComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ commentId, resolved, entityType, entityId }: {
+      commentId: number; resolved: boolean; entityType: string; entityId: number;
+    }) => api.resolveComment(commentId, resolved),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: getListCommentsQueryKey(vars.entityType, vars.entityId) });
+    },
+  });
+}
+
+export function useToggleReaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ commentId, emoji, entityType, entityId }: {
+      commentId: number; emoji: string; entityType: string; entityId: number;
+    }) => api.toggleReaction(commentId, emoji),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: getListCommentsQueryKey(vars.entityType, vars.entityId) });
+    },
+  });
+}
+
 // ─── Activity ─────────────────────────────────────────────────────────────────
 
 export function getListActivityQueryKey(projectId: number) {

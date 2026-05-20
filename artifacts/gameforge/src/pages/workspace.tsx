@@ -1,7 +1,7 @@
 import { useParams, Link } from "wouter";
 import { useState, useMemo, lazy, Suspense } from "react";
 import { AnimatePresence } from "framer-motion";
-import { useGetProject, useGetProjectStats, useDeleteProject, useUpdateProject, getListProjectsQueryKey } from "@workspace/api-client-react";
+import { useGetProject, useGetProjectStats, useDeleteProject, useUpdateProject, getListProjectsQueryKey, useGetMe } from "@workspace/api-client-react";
 import type { Project, ProjectStats } from "@workspace/api-client-react";
 import { useUser, useClerk } from "@clerk/react";
 import {
@@ -341,6 +341,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
   const queryClient = useQueryClient();
   const params = useParams();
   const { user } = useUser();
+  const { data: me } = useGetMe();
   const { signOut } = useClerk();
   const projectId = useMemo(
     () => projectIdProp ?? parseInt(params.projectId || "0", 10),
@@ -516,7 +517,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       case "balance": return <ErrorBoundary><Suspense fallback={loadingFallback}><Balance projectId={projectId} /></Suspense></ErrorBoundary>;
       case "export": return <ErrorBoundary><Suspense fallback={loadingFallback}><Exports projectId={projectId} /></Suspense></ErrorBoundary>;
       case "inbox": return <ErrorBoundary><Suspense fallback={loadingFallback}><UnifiedInbox projectId={projectId} /></Suspense></ErrorBoundary>;
-      case "comments": return <ErrorBoundary><Suspense fallback={loadingFallback}><CommentsPanel projectId={projectId} /></Suspense></ErrorBoundary>;
+      case "comments": return <ErrorBoundary><Suspense fallback={loadingFallback}><CommentsPanel projectId={projectId} currentUserId={me?.id} /></Suspense></ErrorBoundary>;
       case "activity": return <ErrorBoundary><Suspense fallback={loadingFallback}><ActivityFeed projectId={projectId} /></Suspense></ErrorBoundary>;
       case "versions": return <ErrorBoundary><Suspense fallback={loadingFallback}><VersionHistory projectId={projectId} /></Suspense></ErrorBoundary>;
       case "members": return <ErrorBoundary><Suspense fallback={loadingFallback}><MembersDirectory projectId={projectId} canManage={canManageProject} /></Suspense></ErrorBoundary>;

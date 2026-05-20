@@ -189,6 +189,16 @@ const MIGRATIONS = [
   `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata jsonb`,
   // 0033 – task_assignees missing assigned_at column
   `ALTER TABLE task_assignees ADD COLUMN IF NOT EXISTS assigned_at timestamptz NOT NULL DEFAULT now()`,
+  // 0034 – comment_reactions table for emoji reactions on comments
+  `CREATE TABLE IF NOT EXISTS comment_reactions (
+    id serial PRIMARY KEY,
+    comment_id integer NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+    user_id integer NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    emoji text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (comment_id, user_id, emoji)
+  )`,
+  `CREATE INDEX IF NOT EXISTS comment_reactions_comment_id_idx ON comment_reactions (comment_id)`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {

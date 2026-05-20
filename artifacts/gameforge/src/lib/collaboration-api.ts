@@ -6,6 +6,7 @@ import type {
   RichTask,
   SubTask,
   TaskComment,
+  CommentReaction,
   ActivityLogEntry,
   ProjectShare,
   NotificationItem,
@@ -178,6 +179,12 @@ export async function removeTaskDependency(projectId: number, taskId: number, de
 
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
+interface RawReaction {
+  emoji: string;
+  count: number;
+  userIds: number[];
+}
+
 interface RawComment {
   id: number;
   entityType: string;
@@ -187,13 +194,13 @@ interface RawComment {
   author: CollaboratorUser | null;
   content: string;
   resolved: boolean;
+  reactions?: RawReaction[];
   createdAt: string;
   updatedAt: string;
   replies?: RawComment[];
 }
 
 function rawToTaskComment(raw: RawComment): TaskComment {
-  // Extract @mention user IDs from content (e.g. @[123])
   const mentions = [...raw.content.matchAll(/@\[(\d+)\]/g)].map((m) => parseInt(m[1], 10));
   return {
     id: raw.id,
@@ -203,6 +210,8 @@ function rawToTaskComment(raw: RawComment): TaskComment {
     author: raw.author ?? { id: raw.authorId, email: null, firstName: null, lastName: null, imageUrl: null },
     content: raw.content,
     mentions,
+    resolved: raw.resolved ?? false,
+    reactions: (raw.reactions ?? []) as CommentReaction[],
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
   };
@@ -244,9 +253,30 @@ export async function createComment(
 }
 
 export async function deleteComment(commentId: number, _entityType: string, _entityId: number): Promise<void> {
-  // We need the projectId; get it from the entity map
   const projectId = [..._entityProjectMap.values()][0] ?? 0;
   return apiFetch<void>(`/projects/${projectId}/comments/${commentId}`, { method: "DELETE" });
+}
+
+export async function resolveComment(commentId: number, resolved: boolean): Promise<TaskComment> {
+  const projectId = [..._entityProjectMap.values()][0] ?? 0;
+  const raw = await apiFetch<RawComment>(`/projects/${projectId}/comments/${commentId}/resolve`, {
+    method: "PATCH",
+    body: JSON.stringify({ resolved }),
+  });
+  return rawToTaskComment(raw);
+}
+
+export async function toggleReaction(commentId: number, emoji: string): Promise<CommentReaction[]> {
+  const projectId = [..._entityProjectMap.values()][0] ?? 0;
+  return apiFetch<CommentReaction[]>(`/projects/${projectId}/comments/${commentId}/reactions`, {
+    method: "POST",
+    body: JSON.stringify({ emoji }),
+  });
+}
+
+export async function listReactions(commentId: number): Promise<CommentReaction[]> {
+  const projectId = [..._entityProjectMap.values()][0] ?? 0;
+  return apiFetch<CommentReaction[]>(`/projects/${projectId}/comments/${commentId}/reactions`);
 }
 
 // ─── Entity project ID cache ─────────────────────────────────────────────────
