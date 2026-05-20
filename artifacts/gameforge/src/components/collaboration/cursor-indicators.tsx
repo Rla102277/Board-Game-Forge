@@ -1,32 +1,31 @@
-import { useListPresence } from "@/hooks/use-collaboration";
+import type { PresenceUser } from "@/lib/collaboration-types";
 import { PresenceAvatars } from "./presence-avatars";
 
 interface CollaborationPresenceProps {
-  projectId: number;
+  users: PresenceUser[];
 }
 
-export function CollaborationPresence({ projectId }: CollaborationPresenceProps) {
-  return <PresenceAvatars projectId={projectId} />;
+export function CollaborationPresence({ users }: CollaborationPresenceProps) {
+  return <PresenceAvatars users={users} />;
 }
 
 interface ActiveUsersIndicatorProps {
-  projectId?: number;
+  users: PresenceUser[];
 }
 
-export function ActiveUsersIndicator({ projectId }: ActiveUsersIndicatorProps) {
-  if (!projectId) return null;
-  return <PresenceAvatars projectId={projectId} className="justify-end" />;
+export function ActiveUsersIndicator({ users }: ActiveUsersIndicatorProps) {
+  if (users.length === 0) return null;
+  return <PresenceAvatars users={users} className="justify-end" />;
 }
 
 interface CursorIndicatorsProps {
-  projectId: number;
+  users: PresenceUser[];
 }
 
 const COLORS = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
 
-export function CursorIndicators({ projectId }: CursorIndicatorsProps) {
-  const { data: users } = useListPresence(projectId);
-  const activeUsers = (users ?? []).filter((u) => u.section !== null);
+export function CursorIndicators({ users }: CursorIndicatorsProps) {
+  const activeUsers = users.filter((u) => u.cursorX > 0 || u.cursorY > 0);
 
   if (activeUsers.length === 0) return null;
 

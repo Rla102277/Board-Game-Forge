@@ -17,7 +17,7 @@ import {
   useListShares, useListActivity, useListNotifications,
   useMarkNotificationRead, useMarkAllNotificationsRead,
 } from "@/hooks/use-collaboration";
-import type { CollaboratorUser, ActivityLogEntry, ProjectShare, NotificationItem, ProjectRole } from "@/lib/collaboration-types";
+import type { CollaboratorUser, ActivityLogEntry, ProjectShare, NotificationItem, ProjectRole, PresenceUser } from "@/lib/collaboration-types";
 import { ROLE_LABELS } from "@/lib/collaboration-types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -216,16 +216,23 @@ interface CollaborationDashboardProps {
   projectName: string;
   onOpenShare: () => void;
   onNavigate: (section: string) => void;
+  presentUsers?: PresenceUser[];
 }
 
 export function CollaborationDashboard({
-  open, onOpenChange, projectId, projectName, onOpenShare, onNavigate,
+  open, onOpenChange, projectId, projectName, onOpenShare, onNavigate, presentUsers = [],
 }: CollaborationDashboardProps) {
   const { data: shares, isLoading: sharesLoading } = useListShares(projectId);
   const { data: activity, isLoading: activityLoading } = useListActivity(projectId, 50);
   const { data: notifications, isLoading: notifsLoading } = useListNotifications();
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
+
+  const presentUserIds = useMemo(() => new Set(presentUsers.map(p => p.userId)), [presentUsers]);
+  const presentSections = useMemo(
+    () => Object.fromEntries(presentUsers.map(p => [p.userId, p.section ?? null])) as Record<number, string | null>,
+    [presentUsers],
+  );
 
   const members = useMemo(
     () => (shares ?? []).filter(s => s.user !== null),
@@ -235,16 +242,25 @@ export function CollaborationDashboard({
   const memberStatuses = useMemo(() => {
     const act = activity ?? [];
     return Object.fromEntries(
-      members.map(s => [s.user!.id, inferStatus(s.user!.id, act)])
+      members.map(s => {
+        const uid = s.user!.id;
+        if (presentUserIds.has(uid)) return [uid, "online" as OnlineStatus];
+        return [uid, inferStatus(uid, act)];
+      })
     ) as Record<number, OnlineStatus>;
-  }, [members, activity]);
+  }, [members, activity, presentUserIds]);
 
   const memberSections = useMemo(() => {
     const act = activity ?? [];
     return Object.fromEntries(
-      members.map(s => [s.user!.id, inferSection(s.user!.id, act)])
+      members.map(s => {
+        const uid = s.user!.id;
+        const ablySection = presentSections[uid];
+        if (ablySection !== undefined) return [uid, ablySection];
+        return [uid, inferSection(uid, act)];
+      })
     ) as Record<number, string | null>;
-  }, [members, activity]);
+  }, [members, activity, presentSections]);
 
   const sortedMembers = useMemo(() => {
     const order: Record<OnlineStatus, number> = { online: 0, active: 1, idle: 2, offline: 3 };
@@ -266,8 +282,8 @@ export function CollaborationDashboard({
   );
 
   const onlineCount = useMemo(
-    () => Object.values(memberStatuses).filter(s => s === "online" || s === "active").length,
-    [memberStatuses],
+    () => presentUsers.length > 0 ? presentUsers.length : Object.values(memberStatuses).filter(s => s === "online" || s === "active").length,
+    [presentUsers, memberStatuses],
   );
 
   const unreadCount = notifications?.filter(n => !n.read).length ?? 0;

@@ -629,7 +629,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           </div>
 
           <div className="mt-2">
-            <Suspense fallback={null}><CollaborationPresence projectId={projectId} /></Suspense>
+            <Suspense fallback={null}><CollaborationPresence users={otherPresentUsers} /></Suspense>
           </div>
         </div>
 
@@ -850,6 +850,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           projectName={project.name}
           onOpenShare={() => { setIsShareDialogOpen(true); setTeamPanelOpen(false); }}
           onNavigate={(section) => { navigateTo(section); setTeamPanelOpen(false); }}
+          presentUsers={presentUsers}
         />
       </Suspense>
 
@@ -878,6 +879,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           onOpenChange={setIsShareDialogOpen}
           projectId={projectId}
           projectName={project.name}
+          canManage={canManageProject}
         />
       </Suspense>
 
@@ -924,7 +926,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
 
       {/* Collaborators */}
       <Suspense fallback={null}>
-        <CursorIndicators projectId={projectId} />
+        <CursorIndicators users={otherPresentUsers} />
       </Suspense>
 
       {/* Onboarding tour */}

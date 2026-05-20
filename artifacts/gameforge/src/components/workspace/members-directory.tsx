@@ -175,7 +175,7 @@ export function MembersDirectory({ projectId, canManage = true }: MembersDirecto
               const isEditing = editingId === share?.id;
 
               return (
-                <Card key={user.id} className="overflow-hidden">
+                <Card key={user.id} className="overflow-hidden group">
                   <CardContent className="p-3 flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       {user.imageUrl && <AvatarImage src={user.imageUrl} alt="" />}

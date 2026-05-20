@@ -4,16 +4,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useListPresence } from "@/hooks/use-collaboration";
+import type { PresenceUser } from "@/lib/collaboration-types";
 
 interface PresenceAvatarsProps {
-  projectId: number;
+  users: PresenceUser[];
   className?: string;
 }
 
-export function PresenceAvatars({ projectId, className = "" }: PresenceAvatarsProps) {
-  const { data: users } = useListPresence(projectId);
-  const activeUsers = users ?? [];
+export function PresenceAvatars({ users, className = "" }: PresenceAvatarsProps) {
+  const activeUsers = users;
 
   if (activeUsers.length === 0) return null;
 
