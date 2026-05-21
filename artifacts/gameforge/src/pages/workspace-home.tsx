@@ -314,7 +314,7 @@ export default function WorkspaceHome() {
     workspacesApi
       .detail(slug)
       .then((d) => setDetail(d))
-      .catch((e) => toast({ title: "Studio error", description: e instanceof Error ? e.message : String(e), variant: "destructive" }))
+      .catch((e) => toast({ title: "Workspace error", description: e instanceof Error ? e.message : String(e), variant: "destructive" }))
       .finally(() => setDetailLoading(false));
   }, [slug, toast]);
 
@@ -326,7 +326,7 @@ export default function WorkspaceHome() {
       <div className="min-h-[100dvh] flex items-center justify-center bg-background text-foreground">
         {workspacesError ? (
           <div className="text-center space-y-3">
-            <p className="text-destructive font-medium">Could not load studios</p>
+            <p className="text-destructive font-medium">Could not load workspaces</p>
             <p className="text-sm text-muted-foreground">{workspacesError}</p>
             <button
               className="text-sm text-primary underline"
@@ -338,7 +338,7 @@ export default function WorkspaceHome() {
         ) : (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Loading studios…
+            Loading workspaces…
           </div>
         )}
       </div>
@@ -374,7 +374,7 @@ export default function WorkspaceHome() {
     e.preventDefault();
     if (!createName.trim()) return;
     if (!slug) {
-      toast({ title: "No studio selected", description: "Please wait for your studio to load.", variant: "destructive" });
+      toast({ title: "No workspace selected", description: "Please wait for your workspace to load.", variant: "destructive" });
       return;
     }
     try {
@@ -383,7 +383,7 @@ export default function WorkspaceHome() {
       setCreateName("");
       setLocation(`/${out.workspaceSlug}/${out.project.slug ?? out.project.id}`);
     } catch (err) {
-      toast({ title: "Could not create workspace", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      toast({ title: "Could not create project", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     }
   };
 
@@ -397,7 +397,7 @@ export default function WorkspaceHome() {
       await reloadWorkspaces();
       setLocation(`/${ws.slug}`);
     } catch (err) {
-      toast({ title: "Could not create studio", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      toast({ title: "Could not create workspace", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     }
   };
 
@@ -406,7 +406,7 @@ export default function WorkspaceHome() {
     setRenameWsOpen(true);
   };
 
-  const renameStudio = async (e: React.FormEvent) => {
+  const renameWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!renameWsName.trim()) return;
     try {
@@ -464,10 +464,10 @@ export default function WorkspaceHome() {
                 ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={openRenameWs} data-testid="rename-workspace-button">
-                  <Pencil className="h-4 w-4 mr-2" /> Rename studio
+                  <Pencil className="h-4 w-4 mr-2" /> Rename workspace
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setNewWsOpen(true)} data-testid="new-workspace-button">
-                  <Plus className="h-4 w-4 mr-2" /> New studio
+                  <Plus className="h-4 w-4 mr-2" /> New workspace
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -672,9 +672,9 @@ export default function WorkspaceHome() {
         {/* Learn the craft — prominent training surface */}
         <LearnHighlights slug={slug} />
 
-        {/* Existing workspaces */}
+        {/* Existing projects */}
         <section className="space-y-3">
-          <h2 className="text-2xl font-semibold">Your workspaces</h2>
+          <h2 className="text-2xl font-semibold">Your projects</h2>
           {detailLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
@@ -714,7 +714,7 @@ export default function WorkspaceHome() {
             </div>
           ) : (
             <div className="rounded-xl border-dashed border-2 p-10 text-center text-muted-foreground">
-              No workspaces yet. Describe a game above or pick a template to get started.
+              No projects yet. Describe a game above or pick a template to get started.
             </div>
           )}
         </section>
@@ -771,12 +771,12 @@ export default function WorkspaceHome() {
 
       <Dialog open={newWsOpen} onOpenChange={setNewWsOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>New studio</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>New workspace</DialogTitle></DialogHeader>
           <form onSubmit={createWorkspace} className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="ws-name">Studio name</Label>
+              <Label htmlFor="ws-name">Workspace name</Label>
               <Input id="ws-name" value={newWsName} onChange={(e) => setNewWsName(e.target.value)} autoFocus placeholder="Acme Games" data-testid="new-ws-name" />
-              <div className="text-xs text-muted-foreground">A studio is a place to share workspaces with teammates.</div>
+              <div className="text-xs text-muted-foreground">A workspace is a place to share projects with teammates.</div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setNewWsOpen(false)}>Cancel</Button>
@@ -788,10 +788,10 @@ export default function WorkspaceHome() {
 
       <Dialog open={renameWsOpen} onOpenChange={setRenameWsOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Rename studio</DialogTitle></DialogHeader>
-          <form onSubmit={renameStudio} className="space-y-4 py-2">
+          <DialogHeader><DialogTitle>Rename workspace</DialogTitle></DialogHeader>
+          <form onSubmit={renameWorkspace} className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="rename-ws-name">Studio name</Label>
+              <Label htmlFor="rename-ws-name">Workspace name</Label>
               <Input id="rename-ws-name" value={renameWsName} onChange={(e) => setRenameWsName(e.target.value)} autoFocus data-testid="rename-ws-name" />
             </div>
             <DialogFooter>
@@ -806,7 +806,7 @@ export default function WorkspaceHome() {
       <AlertDialog open={Boolean(confirmDelete)} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this workspace?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this project?</AlertDialogTitle>
             <AlertDialogDescription>
               "{confirmDelete?.name}" and all its rules, entities, players, and notes will be permanently removed.
             </AlertDialogDescription>
