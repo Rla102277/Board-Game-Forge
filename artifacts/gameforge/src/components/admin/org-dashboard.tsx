@@ -1,6 +1,10 @@
 /**
- * Organization Dashboard - Platform-wide monitoring for admins
+ * Organization Dashboard - Platform-wide OR workspace-level monitoring
  * Shows aggregate metrics, user activity, project health, security events
+ * 
+ * Usage:
+ *   <OrganizationDashboard />              // Platform-wide (CTO/Company admin)
+ *   <OrganizationDashboard workspaceId={5} /> // Workspace-scoped (Workspace admin)
  */
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,23 +17,28 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   BarChart3, Users, FolderKanban, Activity, Shield, AlertTriangle, 
   CheckCircle2, Clock, TrendingUp, Search, Download, RefreshCw,
-  UserCheck, Globe, Zap, Lock
+  UserCheck, Globe, Zap, Lock, Building2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { format, subDays } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
 
-// Mock data - replace with actual API calls
-const MOCK_ORG_STATS = {
-  totalUsers: 147,
-  activeUsers: 89,
-  newUsersThisWeek: 12,
-  totalProjects: 312,
-  activeProjects: 156,
-  completedProjects: 43,
-  totalWorkspaces: 28,
-  avgProjectCompletion: 34,
-};
+interface OrganizationDashboardProps {
+  workspaceId?: number; // If provided, shows workspace-scoped data. If not, platform-wide.
+  workspaceName?: string;
+}
+
+// Mock data generators - in production these would be API calls
+const getMockStats = (isWorkspace: boolean) => ({
+  totalUsers: isWorkspace ? 12 : 147,
+  activeUsers: isWorkspace ? 8 : 89,
+  newUsersThisWeek: isWorkspace ? 2 : 12,
+  totalProjects: isWorkspace ? 24 : 312,
+  activeProjects: isWorkspace ? 18 : 156,
+  completedProjects: isWorkspace ? 4 : 43,
+  totalWorkspaces: isWorkspace ? 1 : 28,
+  avgProjectCompletion: isWorkspace ? 42 : 34,
+});
 
 const MOCK_DAILY_ACTIVITY = Array.from({ length: 30 }, (_, i) => ({
   date: format(subDays(new Date(), 29 - i), "MMM dd"),
@@ -67,12 +76,17 @@ const MOCK_USER_ACTIVITY = [
   { id: 4, name: "David Wilson", email: "david@publisher.com", role: "Commenter", lastActive: subDays(new Date(), 5).toISOString(), projects: 5, actions: 89 },
 ];
 
-export function OrganizationDashboard() {
+export function OrganizationDashboard({ workspaceId, workspaceName }: OrganizationDashboardProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
   const [dateRange, setDateRange] = useState("30");
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const isWorkspace = !!workspaceId;
+  const stats = getMockStats(isWorkspace);
+  const title = isWorkspace ? (workspaceName || "Workspace") : "Organization";
+  const icon = isWorkspace ? Building2 : Globe;
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -88,12 +102,13 @@ export function OrganizationDashboard() {
   };
 
   const filteredUsers = useMemo(() => {
+    // In production, filter by workspaceId if provided
     if (!searchQuery) return MOCK_USER_ACTIVITY;
     return MOCK_USER_ACTIVITY.filter(u => 
       u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery]);
+  }, [searchQuery, workspaceId]);
 
   return (
     <div className="space-y-6 p-6">
@@ -102,10 +117,10 @@ export function OrganizationDashboard() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <BarChart3 className="h-6 w-6 text-primary" />
-            Organization Dashboard
+            {title} Dashboard
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Platform-wide monitoring and analytics
+            {isWorkspace ? "Workspace monitoring and analytics" : "Platform-wide monitoring and analytics"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -133,30 +148,30 @@ export function OrganizationDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard 
           title="Total Users" 
-          value={MOCK_ORG_STATS.totalUsers} 
-          change={`+${MOCK_ORG_STATS.newUsersThisWeek} this week`}
+          value={stats.totalUsers} 
+          change={`+${stats.newUsersThisWeek} this week`}
           icon={Users}
           trend="up"
         />
         <MetricCard 
           title="Active Projects" 
-          value={MOCK_ORG_STATS.activeProjects}
-          change={`${MOCK_ORG_STATS.totalProjects} total`}
+          value={stats.activeProjects}
+          change={`${stats.totalProjects} total`}
           icon={FolderKanban}
           trend="neutral"
         />
         <MetricCard 
           title="Avg Completion" 
-          value={`${MOCK_ORG_STATS.avgProjectCompletion}%`}
+          value={`${stats.avgProjectCompletion}%`}
           change="Across all stages"
           icon={TrendingUp}
           trend="up"
         />
         <MetricCard 
-          title="Workspaces" 
-          value={MOCK_ORG_STATS.totalWorkspaces}
-          change="Active teams"
-          icon={Globe}
+          title={isWorkspace ? "Workspace" : "Workspaces"}
+          value={isWorkspace ? (workspaceName || "Active") : stats.totalWorkspaces}
+          change={isWorkspace ? "Current workspace" : "Active teams"}
+          icon={isWorkspace ? Building2 : Globe}
           trend="neutral"
         />
       </div>

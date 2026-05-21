@@ -5,7 +5,7 @@ import {
   Gamepad2, Plus, Sparkles, ArrowRight, Users, ChevronDown,
   LogOut, Shield, User as UserIcon, Folder, Crown, Trash2,
   Loader2, Wand2, GraduationCap, BookOpen, MessageSquare, Trophy, Pencil,
-  Clock, UserRound,
+  Clock, UserRound, BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -478,6 +478,14 @@ export default function WorkspaceHome() {
                 <Badge variant="secondary" className="ml-1">{detail.members.length}</Badge>
               ) : null}
             </Button>
+
+            {canManage && (
+              <Link href={`/w/${slug}/admin`}>
+                <Button variant="outline" className="gap-2">
+                  <BarChart3 className="h-4 w-4" /> Admin
+                </Button>
+              </Link>
+            )}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

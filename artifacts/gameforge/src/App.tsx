@@ -15,6 +15,7 @@ import LearnPage from "@/pages/learn";
 import Landing from "@/pages/landing";
 import PublicFeedback from "@/pages/public-feedback";
 import JoinWorkspace from "@/pages/join-workspace";
+import WorkspaceAdmin from "@/pages/workspace-admin";
 
 const queryClient = new QueryClient();
 
@@ -181,6 +182,13 @@ function Routes() {
         <ProtectedRoute>
           <Admin />
         </ProtectedRoute>
+      </Route>
+      <Route path="/w/:workspaceSlug/admin">
+        {(params) => (
+          <ProtectedRoute>
+            <WorkspaceAdmin key={`${params.workspaceSlug}/admin`} />
+          </ProtectedRoute>
+        )}
       </Route>
       <Route path="/p/:projectId">
         {(params) => (
