@@ -199,6 +199,27 @@ const MIGRATIONS = [
     UNIQUE (comment_id, user_id, emoji)
   )`,
   `CREATE INDEX IF NOT EXISTS comment_reactions_comment_id_idx ON comment_reactions (comment_id)`,
+  // 0035 – comprehensive audit logging table
+  `CREATE TABLE IF NOT EXISTS audit_logs (
+    id serial PRIMARY KEY,
+    user_id integer REFERENCES app_users(id) ON DELETE SET NULL,
+    user_email text,
+    action text NOT NULL,
+    resource_type text NOT NULL,
+    resource_id text NOT NULL,
+    project_id integer REFERENCES projects(id) ON DELETE CASCADE,
+    workspace_id integer,
+    ip_address inet,
+    user_agent text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    severity text NOT NULL DEFAULT 'info',
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS audit_logs_user_id_idx ON audit_logs (user_id)`,
+  `CREATE INDEX IF NOT EXISTS audit_logs_project_id_idx ON audit_logs (project_id)`,
+  `CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action)`,
+  `CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS audit_logs_severity_idx ON audit_logs (severity)`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {
