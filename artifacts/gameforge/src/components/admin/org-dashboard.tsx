@@ -33,17 +33,17 @@ const getMockStats = (isWorkspace: boolean) => ({
   totalUsers: isWorkspace ? 12 : 147,
   activeUsers: isWorkspace ? 8 : 89,
   newUsersThisWeek: isWorkspace ? 2 : 12,
-  totalProjects: isWorkspace ? 24 : 312,
-  activeProjects: isWorkspace ? 18 : 156,
-  completedProjects: isWorkspace ? 4 : 43,
-  totalWorkspaces: isWorkspace ? 1 : 28,
-  avgProjectCompletion: isWorkspace ? 42 : 34,
+  totalWorkspaces: isWorkspace ? 24 : 312,
+  activeWorkspaces: isWorkspace ? 18 : 156,
+  completedWorkspaces: isWorkspace ? 4 : 43,
+  totalStudios: isWorkspace ? 1 : 28,
+  avgWorkspaceCompletion: isWorkspace ? 42 : 34,
 });
 
 const MOCK_DAILY_ACTIVITY = Array.from({ length: 30 }, (_, i) => ({
   date: format(subDays(new Date(), 29 - i), "MMM dd"),
   logins: Math.floor(Math.random() * 50) + 20,
-  projectsCreated: Math.floor(Math.random() * 10) + 1,
+  workspacesCreated: Math.floor(Math.random() * 10) + 1,
   comments: Math.floor(Math.random() * 30) + 5,
   exports: Math.floor(Math.random() * 15),
 }));
@@ -55,12 +55,12 @@ const MOCK_PROJECT_HEALTH = [
 ];
 
 const MOCK_STAGE_DISTRIBUTION = [
-  { stage: "Stage 1\nConcept", projects: 45, color: "#3b82f6" },
-  { stage: "Stage 2\nPrototype", projects: 67, color: "#8b5cf6" },
-  { stage: "Stage 3\nRules", projects: 34, color: "#ec4899" },
-  { stage: "Stage 4\nSimulate", projects: 28, color: "#f97316" },
-  { stage: "Stage 5\nPlaytest", projects: 19, color: "#14b8a6" },
-  { stage: "Stage 6\nPublish", projects: 12, color: "#6366f1" },
+  { stage: "Stage 1\nConcept", workspaces: 45, color: "#3b82f6" },
+  { stage: "Stage 2\nPrototype", workspaces: 67, color: "#8b5cf6" },
+  { stage: "Stage 3\nRules", workspaces: 34, color: "#ec4899" },
+  { stage: "Stage 4\nSimulate", workspaces: 28, color: "#f97316" },
+  { stage: "Stage 5\nPlaytest", workspaces: 19, color: "#14b8a6" },
+  { stage: "Stage 6\nPublish", workspaces: 12, color: "#6366f1" },
 ];
 
 const MOCK_SECURITY_EVENTS = [
@@ -70,10 +70,10 @@ const MOCK_SECURITY_EVENTS = [
 ];
 
 const MOCK_USER_ACTIVITY = [
-  { id: 1, name: "Alice Chen", email: "alice@boardlab.games", role: "Admin", lastActive: new Date().toISOString(), projects: 12, actions: 234 },
-  { id: 2, name: "Bob Smith", email: "bob@designer.com", role: "Editor", lastActive: subDays(new Date(), 1).toISOString(), projects: 8, actions: 156 },
-  { id: 3, name: "Carol Jones", email: "carol@tester.com", role: "Viewer", lastActive: subDays(new Date(), 3).toISOString(), projects: 3, actions: 45 },
-  { id: 4, name: "David Wilson", email: "david@publisher.com", role: "Commenter", lastActive: subDays(new Date(), 5).toISOString(), projects: 5, actions: 89 },
+  { id: 1, name: "Alice Chen", email: "alice@boardlab.games", role: "Admin", lastActive: new Date().toISOString(), workspaces: 12, actions: 234 },
+  { id: 2, name: "Bob Smith", email: "bob@designer.com", role: "Editor", lastActive: subDays(new Date(), 1).toISOString(), workspaces: 8, actions: 156 },
+  { id: 3, name: "Carol Jones", email: "carol@tester.com", role: "Viewer", lastActive: subDays(new Date(), 3).toISOString(), workspaces: 3, actions: 45 },
+  { id: 4, name: "David Wilson", email: "david@publisher.com", role: "Commenter", lastActive: subDays(new Date(), 5).toISOString(), workspaces: 5, actions: 89 },
 ];
 
 export function OrganizationDashboard({ workspaceId, workspaceName }: OrganizationDashboardProps) {
@@ -154,23 +154,23 @@ export function OrganizationDashboard({ workspaceId, workspaceName }: Organizati
           trend="up"
         />
         <MetricCard 
-          title="Active Projects" 
-          value={stats.activeProjects}
-          change={`${stats.totalProjects} total`}
+          title="Active Workspaces" 
+          value={stats.activeWorkspaces}
+          change={`${stats.totalWorkspaces} total`}
           icon={FolderKanban}
           trend="neutral"
         />
         <MetricCard 
           title="Avg Completion" 
-          value={`${stats.avgProjectCompletion}%`}
+          value={`${stats.avgWorkspaceCompletion}%`}
           change="Across all stages"
           icon={TrendingUp}
           trend="up"
         />
         <MetricCard 
-          title={isWorkspace ? "Workspace" : "Workspaces"}
-          value={isWorkspace ? (workspaceName || "Active") : stats.totalWorkspaces}
-          change={isWorkspace ? "Current workspace" : "Active teams"}
+          title={isWorkspace ? "Studio" : "Studios"}
+          value={isWorkspace ? (workspaceName || "Active") : stats.totalStudios}
+          change={isWorkspace ? "Current studio" : "Active teams"}
           icon={isWorkspace ? Building2 : Globe}
           trend="neutral"
         />
@@ -181,7 +181,7 @@ export function OrganizationDashboard({ workspaceId, workspaceName }: Organizati
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
+          <TabsTrigger value="workspaces">Workspaces</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -204,7 +204,7 @@ export function OrganizationDashboard({ workspaceId, workspaceName }: Organizati
                     itemStyle={{ color: "#e2e8f0" }}
                   />
                   <Line type="monotone" dataKey="logins" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="projectsCreated" stroke="#22c55e" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="workspacesCreated" stroke="#22c55e" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="comments" stroke="#f59e0b" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
@@ -255,7 +255,7 @@ export function OrganizationDashboard({ workspaceId, workspaceName }: Organizati
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Zap className="h-4 w-4" />
-                  Projects by Stage
+                  Workspaces by Stage
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -268,7 +268,7 @@ export function OrganizationDashboard({ workspaceId, workspaceName }: Organizati
                       contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}
                       cursor={{ fill: "#334155", opacity: 0.3 }}
                     />
-                    <Bar dataKey="projects" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="workspaces" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -307,7 +307,7 @@ export function OrganizationDashboard({ workspaceId, workspaceName }: Organizati
                       </Badge>
                       <div className="text-xs text-muted-foreground text-right">
                         <div>Active {format(new Date(user.lastActive), "MMM d")}</div>
-                        <div>{user.projects} projects • {user.actions} actions</div>
+                        <div>{user.workspaces} workspaces • {user.actions} actions</div>
                       </div>
                     </div>
                   ))}
@@ -357,17 +357,17 @@ export function OrganizationDashboard({ workspaceId, workspaceName }: Organizati
           </Card>
         </TabsContent>
 
-        <TabsContent value="projects" className="space-y-4">
+        <TabsContent value="workspaces" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Project Analytics</CardTitle>
+              <CardTitle className="text-base">Workspace Analytics</CardTitle>
               <CardDescription>Detailed project metrics and health scores</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-4 gap-4 text-center">
                 <div>
                   <div className="text-2xl font-bold text-primary">312</div>
-                  <div className="text-xs text-muted-foreground">Total Projects</div>
+                  <div className="text-xs text-muted-foreground">Total Workspaces</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-green-500">43</div>
@@ -393,12 +393,12 @@ export function OrganizationDashboard({ workspaceId, workspaceName }: Organizati
                         <div 
                           className="h-full rounded-full" 
                           style={{ 
-                            width: `${Math.min(100, stage.projects * 1.5)}%`,
+                            width: `${Math.min(100, stage.workspaces * 1.5)}%`,
                             backgroundColor: stage.color 
                           }} 
                         />
                       </div>
-                      <div className="w-12 text-xs text-right">{stage.projects}</div>
+                      <div className="w-12 text-xs text-right">{stage.workspaces}</div>
                     </div>
                   ))}
                 </div>

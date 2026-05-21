@@ -106,7 +106,7 @@ export default function WorkspaceAdmin() {
             <div>
               <h1 className="text-2xl font-bold">{workspace.name}</h1>
               <p className="text-sm text-muted-foreground">
-                Workspace Admin • {members?.length || 0} members
+                Studio Admin • {members?.length || 0} members
               </p>
             </div>
           </div>
