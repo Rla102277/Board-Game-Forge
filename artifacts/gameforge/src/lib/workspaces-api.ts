@@ -10,7 +10,7 @@ export function apiBase(): string {
 }
 
 // Get Clerk token for cross-origin authentication
-async function getClerkToken(): Promise<string | null> {
+export async function getClerkToken(): Promise<string | null> {
   try {
     // @ts-ignore - Clerk may be available on window
     const clerk = window.Clerk;
