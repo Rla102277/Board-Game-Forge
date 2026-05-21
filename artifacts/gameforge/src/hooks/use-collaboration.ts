@@ -264,8 +264,9 @@ export function useCreateShare() {
 export function useUpdateShare() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ projectId, shareId, role }: { projectId: number; shareId: number; role: ProjectRole }) =>
-      api.updateShare(projectId, shareId, role),
+    mutationFn: ({ projectId, shareId, role, publicLink, publicLinkExpiry }: {
+      projectId: number; shareId: number; role: ProjectRole; publicLink?: boolean; publicLinkExpiry?: string | null;
+    }) => api.updateShare(projectId, shareId, role, publicLink, publicLinkExpiry),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: getListSharesQueryKey(vars.projectId) });
     },

@@ -77,6 +77,8 @@ export interface ProjectShare {
   role: ProjectRole;
   invitedBy: CollaboratorUser;
   createdAt: string;
+  publicLink?: boolean;
+  publicLinkExpiry?: string | null;
 }
 
 export interface ProjectPermission {

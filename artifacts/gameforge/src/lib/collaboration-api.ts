@@ -343,6 +343,8 @@ function rawToProjectShare(raw: RawShare): ProjectShare {
     user: raw.user,
     invitedBy: raw.invitedBy ?? { id: 0, email: null, firstName: null, lastName: null, imageUrl: null },
     createdAt: raw.createdAt,
+    publicLink: raw.publicLink,
+    publicLinkExpiry: raw.publicLinkExpiry,
   };
 }
 
@@ -367,10 +369,15 @@ export async function updateShare(
   projectId: number,
   shareId: number,
   role: ProjectRole,
+  publicLink?: boolean,
+  publicLinkExpiry?: string | null,
 ): Promise<ProjectShare> {
+  const body: Record<string, unknown> = { role };
+  if (publicLink !== undefined) body.publicLink = publicLink;
+  if (publicLinkExpiry !== undefined) body.publicLinkExpiry = publicLinkExpiry;
   const raw = await apiFetch<RawShare>(`/projects/${projectId}/shares/${shareId}`, {
     method: "PATCH",
-    body: JSON.stringify({ role }),
+    body: JSON.stringify(body),
   });
   return rawToProjectShare(raw);
 }

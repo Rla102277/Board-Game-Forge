@@ -138,12 +138,11 @@ const STAGES: Stage[] = [
     what: "Export your game, collaborate with your team, and share with players.",
     time: "Varies",
     items: [
-      { id: "export",              label: "Exports",    icon: Download },
       { id: "inbox",               label: "Inbox",      icon: Inbox },
       { id: "comments",            label: "Comments",   icon: MessageSquare },
-      { id: "activity",            label: "Activity",   icon: History },
+      { id: "activity",            label: "Activity",   icon: Activity },
       { id: "members",             label: "Members",    icon: Users },
-      { id: "workspace-settings",  label: "Workspace",  icon: Settings2 },
+      { id: "workspace-settings",  label: "Settings",   icon: Settings2 },
       { id: "audit-log",           label: "Audit Log",  icon: ClipboardList },
     ],
   },
@@ -153,6 +152,8 @@ const STAGES: Stage[] = [
 const TOOL_ITEMS: StageItem[] = [
   { id: "tasks", label: "Tasks",  icon: CheckSquare },
   { id: "notes", label: "Notes",  icon: FileText },
+  { id: "export", label: "Exports", icon: Download },
+  { id: "versions", label: "Versions", icon: History },
 ];
 
 // Flat map: section id → stage id
@@ -165,6 +166,7 @@ const ALL_SECTION_LABELS: Record<string, string> = {
   ...Object.fromEntries(STAGES.flatMap(s => s.items.map(i => [i.id, i.label]))),
   tasks: "Tasks",
   notes: "Notes",
+  export: "Exports",
   versions: "Version History",
   inbox: "Inbox",
 };
@@ -214,43 +216,97 @@ function calcStageCompletion(stageId: number, project: Project, stats: ProjectSt
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function StageProgressBar({ stages, completions, activeStage, onStageClick }: {
+function StageProgressBar({ stages, completions, activeStage, onStageClick, project, stats, onNavigateToSection }: {
   stages: Stage[];
   completions: number[];
   activeStage: number;
   onStageClick: (stageId: number) => void;
+  project: Project;
+  stats: ProjectStats | undefined;
+  onNavigateToSection: (sectionId: string) => void;
 }) {
+  const [expandedStage, setExpandedStage] = useState<number | null>(null);
+
   return (
-    <div className="border-b border-border bg-card px-4 py-2 flex items-center gap-1 shrink-0 overflow-x-auto">
-      {stages.map((stage, i) => (
-        <div key={stage.id} className="flex items-center gap-1 shrink-0">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => onStageClick(stage.id)}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ${
-                  activeStage === stage.id
-                    ? "bg-sidebar-accent text-foreground font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
-                }`}
-              >
-                <div
-                  className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                  style={{ background: completions[i] > 0 ? stage.color : "#374151" }}
-                >
-                  {completions[i] >= 100 ? "✓" : stage.id}
-                </div>
-                <span className="hidden md:inline">{stage.shortLabel}</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{stage.label} — {completions[i]}% complete</TooltipContent>
-          </Tooltip>
-          {i < stages.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />}
+    <div className="border-b border-border bg-card px-4 py-2 flex flex-col shrink-0">
+      <div className="flex items-center gap-1 overflow-x-auto">
+        {stages.map((stage, i) => {
+          const checklist = getStageChecklist(stage.id, project, stats);
+          const isExpanded = expandedStage === stage.id;
+          return (
+            <div key={stage.id} className="flex items-center gap-1 shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      if (activeStage === stage.id) {
+                        setExpandedStage(isExpanded ? null : stage.id);
+                      } else {
+                        onStageClick(stage.id);
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ${
+                      activeStage === stage.id
+                        ? "bg-sidebar-accent text-foreground font-semibold"
+                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                    }`}
+                  >
+                    <div
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                      style={{ background: completions[i] > 0 ? stage.color : "#374151" }}
+                    >
+                      {completions[i] >= 100 ? "✓" : stage.id}
+                    </div>
+                    <span className="hidden md:inline">{stage.shortLabel}</span>
+                    {activeStage === stage.id && (
+                      <span className="ml-0.5 text-[10px]">{isExpanded ? "▼" : "▶"}</span>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <div className="space-y-1">
+                    <div>{stage.label} — {completions[i]}% complete</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      Click {activeStage === stage.id ? "to expand tasks" : "to navigate"}
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+              {i < stages.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />}
+            </div>
+          );
+        })}
+        <div className="ml-auto pl-2 text-xs text-muted-foreground shrink-0">
+          {Math.round(completions.reduce((a, b) => a + b, 0) / completions.length)}% overall
         </div>
-      ))}
-      <div className="ml-auto pl-2 text-xs text-muted-foreground shrink-0">
-        {Math.round(completions.reduce((a, b) => a + b, 0) / completions.length)}% overall
       </div>
+
+      {/* Expanded checklist items */}
+      {expandedStage !== null && (
+        <div className="mt-2 pt-2 border-t border-border/50">
+          <div className="flex flex-wrap gap-1.5">
+            {(() => {
+              const checklist = getStageChecklist(expandedStage, project, stats);
+              return checklist.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onNavigateToSection(item.sectionId)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] transition-colors ${
+                    item.done
+                      ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                      : "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                  }`}
+                  title={`${item.label} → ${ALL_SECTION_LABELS[item.sectionId] || item.sectionId}`}
+                >
+                  <span>{item.done ? "✓" : "○"}</span>
+                  <span className="truncate max-w-[150px]">{item.label}</span>
+                  <span className="opacity-60">→</span>
+                </button>
+              ));
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -810,6 +866,9 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
           completions={stageCompletions}
           activeStage={activeStage}
           onStageClick={handleStageProgressClick}
+          project={project}
+          stats={stats}
+          onNavigateToSection={navigateTo}
         />
 
         {/* Next step guidance (normal mode only) */}

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -56,11 +56,12 @@ export function ShareDialog({
   const [inviteRole, setInviteRole] = useState<ProjectRole>("viewer");
   const [publicLinkEnabled, setPublicLinkEnabled] = useState(false);
   const [publicRole, setPublicRole] = useState<ProjectRole>("viewer");
+  const [publicLinkShareId, setPublicLinkShareId] = useState<number | null>(null);
 
   const shareUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/project/${projectId}`
-      : `/project/${projectId}`;
+      ? `${window.location.origin}/p/${projectId}`
+      : `/p/${projectId}`;
 
   const { data: shares, isLoading } = useListShares(projectId);
   const createShare = useCreateShare();
@@ -112,6 +113,57 @@ export function ShareDialog({
 
   const members = useMemo(() => shares?.filter((s) => s.user) ?? [], [shares]);
   const pending = useMemo(() => shares?.filter((s) => !s.user && s.email) ?? [], [shares]);
+
+  // Load public link state from shares
+  useEffect(() => {
+    if (!shares) return;
+    const publicShare = shares.find((s) => s.publicLink);
+    if (publicShare) {
+      setPublicLinkEnabled(true);
+      setPublicLinkShareId(publicShare.id);
+    } else {
+      setPublicLinkEnabled(false);
+      setPublicLinkShareId(null);
+    }
+  }, [shares]);
+
+  const handlePublicLinkToggle = async (enabled: boolean) => {
+    if (!canManage) return;
+    
+    // Find or create a public share entry
+    const publicShare = shares?.find((s) => s.publicLink);
+    
+    try {
+      if (enabled) {
+        if (publicShare) {
+          // Update existing public share
+          await updateShare.mutateAsync({
+            projectId,
+            shareId: publicShare.id,
+            role: publicRole,
+            publicLink: true,
+          });
+        } else {
+          // Create a new public share
+          await createShare.mutateAsync({ projectId, email: "", role: publicRole });
+        }
+        toast({ title: "Public link enabled" });
+      } else {
+        if (publicShare) {
+          await updateShare.mutateAsync({
+            projectId,
+            shareId: publicShare.id,
+            role: publicShare.role as ProjectRole,
+            publicLink: false,
+          });
+        }
+        toast({ title: "Public link disabled" });
+      }
+      setPublicLinkEnabled(enabled);
+    } catch (err) {
+      toast({ title: "Failed to update public link", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -167,7 +219,11 @@ export function ShareDialog({
                     <Label className="text-xs">Allow anyone with the link to access</Label>
                     <p className="text-[10px] text-muted-foreground">No sign-in required</p>
                   </div>
-                  <Switch checked={publicLinkEnabled} onCheckedChange={setPublicLinkEnabled} />
+                  <Switch 
+                    checked={publicLinkEnabled} 
+                    onCheckedChange={handlePublicLinkToggle}
+                    disabled={updateShare.isPending || createShare.isPending}
+                  />
                 </div>
                 {publicLinkEnabled && (
                   <>
