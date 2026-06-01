@@ -21,49 +21,59 @@ router.get("/projects/:projectId/entities", async (req, res): Promise<void> => {
 });
 
 router.post("/projects/:projectId/entities", async (req, res): Promise<void> => {
-  const params = schemas.CreateEntityParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
+  try {
+    const params = schemas.CreateEntityParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.CreateEntityBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [row] = await db
+      .insert(entities)
+      .values({ ...parsed.data, projectId: params.data.projectId })
+      .returning();
+    res.status(201).json(row);
+  } catch (err) {
+    req.log.error({ err }, "create entity failed");
+    res.status(500).json({ error: "Failed to create entity", details: err instanceof Error ? err.message : String(err) });
   }
-  const parsed = schemas.CreateEntityBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [row] = await db
-    .insert(entities)
-    .values({ ...parsed.data, projectId: params.data.projectId })
-    .returning();
-  res.status(201).json(row);
 });
 
 router.patch("/projects/:projectId/entities/:entityId", async (req, res): Promise<void> => {
-  const params = schemas.UpdateEntityParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
+  try {
+    const params = schemas.UpdateEntityParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.UpdateEntityBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [row] = await db
+      .update(entities)
+      .set(parsed.data)
+      .where(
+        and(
+          eq(entities.id, params.data.entityId),
+          eq(entities.projectId, params.data.projectId),
+        ),
+      )
+      .returning();
+    if (!row) {
+      res.status(404).json({ error: "Entity not found" });
+      return;
+    }
+    res.json(schemas.UpdateEntityResponse.parse(row));
+  } catch (err) {
+    req.log.error({ err }, "update entity failed");
+    res.status(500).json({ error: "Failed to update entity", details: err instanceof Error ? err.message : String(err) });
   }
-  const parsed = schemas.UpdateEntityBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [row] = await db
-    .update(entities)
-    .set(parsed.data)
-    .where(
-      and(
-        eq(entities.id, params.data.entityId),
-        eq(entities.projectId, params.data.projectId),
-      ),
-    )
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Entity not found" });
-    return;
-  }
-  res.json(schemas.UpdateEntityResponse.parse(row));
 });
 
 router.delete("/projects/:projectId/entities/:entityId", async (req, res): Promise<void> => {

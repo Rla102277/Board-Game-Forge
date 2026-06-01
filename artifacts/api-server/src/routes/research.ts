@@ -32,55 +32,65 @@ router.get("/projects/:projectId/research", async (req, res): Promise<void> => {
 });
 
 router.post("/projects/:projectId/research", async (req, res): Promise<void> => {
-  const params = schemas.CreateResearchParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = schemas.CreateResearchBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [row] = await db
-    .insert(researchItems)
-    .values({ ...parsed.data, projectId: params.data.projectId })
-    .returning();
-  await logChange(req, params.data.projectId, "create", `Added research: ${row!.title}`, {
-    entityKind: "research",
-    entityRef: String(row!.id),
-  });
-  res.status(201).json(row);
-});
-
-router.patch(
-  "/projects/:projectId/research/:researchId",
-  async (req, res): Promise<void> => {
-    const params = schemas.UpdateResearchParams.safeParse(req.params);
+  try {
+    const params = schemas.CreateResearchParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const parsed = schemas.UpdateResearchBody.safeParse(req.body);
+    const parsed = schemas.CreateResearchBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;
     }
     const [row] = await db
-      .update(researchItems)
-      .set(parsed.data)
-      .where(
-        and(
-          eq(researchItems.id, params.data.researchId),
-          eq(researchItems.projectId, params.data.projectId),
-        ),
-      )
+      .insert(researchItems)
+      .values({ ...parsed.data, projectId: params.data.projectId })
       .returning();
-    if (!row) {
-      res.status(404).json({ error: "Research not found" });
-      return;
+    await logChange(req, params.data.projectId, "create", `Added research: ${row!.title}`, {
+      entityKind: "research",
+      entityRef: String(row!.id),
+    });
+    res.status(201).json(row);
+  } catch (err) {
+    req.log.error({ err }, "create research failed");
+    res.status(500).json({ error: "Failed to create research item", details: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+router.patch(
+  "/projects/:projectId/research/:researchId",
+  async (req, res): Promise<void> => {
+    try {
+      const params = schemas.UpdateResearchParams.safeParse(req.params);
+      if (!params.success) {
+        res.status(400).json({ error: params.error.message });
+        return;
+      }
+      const parsed = schemas.UpdateResearchBody.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: parsed.error.message });
+        return;
+      }
+      const [row] = await db
+        .update(researchItems)
+        .set(parsed.data)
+        .where(
+          and(
+            eq(researchItems.id, params.data.researchId),
+            eq(researchItems.projectId, params.data.projectId),
+          ),
+        )
+        .returning();
+      if (!row) {
+        res.status(404).json({ error: "Research not found" });
+        return;
+      }
+      res.json(schemas.UpdateResearchResponse.parse(row));
+    } catch (err) {
+      req.log.error({ err }, "update research failed");
+      res.status(500).json({ error: "Failed to update research item", details: err instanceof Error ? err.message : String(err) });
     }
-    res.json(schemas.UpdateResearchResponse.parse(row));
   },
 );
 

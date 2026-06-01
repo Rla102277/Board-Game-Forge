@@ -85,73 +85,83 @@ router.patch(
 );
 
 router.post("/projects/:projectId/rules", async (req, res): Promise<void> => {
-  const params = schemas.CreateRuleParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
+  try {
+    const params = schemas.CreateRuleParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.CreateRuleBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [{ maxOrder }] = await db
+      .select({ maxOrder: sql<number>`COALESCE(MAX(${rules.displayOrder}), -1)` })
+      .from(rules)
+      .where(eq(rules.projectId, params.data.projectId));
+    // Normalize empty-string section -> null (consistent with PATCH semantics)
+    const sectionRaw = parsed.data.section;
+    const sectionNormalized: string | null =
+      typeof sectionRaw === "string"
+        ? sectionRaw.trim() === "" ? null : sectionRaw.trim()
+        : null;
+    const [row] = await db
+      .insert(rules)
+      .values({
+        ...parsed.data,
+        section: sectionNormalized,
+        projectId: params.data.projectId,
+        displayOrder: Number(maxOrder ?? -1) + 1,
+      })
+      .returning();
+    res.status(201).json(row);
+  } catch (err) {
+    req.log.error({ err }, "create rule failed");
+    res.status(500).json({ error: "Failed to create rule", details: err instanceof Error ? err.message : String(err) });
   }
-  const parsed = schemas.CreateRuleBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [{ maxOrder }] = await db
-    .select({ maxOrder: sql<number>`COALESCE(MAX(${rules.displayOrder}), -1)` })
-    .from(rules)
-    .where(eq(rules.projectId, params.data.projectId));
-  // Normalize empty-string section -> null (consistent with PATCH semantics)
-  const sectionRaw = parsed.data.section;
-  const sectionNormalized: string | null =
-    typeof sectionRaw === "string"
-      ? sectionRaw.trim() === "" ? null : sectionRaw.trim()
-      : null;
-  const [row] = await db
-    .insert(rules)
-    .values({
-      ...parsed.data,
-      section: sectionNormalized,
-      projectId: params.data.projectId,
-      displayOrder: Number(maxOrder ?? -1) + 1,
-    })
-    .returning();
-  res.status(201).json(row);
 });
 
 router.patch("/projects/:projectId/rules/:ruleId", async (req, res): Promise<void> => {
-  const params = schemas.UpdateRuleParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
+  try {
+    const params = schemas.UpdateRuleParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.UpdateRuleBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    // Normalize: empty-string section means "clear it" (write NULL).
+    // Without this, users have no way to remove a rule from a section.
+    const sectionRaw = parsed.data.section;
+    const updateData: Omit<typeof parsed.data, "section"> & { section?: string | null } = {
+      ...parsed.data,
+    };
+    if (typeof sectionRaw === "string") {
+      updateData.section = sectionRaw.trim() === "" ? null : sectionRaw.trim();
+    }
+    const [row] = await db
+      .update(rules)
+      .set(updateData)
+      .where(
+        and(
+          eq(rules.id, params.data.ruleId),
+          eq(rules.projectId, params.data.projectId),
+        ),
+      )
+      .returning();
+    if (!row) {
+      res.status(404).json({ error: "Rule not found" });
+      return;
+    }
+    res.json(schemas.UpdateRuleResponse.parse(row));
+  } catch (err) {
+    req.log.error({ err }, "update rule failed");
+    res.status(500).json({ error: "Failed to update rule", details: err instanceof Error ? err.message : String(err) });
   }
-  const parsed = schemas.UpdateRuleBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  // Normalize: empty-string section means "clear it" (write NULL).
-  // Without this, users have no way to remove a rule from a section.
-  const sectionRaw = parsed.data.section;
-  const updateData: Omit<typeof parsed.data, "section"> & { section?: string | null } = {
-    ...parsed.data,
-  };
-  if (typeof sectionRaw === "string") {
-    updateData.section = sectionRaw.trim() === "" ? null : sectionRaw.trim();
-  }
-  const [row] = await db
-    .update(rules)
-    .set(updateData)
-    .where(
-      and(
-        eq(rules.id, params.data.ruleId),
-        eq(rules.projectId, params.data.projectId),
-      ),
-    )
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Rule not found" });
-    return;
-  }
-  res.json(schemas.UpdateRuleResponse.parse(row));
 });
 
 router.delete("/projects/:projectId/rules/:ruleId", async (req, res): Promise<void> => {
