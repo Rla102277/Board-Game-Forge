@@ -90,26 +90,46 @@ router.get("/projects/:projectId/my-role", async (req, res): Promise<void> => {
 });
 
 router.patch("/projects/:projectId", async (req, res): Promise<void> => {
-  const params = schemas.UpdateProjectParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
+  try {
+    const params = schemas.UpdateProjectParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.UpdateProjectBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    // Filter out undefined values to prevent overwriting with null
+    const updateData = Object.fromEntries(
+      Object.entries(parsed.data).filter(([_, v]) => v !== undefined)
+    );
+
+    const [row] = await db
+      .update(projects)
+      .set(updateData)
+      .where(eq(projects.id, params.data.projectId))
+      .returning();
+
+    if (!row) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    // Safely parse response - return raw row if schema fails
+    const parsedResponse = schemas.UpdateProjectResponse.safeParse(row);
+    if (parsedResponse.success) {
+      res.json(parsedResponse.data);
+    } else {
+      console.warn("[projects] Response schema validation failed:", parsedResponse.error.message);
+      res.json(row);
+    }
+  } catch (err) {
+    console.error("[projects] PATCH error:", err);
+    res.status(500).json({ error: "Failed to update project", details: err instanceof Error ? err.message : String(err) });
   }
-  const parsed = schemas.UpdateProjectBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [row] = await db
-    .update(projects)
-    .set(parsed.data)
-    .where(eq(projects.id, params.data.projectId))
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Project not found" });
-    return;
-  }
-  res.json(schemas.UpdateProjectResponse.parse(row));
 });
 
 router.delete("/projects/:projectId", async (req, res): Promise<void> => {
