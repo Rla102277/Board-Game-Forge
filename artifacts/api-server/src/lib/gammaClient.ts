@@ -59,7 +59,7 @@ export async function startGeneration(opts: GammaGenerateOptions): Promise<Gamma
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-KEY": apiKey(),
+        "Authorization": `Bearer ${apiKey()}`,
       },
       body: JSON.stringify(opts),
     });
@@ -80,7 +80,7 @@ export async function startGeneration(opts: GammaGenerateOptions): Promise<Gamma
 export async function getGenerationStatus(id: string): Promise<GammaGenerationStatus> {
   try {
     const res = await fetch(`${GAMMA_API_BASE}/generations/${id}`, {
-      headers: { "X-API-KEY": apiKey() },
+      headers: { "Authorization": `Bearer ${apiKey()}` },
     });
     if (!res.ok) {
       const text = await res.text();
