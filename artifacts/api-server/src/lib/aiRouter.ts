@@ -23,6 +23,14 @@ export async function completeWithKimi(
   req: Request,
   opts: CompleteOptions,
 ): Promise<string> {
+  // Check if OpenRouter is configured before attempting API call
+  try {
+    validateProviderConfig("openrouter");
+  } catch (err) {
+    // If OpenRouter is not configured, fallback to user's configured provider
+    return complete(req, opts);
+  }
+
   const max = opts.maxTokens ?? 8000;
   const messages: Array<{ role: "system" | "user"; content: string }> = [];
   if (opts.system) messages.push({ role: "system", content: opts.system });
@@ -199,6 +207,39 @@ export interface CompleteOptions {
   kind?: AiTaskKind;
 }
 
+// Validate that required API keys are configured for the provider
+function validateProviderConfig(provider: AiProvider): void {
+  const missingVars: string[] = [];
+
+  if (provider === "openrouter") {
+    if (!process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY) {
+      missingVars.push("AI_INTEGRATIONS_OPENROUTER_API_KEY");
+    }
+    if (!process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL) {
+      missingVars.push("AI_INTEGRATIONS_OPENROUTER_BASE_URL");
+    }
+  } else if (provider === "openai") {
+    if (!process.env.AI_INTEGRATIONS_OPENAI_AI_SERVER_API_KEY) {
+      missingVars.push("AI_INTEGRATIONS_OPENAI_AI_SERVER_API_KEY");
+    }
+  } else if (provider === "anthropic") {
+    if (!process.env.AI_INTEGRATIONS_ANTHROPIC_AI_API_KEY) {
+      missingVars.push("AI_INTEGRATIONS_ANTHROPIC_AI_API_KEY");
+    }
+  } else if (provider === "gemini") {
+    if (!process.env.AI_INTEGRATIONS_GEMINI_AI_API_KEY) {
+      missingVars.push("AI_INTEGRATIONS_GEMINI_AI_API_KEY");
+    }
+  }
+
+  if (missingVars.length > 0) {
+    throw new Error(
+      `AI provider "${provider}" is not configured. Missing environment variables: ${missingVars.join(", ")}. ` +
+      `Please set these in your environment or configure a different AI provider in workspace settings.`
+    );
+  }
+}
+
 export async function complete(
   req: Request,
   opts: CompleteOptions,
@@ -208,6 +249,10 @@ export async function complete(
     opts.kind ?? "structured",
     opts.preferFast ?? false,
   );
+
+  // Check if provider is configured before attempting API call
+  validateProviderConfig(choice.provider);
+
   const max = opts.maxTokens ?? 2048;
   const clients = await resolveClients(req, choice);
 
