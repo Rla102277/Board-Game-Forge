@@ -233,6 +233,13 @@ const MIGRATIONS = [
   `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now()`,
   `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`,
   `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS completed_at timestamptz`,
+  // 0038 – research_items missing source column
+  `ALTER TABLE research_items ADD COLUMN IF NOT EXISTS source text`,
+  // 0039 – reference_games missing avoiding column
+  `ALTER TABLE reference_games ADD COLUMN IF NOT EXISTS avoiding text`,
+  // 0040 – chat_messages missing project_id column
+  `ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS project_id integer REFERENCES projects(id) ON DELETE CASCADE`,
+  `CREATE INDEX IF NOT EXISTS chat_messages_project_id_idx ON chat_messages (project_id)`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {
