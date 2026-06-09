@@ -48,13 +48,17 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 router.get(
   "/projects/:projectId/artifacts/:kind",
   async (req, res): Promise<void> => {
+    req.log.info({ projectId: req.params.projectId, kind: req.params.kind }, "GET designer artifact request");
+    
     const projectId = parseProjectId(req.params.projectId);
     if (projectId == null) {
+      req.log.warn({ projectId: req.params.projectId }, "GET designer artifact: Invalid projectId");
       res.status(400).json({ error: "Invalid projectId" });
       return;
     }
     const kind = parseKind(req.params.kind);
     if (kind == null) {
+      req.log.warn({ kind: req.params.kind }, "GET designer artifact: Invalid kind");
       res.status(400).json({ error: "Invalid kind" });
       return;
     }
@@ -74,8 +78,8 @@ router.get(
       }
       res.json({ projectId: row.projectId, kind: row.kind, data: row.data });
     } catch (err) {
-      req.log.error({ err }, "get designer artifact failed");
-      res.status(500).json({ error: "Failed to load artifact" });
+      req.log.error({ err, projectId, kind }, "GET designer artifact failed");
+      res.status(500).json({ error: "Failed to load artifact", details: err instanceof Error ? err.message : String(err) });
     }
   },
 );
@@ -83,18 +87,23 @@ router.get(
 router.put(
   "/projects/:projectId/artifacts/:kind",
   async (req, res): Promise<void> => {
+    req.log.info({ projectId: req.params.projectId, kind: req.params.kind, body: req.body }, "PUT designer artifact request");
+    
     const projectId = parseProjectId(req.params.projectId);
     if (projectId == null) {
+      req.log.warn({ projectId: req.params.projectId }, "PUT designer artifact: Invalid projectId");
       res.status(400).json({ error: "Invalid projectId" });
       return;
     }
     const kind = parseKind(req.params.kind);
     if (kind == null) {
+      req.log.warn({ kind: req.params.kind }, "PUT designer artifact: Invalid kind");
       res.status(400).json({ error: "Invalid kind" });
       return;
     }
     const data = (req.body as { data?: unknown } | undefined)?.data;
     if (!isPlainObject(data)) {
+      req.log.warn({ data }, "PUT designer artifact: data must be an object");
       res.status(400).json({ error: "data must be an object" });
       return;
     }
@@ -102,6 +111,7 @@ router.put(
     try {
       const size = Buffer.byteLength(JSON.stringify(data), "utf8");
       if (size > 1_000_000) {
+        req.log.warn({ size }, "PUT designer artifact: Payload too large");
         res.status(413).json({ error: "Payload too large (max 1MB per artifact)" });
         return;
       }
@@ -120,8 +130,8 @@ router.put(
         .returning();
       res.json({ projectId: row.projectId, kind: row.kind, data: row.data });
     } catch (err) {
-      req.log.error({ err }, "save designer artifact failed");
-      res.status(500).json({ error: "Failed to save artifact" });
+      req.log.error({ err, projectId, kind }, "PUT designer artifact failed");
+      res.status(500).json({ error: "Failed to save artifact", details: err instanceof Error ? err.message : String(err) });
     }
   },
 );
