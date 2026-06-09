@@ -23,7 +23,28 @@ router.get("/projects/:projectId/players", async (req, res): Promise<void> => {
       .from(players)
       .where(eq(players.projectId, params.data.projectId))
       .orderBy(asc(players.displayOrder), asc(players.id));
-    res.json(schemas.ListPlayersResponse.parse(rows));
+
+    // Normalize fields that may be objects in DB but schema expects strings
+    const normalizedRows = rows.map((row) => ({
+      ...row,
+      startingResources: typeof row.startingResources === "object" && row.startingResources !== null
+        ? JSON.stringify(row.startingResources)
+        : row.startingResources,
+      victoryCondition: typeof row.victoryCondition === "object" && row.victoryCondition !== null
+        ? JSON.stringify(row.victoryCondition)
+        : row.victoryCondition,
+      specialAbility: typeof row.specialAbility === "object" && row.specialAbility !== null
+        ? JSON.stringify(row.specialAbility)
+        : row.specialAbility,
+      description: typeof row.description === "object" && row.description !== null
+        ? JSON.stringify(row.description)
+        : row.description,
+      strategy: typeof row.strategy === "object" && row.strategy !== null
+        ? JSON.stringify(row.strategy)
+        : row.strategy,
+    }));
+
+    res.json(schemas.ListPlayersResponse.parse(normalizedRows));
   } catch (err) {
     req.log.error({ err }, "list players failed");
     res.status(500).json({ error: "Failed to load players" });
