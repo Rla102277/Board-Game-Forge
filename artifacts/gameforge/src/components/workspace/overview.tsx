@@ -907,6 +907,16 @@ export function Overview({ projectId, onPromptSend: _onPromptSend, view = "dashb
         onError: (err) => {
           if (seq !== sectionSaveSeqRef.current[section]) return;
           setSectionSaveStatus((s) => ({ ...s, [section]: "idle" }));
+          // eslint-disable-next-line no-console
+          console.error("[Overview] Section save failed:", err);
+          // eslint-disable-next-line no-console
+          console.error("[Overview] Error details:", {
+            section,
+            patch,
+            error: err,
+            errorData: (err as { data?: unknown })?.data,
+            errorStatus: (err as { status?: number })?.status,
+          });
           toast({ title: "Section save failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
         },
       },
