@@ -91,13 +91,18 @@ router.get("/projects/:projectId/my-role", async (req, res): Promise<void> => {
 
 router.patch("/projects/:projectId", async (req, res): Promise<void> => {
   try {
+    req.log.info({ body: req.body, projectId: req.params.projectId }, "PATCH project request");
+    
     const params = schemas.UpdateProjectParams.safeParse(req.params);
     if (!params.success) {
+      req.log.warn({ error: params.error }, "PATCH project params validation failed");
       res.status(400).json({ error: params.error.message });
       return;
     }
+    
     const parsed = schemas.UpdateProjectBody.safeParse(req.body);
     if (!parsed.success) {
+      req.log.warn({ error: parsed.error }, "PATCH project body validation failed");
       res.status(400).json({ error: parsed.error.message });
       return;
     }
@@ -106,6 +111,8 @@ router.patch("/projects/:projectId", async (req, res): Promise<void> => {
     const updateData = Object.fromEntries(
       Object.entries(parsed.data).filter(([_, v]) => v !== undefined)
     );
+    
+    req.log.info({ updateData }, "PATCH project update data");
 
     const [row] = await db
       .update(projects)
@@ -123,11 +130,11 @@ router.patch("/projects/:projectId", async (req, res): Promise<void> => {
     if (parsedResponse.success) {
       res.json(parsedResponse.data);
     } else {
-      console.warn("[projects] Response schema validation failed:", parsedResponse.error.message);
+      req.log.warn({ error: parsedResponse.error }, "PATCH project response schema validation failed");
       res.json(row);
     }
   } catch (err) {
-    console.error("[projects] PATCH error:", err);
+    req.log.error({ err, body: req.body }, "PATCH project failed");
     res.status(500).json({ error: "Failed to update project", details: err instanceof Error ? err.message : String(err) });
   }
 });
