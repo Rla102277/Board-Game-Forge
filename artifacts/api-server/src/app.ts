@@ -170,18 +170,26 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   const isProviderError =
     err instanceof Error && "status" in err && typeof (err as { status: unknown }).status === "number";
   const status = isProviderError ? (err as { status: number }).status : 500;
-  const message =
-    err instanceof Error ? err.message : "Internal server error";
+  const message = err instanceof Error ? err.message : "Internal server error";
+  const errorName = err instanceof Error ? err.name : "UnknownError";
 
-  // Log at appropriate level
-  if (status >= 500) {
-    req.log?.error?.({ err, url: req.originalUrl, method: req.method }, "Unhandled route error");
-  } else {
-    req.log?.warn?.({ err, url: req.originalUrl, method: req.method }, "Route error");
-  }
+  // Log full error details at error level
+  req.log?.error?.({ 
+    err, 
+    errorName,
+    url: req.originalUrl, 
+    method: req.method,
+    body: req.body,
+    params: req.params,
+    query: req.query,
+  }, "Global error handler triggered");
 
+  // Always return JSON with full error details
+  res.setHeader('Content-Type', 'application/json');
   res.status(status).json({
     error: message,
+    errorType: errorName,
+    details: err instanceof Error ? err.message : String(err),
     ...(process.env.NODE_ENV !== "production" && err instanceof Error
       ? { stack: err.stack }
       : {}),
