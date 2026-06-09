@@ -15,12 +15,17 @@ router.get(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const rows = await db
-      .select()
-      .from(playtestSessions)
-      .where(eq(playtestSessions.projectId, params.data.projectId))
-      .orderBy(desc(playtestSessions.date));
-    res.json(schemas.ListPlaytestSessionsResponse.parse(rows));
+    try {
+      const rows = await db
+        .select()
+        .from(playtestSessions)
+        .where(eq(playtestSessions.projectId, params.data.projectId))
+        .orderBy(desc(playtestSessions.date));
+      res.json(schemas.ListPlaytestSessionsResponse.parse(rows));
+    } catch (err) {
+      req.log.error({ err }, "list playtest sessions failed");
+      res.status(500).json({ error: "Failed to load playtest sessions" });
+    }
   },
 );
 
@@ -37,13 +42,18 @@ router.post(
       res.status(400).json({ error: parsed.error.message });
       return;
     }
-    const values: InsertPlaytestSession = {
-      projectId: params.data.projectId,
-      ...parsed.data,
-      ...(parsed.data.date ? { date: new Date(parsed.data.date) } : {}),
-    };
-    const [row] = await db.insert(playtestSessions).values(values).returning();
-    res.status(201).json(row);
+    try {
+      const values: InsertPlaytestSession = {
+        projectId: params.data.projectId,
+        ...parsed.data,
+        ...(parsed.data.date ? { date: new Date(parsed.data.date) } : {}),
+      };
+      const [row] = await db.insert(playtestSessions).values(values).returning();
+      res.status(201).json(row);
+    } catch (err) {
+      req.log.error({ err }, "create playtest session failed");
+      res.status(500).json({ error: "Failed to create playtest session" });
+    }
   },
 );
 
@@ -60,25 +70,30 @@ router.patch(
       res.status(400).json({ error: parsed.error.message });
       return;
     }
-    const update: Partial<InsertPlaytestSession> = {
-      ...parsed.data,
-      ...(parsed.data.date ? { date: new Date(parsed.data.date) } : {}),
-    };
-    const [row] = await db
-      .update(playtestSessions)
-      .set(update)
-      .where(
-        and(
-          eq(playtestSessions.id, params.data.sessionId),
-          eq(playtestSessions.projectId, params.data.projectId),
-        ),
-      )
-      .returning();
-    if (!row) {
-      res.status(404).json({ error: "Session not found" });
-      return;
+    try {
+      const update: Partial<InsertPlaytestSession> = {
+        ...parsed.data,
+        ...(parsed.data.date ? { date: new Date(parsed.data.date) } : {}),
+      };
+      const [row] = await db
+        .update(playtestSessions)
+        .set(update)
+        .where(
+          and(
+            eq(playtestSessions.id, params.data.sessionId),
+            eq(playtestSessions.projectId, params.data.projectId),
+          ),
+        )
+        .returning();
+      if (!row) {
+        res.status(404).json({ error: "Session not found" });
+        return;
+      }
+      res.json(schemas.UpdatePlaytestSessionResponse.parse(row));
+    } catch (err) {
+      req.log.error({ err }, "update playtest session failed");
+      res.status(500).json({ error: "Failed to update playtest session" });
     }
-    res.json(schemas.UpdatePlaytestSessionResponse.parse(row));
   },
 );
 
@@ -90,15 +105,20 @@ router.delete(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    await db
-      .delete(playtestSessions)
-      .where(
-        and(
-          eq(playtestSessions.id, params.data.sessionId),
-          eq(playtestSessions.projectId, params.data.projectId),
-        ),
-      );
-    res.sendStatus(204);
+    try {
+      await db
+        .delete(playtestSessions)
+        .where(
+          and(
+            eq(playtestSessions.id, params.data.sessionId),
+            eq(playtestSessions.projectId, params.data.projectId),
+          ),
+        );
+      res.sendStatus(204);
+    } catch (err) {
+      req.log.error({ err }, "delete playtest session failed");
+      res.status(500).json({ error: "Failed to delete playtest session" });
+    }
   },
 );
 
@@ -110,12 +130,17 @@ router.get(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const rows = await db
-      .select()
-      .from(playtestFeedback)
-      .where(eq(playtestFeedback.projectId, params.data.projectId))
-      .orderBy(desc(playtestFeedback.createdAt));
-    res.json(schemas.ListPlaytestFeedbackResponse.parse(rows));
+    try {
+      const rows = await db
+        .select()
+        .from(playtestFeedback)
+        .where(eq(playtestFeedback.projectId, params.data.projectId))
+        .orderBy(desc(playtestFeedback.createdAt));
+      res.json(schemas.ListPlaytestFeedbackResponse.parse(rows));
+    } catch (err) {
+      req.log.error({ err }, "list playtest feedback failed");
+      res.status(500).json({ error: "Failed to load playtest feedback" });
+    }
   },
 );
 

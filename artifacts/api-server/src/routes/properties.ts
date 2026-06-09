@@ -14,12 +14,17 @@ router.get(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const rows = await db
-      .select()
-      .from(entityProperties)
-      .where(eq(entityProperties.entityId, params.data.entityId))
-      .orderBy(asc(entityProperties.id));
-    res.json(schemas.ListEntityPropertiesResponse.parse(rows));
+    try {
+      const rows = await db
+        .select()
+        .from(entityProperties)
+        .where(eq(entityProperties.entityId, params.data.entityId))
+        .orderBy(asc(entityProperties.id));
+      res.json(schemas.ListEntityPropertiesResponse.parse(rows));
+    } catch (err) {
+      req.log.error({ err }, "list entity properties failed");
+      res.status(500).json({ error: "Failed to load properties" });
+    }
   },
 );
 
@@ -33,26 +38,31 @@ router.get(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    // Single JOIN — avoids the N+1-style two-query approach and any
-    // inArray parameter-limit issues on large projects.
-    const rows = await db
-      .select({
-        id: entityProperties.id,
-        entityId: entityProperties.entityId,
-        name: entityProperties.name,
-        dataType: entityProperties.dataType,
-        unit: entityProperties.unit,
-        value: entityProperties.value,
-        textValue: entityProperties.textValue,
-        minValue: entityProperties.minValue,
-        maxValue: entityProperties.maxValue,
-        defaultValue: entityProperties.defaultValue,
-      })
-      .from(entityProperties)
-      .innerJoin(entities, eq(entities.id, entityProperties.entityId))
-      .where(eq(entities.projectId, params.data.projectId))
-      .orderBy(asc(entityProperties.id));
-    res.json(rows);
+    try {
+      // Single JOIN — avoids the N+1-style two-query approach and any
+      // inArray parameter-limit issues on large projects.
+      const rows = await db
+        .select({
+          id: entityProperties.id,
+          entityId: entityProperties.entityId,
+          name: entityProperties.name,
+          dataType: entityProperties.dataType,
+          unit: entityProperties.unit,
+          value: entityProperties.value,
+          textValue: entityProperties.textValue,
+          minValue: entityProperties.minValue,
+          maxValue: entityProperties.maxValue,
+          defaultValue: entityProperties.defaultValue,
+        })
+        .from(entityProperties)
+        .innerJoin(entities, eq(entities.id, entityProperties.entityId))
+        .where(eq(entities.projectId, params.data.projectId))
+        .orderBy(asc(entityProperties.id));
+      res.json(rows);
+    } catch (err) {
+      req.log.error({ err }, "list project entity-properties failed");
+      res.status(500).json({ error: "Failed to load entity properties" });
+    }
   },
 );
 
@@ -69,11 +79,16 @@ router.post(
       res.status(400).json({ error: parsed.error.message });
       return;
     }
-    const [row] = await db
-      .insert(entityProperties)
-      .values({ ...parsed.data, entityId: params.data.entityId })
-      .returning();
-    res.status(201).json(row);
+    try {
+      const [row] = await db
+        .insert(entityProperties)
+        .values({ ...parsed.data, entityId: params.data.entityId })
+        .returning();
+      res.status(201).json(row);
+    } catch (err) {
+      req.log.error({ err }, "create entity property failed");
+      res.status(500).json({ error: "Failed to create property" });
+    }
   },
 );
 
@@ -100,21 +115,26 @@ router.patch(
     const hasText = Object.prototype.hasOwnProperty.call(rawBody, "textValue");
     if (hasDefault && !hasText) setData.textValue = null;
     if (hasText && !hasDefault) setData.defaultValue = null;
-    const [row] = await db
-      .update(entityProperties)
-      .set(setData)
-      .where(
-        and(
-          eq(entityProperties.id, params.data.propertyId),
-          eq(entityProperties.entityId, params.data.entityId),
-        ),
-      )
-      .returning();
-    if (!row) {
-      res.status(404).json({ error: "Property not found" });
-      return;
+    try {
+      const [row] = await db
+        .update(entityProperties)
+        .set(setData)
+        .where(
+          and(
+            eq(entityProperties.id, params.data.propertyId),
+            eq(entityProperties.entityId, params.data.entityId),
+          ),
+        )
+        .returning();
+      if (!row) {
+        res.status(404).json({ error: "Property not found" });
+        return;
+      }
+      res.json(schemas.UpdateEntityPropertyResponse.parse(row));
+    } catch (err) {
+      req.log.error({ err }, "update entity property failed");
+      res.status(500).json({ error: "Failed to update property" });
     }
-    res.json(schemas.UpdateEntityPropertyResponse.parse(row));
   },
 );
 
@@ -126,15 +146,20 @@ router.delete(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    await db
-      .delete(entityProperties)
-      .where(
-        and(
-          eq(entityProperties.id, params.data.propertyId),
-          eq(entityProperties.entityId, params.data.entityId),
-        ),
-      );
-    res.sendStatus(204);
+    try {
+      await db
+        .delete(entityProperties)
+        .where(
+          and(
+            eq(entityProperties.id, params.data.propertyId),
+            eq(entityProperties.entityId, params.data.entityId),
+          ),
+        );
+      res.sendStatus(204);
+    } catch (err) {
+      req.log.error({ err }, "delete entity property failed");
+      res.status(500).json({ error: "Failed to delete property" });
+    }
   },
 );
 

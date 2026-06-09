@@ -107,82 +107,87 @@ router.get("/projects/:projectId/tasks", async (req, res): Promise<void> => {
   const assigneeIdList = assigneeIds?.split(",").map(Number).filter((n) => !isNaN(n));
   const tagList = tags?.split(",").filter(Boolean);
 
-  const conditions = [eq(tasks.projectId, projectId)];
+  try {
+    const conditions = [eq(tasks.projectId, projectId)];
 
-  // Multi-status filter
-  if (statuses?.length === 1) {
-    conditions.push(eq(tasks.status, statuses[0]));
-  } else if (statuses && statuses.length > 1) {
-    conditions.push(inArray(tasks.status, statuses));
+    // Multi-status filter
+    if (statuses?.length === 1) {
+      conditions.push(eq(tasks.status, statuses[0]));
+    } else if (statuses && statuses.length > 1) {
+      conditions.push(inArray(tasks.status, statuses));
+    }
+
+    // Multi-priority filter
+    if (priorities?.length === 1) {
+      conditions.push(eq(tasks.priority, priorities[0]));
+    } else if (priorities && priorities.length > 1) {
+      conditions.push(inArray(tasks.priority, priorities));
+    }
+
+    if (search) conditions.push(ilike(tasks.title, `%${search}%`));
+    if (dueBefore) conditions.push(lte(tasks.dueDate, new Date(dueBefore)));
+    if (dueAfter) conditions.push(gte(tasks.dueDate, new Date(dueAfter)));
+
+    // Build base query
+    let query = db
+      .select({
+        id: tasks.id,
+        projectId: tasks.projectId,
+        parentTaskId: tasks.parentTaskId,
+        title: tasks.title,
+        description: tasks.description,
+        status: tasks.status,
+        priority: tasks.priority,
+        category: tasks.category,
+        tags: tasks.tags,
+        estimatedHours: tasks.estimatedHours,
+        actualHours: tasks.actualHours,
+        dueDate: tasks.dueDate,
+        createdAt: tasks.createdAt,
+        updatedAt: tasks.updatedAt,
+      })
+      .from(tasks)
+      .where(and(...conditions));
+
+    // Apply sorting
+    const sortColumn = sortBy === "dueDate" ? tasks.dueDate :
+                      sortBy === "priority" ? tasks.priority :
+                      sortBy === "status" ? tasks.status :
+                      sortBy === "title" ? tasks.title :
+                      tasks.createdAt;
+    query = sortOrder === "desc" ? query.orderBy(desc(sortColumn)) : query.orderBy(asc(sortColumn));
+
+    let rows = await query;
+
+    // Server-side assignee filtering with JOIN for efficiency
+    const targetAssignees = assigneeIdList ?? (assigneeId ? [parseInt(assigneeId, 10)] : []);
+    if (targetAssignees.length > 0) {
+      // Get task IDs that have any of the specified assignees
+      const assignedTaskRows = await db
+        .select({ taskId: taskAssignees.taskId })
+        .from(taskAssignees)
+        .where(and(
+          inArray(taskAssignees.userId, targetAssignees),
+          inArray(taskAssignees.taskId, rows.map((r) => r.id))
+        ));
+      const assignedTaskIds = new Set(assignedTaskRows.map((r) => r.taskId));
+      rows = rows.filter((r) => assignedTaskIds.has(r.id));
+    }
+
+    // Server-side tag filtering
+    if (tagList && tagList.length > 0) {
+      rows = rows.filter((r) => {
+        const taskTags = (r.tags as string[]) ?? [];
+        return tagList.some((tag) => taskTags.includes(tag));
+      });
+    }
+
+    const rich = await buildRichTasks(rows);
+    res.json(rich);
+  } catch (err) {
+    req.log.error({ err }, "list tasks failed");
+    res.status(500).json({ error: "Failed to load tasks" });
   }
-
-  // Multi-priority filter
-  if (priorities?.length === 1) {
-    conditions.push(eq(tasks.priority, priorities[0]));
-  } else if (priorities && priorities.length > 1) {
-    conditions.push(inArray(tasks.priority, priorities));
-  }
-
-  if (search) conditions.push(ilike(tasks.title, `%${search}%`));
-  if (dueBefore) conditions.push(lte(tasks.dueDate, new Date(dueBefore)));
-  if (dueAfter) conditions.push(gte(tasks.dueDate, new Date(dueAfter)));
-
-  // Build base query
-  let query = db
-    .select({
-      id: tasks.id,
-      projectId: tasks.projectId,
-      parentTaskId: tasks.parentTaskId,
-      title: tasks.title,
-      description: tasks.description,
-      status: tasks.status,
-      priority: tasks.priority,
-      category: tasks.category,
-      tags: tasks.tags,
-      estimatedHours: tasks.estimatedHours,
-      actualHours: tasks.actualHours,
-      dueDate: tasks.dueDate,
-      createdAt: tasks.createdAt,
-      updatedAt: tasks.updatedAt,
-    })
-    .from(tasks)
-    .where(and(...conditions));
-
-  // Apply sorting
-  const sortColumn = sortBy === "dueDate" ? tasks.dueDate :
-                    sortBy === "priority" ? tasks.priority :
-                    sortBy === "status" ? tasks.status :
-                    sortBy === "title" ? tasks.title :
-                    tasks.createdAt;
-  query = sortOrder === "desc" ? query.orderBy(desc(sortColumn)) : query.orderBy(asc(sortColumn));
-
-  let rows = await query;
-
-  // Server-side assignee filtering with JOIN for efficiency
-  const targetAssignees = assigneeIdList ?? (assigneeId ? [parseInt(assigneeId, 10)] : []);
-  if (targetAssignees.length > 0) {
-    // Get task IDs that have any of the specified assignees
-    const assignedTaskRows = await db
-      .select({ taskId: taskAssignees.taskId })
-      .from(taskAssignees)
-      .where(and(
-        inArray(taskAssignees.userId, targetAssignees),
-        inArray(taskAssignees.taskId, rows.map((r) => r.id))
-      ));
-    const assignedTaskIds = new Set(assignedTaskRows.map((r) => r.taskId));
-    rows = rows.filter((r) => assignedTaskIds.has(r.id));
-  }
-
-  // Server-side tag filtering
-  if (tagList && tagList.length > 0) {
-    rows = rows.filter((r) => {
-      const taskTags = (r.tags as string[]) ?? [];
-      return tagList.some((tag) => taskTags.includes(tag));
-    });
-  }
-
-  const rich = await buildRichTasks(rows);
-  res.json(rich);
 });
 
 // ─── Create task ─────────────────────────────────────────────────────────────
@@ -207,53 +212,58 @@ router.post("/projects/:projectId/tasks", async (req, res): Promise<void> => {
 
   if (!rest.title) { res.status(400).json({ error: "title is required" }); return; }
 
-  const [task] = await db
-    .insert(tasks)
-    .values({
-      projectId,
-      title: rest.title,
-      description: rest.description ?? null,
-      status: rest.status ?? "backlog",
-      priority: rest.priority ?? "medium",
-      category: rest.category ?? null,
-      tags: tags ?? [],
-      parentTaskId: parentTaskId ?? null,
-      estimatedHours: estimatedHours != null ? String(estimatedHours) : null,
-      actualHours: actualHours != null ? String(actualHours) : null,
-      dueDate: dueDate ? new Date(dueDate) : null,
-    })
-    .returning();
+  try {
+    const [task] = await db
+      .insert(tasks)
+      .values({
+        projectId,
+        title: rest.title,
+        description: rest.description ?? null,
+        status: rest.status ?? "backlog",
+        priority: rest.priority ?? "medium",
+        category: rest.category ?? null,
+        tags: tags ?? [],
+        parentTaskId: parentTaskId ?? null,
+        estimatedHours: estimatedHours != null ? String(estimatedHours) : null,
+        actualHours: actualHours != null ? String(actualHours) : null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+      })
+      .returning();
 
-  // Insert assignees
-  if (assigneeIds && assigneeIds.length > 0) {
-    await db.insert(taskAssignees).values(assigneeIds.map((uid) => ({ taskId: task.id, userId: uid }))).onConflictDoNothing();
-  }
-
-  if (uid) {
-    await logActivity(projectId, uid, "created", "task", task.id, task.title, `Created task "${task.title}"`);
-    // Create assignment notifications for new assignees
+    // Insert assignees
     if (assigneeIds && assigneeIds.length > 0) {
-      const otherAssignees = assigneeIds.filter((id) => id !== uid);
-      if (otherAssignees.length > 0) {
-        const { notifications } = await import("@workspace/db");
-        await db.insert(notifications).values(
-          otherAssignees.map((assigneeUid) => ({
-            userId: assigneeUid,
-            projectId,
-            type: "assignment",
-            title: "You were assigned a task",
-            message: `You were assigned to "${task.title}"`,
-            entityType: "task",
-            entityId: task.id,
-            actorUserId: uid,
-          })),
-        );
+      await db.insert(taskAssignees).values(assigneeIds.map((uid) => ({ taskId: task.id, userId: uid }))).onConflictDoNothing();
+    }
+
+    if (uid) {
+      await logActivity(projectId, uid, "created", "task", task.id, task.title, `Created task "${task.title}"`);
+      // Create assignment notifications for new assignees
+      if (assigneeIds && assigneeIds.length > 0) {
+        const otherAssignees = assigneeIds.filter((id) => id !== uid);
+        if (otherAssignees.length > 0) {
+          const { notifications } = await import("@workspace/db");
+          await db.insert(notifications).values(
+            otherAssignees.map((assigneeUid) => ({
+              userId: assigneeUid,
+              projectId,
+              type: "assignment",
+              title: "You were assigned a task",
+              message: `You were assigned to "${task.title}"`,
+              entityType: "task",
+              entityId: task.id,
+              actorUserId: uid,
+            })),
+          );
+        }
       }
     }
-  }
 
-  const [rich] = await buildRichTasks([task]);
-  res.status(201).json(rich);
+    const [rich] = await buildRichTasks([task]);
+    res.status(201).json(rich);
+  } catch (err) {
+    req.log.error({ err }, "create task failed");
+    res.status(500).json({ error: "Failed to create task" });
+  }
 });
 
 // ─── Get single task ──────────────────────────────────────────────────────────
@@ -261,14 +271,19 @@ router.get("/projects/:projectId/tasks/:taskId", async (req, res): Promise<void>
   const projectId = parseProjectId(req);
   const taskId = parseTaskId(req);
 
-  const [task] = await db
-    .select()
-    .from(tasks)
-    .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
+  try {
+    const [task] = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
 
-  if (!task) { res.status(404).json({ error: "Task not found" }); return; }
-  const [rich] = await buildRichTasks([task]);
-  res.json(rich);
+    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
+    const [rich] = await buildRichTasks([task]);
+    res.json(rich);
+  } catch (err) {
+    req.log.error({ err }, "get task failed");
+    res.status(500).json({ error: "Failed to load task" });
+  }
 });
 
 // ─── Update task ─────────────────────────────────────────────────────────────
@@ -465,20 +480,25 @@ router.delete("/projects/:projectId/tasks/:taskId", async (req, res): Promise<vo
   const taskId = parseTaskId(req);
   const uid = getUID(req);
 
-  const [task] = await db
-    .select({ id: tasks.id, title: tasks.title })
-    .from(tasks)
-    .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
+  try {
+    const [task] = await db
+      .select({ id: tasks.id, title: tasks.title })
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
 
-  if (!task) { res.status(404).json({ error: "Task not found" }); return; }
+    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
 
-  await db.delete(tasks).where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
+    await db.delete(tasks).where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
 
-  if (uid) {
-    await logActivity(projectId, uid, "deleted", "task", task.id, task.title, `Deleted task "${task.title}"`);
+    if (uid) {
+      await logActivity(projectId, uid, "deleted", "task", task.id, task.title, `Deleted task "${task.title}"`);
+    }
+
+    res.sendStatus(204);
+  } catch (err) {
+    req.log.error({ err }, "delete task failed");
+    res.status(500).json({ error: "Failed to delete task" });
   }
-
-  res.sendStatus(204);
 });
 
 // ─── Subtasks ─────────────────────────────────────────────────────────────────

@@ -138,107 +138,127 @@ function withLinks(
 // ─── Asset CRUD ──────────────────────────────────────────────────────────────
 
 router.get("/projects/:projectId/assets", async (req, res): Promise<void> => {
-  const params = schemas.ListAssetsParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
+  try {
+    const params = schemas.ListAssetsParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const rows = await db
+      .select()
+      .from(assets)
+      .where(eq(assets.projectId, params.data.projectId))
+      .orderBy(asc(assets.displayOrder), desc(assets.createdAt));
+    const linksMap = await fetchLinkedEntityIdsForAssets(rows.map((r) => r.id));
+    const enriched = rows.map((r) => withLinks(r, linksMap.get(r.id) ?? []));
+    res.json(schemas.ListAssetsResponse.parse(enriched));
+  } catch (err) {
+    req.log.error({ err }, "list assets failed");
+    res.status(500).json({ error: "Failed to load assets", details: err instanceof Error ? err.message : String(err) });
   }
-  const rows = await db
-    .select()
-    .from(assets)
-    .where(eq(assets.projectId, params.data.projectId))
-    .orderBy(asc(assets.displayOrder), desc(assets.createdAt));
-  const linksMap = await fetchLinkedEntityIdsForAssets(rows.map((r) => r.id));
-  const enriched = rows.map((r) => withLinks(r, linksMap.get(r.id) ?? []));
-  res.json(schemas.ListAssetsResponse.parse(enriched));
 });
 
 router.post("/projects/:projectId/assets", async (req, res): Promise<void> => {
-  const params = schemas.CreateAssetParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
+  try {
+    const params = schemas.CreateAssetParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const parsed = schemas.CreateAssetBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const [row] = await db
+      .insert(assets)
+      .values({ ...parsed.data, projectId: params.data.projectId })
+      .returning();
+    res.status(201).json(withLinks(row, []));
+  } catch (err) {
+    req.log.error({ err }, "create asset failed");
+    res.status(500).json({ error: "Failed to create asset", details: err instanceof Error ? err.message : String(err) });
   }
-  const parsed = schemas.CreateAssetBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [row] = await db
-    .insert(assets)
-    .values({ ...parsed.data, projectId: params.data.projectId })
-    .returning();
-  res.status(201).json(withLinks(row, []));
 });
 
 router.patch(
   "/projects/:projectId/assets/:assetId",
   async (req, res): Promise<void> => {
-    const params = schemas.UpdateAssetParams.safeParse(req.params);
-    if (!params.success) {
-      res.status(400).json({ error: params.error.message });
-      return;
-    }
-    const parsed = schemas.UpdateAssetBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
-    // If the primary entityId is being changed, also remove any matching
-    // additional link so the link set never duplicates the new primary.
-    const row = await db.transaction(async (tx) => {
-      const [updated] = await tx
-        .update(assets)
-        .set(parsed.data)
-        .where(
-          and(
-            eq(assets.id, params.data.assetId),
-            eq(assets.projectId, params.data.projectId),
-          ),
-        )
-        .returning();
-      if (!updated) return null;
-      // Whenever entityId is touched (set or cleared), reconcile links.
-      if (Object.prototype.hasOwnProperty.call(parsed.data, "entityId")) {
-        if (updated.entityId != null) {
-          await tx
-            .delete(assetEntityLinks)
-            .where(
-              and(
-                eq(assetEntityLinks.assetId, updated.id),
-                eq(assetEntityLinks.entityId, updated.entityId),
-              ),
-            );
-        }
+    try {
+      const params = schemas.UpdateAssetParams.safeParse(req.params);
+      if (!params.success) {
+        res.status(400).json({ error: params.error.message });
+        return;
       }
-      return updated;
-    });
-    if (!row) {
-      res.status(404).json({ error: "Asset not found" });
-      return;
+      const parsed = schemas.UpdateAssetBody.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: parsed.error.message });
+        return;
+      }
+      // If the primary entityId is being changed, also remove any matching
+      // additional link so the link set never duplicates the new primary.
+      const row = await db.transaction(async (tx) => {
+        const [updated] = await tx
+          .update(assets)
+          .set(parsed.data)
+          .where(
+            and(
+              eq(assets.id, params.data.assetId),
+              eq(assets.projectId, params.data.projectId),
+            ),
+          )
+          .returning();
+        if (!updated) return null;
+        // Whenever entityId is touched (set or cleared), reconcile links.
+        if (Object.prototype.hasOwnProperty.call(parsed.data, "entityId")) {
+          if (updated.entityId != null) {
+            await tx
+              .delete(assetEntityLinks)
+              .where(
+                and(
+                  eq(assetEntityLinks.assetId, updated.id),
+                  eq(assetEntityLinks.entityId, updated.entityId),
+                ),
+              );
+          }
+        }
+        return updated;
+      });
+      if (!row) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+      }
+      const links = await getLinkedEntityIds(row.id);
+      res.json(schemas.UpdateAssetResponse.parse(withLinks(row, links)));
+    } catch (err) {
+      req.log.error({ err }, "update asset failed");
+      res.status(500).json({ error: "Failed to update asset", details: err instanceof Error ? err.message : String(err) });
     }
-    const links = await getLinkedEntityIds(row.id);
-    res.json(schemas.UpdateAssetResponse.parse(withLinks(row, links)));
   },
 );
 
 router.delete(
   "/projects/:projectId/assets/:assetId",
   async (req, res): Promise<void> => {
-    const params = schemas.DeleteAssetParams.safeParse(req.params);
-    if (!params.success) {
-      res.status(400).json({ error: params.error.message });
-      return;
+    try {
+      const params = schemas.DeleteAssetParams.safeParse(req.params);
+      if (!params.success) {
+        res.status(400).json({ error: params.error.message });
+        return;
+      }
+      await db
+        .delete(assets)
+        .where(
+          and(
+            eq(assets.id, params.data.assetId),
+            eq(assets.projectId, params.data.projectId),
+          ),
+        );
+      res.sendStatus(204);
+    } catch (err) {
+      req.log.error({ err }, "delete asset failed");
+      res.status(500).json({ error: "Failed to delete asset", details: err instanceof Error ? err.message : String(err) });
     }
-    await db
-      .delete(assets)
-      .where(
-        and(
-          eq(assets.id, params.data.assetId),
-          eq(assets.projectId, params.data.projectId),
-        ),
-      );
-    res.sendStatus(204);
   },
 );
 
@@ -247,62 +267,67 @@ router.delete(
 router.put(
   "/projects/:projectId/assets/:assetId/links",
   async (req, res): Promise<void> => {
-    const params = schemas.SetAssetLinksParams.safeParse(req.params);
-    if (!params.success) {
-      res.status(400).json({ error: params.error.message });
-      return;
-    }
-    const parsed = schemas.SetAssetLinksBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
-    const [asset] = await db
-      .select()
-      .from(assets)
-      .where(
-        and(
-          eq(assets.id, params.data.assetId),
-          eq(assets.projectId, params.data.projectId),
-        ),
-      );
-    if (!asset) {
-      res.status(404).json({ error: "Asset not found" });
-      return;
-    }
-    // De-duplicate, drop primary entityId from the link set (it's tracked separately),
-    // and verify all referenced entities belong to this project.
-    const requested = Array.from(new Set(parsed.data.entityIds)).filter(
-      (id) => id !== asset.entityId,
-    );
-    if (requested.length > 0) {
-      const valid = await db
-        .select({ id: entities.id })
-        .from(entities)
-        .where(
-          and(
-            inArray(entities.id, requested),
-            eq(entities.projectId, params.data.projectId),
-          ),
-        );
-      if (valid.length !== requested.length) {
-        res
-          .status(400)
-          .json({ error: "One or more entityIds do not belong to this project" });
+    try {
+      const params = schemas.SetAssetLinksParams.safeParse(req.params);
+      if (!params.success) {
+        res.status(400).json({ error: params.error.message });
         return;
       }
-    }
-    await db.transaction(async (tx) => {
-      await tx
-        .delete(assetEntityLinks)
-        .where(eq(assetEntityLinks.assetId, asset.id));
-      if (requested.length > 0) {
-        await tx.insert(assetEntityLinks).values(
-          requested.map((entityId) => ({ assetId: asset.id, entityId })),
-        );
+      const parsed = schemas.SetAssetLinksBody.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: parsed.error.message });
+        return;
       }
-    });
-    res.json(withLinks(asset, requested));
+      const [asset] = await db
+        .select()
+        .from(assets)
+        .where(
+          and(
+            eq(assets.id, params.data.assetId),
+            eq(assets.projectId, params.data.projectId),
+          ),
+        );
+      if (!asset) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+      }
+      // De-duplicate, drop primary entityId from the link set (it's tracked separately),
+      // and verify all referenced entities belong to this project.
+      const requested = Array.from(new Set(parsed.data.entityIds)).filter(
+        (id) => id !== asset.entityId,
+      );
+      if (requested.length > 0) {
+        const valid = await db
+          .select({ id: entities.id })
+          .from(entities)
+          .where(
+            and(
+              inArray(entities.id, requested),
+              eq(entities.projectId, params.data.projectId),
+            ),
+          );
+        if (valid.length !== requested.length) {
+          res
+            .status(400)
+            .json({ error: "One or more entityIds do not belong to this project" });
+          return;
+        }
+      }
+      await db.transaction(async (tx) => {
+        await tx
+          .delete(assetEntityLinks)
+          .where(eq(assetEntityLinks.assetId, asset.id));
+        if (requested.length > 0) {
+          await tx.insert(assetEntityLinks).values(
+            requested.map((entityId) => ({ assetId: asset.id, entityId })),
+          );
+        }
+      });
+      res.json(withLinks(asset, requested));
+    } catch (err) {
+      req.log.error({ err }, "set asset links failed");
+      res.status(500).json({ error: "Failed to update asset links", details: err instanceof Error ? err.message : String(err) });
+    }
   },
 );
 

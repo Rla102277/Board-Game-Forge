@@ -58,20 +58,25 @@ router.get(
       res.status(400).json({ error: "Invalid kind" });
       return;
     }
-    const [row] = await db
-      .select()
-      .from(designerArtifacts)
-      .where(
-        and(
-          eq(designerArtifacts.projectId, projectId),
-          eq(designerArtifacts.kind, kind),
-        ),
-      );
-    if (!row) {
-      res.json({ projectId, kind, data: {} });
-      return;
+    try {
+      const [row] = await db
+        .select()
+        .from(designerArtifacts)
+        .where(
+          and(
+            eq(designerArtifacts.projectId, projectId),
+            eq(designerArtifacts.kind, kind),
+          ),
+        );
+      if (!row) {
+        res.json({ projectId, kind, data: {} });
+        return;
+      }
+      res.json({ projectId: row.projectId, kind: row.kind, data: row.data });
+    } catch (err) {
+      req.log.error({ err }, "get designer artifact failed");
+      res.status(500).json({ error: "Failed to load artifact" });
     }
-    res.json({ projectId: row.projectId, kind: row.kind, data: row.data });
   },
 );
 
@@ -104,15 +109,20 @@ router.put(
       res.status(400).json({ error: "Invalid data payload" });
       return;
     }
-    const [row] = await db
-      .insert(designerArtifacts)
-      .values({ projectId, kind, data: data as Record<string, unknown> })
-      .onConflictDoUpdate({
-        target: [designerArtifacts.projectId, designerArtifacts.kind],
-        set: { data: data as Record<string, unknown>, updatedAt: new Date() },
-      })
-      .returning();
-    res.json({ projectId: row.projectId, kind: row.kind, data: row.data });
+    try {
+      const [row] = await db
+        .insert(designerArtifacts)
+        .values({ projectId, kind, data: data as Record<string, unknown> })
+        .onConflictDoUpdate({
+          target: [designerArtifacts.projectId, designerArtifacts.kind],
+          set: { data: data as Record<string, unknown>, updatedAt: new Date() },
+        })
+        .returning();
+      res.json({ projectId: row.projectId, kind: row.kind, data: row.data });
+    } catch (err) {
+      req.log.error({ err }, "save designer artifact failed");
+      res.status(500).json({ error: "Failed to save artifact" });
+    }
   },
 );
 

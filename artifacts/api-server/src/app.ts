@@ -155,4 +155,37 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
+// ─── Global error handler ───────────────────────────────────────────────────
+// Catches any unhandled errors thrown in async route handlers. Express 5
+// automatically forwards rejected promises from async handlers to error
+// middleware, so this acts as the safety net that prevents raw stack traces
+// or process crashes from reaching the client.
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  // Already sent a response (e.g. SSE stream that errored mid-write)
+  if (res.headersSent) {
+    req.log?.error?.({ err }, "Error after headers sent");
+    return;
+  }
+
+  const isProviderError =
+    err instanceof Error && "status" in err && typeof (err as { status: unknown }).status === "number";
+  const status = isProviderError ? (err as { status: number }).status : 500;
+  const message =
+    err instanceof Error ? err.message : "Internal server error";
+
+  // Log at appropriate level
+  if (status >= 500) {
+    req.log?.error?.({ err, url: req.originalUrl, method: req.method }, "Unhandled route error");
+  } else {
+    req.log?.warn?.({ err, url: req.originalUrl, method: req.method }, "Route error");
+  }
+
+  res.status(status).json({
+    error: message,
+    ...(process.env.NODE_ENV !== "production" && err instanceof Error
+      ? { stack: err.stack }
+      : {}),
+  });
+});
+
 export default app;

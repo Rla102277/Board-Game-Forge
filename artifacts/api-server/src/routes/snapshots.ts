@@ -92,12 +92,17 @@ router.get("/projects/:projectId/snapshots", async (req, res): Promise<void> => 
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const rows = await db
-    .select()
-    .from(projectSnapshots)
-    .where(eq(projectSnapshots.projectId, params.data.projectId))
-    .orderBy(desc(projectSnapshots.createdAt));
-  res.json(schemas.ListSnapshotsResponse.parse(rows.map(snapshotMeta)));
+  try {
+    const rows = await db
+      .select()
+      .from(projectSnapshots)
+      .where(eq(projectSnapshots.projectId, params.data.projectId))
+      .orderBy(desc(projectSnapshots.createdAt));
+    res.json(schemas.ListSnapshotsResponse.parse(rows.map(snapshotMeta)));
+  } catch (err) {
+    req.log.error({ err }, "list snapshots failed");
+    res.status(500).json({ error: "Failed to load snapshots" });
+  }
 });
 
 // Create a snapshot of current project state
@@ -112,20 +117,25 @@ router.post("/projects/:projectId/snapshots", async (req, res): Promise<void> =>
     res.status(400).json({ error: body.error.message });
     return;
   }
-  const project = await loadProject(params.data.projectId);
-  if (!project) {
-    res.status(404).json({ error: "Project not found" });
-    return;
+  try {
+    const project = await loadProject(params.data.projectId);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    const row = await createSnapshotRow({
+      projectId: project.id,
+      workspaceId: project.workspaceId,
+      name: body.data.name,
+      description: body.data.description ?? null,
+      isAutoSnapshot: false,
+      appUserId: req.appUserId,
+    });
+    res.status(201).json(schemas.ListSnapshotsResponseItem.parse(snapshotMeta(row)));
+  } catch (err) {
+    req.log.error({ err }, "create snapshot failed");
+    res.status(500).json({ error: "Failed to create snapshot" });
   }
-  const row = await createSnapshotRow({
-    projectId: project.id,
-    workspaceId: project.workspaceId,
-    name: body.data.name,
-    description: body.data.description ?? null,
-    isAutoSnapshot: false,
-    appUserId: req.appUserId,
-  });
-  res.status(201).json(schemas.ListSnapshotsResponseItem.parse(snapshotMeta(row)));
 });
 
 // Delete a snapshot
@@ -137,15 +147,20 @@ router.delete(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    await db
-      .delete(projectSnapshots)
-      .where(
-        and(
-          eq(projectSnapshots.id, params.data.snapshotId),
-          eq(projectSnapshots.projectId, params.data.projectId),
-        ),
-      );
-    res.sendStatus(204);
+    try {
+      await db
+        .delete(projectSnapshots)
+        .where(
+          and(
+            eq(projectSnapshots.id, params.data.snapshotId),
+            eq(projectSnapshots.projectId, params.data.projectId),
+          ),
+        );
+      res.sendStatus(204);
+    } catch (err) {
+      req.log.error({ err }, "delete snapshot failed");
+      res.status(500).json({ error: "Failed to delete snapshot" });
+    }
   },
 );
 

@@ -14,12 +14,17 @@ router.get(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const rows = await db
-      .select()
-      .from(storyboardNodes)
-      .where(eq(storyboardNodes.projectId, params.data.projectId))
-      .orderBy(asc(storyboardNodes.id));
-    res.json(schemas.ListStoryboardNodesResponse.parse(rows));
+    try {
+      const rows = await db
+        .select()
+        .from(storyboardNodes)
+        .where(eq(storyboardNodes.projectId, params.data.projectId))
+        .orderBy(asc(storyboardNodes.id));
+      res.json(schemas.ListStoryboardNodesResponse.parse(rows));
+    } catch (err) {
+      req.log.error({ err }, "list storyboard nodes failed");
+      res.status(500).json({ error: "Failed to load storyboard" });
+    }
   },
 );
 
@@ -36,11 +41,16 @@ router.post(
       res.status(400).json({ error: parsed.error.message });
       return;
     }
-    const [row] = await db
-      .insert(storyboardNodes)
-      .values({ ...parsed.data, projectId: params.data.projectId })
-      .returning();
-    res.status(201).json(row);
+    try {
+      const [row] = await db
+        .insert(storyboardNodes)
+        .values({ ...parsed.data, projectId: params.data.projectId })
+        .returning();
+      res.status(201).json(row);
+    } catch (err) {
+      req.log.error({ err }, "create storyboard node failed");
+      res.status(500).json({ error: "Failed to create storyboard node" });
+    }
   },
 );
 
@@ -57,21 +67,26 @@ router.patch(
       res.status(400).json({ error: parsed.error.message });
       return;
     }
-    const [row] = await db
-      .update(storyboardNodes)
-      .set(parsed.data)
-      .where(
-        and(
-          eq(storyboardNodes.id, params.data.nodeId),
-          eq(storyboardNodes.projectId, params.data.projectId),
-        ),
-      )
-      .returning();
-    if (!row) {
-      res.status(404).json({ error: "Node not found" });
-      return;
+    try {
+      const [row] = await db
+        .update(storyboardNodes)
+        .set(parsed.data)
+        .where(
+          and(
+            eq(storyboardNodes.id, params.data.nodeId),
+            eq(storyboardNodes.projectId, params.data.projectId),
+          ),
+        )
+        .returning();
+      if (!row) {
+        res.status(404).json({ error: "Node not found" });
+        return;
+      }
+      res.json(schemas.UpdateStoryboardNodeResponse.parse(row));
+    } catch (err) {
+      req.log.error({ err }, "update storyboard node failed");
+      res.status(500).json({ error: "Failed to update storyboard node" });
     }
-    res.json(schemas.UpdateStoryboardNodeResponse.parse(row));
   },
 );
 
@@ -83,15 +98,20 @@ router.delete(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    await db
-      .delete(storyboardNodes)
-      .where(
-        and(
-          eq(storyboardNodes.id, params.data.nodeId),
-          eq(storyboardNodes.projectId, params.data.projectId),
-        ),
-      );
-    res.sendStatus(204);
+    try {
+      await db
+        .delete(storyboardNodes)
+        .where(
+          and(
+            eq(storyboardNodes.id, params.data.nodeId),
+            eq(storyboardNodes.projectId, params.data.projectId),
+          ),
+        );
+      res.sendStatus(204);
+    } catch (err) {
+      req.log.error({ err }, "delete storyboard node failed");
+      res.status(500).json({ error: "Failed to delete storyboard node" });
+    }
   },
 );
 

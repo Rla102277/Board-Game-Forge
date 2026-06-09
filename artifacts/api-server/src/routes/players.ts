@@ -17,12 +17,17 @@ router.get("/projects/:projectId/players", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const rows = await db
-    .select()
-    .from(players)
-    .where(eq(players.projectId, params.data.projectId))
-    .orderBy(asc(players.displayOrder), asc(players.id));
-  res.json(schemas.ListPlayersResponse.parse(rows));
+  try {
+    const rows = await db
+      .select()
+      .from(players)
+      .where(eq(players.projectId, params.data.projectId))
+      .orderBy(asc(players.displayOrder), asc(players.id));
+    res.json(schemas.ListPlayersResponse.parse(rows));
+  } catch (err) {
+    req.log.error({ err }, "list players failed");
+    res.status(500).json({ error: "Failed to load players" });
+  }
 });
 
 router.post("/projects/:projectId/players", async (req, res): Promise<void> => {
@@ -36,11 +41,16 @@ router.post("/projects/:projectId/players", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [row] = await db
-    .insert(players)
-    .values({ ...parsed.data, projectId: params.data.projectId })
-    .returning();
-  res.status(201).json(row);
+  try {
+    const [row] = await db
+      .insert(players)
+      .values({ ...parsed.data, projectId: params.data.projectId })
+      .returning();
+    res.status(201).json(row);
+  } catch (err) {
+    req.log.error({ err }, "create player failed");
+    res.status(500).json({ error: "Failed to create player" });
+  }
 });
 
 router.patch(
@@ -64,38 +74,43 @@ router.patch(
       return;
     }
 
-    const existing = await db
-      .select({ id: players.id })
-      .from(players)
-      .where(eq(players.projectId, projectId));
-    const existingIds = new Set(existing.map((r) => r.id));
-    const foreign = playerIds.filter((id) => !existingIds.has(id));
-    if (foreign.length > 0) {
-      res.status(400).json({ error: `playerIds contain IDs not in this project: ${foreign.join(", ")}` });
-      return;
-    }
-
-    const rows = await db.transaction(async (tx) => {
-      await Promise.all(
-        playerIds.map((id, idx) =>
-          tx
-            .update(players)
-            .set({ displayOrder: idx })
-            .where(
-              and(
-                eq(players.id, id),
-                eq(players.projectId, projectId),
-              ),
-            ),
-        ),
-      );
-      return tx
-        .select()
+    try {
+      const existing = await db
+        .select({ id: players.id })
         .from(players)
-        .where(eq(players.projectId, projectId))
-        .orderBy(asc(players.displayOrder), asc(players.id));
-    });
-    res.json(schemas.ReorderPlayersResponse.parse(rows));
+        .where(eq(players.projectId, projectId));
+      const existingIds = new Set(existing.map((r) => r.id));
+      const foreign = playerIds.filter((id) => !existingIds.has(id));
+      if (foreign.length > 0) {
+        res.status(400).json({ error: `playerIds contain IDs not in this project: ${foreign.join(", ")}` });
+        return;
+      }
+
+      const rows = await db.transaction(async (tx) => {
+        await Promise.all(
+          playerIds.map((id, idx) =>
+            tx
+              .update(players)
+              .set({ displayOrder: idx })
+              .where(
+                and(
+                  eq(players.id, id),
+                  eq(players.projectId, projectId),
+                ),
+              ),
+          ),
+        );
+        return tx
+          .select()
+          .from(players)
+          .where(eq(players.projectId, projectId))
+          .orderBy(asc(players.displayOrder), asc(players.id));
+      });
+      res.json(schemas.ReorderPlayersResponse.parse(rows));
+    } catch (err) {
+      req.log.error({ err }, "reorder players failed");
+      res.status(500).json({ error: "Failed to reorder players" });
+    }
   },
 );
 
@@ -110,21 +125,26 @@ router.patch("/projects/:projectId/players/:playerId", async (req, res): Promise
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [row] = await db
-    .update(players)
-    .set(parsed.data)
-    .where(
-      and(
-        eq(players.id, params.data.playerId),
-        eq(players.projectId, params.data.projectId),
-      ),
-    )
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Player not found" });
-    return;
+  try {
+    const [row] = await db
+      .update(players)
+      .set(parsed.data)
+      .where(
+        and(
+          eq(players.id, params.data.playerId),
+          eq(players.projectId, params.data.projectId),
+        ),
+      )
+      .returning();
+    if (!row) {
+      res.status(404).json({ error: "Player not found" });
+      return;
+    }
+    res.json(schemas.UpdatePlayerResponse.parse(row));
+  } catch (err) {
+    req.log.error({ err }, "update player failed");
+    res.status(500).json({ error: "Failed to update player" });
   }
-  res.json(schemas.UpdatePlayerResponse.parse(row));
 });
 
 router.delete("/projects/:projectId/players/:playerId", async (req, res): Promise<void> => {
@@ -133,15 +153,20 @@ router.delete("/projects/:projectId/players/:playerId", async (req, res): Promis
     res.status(400).json({ error: params.error.message });
     return;
   }
-  await db
-    .delete(players)
-    .where(
-      and(
-        eq(players.id, params.data.playerId),
-        eq(players.projectId, params.data.projectId),
-      ),
-    );
-  res.sendStatus(204);
+  try {
+    await db
+      .delete(players)
+      .where(
+        and(
+          eq(players.id, params.data.playerId),
+          eq(players.projectId, params.data.projectId),
+        ),
+      );
+    res.sendStatus(204);
+  } catch (err) {
+    req.log.error({ err }, "delete player failed");
+    res.status(500).json({ error: "Failed to delete player" });
+  }
 });
 
 router.post(

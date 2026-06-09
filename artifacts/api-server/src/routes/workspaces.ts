@@ -53,23 +53,28 @@ async function loadWorkspace(
     res.status(400).json({ error: "Missing workspace slug" });
     return;
   }
-  const ws = await findWorkspaceBySlug(slug);
-  if (!ws) {
-    res.status(404).json({ error: "Workspace not found" });
-    return;
+  try {
+    const ws = await findWorkspaceBySlug(slug);
+    if (!ws) {
+      res.status(404).json({ error: "Workspace not found" });
+      return;
+    }
+    if (!req.appUserId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const access = await userHasWorkspaceAccess(ws.id, req.appUserId);
+    if (!access.access && req.appUserRole !== "admin") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    req.workspace = ws;
+    req.workspaceRole = access.role ?? (req.appUserRole === "admin" ? "admin" : null) ?? "viewer";
+    next();
+  } catch (err) {
+    req.log.error({ err }, "loadWorkspace middleware failed");
+    res.status(500).json({ error: "Failed to load workspace" });
   }
-  if (!req.appUserId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  const access = await userHasWorkspaceAccess(ws.id, req.appUserId);
-  if (!access.access && req.appUserRole !== "admin") {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
-  req.workspace = ws;
-  req.workspaceRole = access.role ?? (req.appUserRole === "admin" ? "admin" : null) ?? "viewer";
-  next();
 }
 
 // GET /workspaces — list user's workspaces (ensures Personal exists)
@@ -81,29 +86,39 @@ function generateInviteCode(): string {
 router.get("/workspaces/join/:code", async (req, res): Promise<void> => {
   const code = String(req.params.code ?? "").trim();
   if (!code) { res.status(400).json({ error: "Missing code" }); return; }
-  const [ws] = await db.select().from(workspaces).where(eq(workspaces.inviteCode, code));
-  if (!ws) { res.status(404).json({ error: "Invalid or expired invite link" }); return; }
-  const [{ memberCount }] = await db
-    .select({ memberCount: sql<number>`count(*)::int` })
-    .from(workspaceMembers)
-    .where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.status, "active")));
-  res.json({ id: ws.id, name: ws.name, slug: ws.slug, memberCount });
+  try {
+    const [ws] = await db.select().from(workspaces).where(eq(workspaces.inviteCode, code));
+    if (!ws) { res.status(404).json({ error: "Invalid or expired invite link" }); return; }
+    const [{ memberCount }] = await db
+      .select({ memberCount: sql<number>`count(*)::int` })
+      .from(workspaceMembers)
+      .where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.status, "active")));
+    res.json({ id: ws.id, name: ws.name, slug: ws.slug, memberCount });
+  } catch (err) {
+    req.log.error({ err }, "get workspace by invite code failed");
+    res.status(500).json({ error: "Failed to look up invite" });
+  }
 });
 
 // POST /workspaces/join/:code — join workspace via invite code (requires auth)
 router.post("/workspaces/join/:code", async (req, res): Promise<void> => {
   if (!req.appUserId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const code = String(req.params.code ?? "").trim();
-  const [ws] = await db.select().from(workspaces).where(eq(workspaces.inviteCode, code));
-  if (!ws) { res.status(404).json({ error: "Invalid or expired invite link" }); return; }
-  await db
-    .insert(workspaceMembers)
-    .values({ workspaceId: ws.id, userId: req.appUserId, role: "member", status: "active", joinedAt: new Date() })
-    .onConflictDoUpdate({
-      target: [workspaceMembers.workspaceId, workspaceMembers.userId],
-      set: { status: "active", joinedAt: new Date() },
-    });
-  res.json({ slug: ws.slug, name: ws.name });
+  try {
+    const [ws] = await db.select().from(workspaces).where(eq(workspaces.inviteCode, code));
+    if (!ws) { res.status(404).json({ error: "Invalid or expired invite link" }); return; }
+    await db
+      .insert(workspaceMembers)
+      .values({ workspaceId: ws.id, userId: req.appUserId, role: "member", status: "active", joinedAt: new Date() })
+      .onConflictDoUpdate({
+        target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+        set: { status: "active", joinedAt: new Date() },
+      });
+    res.json({ slug: ws.slug, name: ws.name });
+  } catch (err) {
+    req.log.error({ err }, "join workspace failed");
+    res.status(500).json({ error: "Failed to join workspace" });
+  }
 });
 
 // GET /workspaces — list user's workspaces (ensures Personal exists)
@@ -112,9 +127,14 @@ router.get("/workspaces", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  await ensurePersonalWorkspace(req.appUserId);
-  const list = await listUserWorkspaces(req.appUserId);
-  res.json(list);
+  try {
+    await ensurePersonalWorkspace(req.appUserId);
+    const list = await listUserWorkspaces(req.appUserId);
+    res.json(list);
+  } catch (err) {
+    req.log.error({ err }, "list workspaces failed");
+    res.status(500).json({ error: "Failed to load workspaces" });
+  }
 });
 
 // POST /workspaces — create workspace
@@ -168,43 +188,48 @@ router.post("/workspaces", async (req, res): Promise<void> => {
 // GET /workspaces/:slug — workspace + projects + members
 router.get("/workspaces/:workspaceSlug", loadWorkspace, async (req, res): Promise<void> => {
   const ws = req.workspace!;
-  const projs = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.workspaceId, ws.id), isNull(projects.deletedAt)))
-    .orderBy(desc(projects.updatedAt));
-  const memberRows = await db
-    .select({
-      m: workspaceMembers,
-      u: appUsers,
-    })
-    .from(workspaceMembers)
-    .leftJoin(appUsers, eq(workspaceMembers.userId, appUsers.id))
-    .where(eq(workspaceMembers.workspaceId, ws.id))
-    .orderBy(asc(workspaceMembers.createdAt));
-  const members = memberRows.map((r) => ({
-    id: r.m.id,
-    role: r.m.role,
-    status: r.m.status,
-    invitedEmail: r.m.invitedEmail,
-    user: r.u
-      ? {
-          id: r.u.id,
-          email: r.u.email,
-          firstName: r.u.firstName,
-          lastName: r.u.lastName,
-          imageUrl: r.u.imageUrl,
-        }
-      : null,
-    joinedAt: r.m.joinedAt,
-    invitedAt: r.m.invitedAt,
-  }));
-  res.json({
-    workspace: ws,
-    role: req.workspaceRole,
-    projects: projs,
-    members,
-  });
+  try {
+    const projs = await db
+      .select()
+      .from(projects)
+      .where(and(eq(projects.workspaceId, ws.id), isNull(projects.deletedAt)))
+      .orderBy(desc(projects.updatedAt));
+    const memberRows = await db
+      .select({
+        m: workspaceMembers,
+        u: appUsers,
+      })
+      .from(workspaceMembers)
+      .leftJoin(appUsers, eq(workspaceMembers.userId, appUsers.id))
+      .where(eq(workspaceMembers.workspaceId, ws.id))
+      .orderBy(asc(workspaceMembers.createdAt));
+    const members = memberRows.map((r) => ({
+      id: r.m.id,
+      role: r.m.role,
+      status: r.m.status,
+      invitedEmail: r.m.invitedEmail,
+      user: r.u
+        ? {
+            id: r.u.id,
+            email: r.u.email,
+            firstName: r.u.firstName,
+            lastName: r.u.lastName,
+            imageUrl: r.u.imageUrl,
+          }
+        : null,
+      joinedAt: r.m.joinedAt,
+      invitedAt: r.m.invitedAt,
+    }));
+    res.json({
+      workspace: ws,
+      role: req.workspaceRole,
+      projects: projs,
+      members,
+    });
+  } catch (err) {
+    req.log.error({ err }, "get workspace detail failed");
+    res.status(500).json({ error: "Failed to load workspace details" });
+  }
 });
 
 // GET /workspaces/:slug/invite-code — get (or lazily create) invite code
@@ -334,8 +359,13 @@ router.delete("/workspaces/:workspaceSlug", loadWorkspace, async (req, res): Pro
     res.status(403).json({ error: "Only the owner can delete a workspace" });
     return;
   }
-  await db.delete(workspaces).where(eq(workspaces.id, ws.id));
-  res.status(204).end();
+  try {
+    await db.delete(workspaces).where(eq(workspaces.id, ws.id));
+    res.status(204).end();
+  } catch (err) {
+    req.log.error({ err }, "delete workspace failed");
+    res.status(500).json({ error: "Failed to delete workspace" });
+  }
 });
 
 // POST /workspaces/:slug/members — invite by email
@@ -432,22 +462,27 @@ router.post(
       res.status(400).json({ error: "Name required" });
       return;
     }
-    const slug = await generateProjectSlug(req.workspace!.id, name);
-    const [created] = await db
-      .insert(projects)
-      .values({
-        workspaceId: req.workspace!.id,
-        ownerUserId: req.appUserId ?? undefined,
-        slug,
-        name,
-        description: req.body?.description ?? null,
-        gameType: req.body?.gameType ?? null,
-        genre: req.body?.genre ?? null,
-        playerCount: req.body?.playerCount ?? null,
-        targetDuration: req.body?.targetDuration ?? null,
-      })
-      .returning();
-    res.status(201).json({ project: created, workspaceSlug: req.workspace!.slug });
+    try {
+      const slug = await generateProjectSlug(req.workspace!.id, name);
+      const [created] = await db
+        .insert(projects)
+        .values({
+          workspaceId: req.workspace!.id,
+          ownerUserId: req.appUserId ?? undefined,
+          slug,
+          name,
+          description: req.body?.description ?? null,
+          gameType: req.body?.gameType ?? null,
+          genre: req.body?.genre ?? null,
+          playerCount: req.body?.playerCount ?? null,
+          targetDuration: req.body?.targetDuration ?? null,
+        })
+        .returning();
+      res.status(201).json({ project: created, workspaceSlug: req.workspace!.slug });
+    } catch (err) {
+      req.log.error({ err }, "create project in workspace failed");
+      res.status(500).json({ error: "Failed to create project" });
+    }
   },
 );
 
@@ -456,15 +491,20 @@ router.get(
   "/workspaces/:workspaceSlug/projects/:projectSlug",
   loadWorkspace,
   async (req, res): Promise<void> => {
-    const projSlug = String(req.params.projectSlug);
-    const found = await findProjectInWorkspace(req.workspace!.id, projSlug);
-    if (!found) {
-      res.status(404).json({ error: "Project not found" });
-      return;
+    try {
+      const projSlug = String(req.params.projectSlug);
+      const found = await findProjectInWorkspace(req.workspace!.id, projSlug);
+      if (!found) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+      const [proj] = await db.select().from(projects).where(and(eq(projects.id, found.id), isNull(projects.deletedAt)));
+      res.set("Cache-Control", "no-store");
+      res.json(proj);
+    } catch (err) {
+      req.log.error({ err }, "resolve project in workspace failed");
+      res.status(500).json({ error: "Failed to resolve project" });
     }
-    const [proj] = await db.select().from(projects).where(and(eq(projects.id, found.id), isNull(projects.deletedAt)));
-    res.set("Cache-Control", "no-store");
-    res.json(proj);
   },
 );
 

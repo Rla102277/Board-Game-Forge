@@ -12,12 +12,17 @@ router.get("/projects/:projectId/notes", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const rows = await db
-    .select()
-    .from(notes)
-    .where(eq(notes.projectId, params.data.projectId))
-    .orderBy(desc(notes.pinned), desc(notes.updatedAt));
-  res.json(schemas.ListNotesResponse.parse(rows));
+  try {
+    const rows = await db
+      .select()
+      .from(notes)
+      .where(eq(notes.projectId, params.data.projectId))
+      .orderBy(desc(notes.pinned), desc(notes.updatedAt));
+    res.json(schemas.ListNotesResponse.parse(rows));
+  } catch (err) {
+    req.log.error({ err }, "list notes failed");
+    res.status(500).json({ error: "Failed to load notes" });
+  }
 });
 
 router.post("/projects/:projectId/notes", async (req, res): Promise<void> => {
@@ -31,11 +36,16 @@ router.post("/projects/:projectId/notes", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [row] = await db
-    .insert(notes)
-    .values({ ...parsed.data, projectId: params.data.projectId })
-    .returning();
-  res.status(201).json(row);
+  try {
+    const [row] = await db
+      .insert(notes)
+      .values({ ...parsed.data, projectId: params.data.projectId })
+      .returning();
+    res.status(201).json(row);
+  } catch (err) {
+    req.log.error({ err }, "create note failed");
+    res.status(500).json({ error: "Failed to create note" });
+  }
 });
 
 router.patch("/projects/:projectId/notes/:noteId", async (req, res): Promise<void> => {
@@ -49,21 +59,26 @@ router.patch("/projects/:projectId/notes/:noteId", async (req, res): Promise<voi
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [row] = await db
-    .update(notes)
-    .set(parsed.data)
-    .where(
-      and(
-        eq(notes.id, params.data.noteId),
-        eq(notes.projectId, params.data.projectId),
-      ),
-    )
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Note not found" });
-    return;
+  try {
+    const [row] = await db
+      .update(notes)
+      .set(parsed.data)
+      .where(
+        and(
+          eq(notes.id, params.data.noteId),
+          eq(notes.projectId, params.data.projectId),
+        ),
+      )
+      .returning();
+    if (!row) {
+      res.status(404).json({ error: "Note not found" });
+      return;
+    }
+    res.json(schemas.UpdateNoteResponse.parse(row));
+  } catch (err) {
+    req.log.error({ err }, "update note failed");
+    res.status(500).json({ error: "Failed to update note" });
   }
-  res.json(schemas.UpdateNoteResponse.parse(row));
 });
 
 router.delete("/projects/:projectId/notes/:noteId", async (req, res): Promise<void> => {
@@ -72,15 +87,20 @@ router.delete("/projects/:projectId/notes/:noteId", async (req, res): Promise<vo
     res.status(400).json({ error: params.error.message });
     return;
   }
-  await db
-    .delete(notes)
-    .where(
-      and(
-        eq(notes.id, params.data.noteId),
-        eq(notes.projectId, params.data.projectId),
-      ),
-    );
-  res.sendStatus(204);
+  try {
+    await db
+      .delete(notes)
+      .where(
+        and(
+          eq(notes.id, params.data.noteId),
+          eq(notes.projectId, params.data.projectId),
+        ),
+      );
+    res.sendStatus(204);
+  } catch (err) {
+    req.log.error({ err }, "delete note failed");
+    res.status(500).json({ error: "Failed to delete note" });
+  }
 });
 
 router.post(
