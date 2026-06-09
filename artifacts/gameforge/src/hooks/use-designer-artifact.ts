@@ -31,8 +31,16 @@ export function useDesignerArtifact<T extends object>(
   isLoading: boolean;
   isSaving: boolean;
 } {
-  const { data: serverRow, isLoading } = useGetDesignerArtifact(projectId, kind);
+  const { data: serverRow, isLoading, error: fetchError } = useGetDesignerArtifact(projectId, kind);
   const updateMutation = useUpdateDesignerArtifact();
+
+  // Log fetch errors
+  useEffect(() => {
+    if (fetchError) {
+      // eslint-disable-next-line no-console
+      console.error(`[useDesignerArtifact:${kind}] Fetch error:`, fetchError);
+    }
+  }, [fetchError, kind]);
 
   const [state, setStateRaw] = useState<T>(getDefault);
   const hydratedRef = useRef(false);
@@ -127,6 +135,10 @@ export function useDesignerArtifact<T extends object>(
             onSettled: () => {
               // Only clear isSaving if this is the most recent save
               if (seq === saveSeqRef.current) setIsSaving(false);
+            },
+            onError: (err) => {
+              // eslint-disable-next-line no-console
+              console.error(`[useDesignerArtifact:${kind}] Save error:`, err);
             },
           },
         );
