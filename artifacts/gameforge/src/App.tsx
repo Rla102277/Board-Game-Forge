@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
 import { dark } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +16,27 @@ import Landing from "@/pages/landing";
 import PublicFeedback from "@/pages/public-feedback";
 import JoinWorkspace from "@/pages/join-workspace";
 import WorkspaceAdmin from "@/pages/workspace-admin";
+import { setBaseUrl, setAuthTokenGetter } from "@workspace/api-client-react";
+import { apiBase } from "@/lib/workspaces-api";
+
+// Configure API client for cross-domain requests
+const apiUrl = apiBase();
+if (apiUrl) {
+  setBaseUrl(apiUrl);
+  // Use Clerk tokens for cross-domain authentication
+  setAuthTokenGetter(async () => {
+    try {
+      // @ts-ignore - Clerk may be available on window
+      const clerk = window.Clerk;
+      if (clerk && clerk.session) {
+        return await clerk.session.getToken();
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+}
 
 const queryClient = new QueryClient();
 
