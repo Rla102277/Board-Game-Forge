@@ -220,6 +220,19 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action)`,
   `CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS audit_logs_severity_idx ON audit_logs (severity)`,
+  // 0036 – kickstarter_assets missing title column
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS title text NOT NULL DEFAULT ''`,
+  // 0037 – kickstarter_assets missing columns that may not exist in older tables
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'pending'`,
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS generation_id text`,
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS gamma_url text`,
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS pdf_url text`,
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS pptx_url text`,
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS error_message text`,
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS meta jsonb`,
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now()`,
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`,
+  `ALTER TABLE kickstarter_assets ADD COLUMN IF NOT EXISTS completed_at timestamptz`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {
