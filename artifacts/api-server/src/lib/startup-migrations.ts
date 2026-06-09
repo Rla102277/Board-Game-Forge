@@ -240,6 +240,14 @@ const MIGRATIONS = [
   // 0040 – chat_messages missing project_id column
   `ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS project_id integer REFERENCES projects(id) ON DELETE CASCADE`,
   `CREATE INDEX IF NOT EXISTS chat_messages_project_id_idx ON chat_messages (project_id)`,
+  // 0041 – chat_messages missing tab column
+  `ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS tab text NOT NULL DEFAULT 'overview'`,
+  // 0042 – entity_properties missing name column
+  `ALTER TABLE entity_properties ADD COLUMN IF NOT EXISTS name text NOT NULL DEFAULT ''`,
+  // 0043 – reference_games missing research_id column
+  `ALTER TABLE reference_games ADD COLUMN IF NOT EXISTS research_id integer`,
+  // 0044 – research_items missing updated_at column
+  `ALTER TABLE research_items ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`,
 ];
 
 export async function runStartupMigrations(): Promise<void> {
