@@ -5,6 +5,8 @@ services:
     buildCommand: npm install --prefix $HOME/.npm-global pnpm && export PATH=$HOME/.npm-global/bin:$PATH && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server run build
     startCommand: node artifacts/api-server/dist/index.mjs
     envVars:
+      - key: PORT
+        value: 10000
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
