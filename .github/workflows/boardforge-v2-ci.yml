@@ -17,6 +17,22 @@ jobs:
         run: node --test packages/game-core/test/*.test.mjs
   baseline:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: boardforge
+          POSTGRES_PASSWORD: boardforge_ci_only
+          POSTGRES_DB: boardforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U boardforge -d boardforge_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://boardforge:boardforge_ci_only@localhost:5432/boardforge_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -36,6 +52,10 @@ jobs:
         id: build
         continue-on-error: true
         run: pnpm build
+      - name: Prepare disposable test database
+        id: schema
+        continue-on-error: true
+        run: pnpm --filter @workspace/db push
       - name: Existing API tests
         id: api_tests
         continue-on-error: true
@@ -46,6 +66,7 @@ jobs:
           TYPECHECK: ${{ steps.typecheck.outcome }}
           BUILD: ${{ steps.build.outcome }}
           API_TESTS: ${{ steps.api_tests.outcome }}
+          SCHEMA: ${{ steps.schema.outcome }}
         run: |
           echo "typecheck=$TYPECHECK build=$BUILD api_tests=$API_TESTS"
-          test "$TYPECHECK" = success && test "$BUILD" = success && test "$API_TESTS" = success
+          test "$TYPECHECK" = success && test "$BUILD" = success && test "$SCHEMA" = success && test "$API_TESTS" = success
