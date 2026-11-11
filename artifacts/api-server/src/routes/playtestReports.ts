@@ -2,14 +2,32 @@ import { Router, type IRouter } from "express";
 import { and, eq, desc } from "drizzle-orm";
 import { db, playtestReports } from "@workspace/db";
 import type { InsertPlaytestReport } from "@workspace/db";
-import { schemas } from "@workspace/api-zod";
+import { z } from "zod/v4";
+
+// These endpoints are not yet represented in the generated OpenAPI schemas.
+// Validate locally until the API spec and generated clients are synchronized.
+const projectParams = z.object({ projectId: z.coerce.number().int().positive() });
+const reportParams = projectParams.extend({ reportId: z.coerce.number().int().positive() });
+const actionItem = z.object({
+  text: z.string(),
+  linkedTaskId: z.number().int().nullable().optional(),
+  done: z.boolean().nullable().optional(),
+});
+const reportBody = z.object({
+  date: z.string().optional(),
+  attendees: z.array(z.string()).optional(),
+  rating: z.number().int().min(0).max(5).nullable().optional(),
+  whatWorked: z.string().nullable().optional(),
+  whatBroke: z.string().nullable().optional(),
+  actionItems: z.array(actionItem).optional(),
+}).strict();
 
 const router: IRouter = Router();
 
 router.get(
   "/projects/:projectId/playtest-reports",
   async (req, res): Promise<void> => {
-    const params = schemas.ListPlaytestReportsParams.safeParse(req.params);
+    const params = projectParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
       return;
@@ -19,19 +37,19 @@ router.get(
       .from(playtestReports)
       .where(eq(playtestReports.projectId, params.data.projectId))
       .orderBy(desc(playtestReports.date));
-    res.json(schemas.ListPlaytestReportsResponse.parse(rows));
+    res.json(rows);
   },
 );
 
 router.post(
   "/projects/:projectId/playtest-reports",
   async (req, res): Promise<void> => {
-    const params = schemas.CreatePlaytestReportParams.safeParse(req.params);
+    const params = projectParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const parsed = schemas.CreatePlaytestReportBody.safeParse(req.body);
+    const parsed = reportBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;
@@ -43,19 +61,19 @@ router.post(
       ...(dateStr ? { date: new Date(dateStr) } : {}),
     };
     const [row] = await db.insert(playtestReports).values(values).returning();
-    res.status(201).json(schemas.PlaytestReportItem.parse(row));
+    res.status(201).json(row);
   },
 );
 
 router.patch(
   "/projects/:projectId/playtest-reports/:reportId",
   async (req, res): Promise<void> => {
-    const params = schemas.UpdatePlaytestReportParams.safeParse(req.params);
+    const params = reportParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const parsed = schemas.UpdatePlaytestReportBody.safeParse(req.body);
+    const parsed = reportBody.partial().safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;
@@ -79,14 +97,14 @@ router.patch(
       res.status(404).json({ error: "Report not found" });
       return;
     }
-    res.json(schemas.PlaytestReportItem.parse(row));
+    res.json(row);
   },
 );
 
 router.delete(
   "/projects/:projectId/playtest-reports/:reportId",
   async (req, res): Promise<void> => {
-    const params = schemas.DeletePlaytestReportParams.safeParse(req.params);
+    const params = reportParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
       return;
