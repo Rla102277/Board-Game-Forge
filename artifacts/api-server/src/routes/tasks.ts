@@ -155,9 +155,7 @@ router.get("/projects/:projectId/tasks", async (req, res): Promise<void> => {
                       sortBy === "status" ? tasks.status :
                       sortBy === "title" ? tasks.title :
                       tasks.createdAt;
-    query = sortOrder === "desc" ? query.orderBy(desc(sortColumn)) : query.orderBy(asc(sortColumn));
-
-    let rows = await query;
+    let rows = await query.orderBy(sortOrder === "desc" ? desc(sortColumn) : asc(sortColumn));
 
     // Server-side assignee filtering with JOIN for efficiency
     const targetAssignees = assigneeIdList ?? (assigneeId ? [parseInt(assigneeId, 10)] : []);
