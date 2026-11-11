@@ -44,3 +44,11 @@ test('non-current player receives no actions', () => {
   assert.deepEqual(legalActions(state,'b'),[]);
   assert.deepEqual(observe(state,'b').legalActions,[]);
 });
+
+test('builder gathers missing wood and wins by constructing three outposts', () => {
+  const state = runMatch(['a','b'], {a:policies.builder,b:policies.first});
+  assert.equal(state.winner, 'a');
+  assert.equal(state.players[0].outposts, 3);
+  assert.equal(state.players[0].points, 9);
+  assert.ok(state.turn < state.maxTurns);
+});

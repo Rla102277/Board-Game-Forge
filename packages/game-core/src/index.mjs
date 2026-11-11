@@ -86,8 +86,9 @@ export function runMatch(playerIds, policies, seed = 1) {
 
 export const policies = {
   first: (_observation, actions) => actions[0],
-  builder: (_observation, actions) =>
-    actions.find(a => a.type === 'buildOutpost') ??
-    actions.find(a => a.type === 'mineGold') ??
-    actions[0]
+  builder: (observation, actions) => {
+    const self = observation.players.find(p => p.id === observation.currentPlayer);
+    const desired = self.wood < 2 ? 'gatherWood' : self.gold < 1 ? 'mineGold' : 'buildOutpost';
+    return actions.find(a => a.type === desired) ?? actions[0];
+  }
 };
