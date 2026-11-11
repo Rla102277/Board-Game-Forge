@@ -38,6 +38,7 @@ const CanvasTab = lazy(() => import("@/components/canvas-tab").then(m => ({ defa
 const Players = lazy(() => import("@/components/workspace/players").then(m => ({ default: m.Players })));
 const Rules = lazy(() => import("@/components/workspace/rules").then(m => ({ default: m.Rules })));
 const Simulator = lazy(() => import("@/components/workspace/simulator").then(m => ({ default: m.Simulator })));
+const DigitalPlay = lazy(() => import("@/components/workspace/digital-play").then(m => ({ default: m.DigitalPlay })));
 const Playtesting = lazy(() => import("@/components/workspace/playtesting").then(m => ({ default: m.Playtesting })));
 const Notes = lazy(() => import("@/components/workspace/notes").then(m => ({ default: m.Notes })));
 const Tasks = lazy(() => import("@/components/workspace/tasks").then(m => ({ default: m.Tasks })));
@@ -128,6 +129,7 @@ const STAGES: Stage[] = [
     what: "Schedule playtests, gather player feedback, and iterate.",
     time: "Ongoing",
     items: [
+      { id: "digital-play", label: "Play vs AI", icon: Gamepad2 },
       { id: "playtesting",      label: "Playtest Kit", icon: Users },
       { id: "blind-playtest",   label: "Blind Test",   icon: EyeOff },
       { id: "playtest-reports", label: "Reports",      icon: ClipboardList },
@@ -564,6 +566,7 @@ export default function Workspace({ projectId: projectIdProp }: { projectId?: nu
       case "turn-structure": return <ErrorBoundary><Suspense fallback={loadingFallback}><TurnStructure projectId={projectId} /></Suspense></ErrorBoundary>;
       case "scaling": return <ErrorBoundary><Suspense fallback={loadingFallback}><ScalingMatrix projectId={projectId} /></Suspense></ErrorBoundary>;
       case "simulator": return <ErrorBoundary><Suspense fallback={loadingFallback}><Simulator projectId={projectId} /></Suspense></ErrorBoundary>;
+      case "digital-play": return <ErrorBoundary><Suspense fallback={loadingFallback}><DigitalPlay key={projectId} projectId={projectId} /></Suspense></ErrorBoundary>;
       case "playtesting": return <ErrorBoundary><Suspense fallback={loadingFallback}><Playtesting projectId={projectId} /></Suspense></ErrorBoundary>;
       case "blind-playtest": return <ErrorBoundary><Suspense fallback={loadingFallback}><BlindPlaytest projectId={projectId} /></Suspense></ErrorBoundary>;
       case "playtest-reports": return <ErrorBoundary><Suspense fallback={loadingFallback}><PlaytestReports projectId={projectId} /></Suspense></ErrorBoundary>;

@@ -62,6 +62,20 @@ jobs:
         id: api_tests
         continue-on-error: true
         run: pnpm --filter @workspace/api-server test
+      - name: Install browser
+        if: steps.build.outcome == 'success'
+        run: pnpm --filter @workspace/gameforge exec playwright install --with-deps chromium
+      - name: Playable browser tests
+        id: browser_tests
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: pnpm --filter @workspace/gameforge test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure() || steps.browser_tests.outcome == 'failure'
+        with:
+          name: browser-test-results
+          path: artifacts/gameforge/test-results
+          if-no-files-found: ignore
       - name: Enforce all baseline checks
         if: always()
         env:
@@ -69,6 +83,7 @@ jobs:
           BUILD: ${{ steps.build.outcome }}
           API_TESTS: ${{ steps.api_tests.outcome }}
           SCHEMA: ${{ steps.schema.outcome }}
+          BROWSER_TESTS: ${{ steps.browser_tests.outcome }}
         run: |
           echo "typecheck=$TYPECHECK build=$BUILD schema=$SCHEMA api_tests=$API_TESTS"
-          test "$TYPECHECK" = success && test "$BUILD" = success && test "$SCHEMA" = success && test "$API_TESTS" = success
+          test "$TYPECHECK" = success && test "$BUILD" = success && test "$SCHEMA" = success && test "$API_TESTS" = success && test "$BROWSER_TESTS" = success

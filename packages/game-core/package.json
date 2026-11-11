@@ -1,0 +1,8 @@
+{
+  "name": "@workspace/game-core",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "test": "node --test test/*.test.mjs", "typecheck": "tsc -p tsconfig.json" }
+}

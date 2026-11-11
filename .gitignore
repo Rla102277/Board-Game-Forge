@@ -53,3 +53,7 @@ Thumbs.db
 .cache/
 .local/
 .aider*
+
+# Browser test output
+**/test-results/
+**/playwright-report/

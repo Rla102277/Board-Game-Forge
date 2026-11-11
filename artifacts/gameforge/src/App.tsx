@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, lazy, Suspense } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
@@ -44,9 +44,7 @@ const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-if (!clerkPubKey) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in environment");
-}
+const DigitalPlay = lazy(() => import("@/components/workspace/digital-play").then(m => ({default: m.DigitalPlay})));
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
@@ -246,6 +244,7 @@ function Routes() {
 }
 
 function ClerkProviderWithRoutes() {
+  if (!clerkPubKey) throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in environment");
   const [, setLocation] = useLocation();
   return (
     <ClerkProvider
@@ -279,7 +278,10 @@ function ClerkProviderWithRoutes() {
 function App() {
   return (
     <WouterRouter base={basePath}>
-      <ClerkProviderWithRoutes />
+      <Switch>
+        <Route path="/play"><Suspense fallback={<p className="p-8">Loading game…</p>}><DigitalPlay /></Suspense></Route>
+        <Route><ClerkProviderWithRoutes /></Route>
+      </Switch>
     </WouterRouter>
   );
 }
