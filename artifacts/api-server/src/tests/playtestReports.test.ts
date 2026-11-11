@@ -39,7 +39,7 @@ describe("Playtest report contract and persistence", () => {
     expect((await api.get(url)).body).toEqual([]);
   });
 
-  it.each([{ date: "not-a-date" }, { rating: 6 }, { rating: 2.5 }, { attendees: "Tester" }, { actionItems: [{}] }, { projectId: 1 }])("rejects invalid bodies: %j", async (body) => {
+  it.each([{ date: "not-a-date" }, { date: null }, { date: 0 }, { date: "" }, { actionItems: [{text: "Task", linkedTaskId: 1.5}] }, { rating: 6 }, { rating: 2.5 }, { attendees: "Tester" }, { actionItems: [{}] }, { projectId: 1 }])("rejects invalid bodies: %j", async (body) => {
     await api.post(`/projects/${projectId}/playtest-reports`).send(body).expect(400);
   });
 

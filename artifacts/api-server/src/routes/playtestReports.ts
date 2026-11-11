@@ -3,6 +3,7 @@ import { and, eq, desc } from "drizzle-orm";
 import { db, playtestReports } from "@workspace/db";
 import type { InsertPlaytestReport } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
+import { z } from "zod";
 
 const projectParams = schemas.ListPlaytestReportsParams.extend({
   projectId: schemas.ListPlaytestReportsParams.shape.projectId.int().positive(),
@@ -11,7 +12,13 @@ const reportParams = schemas.UpdatePlaytestReportParams.extend({
   projectId: projectParams.shape.projectId,
   reportId: schemas.UpdatePlaytestReportParams.shape.reportId.int().positive(),
 });
+const actionItem = schemas.CreatePlaytestReportBody.shape.actionItems.unwrap().element;
 const reportBody = schemas.CreatePlaytestReportBody.extend({
+  // OpenAPI dates are JSON strings; generic date coercion also accepts null/numbers.
+  date: z.string().datetime({ offset: true }).optional(),
+  actionItems: z.array(actionItem.extend({
+    linkedTaskId: actionItem.shape.linkedTaskId.unwrap().unwrap().int().nullish(),
+  })).optional(),
   rating: schemas.CreatePlaytestReportBody.shape.rating.unwrap().unwrap().int().nullish(),
 }).strict();
 
