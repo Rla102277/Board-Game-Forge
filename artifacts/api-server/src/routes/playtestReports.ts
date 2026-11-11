@@ -2,24 +2,17 @@ import { Router, type IRouter } from "express";
 import { and, eq, desc } from "drizzle-orm";
 import { db, playtestReports } from "@workspace/db";
 import type { InsertPlaytestReport } from "@workspace/db";
-import { z } from "zod/v4";
+import { schemas } from "@workspace/api-zod";
 
-// These endpoints are not yet represented in the generated OpenAPI schemas.
-// Validate locally until the API spec and generated clients are synchronized.
-const projectParams = z.object({ projectId: z.coerce.number().int().positive() });
-const reportParams = projectParams.extend({ reportId: z.coerce.number().int().positive() });
-const actionItem = z.object({
-  text: z.string(),
-  linkedTaskId: z.number().int().nullable().optional(),
-  done: z.boolean().nullable().optional(),
+const projectParams = schemas.ListPlaytestReportsParams.extend({
+  projectId: schemas.ListPlaytestReportsParams.shape.projectId.int().positive(),
 });
-const reportBody = z.object({
-  date: z.string().optional(),
-  attendees: z.array(z.string()).optional(),
-  rating: z.number().int().min(0).max(5).nullable().optional(),
-  whatWorked: z.string().nullable().optional(),
-  whatBroke: z.string().nullable().optional(),
-  actionItems: z.array(actionItem).optional(),
+const reportParams = schemas.UpdatePlaytestReportParams.extend({
+  projectId: projectParams.shape.projectId,
+  reportId: schemas.UpdatePlaytestReportParams.shape.reportId.int().positive(),
+});
+const reportBody = schemas.CreatePlaytestReportBody.extend({
+  rating: schemas.CreatePlaytestReportBody.shape.rating.unwrap().unwrap().int().nullish(),
 }).strict();
 
 const router: IRouter = Router();
@@ -73,7 +66,7 @@ router.patch(
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const parsed = reportBody.partial().safeParse(req.body);
+    const parsed = reportBody.refine((body) => Object.keys(body).length > 0, "Provide at least one field").safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;

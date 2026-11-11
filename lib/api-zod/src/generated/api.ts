@@ -128,6 +128,7 @@ export const ListProjectsResponseItem = zod.object({
   winCondition: zod.string().nullish(),
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
+  referenceGames: zod.string().nullish(),
   designPhase: zod.string().nullish(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
@@ -172,6 +173,7 @@ export const GetProjectResponse = zod.object({
   winCondition: zod.string().nullish(),
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
+  referenceGames: zod.string().nullish(),
   designPhase: zod.string().nullish(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
@@ -228,6 +230,7 @@ export const UpdateProjectResponse = zod.object({
   winCondition: zod.string().nullish(),
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
+  referenceGames: zod.string().nullish(),
   designPhase: zod.string().nullish(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
@@ -326,7 +329,7 @@ export const ListTrashedProjectsResponseItem = zod.object({
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
   referenceGames: zod.string().nullish(),
-  designPhase: zod.string(),
+  designPhase: zod.string().nullish(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -334,6 +337,11 @@ export const ListTrashedProjectsResponseItem = zod.object({
   mechanicFingerprint: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  deletedAt: zod.coerce.date().nullish(),
+  workspaceId: zod.number().nullish(),
+  slug: zod.string().nullish(),
+  forkedFromProjectId: zod.number().nullish(),
+  forkedFromSnapshotId: zod.number().nullish(),
 });
 export const ListTrashedProjectsResponse = zod.array(
   ListTrashedProjectsResponseItem,
@@ -362,7 +370,7 @@ export const RestoreProjectResponse = zod.object({
   turnPhases: zod.string().nullish(),
   eliminationRule: zod.string().nullish(),
   referenceGames: zod.string().nullish(),
-  designPhase: zod.string(),
+  designPhase: zod.string().nullish(),
   overviewMeta: zod.record(zod.string(), zod.unknown()).nullish(),
   designProblems: zod.array(zod.record(zod.string(), zod.unknown())).nullish(),
   nextPlaytest: zod.record(zod.string(), zod.unknown()).nullish(),
@@ -370,6 +378,11 @@ export const RestoreProjectResponse = zod.object({
   mechanicFingerprint: zod.record(zod.string(), zod.unknown()).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  deletedAt: zod.coerce.date().nullish(),
+  workspaceId: zod.number().nullish(),
+  slug: zod.string().nullish(),
+  forkedFromProjectId: zod.number().nullish(),
+  forkedFromSnapshotId: zod.number().nullish(),
 });
 
 /**
@@ -2049,6 +2062,131 @@ export const SimulatorPlaythroughParams = zod.object({
 
 export const SimulatorPlaythroughBody = zod.object({
   focus: zod.string().optional(),
+});
+
+export const ListPlaytestReportsParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const listPlaytestReportsResponseRatingMin = 0;
+export const listPlaytestReportsResponseRatingMax = 5;
+
+export const ListPlaytestReportsResponseItem = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  date: zod.coerce.date(),
+  attendees: zod.array(zod.string()).nullish(),
+  rating: zod
+    .number()
+    .min(listPlaytestReportsResponseRatingMin)
+    .max(listPlaytestReportsResponseRatingMax)
+    .nullish(),
+  whatWorked: zod.string().nullish(),
+  whatBroke: zod.string().nullish(),
+  actionItems: zod
+    .array(
+      zod.object({
+        text: zod.string(),
+        linkedTaskId: zod.number().nullish(),
+        done: zod.boolean().nullish(),
+      }),
+    )
+    .nullish(),
+});
+export const ListPlaytestReportsResponse = zod.array(
+  ListPlaytestReportsResponseItem,
+);
+
+export const CreatePlaytestReportParams = zod.object({
+  projectId: zod.coerce.number(),
+});
+
+export const createPlaytestReportBodyRatingMin = 0;
+export const createPlaytestReportBodyRatingMax = 5;
+
+export const CreatePlaytestReportBody = zod.object({
+  date: zod.coerce.date().optional(),
+  attendees: zod.array(zod.string()).optional(),
+  rating: zod
+    .number()
+    .min(createPlaytestReportBodyRatingMin)
+    .max(createPlaytestReportBodyRatingMax)
+    .nullish(),
+  whatWorked: zod.string().nullish(),
+  whatBroke: zod.string().nullish(),
+  actionItems: zod
+    .array(
+      zod.object({
+        text: zod.string(),
+        linkedTaskId: zod.number().nullish(),
+        done: zod.boolean().nullish(),
+      }),
+    )
+    .optional(),
+});
+
+export const UpdatePlaytestReportParams = zod.object({
+  projectId: zod.coerce.number(),
+  reportId: zod.coerce.number().min(1),
+});
+
+export const updatePlaytestReportBodyRatingMin = 0;
+export const updatePlaytestReportBodyRatingMax = 5;
+
+export const UpdatePlaytestReportBody = zod.object({
+  date: zod.coerce.date().optional(),
+  attendees: zod.array(zod.string()).optional(),
+  rating: zod
+    .number()
+    .min(updatePlaytestReportBodyRatingMin)
+    .max(updatePlaytestReportBodyRatingMax)
+    .nullish(),
+  whatWorked: zod.string().nullish(),
+  whatBroke: zod.string().nullish(),
+  actionItems: zod
+    .array(
+      zod.object({
+        text: zod.string(),
+        linkedTaskId: zod.number().nullish(),
+        done: zod.boolean().nullish(),
+      }),
+    )
+    .optional(),
+});
+
+export const updatePlaytestReportResponseRatingMin = 0;
+export const updatePlaytestReportResponseRatingMax = 5;
+
+export const UpdatePlaytestReportResponse = zod.object({
+  id: zod.number(),
+  projectId: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  date: zod.coerce.date(),
+  attendees: zod.array(zod.string()).nullish(),
+  rating: zod
+    .number()
+    .min(updatePlaytestReportResponseRatingMin)
+    .max(updatePlaytestReportResponseRatingMax)
+    .nullish(),
+  whatWorked: zod.string().nullish(),
+  whatBroke: zod.string().nullish(),
+  actionItems: zod
+    .array(
+      zod.object({
+        text: zod.string(),
+        linkedTaskId: zod.number().nullish(),
+        done: zod.boolean().nullish(),
+      }),
+    )
+    .nullish(),
+});
+
+export const DeletePlaytestReportParams = zod.object({
+  projectId: zod.coerce.number(),
+  reportId: zod.coerce.number().min(1),
 });
 
 export const ListPlaytestSessionsParams = zod.object({

@@ -99,7 +99,8 @@ export interface Project {
   eliminationRule?: string | null;
   /** @nullable */
   referenceGames?: string | null;
-  designPhase: string;
+  /** @nullable */
+  designPhase?: string | null;
   overviewMeta?: ProjectOverviewMeta;
   designProblems?: ProjectDesignProblemsItem[] | null;
   nextPlaytest?: ProjectNextPlaytest;
@@ -107,6 +108,16 @@ export interface Project {
   mechanicFingerprint?: ProjectMechanicFingerprint;
   createdAt: string;
   updatedAt: string;
+  /** @nullable */
+  deletedAt?: string | null;
+  /** @nullable */
+  workspaceId?: number | null;
+  /** @nullable */
+  slug?: string | null;
+  /** @nullable */
+  forkedFromProjectId?: number | null;
+  /** @nullable */
+  forkedFromSnapshotId?: number | null;
 }
 
 export interface CreateProjectBody {
@@ -1171,6 +1182,42 @@ export interface UpdateReferenceGameBody {
   position?: number;
   gameData?: UpdateReferenceGameBodyGameData;
   researchId?: number;
+}
+
+export interface PlaytestReportActionItem {
+  text: string;
+  linkedTaskId?: number | null;
+  done?: boolean | null;
+}
+
+export interface CreatePlaytestReportBody {
+  date?: string;
+  attendees?: string[];
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  rating?: number | null;
+  whatWorked?: string | null;
+  whatBroke?: string | null;
+  actionItems?: PlaytestReportActionItem[];
+}
+
+export interface PlaytestReport {
+  id: number;
+  projectId: number;
+  createdAt: string;
+  updatedAt: string;
+  date: string;
+  attendees?: string[] | null;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  rating?: number | null;
+  whatWorked?: string | null;
+  whatBroke?: string | null;
+  actionItems?: PlaytestReportActionItem[] | null;
 }
 
 /**
