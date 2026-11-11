@@ -1,6 +1,6 @@
 // Fabric.js imports - use named imports for better tree-shaking
 import { Canvas, Rect, Circle, Triangle, Line, Textbox, FabricImage, FabricObject } from 'fabric';
-import { v4 as uuidv4 } from 'uuid';
+const uuidv4 = () => crypto.randomUUID();
 
 export interface CanvasState {
   version: number;
@@ -94,12 +94,11 @@ export class CanvasManager {
   }
 
   private loadState(state: CanvasState) {
-    this.canvas.loadFromJSON(state, () => {
+    void this.canvas.loadFromJSON(state).then(() => {
       this.canvas.setWidth(state.width);
       this.canvas.setHeight(state.height);
-      this.canvas.setBackgroundColor(state.background || '#f8f9fa', () => {
-        this.canvas.renderAll();
-      });
+      this.canvas.backgroundColor = state.background || '#f8f9fa';
+      this.canvas.renderAll();
     });
   }
 
@@ -215,16 +214,14 @@ export class CanvasManager {
 
   clearCanvas() {
     this.canvas.clear();
-    this.canvas.setBackgroundColor('#f8f9fa', () => {
-      this.canvas.renderAll();
-    });
+    this.canvas.backgroundColor = '#f8f9fa';
+    this.canvas.renderAll();
   }
 
   setBackgroundColor(color: string) {
-    this.canvas.setBackgroundColor(color, () => {
-      this.canvas.renderAll();
-      this.saveState();
-    });
+    this.canvas.backgroundColor = color;
+    this.canvas.renderAll();
+    this.saveState();
   }
 
   exportToJSON(): CanvasState {

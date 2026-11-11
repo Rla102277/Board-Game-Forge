@@ -4,12 +4,23 @@ import { db, playtestReports } from "@workspace/db";
 import type { InsertPlaytestReport } from "@workspace/db";
 import { schemas } from "@workspace/api-zod";
 
+const projectParams = schemas.ListPlaytestReportsParams.extend({
+  projectId: schemas.ListPlaytestReportsParams.shape.projectId.int().positive(),
+});
+const reportParams = schemas.UpdatePlaytestReportParams.extend({
+  projectId: projectParams.shape.projectId,
+  reportId: schemas.UpdatePlaytestReportParams.shape.reportId.int().positive(),
+});
+const reportBody = schemas.CreatePlaytestReportBody.extend({
+  rating: schemas.CreatePlaytestReportBody.shape.rating.unwrap().unwrap().int().nullish(),
+}).strict();
+
 const router: IRouter = Router();
 
 router.get(
   "/projects/:projectId/playtest-reports",
   async (req, res): Promise<void> => {
-    const params = schemas.ListPlaytestReportsParams.safeParse(req.params);
+    const params = projectParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
       return;
@@ -19,19 +30,19 @@ router.get(
       .from(playtestReports)
       .where(eq(playtestReports.projectId, params.data.projectId))
       .orderBy(desc(playtestReports.date));
-    res.json(schemas.ListPlaytestReportsResponse.parse(rows));
+    res.json(rows);
   },
 );
 
 router.post(
   "/projects/:projectId/playtest-reports",
   async (req, res): Promise<void> => {
-    const params = schemas.CreatePlaytestReportParams.safeParse(req.params);
+    const params = projectParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const parsed = schemas.CreatePlaytestReportBody.safeParse(req.body);
+    const parsed = reportBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;
@@ -43,19 +54,19 @@ router.post(
       ...(dateStr ? { date: new Date(dateStr) } : {}),
     };
     const [row] = await db.insert(playtestReports).values(values).returning();
-    res.status(201).json(schemas.PlaytestReportItem.parse(row));
+    res.status(201).json(row);
   },
 );
 
 router.patch(
   "/projects/:projectId/playtest-reports/:reportId",
   async (req, res): Promise<void> => {
-    const params = schemas.UpdatePlaytestReportParams.safeParse(req.params);
+    const params = reportParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
       return;
     }
-    const parsed = schemas.UpdatePlaytestReportBody.safeParse(req.body);
+    const parsed = reportBody.refine((body) => Object.keys(body).length > 0, "Provide at least one field").safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;
@@ -79,14 +90,14 @@ router.patch(
       res.status(404).json({ error: "Report not found" });
       return;
     }
-    res.json(schemas.PlaytestReportItem.parse(row));
+    res.json(row);
   },
 );
 
 router.delete(
   "/projects/:projectId/playtest-reports/:reportId",
   async (req, res): Promise<void> => {
-    const params = schemas.DeletePlaytestReportParams.safeParse(req.params);
+    const params = reportParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
       return;

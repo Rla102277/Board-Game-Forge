@@ -78,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
 /**
  * Simple error boundary with minimal UI for inline components
  */
-export function InlineErrorBoundary({ children, message = "Failed to load" }: { children: ReactNode; message?: string }): JSX.Element {
+export function InlineErrorBoundary({ children, message = "Failed to load" }: { children: ReactNode; message?: string }): React.JSX.Element {
   return (
     <ErrorBoundary
       fallback={

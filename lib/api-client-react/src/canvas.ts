@@ -72,7 +72,7 @@ export function useCreateBoard(projectId: number) {
     mutationFn: async (data: CreateBoardRequest) => {
       return customFetch<GameBoard>(getProjectBoardsUrl(projectId), {
         method: 'POST',
-        body: data,
+        body: JSON.stringify(data),
       });
     },
     onSuccess: () => {
@@ -88,7 +88,7 @@ export function useUpdateBoard(projectId: number, boardId: number) {
     mutationFn: async (data: UpdateBoardRequest) => {
       return customFetch<GameBoard>(getProjectBoardUrl(projectId, boardId), {
         method: 'PATCH',
-        body: data,
+        body: JSON.stringify(data),
       });
     },
     onSuccess: () => {
@@ -120,7 +120,7 @@ export function useDuplicateBoard(projectId: number) {
     mutationFn: async ({ boardId, name }: { boardId: number; name?: string }) => {
       return customFetch<GameBoard>(getDuplicateBoardUrl(projectId, boardId), {
         method: 'POST',
-        body: { name },
+        body: JSON.stringify({ name }),
       });
     },
     onSuccess: () => {

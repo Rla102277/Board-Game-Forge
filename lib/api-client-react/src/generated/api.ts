@@ -41,6 +41,7 @@ import type {
   CreateEntityPropertyBody,
   CreateNoteBody,
   CreatePlayerBody,
+  CreatePlaytestReportBody,
   CreatePlaytestSessionBody,
   CreateProjectBody,
   CreateReferenceGameBody,
@@ -74,6 +75,7 @@ import type {
   Note,
   Player,
   PlaytestFeedback,
+  PlaytestReport,
   PlaytestSession,
   PlaythroughBody,
   Project,
@@ -9009,6 +9011,361 @@ export const useSimulatorPlaythrough = <
   TContext
 > => {
   return useMutation(getSimulatorPlaythroughMutationOptions(options));
+};
+
+export const getListPlaytestReportsUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/playtest-reports`;
+};
+
+export const listPlaytestReports = async (
+  projectId: number,
+  options?: RequestInit,
+): Promise<PlaytestReport[]> => {
+  return customFetch<PlaytestReport[]>(getListPlaytestReportsUrl(projectId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPlaytestReportsQueryKey = (projectId: number) => {
+  return [`/api/projects/${projectId}/playtest-reports`] as const;
+};
+
+export const getListPlaytestReportsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPlaytestReports>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPlaytestReports>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPlaytestReportsQueryKey(projectId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPlaytestReports>>
+  > = ({ signal }) =>
+    listPlaytestReports(projectId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPlaytestReports>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPlaytestReportsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPlaytestReports>>
+>;
+export type ListPlaytestReportsQueryError = ErrorType<unknown>;
+
+export function useListPlaytestReports<
+  TData = Awaited<ReturnType<typeof listPlaytestReports>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPlaytestReports>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPlaytestReportsQueryOptions(projectId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getCreatePlaytestReportUrl = (projectId: number) => {
+  return `/api/projects/${projectId}/playtest-reports`;
+};
+
+export const createPlaytestReport = async (
+  projectId: number,
+  createPlaytestReportBody: CreatePlaytestReportBody,
+  options?: RequestInit,
+): Promise<PlaytestReport> => {
+  return customFetch<PlaytestReport>(getCreatePlaytestReportUrl(projectId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPlaytestReportBody),
+  });
+};
+
+export const getCreatePlaytestReportMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPlaytestReport>>,
+    TError,
+    { projectId: number; data: BodyType<CreatePlaytestReportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPlaytestReport>>,
+  TError,
+  { projectId: number; data: BodyType<CreatePlaytestReportBody> },
+  TContext
+> => {
+  const mutationKey = ["createPlaytestReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPlaytestReport>>,
+    { projectId: number; data: BodyType<CreatePlaytestReportBody> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return createPlaytestReport(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePlaytestReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPlaytestReport>>
+>;
+export type CreatePlaytestReportMutationBody =
+  BodyType<CreatePlaytestReportBody>;
+export type CreatePlaytestReportMutationError = ErrorType<unknown>;
+
+export const useCreatePlaytestReport = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPlaytestReport>>,
+    TError,
+    { projectId: number; data: BodyType<CreatePlaytestReportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPlaytestReport>>,
+  TError,
+  { projectId: number; data: BodyType<CreatePlaytestReportBody> },
+  TContext
+> => {
+  return useMutation(getCreatePlaytestReportMutationOptions(options));
+};
+
+export const getUpdatePlaytestReportUrl = (
+  projectId: number,
+  reportId: number,
+) => {
+  return `/api/projects/${projectId}/playtest-reports/${reportId}`;
+};
+
+export const updatePlaytestReport = async (
+  projectId: number,
+  reportId: number,
+  createPlaytestReportBody: CreatePlaytestReportBody,
+  options?: RequestInit,
+): Promise<PlaytestReport> => {
+  return customFetch<PlaytestReport>(
+    getUpdatePlaytestReportUrl(projectId, reportId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createPlaytestReportBody),
+    },
+  );
+};
+
+export const getUpdatePlaytestReportMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePlaytestReport>>,
+    TError,
+    {
+      projectId: number;
+      reportId: number;
+      data: BodyType<CreatePlaytestReportBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePlaytestReport>>,
+  TError,
+  {
+    projectId: number;
+    reportId: number;
+    data: BodyType<CreatePlaytestReportBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updatePlaytestReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePlaytestReport>>,
+    {
+      projectId: number;
+      reportId: number;
+      data: BodyType<CreatePlaytestReportBody>;
+    }
+  > = (props) => {
+    const { projectId, reportId, data } = props ?? {};
+
+    return updatePlaytestReport(projectId, reportId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePlaytestReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePlaytestReport>>
+>;
+export type UpdatePlaytestReportMutationBody =
+  BodyType<CreatePlaytestReportBody>;
+export type UpdatePlaytestReportMutationError = ErrorType<unknown>;
+
+export const useUpdatePlaytestReport = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePlaytestReport>>,
+    TError,
+    {
+      projectId: number;
+      reportId: number;
+      data: BodyType<CreatePlaytestReportBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePlaytestReport>>,
+  TError,
+  {
+    projectId: number;
+    reportId: number;
+    data: BodyType<CreatePlaytestReportBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdatePlaytestReportMutationOptions(options));
+};
+
+export const getDeletePlaytestReportUrl = (
+  projectId: number,
+  reportId: number,
+) => {
+  return `/api/projects/${projectId}/playtest-reports/${reportId}`;
+};
+
+export const deletePlaytestReport = async (
+  projectId: number,
+  reportId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeletePlaytestReportUrl(projectId, reportId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeletePlaytestReportMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePlaytestReport>>,
+    TError,
+    { projectId: number; reportId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deletePlaytestReport>>,
+  TError,
+  { projectId: number; reportId: number },
+  TContext
+> => {
+  const mutationKey = ["deletePlaytestReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deletePlaytestReport>>,
+    { projectId: number; reportId: number }
+  > = (props) => {
+    const { projectId, reportId } = props ?? {};
+
+    return deletePlaytestReport(projectId, reportId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeletePlaytestReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePlaytestReport>>
+>;
+
+export type DeletePlaytestReportMutationError = ErrorType<unknown>;
+
+export const useDeletePlaytestReport = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePlaytestReport>>,
+    TError,
+    { projectId: number; reportId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deletePlaytestReport>>,
+  TError,
+  { projectId: number; reportId: number },
+  TContext
+> => {
+  return useMutation(getDeletePlaytestReportMutationOptions(options));
 };
 
 export const getListPlaytestSessionsUrl = (projectId: number) => {

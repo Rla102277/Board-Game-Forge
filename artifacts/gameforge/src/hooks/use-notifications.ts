@@ -119,7 +119,7 @@ export function useNotifications() {
     setIsOpen,
     loadNotifications,
     markAsRead,
-    markAllAsRead,
+    markAllAsRead: markAllRead,
     deleteNotification,
   };
 }

@@ -1819,6 +1819,80 @@ paths:
           content:
             text/event-stream: {}
 
+  /projects/{projectId}/playtest-reports:
+    get:
+      operationId: listPlaytestReports
+      tags: [playtest]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Playtest report result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlaytestReport"
+    post:
+      operationId: createPlaytestReport
+      tags: [playtest]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlaytestReportBody"
+      responses:
+        "201":
+          description: Playtest report result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaytestReport"
+
+  /projects/{projectId}/playtest-reports/{reportId}:
+    patch:
+      operationId: updatePlaytestReport
+      tags: [playtest]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlaytestReportBody"
+      responses:
+        "200":
+          description: Playtest report result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaytestReport"
+    delete:
+      operationId: deletePlaytestReport
+      tags: [playtest]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "204":
+          description: Playtest report result
+
   /projects/{projectId}/playtest-sessions:
     get:
       operationId: listPlaytestSessions
@@ -2325,7 +2399,7 @@ components:
         referenceGames:
           type: [string, "null"]
         designPhase:
-          type: string
+          type: [string, "null"]
         overviewMeta:
           type: object
           nullable: true
@@ -2356,7 +2430,18 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, name, designPhase, createdAt, updatedAt]
+        deletedAt:
+          type: [string, "null"]
+          format: date-time
+        workspaceId:
+          type: [integer, "null"]
+        slug:
+          type: [string, "null"]
+        forkedFromProjectId:
+          type: [integer, "null"]
+        forkedFromSnapshotId:
+          type: [integer, "null"]
+      required: [id, name, createdAt, updatedAt]
 
     CreateProjectBody:
       type: object
@@ -4144,3 +4229,80 @@ components:
           additionalProperties: true
         researchId:
           type: integer
+
+    PlaytestReportActionItem:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+        linkedTaskId:
+          type: integer
+          nullable: true
+        done:
+          type: boolean
+          nullable: true
+    CreatePlaytestReportBody:
+      type: object
+      additionalProperties: false
+      properties:
+        date:
+          type: string
+          format: date-time
+        attendees:
+          type: array
+          items:
+            type: string
+        rating:
+          type: integer
+          minimum: 0
+          maximum: 5
+          nullable: true
+        whatWorked:
+          type: string
+          nullable: true
+        whatBroke:
+          type: string
+          nullable: true
+        actionItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlaytestReportActionItem"
+    PlaytestReport:
+      type: object
+      required: [id, projectId, date, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        date:
+          type: string
+          format: date-time
+        attendees:
+          nullable: true
+          type: array
+          items:
+            type: string
+        rating:
+          type: integer
+          minimum: 0
+          maximum: 5
+          nullable: true
+        whatWorked:
+          type: string
+          nullable: true
+        whatBroke:
+          type: string
+          nullable: true
+        actionItems:
+          nullable: true
+          type: array
+          items:
+            $ref: "#/components/schemas/PlaytestReportActionItem"

@@ -15,42 +15,12 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { PlaytestReport, PlaytestReportActionItem, CreatePlaytestReportBody } from "@workspace/api-client-react";
 
-async function fetchReports(projectId: number): Promise<PlaytestReport[]> {
-  const res = await fetch(`/api/projects/${projectId}/playtest-reports`);
-  if (!res.ok) throw new Error("Failed to fetch reports");
-  return res.json();
-}
-
-async function createReport(projectId: number, body: CreatePlaytestReportBody): Promise<PlaytestReport> {
-  const res = await fetch(`/api/projects/${projectId}/playtest-reports`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error("Failed to create report");
-  return res.json();
-}
-
-async function updateReport(
-  projectId: number,
-  reportId: number,
-  body: Partial<CreatePlaytestReportBody>,
-): Promise<PlaytestReport> {
-  const res = await fetch(`/api/projects/${projectId}/playtest-reports/${reportId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error("Failed to update report");
-  return res.json();
-}
-
-async function deleteReport(projectId: number, reportId: number): Promise<void> {
-  const res = await fetch(`/api/projects/${projectId}/playtest-reports/${reportId}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error("Failed to delete report");
-}
+import {
+  listPlaytestReports as fetchReports,
+  createPlaytestReport as createReport,
+  updatePlaytestReport as updateReport,
+  deletePlaytestReport as deleteReport,
+} from "@workspace/api-client-react";
 
 async function createTask(
   projectId: number,

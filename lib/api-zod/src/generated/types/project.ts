@@ -40,7 +40,8 @@ export interface Project {
   eliminationRule?: string | null;
   /** @nullable */
   referenceGames?: string | null;
-  designPhase: string;
+  /** @nullable */
+  designPhase?: string | null;
   overviewMeta?: ProjectOverviewMeta;
   designProblems?: ProjectDesignProblemsItem[] | null;
   nextPlaytest?: ProjectNextPlaytest;
@@ -48,4 +49,14 @@ export interface Project {
   mechanicFingerprint?: ProjectMechanicFingerprint;
   createdAt: Date;
   updatedAt: Date;
+  /** @nullable */
+  deletedAt?: Date | null;
+  /** @nullable */
+  workspaceId?: number | null;
+  /** @nullable */
+  slug?: string | null;
+  /** @nullable */
+  forkedFromProjectId?: number | null;
+  /** @nullable */
+  forkedFromSnapshotId?: number | null;
 }

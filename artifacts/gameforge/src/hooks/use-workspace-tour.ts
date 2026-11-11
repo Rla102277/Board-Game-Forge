@@ -12,6 +12,7 @@ export function useWorkspaceTour(projectId: number) {
       const timer = setTimeout(() => setShowTour(true), 800);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [projectId]);
 
   const startTour = useCallback(() => setShowTour(true), []);

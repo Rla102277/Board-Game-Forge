@@ -327,7 +327,7 @@ export default function CanvasTab({ projectId }: CanvasTabProps) {
           <Button
             variant="outline"
             onClick={handleSaveBoard}
-            disabled={updateBoardMutation.isLoading || !currentBoardState}
+            disabled={updateBoardMutation.isPending || !currentBoardState}
           >
             <Save className="h-4 w-4 mr-2" />
             Save

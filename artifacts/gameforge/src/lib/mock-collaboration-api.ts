@@ -108,19 +108,19 @@ const mockCommentsStore: Map<string, TaskComment[]> = new Map([
     {
       id: nextCommentId(), entityType: "task", entityId: 1, parentId: null,
       author: mockUsers[1], content: "Should we look at Wingspan for inspiration?",
-      mentions: [], createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+      mentions: [], resolved: false, reactions: [], createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
       updatedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
     },
     {
       id: nextCommentId(), entityType: "task", entityId: 1, parentId: null,
       author: mockUsers[2], content: "Great idea, I'll add a research subtask.",
-      mentions: [], createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+      mentions: [], resolved: false, reactions: [], createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
       updatedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
     },
     {
       id: nextCommentId(), entityType: "task", entityId: 1, parentId: 2,
       author: mockUsers[1], content: "Let me know when you have a first draft.",
-      mentions: [], createdAt: new Date(Date.now() - 3600000).toISOString(),
+      mentions: [], resolved: false, reactions: [], createdAt: new Date(Date.now() - 3600000).toISOString(),
       updatedAt: new Date(Date.now() - 3600000).toISOString(),
     },
   ]],
@@ -128,7 +128,7 @@ const mockCommentsStore: Map<string, TaskComment[]> = new Map([
     {
       id: nextCommentId(), entityType: "task", entityId: 4, parentId: null,
       author: mockUsers[3], content: "Reviewed and left some feedback in the doc.",
-      mentions: [], createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
+      mentions: [], resolved: false, reactions: [], createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
       updatedAt: new Date(Date.now() - 3600000 * 6).toISOString(),
     },
   ]],
@@ -357,7 +357,7 @@ export async function createComment(
     parentId: parentId ?? null,
     author: currentUser,
     content,
-    mentions: [],
+    mentions: [], resolved: false, reactions: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

@@ -21,8 +21,10 @@ export function CanvasEditor({
   projectId,
   board,
   initialWidth = 800,
-  initialHeight = 600
+  initialHeight = 600,
+  onCanvasChange
 }: CanvasEditorProps) {
+  const backgroundInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasManagerRef = useRef<CanvasManager | null>(null);
   const [selectedTool, setSelectedTool] = useState<string>('select');
@@ -219,6 +221,7 @@ export function CanvasEditor({
 
   return (
     <div className="flex flex-col h-full">
+      <input ref={backgroundInputRef} type="color" aria-label="Canvas background" className="sr-only" value={backgroundColor} onChange={(e) => handleBackgroundChange(e.target.value)} />
       <CanvasToolbar
         onAddRectangle={handleAddRectangle}
         onAddCircle={handleAddCircle}
@@ -233,7 +236,7 @@ export function CanvasEditor({
         onImport={handleImport}
         onToggleGrid={handleToggleGrid}
         onToggleSnap={handleToggleSnap}
-        onChangeBackground={handleChangeBackground}
+        onChangeBackground={() => backgroundInputRef.current?.click()}
         canUndo={canUndo}
         canRedo={canRedo}
         showGrid={showGrid}

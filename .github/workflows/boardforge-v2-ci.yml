@@ -1,0 +1,74 @@
+name: BoardForge V2 baseline and engine
+on:
+  push:
+    branches: [Main, feature/boardforge-v2-audit]
+  pull_request:
+    branches: [Main]
+  workflow_dispatch:
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run deterministic game engine tests
+        run: node --test packages/game-core/test/*.test.mjs
+  baseline:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: boardforge
+          POSTGRES_PASSWORD: boardforge_ci_only
+          POSTGRES_DB: boardforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U boardforge -d boardforge_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://boardforge:boardforge_ci_only@localhost:5432/boardforge_test
+      TEST_DATABASE_URL: postgresql://boardforge:boardforge_ci_only@localhost:5432/boardforge_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: pnpm typecheck
+      - name: Build
+        id: build
+        continue-on-error: true
+        run: pnpm -r --if-present run build
+      - name: Prepare disposable test database
+        id: schema
+        continue-on-error: true
+        run: pnpm --filter @workspace/db push
+      - name: Existing API tests
+        if: steps.schema.outcome == 'success'
+        id: api_tests
+        continue-on-error: true
+        run: pnpm --filter @workspace/api-server test
+      - name: Enforce all baseline checks
+        if: always()
+        env:
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          API_TESTS: ${{ steps.api_tests.outcome }}
+          SCHEMA: ${{ steps.schema.outcome }}
+        run: |
+          echo "typecheck=$TYPECHECK build=$BUILD schema=$SCHEMA api_tests=$API_TESTS"
+          test "$TYPECHECK" = success && test "$BUILD" = success && test "$SCHEMA" = success && test "$API_TESTS" = success

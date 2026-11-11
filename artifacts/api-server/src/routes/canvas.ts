@@ -13,7 +13,7 @@ router.get('/projects/:projectId/boards', requireAuth, requireProjectAccess, asy
     const boards = await db
       .select()
       .from(gameBoardsTable)
-      .where(eq(gameBoardsTable.projectId, parseInt(projectId)))
+      .where(eq(gameBoardsTable.projectId, Number(projectId)))
       .orderBy(gameBoardsTable.createdAt);
 
     res.json(boards);
@@ -31,12 +31,13 @@ router.get('/projects/:projectId/boards/:boardId', requireAuth, requireProjectAc
       .select()
       .from(gameBoardsTable)
       .where(and(
-        eq(gameBoardsTable.id, parseInt(boardId)),
-        eq(gameBoardsTable.projectId, parseInt(projectId))
+        eq(gameBoardsTable.id, Number(boardId)),
+        eq(gameBoardsTable.projectId, Number(projectId))
       ));
 
     if (!board) {
-      return res.status(404).json({ error: 'Board not found' });
+      res.status(404).json({ error: 'Board not found' });
+      return;
     }
 
     res.json(board);
@@ -55,7 +56,7 @@ router.post('/projects/:projectId/boards', requireAuth, requireProjectAccess, as
     const [newBoard] = await db
       .insert(gameBoardsTable)
       .values({
-        projectId: parseInt(projectId),
+        projectId: Number(projectId),
         name: name || 'New Board',
         width: width || 800,
         height: height || 600,
@@ -101,13 +102,14 @@ router.patch('/projects/:projectId/boards/:boardId', requireAuth, requireProject
       .update(gameBoardsTable)
       .set(updates)
       .where(and(
-        eq(gameBoardsTable.id, parseInt(boardId)),
-        eq(gameBoardsTable.projectId, parseInt(projectId))
+        eq(gameBoardsTable.id, Number(boardId)),
+        eq(gameBoardsTable.projectId, Number(projectId))
       ))
       .returning();
 
     if (!updatedBoard) {
-      return res.status(404).json({ error: 'Board not found' });
+      res.status(404).json({ error: 'Board not found' });
+      return;
     }
 
     res.json(updatedBoard);
@@ -125,13 +127,14 @@ router.delete('/projects/:projectId/boards/:boardId', requireAuth, requireProjec
     const [deletedBoard] = await db
       .delete(gameBoardsTable)
       .where(and(
-        eq(gameBoardsTable.id, parseInt(boardId)),
-        eq(gameBoardsTable.projectId, parseInt(projectId))
+        eq(gameBoardsTable.id, Number(boardId)),
+        eq(gameBoardsTable.projectId, Number(projectId))
       ))
       .returning();
 
     if (!deletedBoard) {
-      return res.status(404).json({ error: 'Board not found' });
+      res.status(404).json({ error: 'Board not found' });
+      return;
     }
 
     res.json({ success: true });
@@ -151,18 +154,19 @@ router.post('/projects/:projectId/boards/:boardId/duplicate', requireAuth, requi
       .select()
       .from(gameBoardsTable)
       .where(and(
-        eq(gameBoardsTable.id, parseInt(boardId)),
-        eq(gameBoardsTable.projectId, parseInt(projectId))
+        eq(gameBoardsTable.id, Number(boardId)),
+        eq(gameBoardsTable.projectId, Number(projectId))
       ));
 
     if (!originalBoard) {
-      return res.status(404).json({ error: 'Board not found' });
+      res.status(404).json({ error: 'Board not found' });
+      return;
     }
 
     const [newBoard] = await db
       .insert(gameBoardsTable)
       .values({
-        projectId: parseInt(projectId),
+        projectId: Number(projectId),
         name: name || `${originalBoard.name} Copy`,
         width: originalBoard.width,
         height: originalBoard.height,
